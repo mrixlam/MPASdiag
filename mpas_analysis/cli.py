@@ -156,7 +156,7 @@ def process_mpas_data(config: MPASConfig, logger: MPASLogger,
                     time_str = f"t{time_index:03d}"
                 
                 precip_data = processor.compute_precipitation_difference(
-                    time_index, config.variable
+                    time_index, config.variable, config.accumulation_period
                 )
                 
                 title = f"MPAS Precipitation | VarType: {config.variable.upper()} | Valid Time: {time_str}"

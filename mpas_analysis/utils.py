@@ -687,6 +687,7 @@ Examples:
             'lon_max': 'lon_max',
             'var': 'variable',
             'accum': 'accumulation_period',
+            'time_index': 'time_index',
             'colormap': 'colormap',
             'dpi': 'dpi',
             'formats': 'output_formats',

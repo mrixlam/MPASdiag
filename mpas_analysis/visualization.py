@@ -1109,11 +1109,21 @@ def create_batch_precipitation_maps(processor, visualizer, output_dir: str,
     time_dim = 'Time' if 'Time' in processor.dataset.dims else 'time'
     total_times = processor.dataset.sizes[time_dim]
     
+    from .utils import get_accumulation_hours
+    accum_hours = get_accumulation_hours(accum_period)
+    min_time_idx = accum_hours  
+    
+    if min_time_idx >= total_times:
+        print(f"\nWarning: Accumulation period {accum_period} ({accum_hours} hours) requires at least {min_time_idx + 1} time steps.")
+        print(f"Dataset only has {total_times} time steps. No plots will be generated.")
+        return []
+    
+    actual_time_steps = total_times - min_time_idx
     created_files = []
     
-    print(f"\nCreating precipitation maps for {total_times} time steps...")
+    print(f"\nCreating precipitation maps for {actual_time_steps} time steps (skipping first {min_time_idx} due to {accum_period} accumulation)...")
     
-    for time_idx in range(total_times):
+    for time_idx in range(min_time_idx, total_times):
         try:
             if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
                 time_end = pd.to_datetime(processor.dataset.Time.values[time_idx])
@@ -1122,7 +1132,7 @@ def create_batch_precipitation_maps(processor, visualizer, output_dir: str,
                 time_end = None
                 time_str = f"t{time_idx:03d}"
             
-            precip_data = processor.compute_precipitation_difference(time_idx, var_name)
+            precip_data = processor.compute_precipitation_difference(time_idx, var_name, accum_period)
             
             title = f"MPAS Precipitation | VarType: {var_name.upper()} | Valid Time: {time_str}"
             fig, ax = visualizer.create_precipitation_map(
@@ -1141,8 +1151,8 @@ def create_batch_precipitation_maps(processor, visualizer, output_dir: str,
             
             visualizer.close_plot()
             
-            if (time_idx + 1) % 10 == 0:
-                print(f"Completed {time_idx + 1}/{total_times} maps...")
+            if (time_idx - min_time_idx + 1) % 10 == 0:
+                print(f"Completed {time_idx - min_time_idx + 1}/{actual_time_steps} maps (time index {time_idx})...")
                 
         except Exception as e:
             print(f"Error creating map for time index {time_idx}: {e}")

@@ -407,33 +407,67 @@ class MPASDataProcessor:
                 print(f"Using time index {time_index}{context_msg}")
             return f"time_{time_index}"
     
-    def compute_precipitation_difference(self, time_index: int, var_name: str = 'rainnc') -> xr.DataArray:
+    def compute_precipitation_difference(self, time_index: int, var_name: str = 'rainnc', accum_period: str = 'a01h') -> xr.DataArray:
         """
-        Compute hourly precipitation from cumulative precipitation data.
+        Compute precipitation from cumulative precipitation data for specified accumulation period.
 
         Parameters:
             time_index (int): Time index for current time step.
             var_name (str): Precipitation variable name ('rainc', 'rainnc', or 'total').
+            accum_period (str): Accumulation period (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h').
 
         Returns:
-            xr.DataArray: Hourly precipitation data.
+            xr.DataArray: Precipitation data for the specified accumulation period.
         """
         if self.dataset is None:
             raise ValueError("Dataset not loaded. Call load_data() first.")
         
+        from .utils import get_accumulation_hours
+        
         time_dim, time_index, time_size = self.validate_time_parameters(time_index)
         
-        if time_index == 0:
-            return self._handle_first_time_step(time_dim, var_name)
+        accum_hours = get_accumulation_hours(accum_period)
+        time_step_diff = accum_hours
+        
+        if time_index < time_step_diff:
+            if time_index == 0:
+                return self._handle_first_time_step(time_dim, var_name, accum_period, accum_hours)
+            else:
+                if self.verbose:
+                    print(f"Warning: Time index {time_index} < required {accum_hours}-hour lookback ({time_step_diff} steps)")
+                    print(f"Skipping time index {time_index} - insufficient data for {accum_hours}-hour accumulation")
+                
+                try:
+                    sample_data = self.dataset[var_name].isel({time_dim: time_index})
+                    if hasattr(sample_data, 'compute'):
+                        sample_data = sample_data.compute()
+                    
+                    zero_precip = sample_data * 0.0  
+                    zero_precip.attrs.update({
+                        'units': 'mm',
+                        'standard_name': 'precipitation',
+                        'long_name': f'{accum_hours}-hour accumulated precipitation from {var_name} (insufficient data)',
+                        'accumulation_period': accum_period,
+                        'accumulation_hours': accum_hours,
+                        'note': f'Insufficient historical data for {accum_hours}-hour accumulation at time index {time_index}'
+                    })
+                    return zero_precip
+                    
+                except Exception as e:
+                    if self.verbose:
+                        print(f"Error creating zero precipitation field: {e}")
+                    raise ValueError(f"Cannot compute {accum_hours}-hour accumulation for time index {time_index}: insufficient data")
         
         if self.verbose:
-            self._print_time_slice_info(time_index, var_name)
+            print(f"DEBUG: Computing {accum_hours}-hour accumulation (period: {accum_period})")
+            print(f"DEBUG: time_index = {time_index}, time_step_diff = {time_step_diff}")
+            self._print_time_slice_info(time_index, var_name, time_step_diff)
         
         if var_name == 'total':
             current_rainc = self.dataset['rainc'].isel({time_dim: time_index})
             current_rainnc = self.dataset['rainnc'].isel({time_dim: time_index})
-            previous_rainc = self.dataset['rainc'].isel({time_dim: time_index - 1})
-            previous_rainnc = self.dataset['rainnc'].isel({time_dim: time_index - 1})
+            previous_rainc = self.dataset['rainc'].isel({time_dim: time_index - time_step_diff})
+            previous_rainnc = self.dataset['rainnc'].isel({time_dim: time_index - time_step_diff})
             
             if hasattr(current_rainc, 'compute'):
                 current_rainc = current_rainc.compute()
@@ -447,11 +481,11 @@ class MPASDataProcessor:
             if self.verbose:
                 self._analyze_precipitation_diagnostics(current_total, previous_total, var_context=var_name)
             
-            hourly_precip = current_total - previous_total
+            accum_precip = current_total - previous_total
             
         else:
             current_data = self.dataset[var_name].isel({time_dim: time_index})
-            previous_data = self.dataset[var_name].isel({time_dim: time_index - 1})
+            previous_data = self.dataset[var_name].isel({time_dim: time_index - time_step_diff})
             
             if hasattr(current_data, 'compute'):
                 current_data = current_data.compute()
@@ -460,22 +494,30 @@ class MPASDataProcessor:
             if self.verbose:
                 self._analyze_precipitation_diagnostics(current_data, previous_data, var_context=var_name)
             
-            hourly_precip = current_data - previous_data
+            accum_precip = current_data - previous_data
         
-        hourly_precip = self._apply_precipitation_filters_and_attributes(hourly_precip, var_name)
+        accum_precip = self._apply_precipitation_filters_and_attributes(accum_precip, var_name)
+        
+        if hasattr(accum_precip, 'attrs'):
+            accum_precip.attrs['long_name'] = f'{accum_hours}-hour accumulated precipitation from {var_name}'
+            accum_precip.attrs['accumulation_period'] = accum_period
+            accum_precip.attrs['accumulation_hours'] = accum_hours
         
         if self.verbose:
-            self._analyze_precipitation_diagnostics(result_data=hourly_precip, var_context=var_name)
+            print(f"Computed {accum_hours}-hour accumulated precipitation for period: {accum_period}")
+            self._analyze_precipitation_diagnostics(result_data=accum_precip, var_context=var_name)
         
-        return hourly_precip
+        return accum_precip
     
-    def _handle_first_time_step(self, time_dim: str, var_name: str) -> xr.DataArray:
+    def _handle_first_time_step(self, time_dim: str, var_name: str, accum_period: str = 'a01h', accum_hours: int = 1) -> xr.DataArray:
         """
         Handle the special case of time index 0.
 
         Parameters:
             time_dim (str): Time dimension name.
             var_name (str): Variable name.
+            accum_period (str): Accumulation period.
+            accum_hours (int): Number of hours for accumulation.
 
         Returns:
             xr.DataArray: Data at time index 0.
@@ -497,11 +539,13 @@ class MPASDataProcessor:
             hourly_precip_at_time = sample_data.where(sample_data >= 0, 0)
             hourly_precip_at_time = hourly_precip_at_time.where(hourly_precip_at_time < 1e5, 0)
             
-            long_name = f'hourly accumulated precipitation from {var_name}'
+            long_name = f'{accum_hours}-hour accumulated precipitation from {var_name}'
             hourly_precip_at_time.attrs.update({
                 'units': 'mm',
                 'standard_name': 'precipitation',
                 'long_name': long_name,
+                'accumulation_period': accum_period,
+                'accumulation_hours': accum_hours,
             })
             
             if self.verbose:
@@ -537,23 +581,25 @@ class MPASDataProcessor:
             })
             return hourly_precip_at_time
     
-    def _print_time_slice_info(self, time_index: int, var_context: str = "") -> None:
+    def _print_time_slice_info(self, time_index: int, var_context: str = "", time_step_diff: int = 1) -> None:
         """
         Print information about the time slices being loaded.
 
         Parameters:
             time_index (int): Time index being processed.
             var_context (str): Variable context for messaging.
+            time_step_diff (int): Time step difference for accumulation.
 
         Returns:
             None
         """
+        prev_time_index = time_index - time_step_diff
         context_msg = f" for {var_context} difference calculation" if var_context else " for difference calculation"
-        print(f"\nLoading only time slices {time_index-1} and {time_index}{context_msg}\n")
+        print(f"\nLoading only time slices {prev_time_index} and {time_index}{context_msg}\n")
         
         try:
             if hasattr(self.dataset, 'Time') and len(self.dataset.Time) > time_index:
-                prev_time_value = self.dataset.Time.values[time_index - 1]
+                prev_time_value = self.dataset.Time.values[prev_time_index]
                 prev_time_dt = pd.to_datetime(prev_time_value)
                 prev_time_str = prev_time_dt.strftime('%Y%m%dT%H')
                 
@@ -561,15 +607,15 @@ class MPASDataProcessor:
                 curr_time_dt = pd.to_datetime(curr_time_value)
                 curr_time_str = curr_time_dt.strftime('%Y%m%dT%H')
                 
-                print(f"Previous time slice: {prev_time_str} (index {time_index-1})")
+                print(f"Previous time slice: {prev_time_str} (index {prev_time_index})")
                 print(f"Current time slice: {curr_time_str} (index {time_index})")
 
                 if var_context:
                     print(f"\n............... Computing {var_context} difference ...............\n")
             else:
-                print(f"Using time indices {time_index-1} and {time_index} (time coordinates not available)")
+                print(f"Using time indices {prev_time_index} and {time_index} (time coordinates not available)")
         except Exception as e:
-            print(f"Using time indices {time_index-1} and {time_index} (could not parse times: {e})")
+            print(f"Using time indices {prev_time_index} and {time_index} (could not parse times: {e})")
     
     def _apply_precipitation_filters_and_attributes(self, data: xr.DataArray, var_context: str = "") -> xr.DataArray:
         """
