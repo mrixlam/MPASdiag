@@ -390,16 +390,25 @@ class MPASVisualizer:
         bounds = [0] + color_levels_sorted + [last_bound]
         norm = BoundaryNorm(bounds, ncolors=cmap.N, clip=True)
         
-        valid_mask = (np.isfinite(precip_data) & 
-                     (precip_data >= 0) & 
-                     (precip_data < 1e5) &
-                     (lon >= lon_min) & (lon <= lon_max) &
-                     (lat >= lat_min) & (lat <= lat_max))
+        precip_data_flat = np.asarray(precip_data).flatten()
+        lon_flat = np.asarray(lon).flatten()
+        lat_flat = np.asarray(lat).flatten()
+        
+        min_length = min(len(precip_data_flat), len(lon_flat), len(lat_flat))
+        precip_data_flat = precip_data_flat[:min_length]
+        lon_flat = lon_flat[:min_length]
+        lat_flat = lat_flat[:min_length]
+        
+        valid_mask = (np.isfinite(precip_data_flat) & 
+                     (precip_data_flat >= 0) & 
+                     (precip_data_flat < 1e5) &
+                     (lon_flat >= lon_min) & (lon_flat <= lon_max) &
+                     (lat_flat >= lat_min) & (lat_flat <= lat_max))
         
         if np.any(valid_mask):
-            lon_valid = lon[valid_mask]
-            lat_valid = lat[valid_mask]
-            precip_valid = precip_data[valid_mask]
+            lon_valid = lon_flat[valid_mask]
+            lat_valid = lat_flat[valid_mask]
+            precip_valid = precip_data_flat[valid_mask]
             
             map_extent = (lon_min, lon_max, lat_min, lat_max)
             fig_size = (self.figsize[0], self.figsize[1])
