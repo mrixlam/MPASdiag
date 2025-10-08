@@ -438,7 +438,11 @@ class MPASDataProcessor:
                     print(f"Skipping time index {time_index} - insufficient data for {accum_hours}-hour accumulation")
                 
                 try:
-                    sample_data = self.dataset[var_name].isel({time_dim: time_index})
+                    if self.data_type == 'uxarray':
+                        sample_data = self.dataset[var_name][time_index]
+                    else:
+                        sample_data = self.dataset[var_name].isel({time_dim: time_index})
+                    
                     if hasattr(sample_data, 'compute'):
                         sample_data = sample_data.compute()
                     
@@ -459,15 +463,20 @@ class MPASDataProcessor:
                     raise ValueError(f"Cannot compute {accum_hours}-hour accumulation for time index {time_index}: insufficient data")
         
         if self.verbose:
-            print(f"DEBUG: Computing {accum_hours}-hour accumulation (period: {accum_period})")
-            print(f"DEBUG: time_index = {time_index}, time_step_diff = {time_step_diff}")
+            print(f"Computing {accum_hours}-hour accumulation for period: {accum_period}")
             self._print_time_slice_info(time_index, var_name, time_step_diff)
         
         if var_name == 'total':
-            current_rainc = self.dataset['rainc'].isel({time_dim: time_index})
-            current_rainnc = self.dataset['rainnc'].isel({time_dim: time_index})
-            previous_rainc = self.dataset['rainc'].isel({time_dim: time_index - time_step_diff})
-            previous_rainnc = self.dataset['rainnc'].isel({time_dim: time_index - time_step_diff})
+            if self.data_type == 'uxarray':
+                current_rainc = self.dataset['rainc'][time_index]
+                current_rainnc = self.dataset['rainnc'][time_index]
+                previous_rainc = self.dataset['rainc'][time_index - time_step_diff]
+                previous_rainnc = self.dataset['rainnc'][time_index - time_step_diff]
+            else:
+                current_rainc = self.dataset['rainc'].isel({time_dim: time_index})
+                current_rainnc = self.dataset['rainnc'].isel({time_dim: time_index})
+                previous_rainc = self.dataset['rainc'].isel({time_dim: time_index - time_step_diff})
+                previous_rainnc = self.dataset['rainnc'].isel({time_dim: time_index - time_step_diff})
             
             if hasattr(current_rainc, 'compute'):
                 current_rainc = current_rainc.compute()
@@ -484,8 +493,12 @@ class MPASDataProcessor:
             accum_precip = current_total - previous_total
             
         else:
-            current_data = self.dataset[var_name].isel({time_dim: time_index})
-            previous_data = self.dataset[var_name].isel({time_dim: time_index - time_step_diff})
+            if self.data_type == 'uxarray':
+                current_data = self.dataset[var_name][time_index]
+                previous_data = self.dataset[var_name][time_index - time_step_diff]
+            else:
+                current_data = self.dataset[var_name].isel({time_dim: time_index})
+                previous_data = self.dataset[var_name].isel({time_dim: time_index - time_step_diff})
             
             if hasattr(current_data, 'compute'):
                 current_data = current_data.compute()
