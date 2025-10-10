@@ -28,7 +28,12 @@ from .utils import (
     print_system_info
 )
 from .data_processing import MPASDataProcessor
-from .visualization import MPASVisualizer, create_batch_precipitation_maps, create_batch_surface_maps, create_batch_wind_plots
+from .visualization import (
+    MPASVisualizer, 
+    MPASPrecipitationPlotter,
+    MPASSurfacePlotter,
+    MPASWindPlotter
+)
 
 
 def main() -> int:
@@ -122,7 +127,7 @@ def process_mpas_data(config: MPASConfig, logger: MPASLogger,
         
         logger.info(f"Data loaded successfully using {data_type}")
         
-        visualizer = MPASVisualizer(
+        visualizer = MPASPrecipitationPlotter(
             figsize=(config.figure_width, config.figure_height),
             dpi=config.dpi
         )
@@ -131,8 +136,8 @@ def process_mpas_data(config: MPASConfig, logger: MPASLogger,
         
         if config.batch_mode:
             with perf_monitor.timer("Batch visualization"):
-                created_files = create_batch_precipitation_maps(
-                    processor, visualizer, config.output_dir,
+                created_files = visualizer.create_batch_precipitation_maps(
+                    processor, config.output_dir,
                     config.lon_min, config.lon_max,
                     config.lat_min, config.lat_max,
                     var_name=config.variable,
@@ -300,6 +305,9 @@ def surface_plot_main() -> int:
     """
     Entry point for the mpas-surface-plot command.
 
+    Handles 2D surface variables only. For future 3D atmospheric variable support,
+    a separate CLI command (e.g., mpas-3d-plot) will be implemented.
+
     Parses surface-specific CLI arguments, loads dataset and either creates a
     single surface plot for a requested time index or runs batch processing
     to produce maps for all available times.
@@ -341,29 +349,29 @@ def surface_plot_main() -> int:
                 logger.info(f"... and {len(available_vars) - 20} more")
             return 1
         
-        with perf_monitor.timer("Coordinate extraction"):
-            lon, lat = processor.extract_spatial_coordinates()
-            logger.info(f"Extracted coordinates for {len(lon)} points")
-        
         with perf_monitor.timer("Variable data extraction"):
             var_data = processor.get_variable_data(config.variable, config.time_index)
             logger.info(f"Extracted {config.variable} data: {var_data.min():.3f} to {var_data.max():.3f}")
         
+        with perf_monitor.timer("Coordinate extraction"):
+            lon, lat = processor.extract_2d_coordinates_for_variable(config.variable, var_data)
+            logger.info(f"Extracted coordinates for {len(lon)} points")
+        
         time_stamp = None
         try:
-            time_range = processor.get_time_range()
-            if len(time_range) > config.time_index:
-                time_stamp = pd.to_datetime(time_range[config.time_index])
+            if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > config.time_index:
+                time_value = processor.dataset.Time.values[config.time_index]
+                time_stamp = pd.to_datetime(time_value)
         except Exception as e:
             logger.warning(f"Could not extract time information: {e}")
         
         with perf_monitor.timer("Visualization"):
-            visualizer = MPASVisualizer(figsize=config.figure_size, dpi=config.dpi)
+            surface_plotter = MPASSurfacePlotter(figsize=config.figure_size, dpi=config.dpi)
             
             data_array = processor.dataset[config.variable].isel(Time=config.time_index) if hasattr(processor.dataset, config.variable) else None
             
             if config.batch_mode:
-                created_files = create_batch_surface_maps(processor, visualizer, config.output_dir,
+                created_files = surface_plotter.create_batch_surface_maps(processor, config.output_dir,
                                                           config.lon_min, config.lon_max,
                                                           config.lat_min, config.lat_max,
                                                           var_name=config.variable,
@@ -376,7 +384,7 @@ def surface_plot_main() -> int:
                 logger.info(f"Created {len(created_files)} output files")
                 return 0
 
-            fig, ax = visualizer.create_surface_map(
+            fig, ax = surface_plotter.create_surface_map(
                 lon, lat, var_data.values,
                 config.variable,
                 config.lon_min, config.lon_max,
@@ -489,14 +497,14 @@ def wind_plot_main() -> int:
         
         time_stamp = None
         try:
-            time_range = processor.get_time_range()
-            if len(time_range) > config.time_index:
-                time_stamp = pd.to_datetime(time_range[config.time_index])
+            if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > config.time_index:
+                time_value = processor.dataset.Time.values[config.time_index]
+                time_stamp = pd.to_datetime(time_value)
         except Exception as e:
             logger.warning(f"Could not extract time information: {e}")
         
         with perf_monitor.timer("Visualization"):
-            visualizer = MPASVisualizer(figsize=config.figure_size, dpi=config.dpi)
+            wind_plotter = MPASWindPlotter(figsize=config.figure_size, dpi=config.dpi)
             
             lon_min = config.lon_min if config.lon_min is not None else float(lon.min())
             lon_max = config.lon_max if config.lon_max is not None else float(lon.max())
@@ -506,7 +514,7 @@ def wind_plot_main() -> int:
             plot_title = config.title if config.title else None
 
             if config.batch_mode:
-                created_files = create_batch_wind_plots(processor, visualizer, config.output_dir,
+                created_files = wind_plotter.create_batch_wind_plots(processor, config.output_dir,
                                                        lon_min, lon_max, lat_min, lat_max,
                                                        u_variable=config.u_variable,
                                                        v_variable=config.v_variable,
@@ -519,7 +527,7 @@ def wind_plot_main() -> int:
                 logger.info(f"Created {len(created_files)} wind output files")
                 return 0
 
-            fig, ax = visualizer.create_wind_plot(
+            fig, ax = wind_plotter.create_wind_plot(
                 lon, lat, u_data.values, v_data.values,
                 lon_min, lon_max, lat_min, lat_max,
                 wind_level=config.wind_level,
@@ -542,8 +550,8 @@ def wind_plot_main() -> int:
                     f"mpas_wind_{config.wind_level}_{config.wind_plot_type}_{time_str}"
                 )
             
-            visualizer.save_plot(output_path, formats=config.output_formats)
-            visualizer.close_plot()
+            wind_plotter.save_plot(output_path, formats=config.output_formats)
+            wind_plotter.close_plot()
             
             logger.info(f"Wind plot saved: {output_path}")
         

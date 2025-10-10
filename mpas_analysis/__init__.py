@@ -10,16 +10,23 @@ and analysis of MPAS atmospheric model simulations.
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
 Email: mrislam@ucar.edu
-Version: 1.0.0
+Version: 1.1.1
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.2"
 __author__ = "Rubaiat Islam"
 __email__ = "mrislam@ucar.edu"
 __institution__ = "Mesoscale & Microscale Meteorology Laboratory, NCAR"
 
 from .data_processing import MPASDataProcessor, validate_geographic_extent, normalize_longitude
-from .visualization import MPASVisualizer, create_batch_precipitation_maps, validate_plot_parameters
+from .visualization import (
+    MPASFileMetadata,
+    UnitConverter,
+    MPASVisualizer, 
+    MPASPrecipitationPlotter,
+    MPASSurfacePlotter,
+    MPASWindPlotter
+)
 from .utils import (
     MPASConfig, 
     MPASLogger, 
@@ -33,13 +40,36 @@ from .utils import (
     validate_input_files
 )
 
+# Backward compatibility: Export functions from the new classes
+get_2d_variable_metadata = MPASFileMetadata.get_2d_variable_metadata
+get_3d_variable_metadata = MPASFileMetadata.get_3d_variable_metadata
+convert_units = UnitConverter.convert_units
+convert_data_for_display = UnitConverter.convert_data_for_display
+get_display_units = UnitConverter.get_display_units
+_normalize_unit_string = UnitConverter._normalize_unit_string
+_format_colorbar_label = UnitConverter._format_colorbar_label
+validate_plot_parameters = MPASVisualizer.validate_plot_parameters
+
 __all__ = [
     'MPASDataProcessor',
     'validate_geographic_extent',
     'normalize_longitude',
     
+    'MPASFileMetadata',
+    'UnitConverter',
     'MPASVisualizer',
-    'create_batch_precipitation_maps',
+    'MPASPrecipitationPlotter',
+    'MPASSurfacePlotter',
+    'MPASWindPlotter',
+    
+    # Backward compatibility exports
+    'get_2d_variable_metadata',
+    'get_3d_variable_metadata',
+    'convert_units',
+    'convert_data_for_display',
+    'get_display_units',
+    '_normalize_unit_string',
+    '_format_colorbar_label',
     'validate_plot_parameters',
     
     'MPASConfig',

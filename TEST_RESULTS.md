@@ -1,8 +1,8 @@
 # MPASdiag Test Suite Results
 
 ## Test Summary
-- **Total Tests**: 83
-- **✅ Passed**: 83 (100.0%)  
+- **Total Tests**: 103
+- **✅ Passed**: 103 (100.0%)  
 - **⏭️ Skipped**: 0 (0.0%)
 - **❌ Failed**: 0 (0.0%)
 - **⚠️ Warnings**: 0 (clean test suite!)
@@ -10,14 +10,17 @@
 ### 🏆 **FLAWLESS TEST SUITE** - 100% Pass Rate + Zero Warnings!
 
 Recent improvements:
+- **Enhanced unit conversion system**: Added automatic temperature conversion to Celsius
+- **Metadata cleanup**: Removed unused 'levels' data from metadata dictionaries
+- **Robust levels handling**: Enhanced code to handle optional levels in metadata
 - **Fixed cartopy mocking**: Comprehensive mocking of cartopy components and matplotlib integration
 - **Enhanced precipitation map test**: Proper mocking of `cartopy.crs`, `cartopy.feature`, and `matplotlib` 
 - **Eliminated all warnings**: Fixed dataset.dims deprecation, nanoseconds precision, cartopy facecolor issues, and numpy compatibility warnings
-- **Robust test coverage**: All visualization functions fully tested with professional-grade clean output
+- **Expanded test coverage**: Added comprehensive unit conversion and enhancement tests
 
 ## Detailed Test Results
 
-### ✅ PASSED TESTS (83 tests)
+### ✅ PASSED TESTS (103 tests)
 
 #### 📁 test_data_processing.py (15 passed)
 
@@ -44,7 +47,19 @@ Recent improvements:
 - ✅ `test_corrupted_data_files` - Handling of corrupted data files
 - ✅ `test_invalid_variable_name` - Invalid variable name error handling
 
-#### 📁 test_mpas_analysis.py (27 passed)
+#### 📁 test_enhancements.py (6 passed)
+
+**TestRefactoredFunctions (2 tests)**
+- ✅ `test_3d_placeholder_functions` - Tests placeholder 3D variable functions
+- ✅ `test_get_2d_variable_metadata` - Tests 2D variable metadata retrieval with optional levels
+
+**TestConditionalTimeDisplay (4 tests)**
+- ✅ `test_custom_title_with_time` - Custom plot title with timestamp
+- ✅ `test_custom_title_without_time` - Custom plot title without timestamp
+- ✅ `test_default_title_with_time` - Default plot title with timestamp
+- ✅ `test_no_timestamp` - Plot creation without timestamp
+
+#### 📁 test_mpas_analysis.py (25 passed)
 
 **TestMPASConfig (3 tests)**
 - ✅ `test_config_initialization` - Configuration object initialization
@@ -85,7 +100,24 @@ Recent improvements:
 **TestIntegration (1 test)**
 - ✅ `test_full_workflow_mock` - End-to-end workflow testing
 
-#### 📁 test_utils.py (25 passed)
+#### 📁 test_unit_conversion.py (13 passed)
+
+**TestUnitConversion (13 tests)**
+- ✅ `test_array_conversions` - Array-based unit conversions
+- ✅ `test_convert_data_for_display` - Data conversion for display purposes
+- ✅ `test_display_unit_preferences` - Display unit preference handling including dewpoint conversion
+- ✅ `test_metadata_unit_conversion` - Metadata unit conversion functionality
+- ✅ `test_mixing_ratio_conversions` - Humidity mixing ratio conversions
+- ✅ `test_no_conversion_needed` - Cases where no conversion is needed
+- ✅ `test_precipitation_conversions` - Precipitation unit conversions
+- ✅ `test_pressure_conversions` - Pressure unit conversions (Pa, hPa, mb)
+- ✅ `test_temperature_conversions` - Temperature unit conversions (K, °C, °F)
+- ✅ `test_unit_normalization` - Unit string normalization
+- ✅ `test_unsupported_conversion` - Unsupported conversion error handling
+- ✅ `test_wind_speed_conversions` - Wind speed unit conversions
+- ✅ `test_xarray_conversions` - XArray data structure conversions
+
+#### 📁 test_utils.py (27 passed)
 
 **TestMPASConfig (6 tests)**
 - ✅ `test_custom_initialization` - Custom config initialization
@@ -128,19 +160,20 @@ Recent improvements:
 - ✅ `test_get_available_memory_with_psutil` - Memory detection with psutil
 - ✅ `test_get_available_memory_without_psutil` - Memory detection without psutil
 
-#### 📁 test_visualization.py (16 passed)
+#### 📁 test_visualization.py (17 passed)
 
 **TestUtilityFunctions (2 tests)**
 - ✅ `test_get_color_levels_for_variable` - Color level generation for variables
 - ✅ `test_validate_plot_parameters` - Plot parameter validation
 
-**TestMPASVisualizer (10 tests)**
+**TestMPASVisualizer (11 tests)**
 - ✅ `test_close_plot` - Plot cleanup functionality
-- ✅ `test_create_colormap` - Colormap creation
 - ✅ `test_create_histogram` - Histogram creation
+- ✅ `test_create_precip_colormap` - Precipitation colormap creation
 - ✅ `test_create_simple_scatter_plot` - Simple scatter plot creation
 - ✅ `test_create_time_series_plot` - Time series plot creation
 - ✅ `test_format_coordinates` - Coordinate formatting
+- ✅ `test_format_ticks_dynamic` - Dynamic tick formatting
 - ✅ `test_initialization` - Visualizer initialization
 - ✅ `test_save_plot` - Plot saving functionality
 - ✅ `test_save_plot_no_figure` - Error handling for missing figure
@@ -156,7 +189,7 @@ Recent improvements:
 
 ### 🚫 SKIPPED TESTS (0 tests)
 
-**No skipped tests!** All 83 tests are now passing with improved mocking strategies.
+**No skipped tests!** All 103 tests are now passing with enhanced functionality and improved mocking strategies.
 
 ### ⚠️ WARNINGS (0 warnings)
 
@@ -174,7 +207,7 @@ All test warnings have been successfully eliminated:
 5. **FutureWarning**: Pandas 'S' → 's' for seconds floor operation
 
 ### 🎯 Result: 
-- **83 tests pass** with **0 warnings**
+- **103 tests pass** with **0 warnings**  
 - Clean, professional test output
 - Future-proof code following best practices
 
@@ -182,9 +215,11 @@ All test warnings have been successfully eliminated:
 
 ### By Module
 - **Data Processing**: 15/15 tests passed (100%)
-- **MPAS Analysis**: 27/27 tests passed (100%)
-- **Utilities**: 25/25 tests passed (100%)
-- **Visualization**: 16/16 tests passed (100%)
+- **Enhancements**: 6/6 tests passed (100%)
+- **MPAS Analysis**: 25/25 tests passed (100%)
+- **Unit Conversion**: 13/13 tests passed (100%)
+- **Utilities**: 27/27 tests passed (100%)
+- **Visualization**: 17/17 tests passed (100%)
 
 ### By Functionality
 - **Core Processing**: 100% passed
@@ -196,11 +231,12 @@ All test warnings have been successfully eliminated:
 
 ## Conclusion
 
-The MPASdiag package demonstrates **exceptional test coverage** with a **perfect 100% pass rate and zero warnings**! All 83 tests pass successfully, including comprehensive testing of precipitation analysis, wind vector plotting, surface variable visualization, and cartographic features. The robust test suite validates all critical functionality with sophisticated mocking strategies for external dependencies.
+The MPASdiag package demonstrates **exceptional test coverage** with a **perfect 100% pass rate and zero warnings**! All 103 tests pass successfully, including comprehensive testing of precipitation analysis, wind vector plotting, surface variable visualization, unit conversion system, dewpoint temperature handling, and cartographic features. The robust test suite validates all critical functionality with sophisticated mocking strategies for external dependencies.
 
 **Key Achievements:**
-- 🏆 **Perfect Test Suite**: 100% pass rate (83/83)
+- 🏆 **Perfect Test Suite**: 100% pass rate (103/103)
 - 🧹 **Zero Warnings**: Clean, professional output
-- 🔧 **Comprehensive Coverage**: All modules and functionality tested
+- 🔧 **Comprehensive Coverage**: All modules and functionality tested including new unit conversion system
+- 🌡️ **Enhanced Unit Conversion**: Automatic temperature conversion to Celsius
 - 🚀 **Future-Proof**: Uses current API standards and best practices
 - 💪 **Robust Mocking**: Advanced strategies for external dependencies

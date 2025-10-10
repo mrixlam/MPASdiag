@@ -786,6 +786,79 @@ class MPASDataProcessor:
         
         return lon_coords, lat_coords
     
+    def extract_2d_coordinates_for_variable(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Extract appropriate 2D surface coordinates for a given variable based on its spatial dimensions.
+        
+        This method handles 2D surface variables that use either nCells or nVertices spatial dimensions.
+        For future 3D variable support, a separate method will be implemented to handle vertical coordinates.
+        
+        Parameters:
+            var_name (str): 2D surface variable name.
+            data_array (Optional[xr.DataArray]): Data array to check dimensions.
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Longitude and latitude arrays for 2D surface plotting.
+            
+        Note:
+            This method only handles horizontal (lon/lat) coordinates for 2D surface variables.
+            3D variables will require additional vertical coordinate handling.
+        """
+        from .visualization import get_2d_variable_metadata
+        
+        if self.dataset is None:
+            raise ValueError("Dataset not loaded. Call load_data() first.")
+            
+        metadata = get_2d_variable_metadata(var_name, data_array)
+        spatial_dim = metadata.get('spatial_dim', 'nCells')
+        
+        if data_array is not None:
+            if 'nVertices' in data_array.dims:
+                spatial_dim = 'nVertices'
+            elif 'nCells' in data_array.dims:
+                spatial_dim = 'nCells'
+        elif var_name in self.dataset:
+            if 'nVertices' in self.dataset[var_name].dims:
+                spatial_dim = 'nVertices'
+            elif 'nCells' in self.dataset[var_name].dims:
+                spatial_dim = 'nCells'
+        
+        if spatial_dim == 'nVertices':
+            lon_names = ['lonVertex', 'lon_vertex', 'longitude_vertex']
+            lat_names = ['latVertex', 'lat_vertex', 'latitude_vertex']
+        else:  
+            lon_names = ['lonCell', 'longitude', 'lon']
+            lat_names = ['latCell', 'latitude', 'lat']
+        
+        lon_coords = lat_coords = None
+        
+        for name in lon_names:
+            if name in self.dataset.coords or name in self.dataset.data_vars:
+                lon_coords = self.dataset[name].values
+                break
+                
+        for name in lat_names:
+            if name in self.dataset.coords or name in self.dataset.data_vars:
+                lat_coords = self.dataset[name].values
+                break
+                
+        if lon_coords is None or lat_coords is None:
+            available_vars = list(self.dataset.coords.keys()) + list(self.dataset.data_vars.keys())
+            raise ValueError(f"Could not find {spatial_dim} coordinates. Available variables: {available_vars}")
+        
+        if np.nanmax(np.abs(lat_coords)) <= np.pi:
+            lat_coords = lat_coords * 180.0 / np.pi
+            lon_coords = lon_coords * 180.0 / np.pi
+        
+        lon_coords = lon_coords.ravel()
+        lat_coords = lat_coords.ravel()
+        lon_coords = ((lon_coords + 180) % 360) - 180
+        
+        if self.verbose:
+            print(f"Extracted {spatial_dim} coordinates for {var_name}: {len(lon_coords):,} points")
+        
+        return lon_coords, lat_coords
+    
     def filter_by_spatial_extent(self, data: xr.DataArray, 
                                  lon_min: float, lon_max: float, 
                                  lat_min: float, lat_max: float) -> Tuple[xr.DataArray, np.ndarray]:
@@ -840,7 +913,10 @@ class MPASDataProcessor:
         if self.verbose:
             print(f"Extracting {var_name} data at time index {validated_time_index}")
         
-        var_data = self.dataset[var_name].isel({time_dim: validated_time_index})
+        if self.data_type == 'uxarray':
+            var_data = self.dataset[var_name][validated_time_index]
+        else:
+            var_data = self.dataset[var_name].isel({time_dim: validated_time_index})
         
         if hasattr(var_data, 'compute'):
             var_data = var_data.compute()
@@ -929,6 +1005,88 @@ class MPASDataProcessor:
             raise ValueError(f"Error accessing wind variables: {e}")
         except Exception as e:
             raise RuntimeError(f"Error extracting wind components: {e}")
+
+    # =============================================================================
+    # PLACEHOLDER METHODS FOR FUTURE 3D VARIABLE SUPPORT
+    # =============================================================================
+    # TODO: Implement these methods when adding 3D atmospheric variable support
+
+    def extract_3d_coordinates_for_variable(self, var_name: str, level: Union[str, float],
+                                          data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        PLACEHOLDER: Extract appropriate 3D coordinates (lon, lat, vertical) for a given variable and level.
+        
+        This method will handle 3D atmospheric variables that vary with height/pressure/model levels.
+        
+        Parameters:
+            var_name (str): 3D atmospheric variable name.
+            level (Union[str, float]): Vertical level specification (pressure, height, model level).
+            data_array (Optional[xr.DataArray]): Data array to check dimensions.
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Longitude, latitude, and vertical coordinate arrays.
+            
+        Note:
+            This is a placeholder method. Implementation needed for 3D variable support.
+        """
+        raise NotImplementedError(
+            "3D variable support not yet implemented. "
+            "This method is a placeholder for future development."
+        )
+
+    def get_3d_variable_data(self, var_name: str, level: Union[str, float], 
+                            time_index: int = 0) -> xr.DataArray:
+        """
+        PLACEHOLDER: Extract 3D atmospheric variable data at specific level and time.
+        
+        Parameters:
+            var_name (str): 3D atmospheric variable name.
+            level (Union[str, float]): Vertical level specification.
+            time_index (int): Time index to extract.
+            
+        Returns:
+            xr.DataArray: Variable data at specified level and time.
+            
+        Note:
+            This is a placeholder method. Implementation needed for 3D variable support.
+        """
+        raise NotImplementedError(
+            "3D variable support not yet implemented. "
+            "This method is a placeholder for future development."
+        )
+
+    def get_available_3d_variables(self) -> List[str]:
+        """
+        PLACEHOLDER: Get list of available 3D atmospheric variables in the dataset.
+        
+        Returns:
+            List[str]: List of 3D variable names.
+            
+        Note:
+            This is a placeholder method. Implementation needed for 3D variable support.
+        """
+        raise NotImplementedError(
+            "3D variable support not yet implemented. "
+            "This method is a placeholder for future development."
+        )
+
+    def get_vertical_levels(self, var_name: str) -> List[Union[str, float]]:
+        """
+        PLACEHOLDER: Get available vertical levels for a 3D atmospheric variable.
+        
+        Parameters:
+            var_name (str): 3D atmospheric variable name.
+            
+        Returns:
+            List[Union[str, float]]: List of available vertical levels.
+            
+        Note:
+            This is a placeholder method. Implementation needed for 3D variable support.
+        """
+        raise NotImplementedError(
+            "3D variable support not yet implemented. "
+            "This method is a placeholder for future development."
+        )
 
 
 def validate_geographic_extent(extent: Tuple[float, float, float, float]) -> bool:

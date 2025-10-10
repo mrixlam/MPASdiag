@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mpas-analysis"
-version = "1.0.0"
+version = "1.1.2"
 authors = [
     {name = "Rubaiat Islam", email = "mrislam@ucar.edu"},
 ]
@@ -123,11 +123,14 @@ known_first_party = ["mpas_analysis"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers"
+addopts = "-ra -vv --strict-markers"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+filterwarnings = [
+    "ignore:numpy.ndarray size changed.*:RuntimeWarning"
+]
 
 [tool.mypy]
 python_version = "3.8"

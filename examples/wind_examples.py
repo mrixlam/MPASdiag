@@ -53,7 +53,7 @@ def example_surface_wind_barbs():
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(14, 10), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     
@@ -107,7 +107,7 @@ def example_upper_level_wind_arrows():
     )
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(14, 10), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     
@@ -168,7 +168,7 @@ def example_wind_with_background():
     )
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(16, 12), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     
@@ -225,7 +225,7 @@ def example_high_resolution_wind():
     )
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(14, 14), dpi=400)  
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)  
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     
@@ -299,7 +299,7 @@ def example_multi_level_wind_comparison():
     
     for u_var, v_var, title, level_name in wind_levels:
         try:
-            visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+            visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
             
             u_data, v_data = processor.get_wind_components(
                 u_var, v_var, config.time_index
@@ -365,7 +365,7 @@ def example_time_series_wind():
     
     for i, time_idx in enumerate(time_steps):
         try:
-            visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+            visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
             
             u_data, v_data = processor.get_wind_components(
                 config.u_variable, config.v_variable, time_idx

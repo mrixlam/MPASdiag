@@ -46,7 +46,7 @@ def example_basic_precipitation_plot():
     )
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     
@@ -102,7 +102,7 @@ def example_multi_accumulation_precipitation():
     ]
     
     for accum_code, title_suffix, time_idx in accumulations:
-        visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+        visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
         
         precip_data = processor.compute_precipitation_difference(
             time_index=time_idx,
@@ -156,7 +156,7 @@ def example_precipitation_comparison():
     ]
     
     for var_name, title, colormap in precip_types:
-        visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+        visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
         
         precip_data = processor.compute_precipitation_difference(
             time_index=config.time_index,
@@ -203,7 +203,7 @@ def example_high_resolution_precipitation():
     )
     
     processor = MPASDataProcessor(config.grid_file, verbose=True)
-    visualizer = MPASVisualizer(figsize=(16, 12), dpi=400)  
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)  
     
     processor.load_data(config.data_dir, pattern="diag*.nc")
     

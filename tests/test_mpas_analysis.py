@@ -51,7 +51,7 @@ from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
 from mpas_analysis.data_processing import MPASDataProcessor
-from mpas_analysis.visualization import MPASVisualizer
+from mpas_analysis.visualization import MPASVisualizer, MPASPrecipitationPlotter, MPASWindPlotter, MPASSurfacePlotter
 from mpas_analysis.utils import MPASConfig, MPASLogger, ArgumentParser
 from mpas_analysis.cli import main, wind_plot_main, surface_plot_main
 
@@ -281,6 +281,16 @@ class TestMPASVisualizer:
         return MPASVisualizer(figsize=(10, 8), dpi=100)
     
     @pytest.fixture
+    def wind_plotter(self):
+        """Create a wind plotter instance for testing"""
+        return MPASWindPlotter(figsize=(10, 8), dpi=100)
+    
+    @pytest.fixture
+    def surface_plotter(self):
+        """Create a surface plotter instance for testing"""
+        return MPASSurfacePlotter(figsize=(10, 8), dpi=100)
+    
+    @pytest.fixture
     def sample_data(self):
         """Create sample data for plotting tests"""
         n_points = 50
@@ -307,14 +317,16 @@ class TestMPASVisualizer:
     
     @patch('matplotlib.pyplot.figure')
     @patch('matplotlib.pyplot.axes')
-    def test_create_precipitation_map(self, mock_axes, mock_figure, visualizer, sample_data):
-        """Test precipitation map creation"""
+    def test_create_precipitation_map(self, mock_axes, mock_figure, sample_data):
+        """Test precipitation map creation using specialized precipitation plotter"""
         mock_fig = Mock()
         mock_ax = Mock()
         mock_figure.return_value = mock_fig
         mock_axes.return_value = mock_ax
         
-        fig, ax = visualizer.create_precipitation_map(
+        # Use the specialized precipitation plotter
+        precip_plotter = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
+        fig, ax = precip_plotter.create_precipitation_map(
             sample_data['lon'], sample_data['lat'], sample_data['data'],
             90, 115, -15, 20,
             title="Test Precipitation Map"
@@ -324,7 +336,7 @@ class TestMPASVisualizer:
         assert ax is not None
     
     @patch('matplotlib.pyplot.figure')
-    def test_create_wind_plot(self, mock_figure, visualizer, sample_data):
+    def test_create_wind_plot(self, mock_figure, wind_plotter, sample_data):
         """Test wind plot creation"""
         mock_fig = Mock()
         mock_ax = Mock()
@@ -334,7 +346,7 @@ class TestMPASVisualizer:
         with patch('matplotlib.pyplot.subplot') as mock_subplot:
             mock_subplot.return_value = mock_ax
             
-            fig, ax = visualizer.create_wind_plot(
+            fig, ax = wind_plotter.create_wind_plot(
                 sample_data['lon'].reshape(10, 5), 
                 sample_data['lat'].reshape(10, 5),
                 sample_data['u_data'].reshape(10, 5), 
@@ -348,7 +360,7 @@ class TestMPASVisualizer:
             assert ax is not None
     
     @patch('matplotlib.pyplot.figure')
-    def test_create_simple_scatter_plot(self, mock_figure, visualizer, sample_data):
+    def test_create_simple_scatter_plot(self, mock_figure, surface_plotter, sample_data):
         """Test simple scatter plot creation"""
         mock_fig = Mock()
         mock_ax = Mock()
@@ -357,7 +369,7 @@ class TestMPASVisualizer:
         with patch('matplotlib.pyplot.axes') as mock_axes:
             mock_axes.return_value = mock_ax
             
-            fig, ax = visualizer.create_simple_scatter_plot(
+            fig, ax = surface_plotter.create_simple_scatter_plot(
                 sample_data['lon'], sample_data['lat'], sample_data['data'],
                 title="Test Scatter Plot"
             )

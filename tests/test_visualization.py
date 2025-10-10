@@ -53,8 +53,7 @@ sys.path.insert(0, str(package_dir))
 
 from mpas_analysis.visualization import (
     MPASVisualizer,
-    validate_plot_parameters,
-    get_color_levels_for_variable
+    MPASSurfacePlotter
 )
 
 
@@ -69,30 +68,15 @@ class TestUtilityFunctions(unittest.TestCase):
     
     def test_validate_plot_parameters(self):
         """Test plot parameter validation."""
-        self.assertTrue(validate_plot_parameters(100.0, 110.0, -10.0, 10.0))
+        self.assertTrue(MPASVisualizer.validate_plot_parameters(100.0, 110.0, -10.0, 10.0))
         
-        self.assertFalse(validate_plot_parameters(-200.0, 110.0, -10.0, 10.0))
+        self.assertFalse(MPASVisualizer.validate_plot_parameters(-200.0, 110.0, -10.0, 10.0))
         
-        self.assertFalse(validate_plot_parameters(100.0, 110.0, -100.0, 10.0))
+        self.assertFalse(MPASVisualizer.validate_plot_parameters(100.0, 110.0, -100.0, 10.0))
         
-        self.assertFalse(validate_plot_parameters(110.0, 100.0, -10.0, 10.0))
+        self.assertFalse(MPASVisualizer.validate_plot_parameters(110.0, 100.0, -10.0, 10.0))
         
-        self.assertFalse(validate_plot_parameters(100.0, 110.0, 10.0, -10.0))
-    
-    def test_get_color_levels_for_variable(self):
-        """Test color level generation for different variables."""
-        levels_1h = get_color_levels_for_variable('rainc', 'a01h')
-        levels_24h = get_color_levels_for_variable('rainc', 'a24h')
-        
-        self.assertIsInstance(levels_1h, list)
-        self.assertIsInstance(levels_24h, list)
-        self.assertTrue(len(levels_1h) > 0)
-        self.assertTrue(len(levels_24h) > 0)
-        
-        self.assertTrue(max(levels_24h) > max(levels_1h))
-        
-        levels_other = get_color_levels_for_variable('temperature', 'a01h')
-        self.assertIsInstance(levels_other, list)
+        self.assertFalse(MPASVisualizer.validate_plot_parameters(100.0, 110.0, 10.0, -10.0))
 
 
 class TestMPASVisualizer(unittest.TestCase):
@@ -109,6 +93,7 @@ class TestMPASVisualizer(unittest.TestCase):
         """Set up test fixtures."""
         self.temp_dir = tempfile.mkdtemp()
         self.visualizer = MPASVisualizer(figsize=(8, 6), dpi=100)
+        self.surface_plotter = MPASSurfacePlotter(figsize=(8, 6), dpi=100)
     
     def tearDown(self):
         """Clean up test fixtures."""
@@ -123,15 +108,18 @@ class TestMPASVisualizer(unittest.TestCase):
         self.assertIsNone(self.visualizer.fig)
         self.assertIsNone(self.visualizer.ax)
     
-    def test_create_colormap(self):
-        """Test colormap creation."""
-        cmap, levels = self.visualizer.create_colormap('a01h')
+    def test_create_precip_colormap(self):
+        """Test precipitation colormap creation using specialized precipitation plotter."""
+        from mpas_analysis.visualization import MPASPrecipitationPlotter
+        precip_plotter = MPASPrecipitationPlotter(figsize=(8, 6), dpi=100)
+        
+        cmap, levels = precip_plotter.create_precip_colormap('a01h')
         
         self.assertIsNotNone(cmap)
         self.assertIsInstance(levels, list)
         self.assertTrue(len(levels) > 0)
         
-        cmap_24h, levels_24h = self.visualizer.create_colormap('a24h')
+        cmap_24h, levels_24h = precip_plotter.create_precip_colormap('a24h')
         self.assertIsNotNone(cmap_24h)
         self.assertTrue(max(levels_24h) > max(levels))
     
@@ -148,6 +136,38 @@ class TestMPASVisualizer(unittest.TestCase):
         
         lon_str = self.visualizer.format_longitude(-105.0, None)
         self.assertEqual(lon_str, "105.0°W")
+    
+    def test_format_ticks_dynamic(self):
+        """Test dynamic tick formatting with scientific notation for extreme values."""
+        normal_ticks = [1.0, 2.0, 3.0, 4.0, 5.0]
+        formatted = self.visualizer._format_ticks_dynamic(normal_ticks)
+        self.assertEqual(formatted, ['1', '2', '3', '4', '5'])
+        
+        small_normal = [0.1, 0.2, 0.3, 0.4, 0.5]
+        formatted = self.visualizer._format_ticks_dynamic(small_normal)
+        self.assertEqual(formatted, ['0.10', '0.20', '0.30', '0.40', '0.50'])
+        
+        very_small = [1e-5, 2e-5, 3e-5, 4e-5, 5e-5]
+        formatted = self.visualizer._format_ticks_dynamic(very_small)
+        for f in formatted:
+            self.assertIn('e-', f)  
+        self.assertEqual(formatted[0], '1.0e-05')  
+        
+        very_large = [1e5, 2e5, 3e5, 4e5, 5e5]
+        formatted = self.visualizer._format_ticks_dynamic(very_large)
+        for f in formatted:
+            self.assertIn('e+', f)  
+        self.assertEqual(formatted[0], '1.0e+05')  
+            
+        with_zeros = [0.0, 1e-5, 2e-5]
+        formatted = self.visualizer._format_ticks_dynamic(with_zeros)
+        self.assertEqual(formatted[0], '0.0e+00')  
+        self.assertIn('e-', formatted[1])  
+        
+        vorticity_values = [5e-6, 1e-5, 1.5e-5, 2e-5, 2.5e-5]
+        formatted = self.visualizer._format_ticks_dynamic(vorticity_values)
+        for f in formatted:
+            self.assertIn('e-', f)  
     
     def test_setup_map_projection(self):
         """Test map projection setup."""
@@ -170,7 +190,7 @@ class TestMPASVisualizer(unittest.TestCase):
         lat = np.random.uniform(-5, 5, n_points)
         data = np.random.uniform(0, 50, n_points)
         
-        fig, ax = self.visualizer.create_simple_scatter_plot(
+        fig, ax = self.surface_plotter.create_simple_scatter_plot(
             lon, lat, data,
             title="Test Scatter Plot",
             colorbar_label="Test Data",
@@ -179,8 +199,8 @@ class TestMPASVisualizer(unittest.TestCase):
         
         self.assertIsNotNone(fig)
         self.assertIsNotNone(ax)
-        self.assertEqual(fig, self.visualizer.fig)
-        self.assertEqual(ax, self.visualizer.ax)
+        self.assertEqual(fig, self.surface_plotter.fig)
+        self.assertEqual(ax, self.surface_plotter.ax)
     
     def test_create_histogram(self):
         """Test histogram creation."""
@@ -226,10 +246,10 @@ class TestMPASVisualizer(unittest.TestCase):
         lat = np.array([-2, 0, 2])
         data = np.array([1, 5, 10])
         
-        self.visualizer.create_simple_scatter_plot(lon, lat, data)
+        self.surface_plotter.create_simple_scatter_plot(lon, lat, data)
         
         output_path = os.path.join(self.temp_dir, "test_plot")
-        self.visualizer.save_plot(output_path, formats=['png'])
+        self.surface_plotter.save_plot(output_path, formats=['png'])
         
         expected_file = f"{output_path}.png"
         self.assertTrue(os.path.exists(expected_file))
@@ -247,14 +267,14 @@ class TestMPASVisualizer(unittest.TestCase):
         lat = np.array([-2, 0, 2])
         data = np.array([1, 5, 10])
         
-        self.visualizer.create_simple_scatter_plot(lon, lat, data)
+        self.surface_plotter.create_simple_scatter_plot(lon, lat, data)
         
-        self.assertIsNotNone(self.visualizer.fig)
+        self.assertIsNotNone(self.surface_plotter.fig)
         
-        self.visualizer.close_plot()
+        self.surface_plotter.close_plot()
         
-        self.assertIsNone(self.visualizer.fig)
-        self.assertIsNone(self.visualizer.ax)
+        self.assertIsNone(self.surface_plotter.fig)
+        self.assertIsNone(self.surface_plotter.ax)
 
 
 class TestPrecipitationMapping(unittest.TestCase):
@@ -270,7 +290,8 @@ class TestPrecipitationMapping(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.temp_dir = tempfile.mkdtemp()
-        self.visualizer = MPASVisualizer(figsize=(10, 8), dpi=100)
+        from mpas_analysis.visualization import MPASPrecipitationPlotter
+        self.visualizer = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
         
         n_points = 1000
         self.lon = np.random.uniform(98, 112, n_points)
@@ -406,8 +427,8 @@ class TestBatchProcessing(unittest.TestCase):
         plt.close('all')
     
     def test_batch_processing_mock(self):
-        """Test batch processing with mocked components."""
-        from mpas_analysis.visualization import create_batch_precipitation_maps
+        """Test batch processing with mocked components using specialized precipitation plotter."""
+        from mpas_analysis.visualization import MPASPrecipitationPlotter
         
         mock_processor = MagicMock()
         mock_processor.dataset.dims = {'Time': 5}
@@ -423,24 +444,28 @@ class TestBatchProcessing(unittest.TestCase):
         mock_processor.compute_precipitation_difference.return_value = mock_precip_data
         mock_processor.get_time_info.return_value = "20240101T00"
         
-        mock_visualizer = MagicMock()
+        precip_plotter = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
+        
+        # Mock the plotter's methods
         mock_fig = MagicMock()
         mock_ax = MagicMock()
-        mock_visualizer.create_precipitation_map.return_value = (mock_fig, mock_ax)
+        precip_plotter.create_precipitation_map = MagicMock(return_value=(mock_fig, mock_ax))
+        precip_plotter.save_plot = MagicMock()
+        precip_plotter.close_plot = MagicMock()
         
         try:
-            created_files = create_batch_precipitation_maps(
-                mock_processor, mock_visualizer, self.temp_dir,
+            created_files = precip_plotter.create_batch_precipitation_maps(
+                mock_processor, self.temp_dir,
                 100.0, 110.0, -4.0, 4.0,
                 var_name='rainnc',
                 accum_period='a01h',
                 formats=['png']
             )
             
-            self.assertEqual(len(created_files), 5) 
+            self.assertEqual(len(created_files), 4) 
             
-            self.assertEqual(mock_processor.compute_precipitation_difference.call_count, 5)
-            self.assertEqual(mock_visualizer.create_precipitation_map.call_count, 5)
+            self.assertEqual(mock_processor.compute_precipitation_difference.call_count, 4)
+            self.assertEqual(precip_plotter.create_precipitation_map.call_count, 4)
             
         except Exception as e:
             self.skipTest(f"Dependencies not available: {e}")

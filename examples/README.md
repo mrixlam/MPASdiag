@@ -1,14 +1,26 @@
 # MPAS Analysis Examples
 
-This directory contains comprehensive examples demonstrating how to use the MPAS Analysis toolkit for processing and visualizing MPAS (Model for Prediction Across Scales) model output.
+This directory contains comprehensive examples demonstrating how to use the MPAS Analysis toolkit for processing and visualizing MPAS (Model for Prediction Across Scales) model output with enhanced unit conversion and professional meteorological plotting.
+
+## ✨ New in v1.1.0
+All examples now feature:
+- **Automatic Unit Conversion**: Temperature (K→°C), Pressure (Pa→hPa), Humidity (kg/kg→g/kg)
+- **Enhanced Scientific Notation**: Proper formatting for extreme values (vorticity, mixing ratios)
+- **Professional Meteorological Standards**: Industry-standard plotting conventions
+- **Comprehensive Metadata**: Enhanced variable information and proper labeling
 
 ## 📋 Overview
 
-The MPAS Analysis toolkit provides three main visualization capabilities:
+The MPAS Analysis toolkit now provides comprehensive visualization capabilities:
 
-1. **Precipitation Analysis** (`precipitation_examples.py`) - Analysis and visualization of precipitation variables
-2. **Surface Variable Analysis** (`surface_examples.py`) - Temperature, pressure, humidity, and other surface variables
-3. **Wind Vector Analysis** (`wind_examples.py`) - Wind barbs, arrows, and multi-level wind analysis
+1. **Comprehensive Demo** (`comprehensive_demo.py`) - **NEW**: Complete v1.1.0 feature demonstration
+2. **Temperature & Thermodynamics** (`temperature_examples.py`) - **NEW**: Complete temperature analysis
+3. **Pressure & Atmospheric Dynamics** (`pressure_examples.py`) - **NEW**: Comprehensive pressure analysis
+4. **Humidity & Moisture Variables** (`humidity_examples.py`) - **NEW**: Complete moisture analysis
+5. **Precipitation Analysis** (`precipitation_examples.py`) - **ENHANCED**: Updated with unit conversion
+6. **Surface Variable Analysis** (`surface_examples.py`) - **ENHANCED**: Updated with unit conversion
+7. **Wind Vector Analysis** (`wind_examples.py`) - **ENHANCED**: Updated with unit conversion
+8. **850 hPa Composite Analysis** (`composite_850hPa_example.py`) - **NEW**: Advanced multi-variable plotting
 
 ## 🚀 Quick Start
 
@@ -72,13 +84,83 @@ mpas-precip-plot --grid-file data/grid.nc --data-dir data/diagnostics/ --lat-min
 mpas-precip-plot --grid-file data/grid.nc --data-dir data/diagnostics/ --batch-all --output-dir output/precip
 ```
 
-### 2. Surface Variable Analysis (`surface_examples.py`)
+## 📚 Detailed Example Descriptions
+
+### 1. **Comprehensive Demo** (`comprehensive_demo.py`) 🚀
+**NEW in v1.1.0** - Start here to see all enhancements!
+
+**Features:**
+- Complete unit conversion system demonstration
+- Scientific notation formatting examples
+- Before/after comparison plots
+- Feature summary with practical examples
+- All conversion types in action
+
+**Key Demonstrations:**
+- Temperature: K ↔ °C ↔ °F conversions
+- Pressure: Pa ↔ hPa ↔ mb ↔ inHg conversions
+- Humidity: kg/kg ↔ g/kg, % ↔ fraction conversions
+- Wind: m/s ↔ kts ↔ mph ↔ km/h conversions
+- Precipitation: m ↔ mm ↔ in ↔ cm conversions
+- Scientific notation for extreme values
+
+### 2. **Temperature & Thermodynamics** (`temperature_examples.py`) 🌡️
+**NEW in v1.1.0** - Complete temperature analysis with automatic K→°C conversion
+
+**Features:**
+- 2-meter temperature with enhanced metadata
+- Multi-level temperature comparisons (surface, 850hPa, 500hPa)
+- Dewpoint temperature analysis
+- Temperature depression calculations (T - Td)
+- Unit conversion demonstrations
+
+**Key Variables:**
+- t2m, tsk, th2m (surface temperatures)
+- temperature_850hPa, temperature_500hPa (upper-air)
+- dewpoint_surface, dewpoint_850hPa (moisture analysis)
+
+### 3. **Pressure & Atmospheric Dynamics** (`pressure_examples.py`) 🌪️
+**NEW in v1.1.0** - Comprehensive pressure analysis with Pa→hPa conversion
+
+**Features:**
+- Mean sea level pressure analysis
+- Multi-level pressure visualization
+- Vorticity analysis (scientific notation demo)
+- Geopotential height analysis
+- Pressure gradient calculations
+
+**Key Variables:**
+- mslp, psfc (surface pressure)
+- pressure_850hPa, pressure_500hPa, pressure_200hPa
+- vorticity_850hPa (demonstrates scientific notation)
+- geopotential_500hPa (height analysis)
+
+### 4. **Humidity & Moisture Variables** (`humidity_examples.py`) 💧
+**NEW in v1.1.0** - Complete moisture analysis with kg/kg→g/kg conversion
+
+**Features:**
+- Specific humidity with enhanced units
+- Relative humidity analysis
+- Multi-level humidity comparisons
+- Cloud condensation visualization (qc, qi, qr, qs, qg)
+- Precipitable water analysis
+- Unit conversion demonstration plots
+
+**Key Variables:**
+- q2, qv (specific humidity)
+- rh2m (relative humidity)
+- qc, qi, qr, qs, qg (hydrometeors)
+- precipw, pwat (precipitable water)
+
+### 5. **Surface Variable Analysis** (`surface_examples.py`) 🌍
+**ENHANCED in v1.1.0** - Updated with automatic unit conversion
 
 **Features:**
 - Temperature, pressure, humidity analysis
 - Scatter plots and contour visualizations
-- Unit conversions (K to °C, Pa to hPa, etc.)
+- Enhanced unit conversions (K→°C, Pa→hPa, kg/kg→g/kg)
 - Multi-variable comparisons
+- Professional meteorological plotting
 
 **Examples:**
 - 2-meter temperature analysis (scatter and contour)
@@ -104,19 +186,60 @@ mpas-surface-plot --grid-file data/grid.nc --data-dir data/diagnostics/ --variab
 mpas-surface-plot --grid-file data/grid.nc --data-dir data/diagnostics/ --variable wspd10 --colormap plasma --output-dir output/surface --batch-all
 ```
 
-### 3. Wind Vector Analysis (`wind_examples.py`)
+### 6. **Precipitation Analysis** (`precipitation_examples.py`) 🌧️
+**ENHANCED in v1.1.0** - Updated with automatic unit conversion
+
+**Features:**
+- Precipitation data processing and visualization
+- Different precipitation variables and accumulation types
+- Enhanced contour and filled contour plotting
+- Automatic unit conversion (m→mm, mm→in)
+- Professional precipitation analysis
+
+**Key Variables:**
+- rainnc, rainc (accumulated precipitation)
+- Different accumulation periods (1h, 3h, 6h, 24h)
+- Enhanced with proper mm labeling
+
+### 7. **Wind Vector Analysis** (`wind_examples.py`) 💨
+**ENHANCED in v1.1.0** - Updated with wind speed unit conversion
 
 **Features:**
 - Meteorological wind barbs and arrow vectors
 - Multiple atmospheric levels (surface, 850mb, 500mb, etc.)
-- Background wind speed visualization
+- Background wind speed visualization with unit conversion
 - High-resolution regional analysis
-- Time series evolution
+- Enhanced with m/s ↔ kts ↔ mph ↔ km/h conversions
 
 **Examples:**
-- Surface wind barbs
-- Upper-level wind arrows (850mb)
-- Wind vectors with speed background
+- Surface wind barbs with proper speed units
+- Upper-level wind arrows (850mb) 
+- Wind vectors with converted speed background
+- Multi-level wind analysis with consistent units
+
+### 8. **850 hPa Composite Analysis** (`composite_850hPa_example.py`) 🌪️
+**NEW in v1.1.0** - Advanced multi-variable composite plotting
+
+**Features:**
+- Professional composite meteorological analysis
+- Specific humidity shading (kg/kg→g/kg conversion)
+- Wind barbs with speed conversion (m/s→kts)
+- Geopotential height contours with proper labeling
+- Multi-variable overlay techniques
+- Publication-ready visualization
+
+**Key Components:**
+- **Specific Humidity**: Moisture transport visualization (shaded background)
+- **Wind Barbs**: Atmospheric circulation patterns (red barbs)
+- **Geopotential Height**: Synoptic-scale features (black contours)
+- **Professional Styling**: Meteorological standards with legends
+
+**Use Cases:**
+- Moisture transport analysis
+- Synoptic pattern identification
+- Weather system tracking
+- Operational forecasting
+- Research and publication plots
 - High-resolution regional analysis
 - Multi-level wind comparison
 - Time series wind evolution
@@ -136,6 +259,66 @@ mpas-wind-plot --grid_file data/grid.nc --data_dir data/diagnostics/ --u-variabl
 
 # Wind with background speed
 mpas-wind-plot --grid_file data/grid.nc --data_dir data/diagnostics/ --u-variable u10 --v-variable v10 --show-background --background-colormap viridis --batch-all
+```
+
+## 🎯 Key Benefits of v1.1.0
+
+### Automatic Unit Conversion
+- **No more manual conversions**: Temperature automatically converts K→°C
+- **Meteorological standards**: Pressure in hPa, humidity in g/kg
+- **Consistent labeling**: All plots use proper meteorological units
+- **Error reduction**: Eliminates unit conversion mistakes
+
+### Enhanced Scientific Notation
+- **Extreme value handling**: Proper formatting for vorticity (~1e-5 s⁻¹)
+- **Readable tick labels**: Scientific notation for values < 1e-3 or >= 1e4
+- **Professional appearance**: Publication-ready formatting
+
+### Professional Plotting
+- **Industry standards**: Follows meteorological plotting conventions
+- **Enhanced metadata**: Comprehensive variable information
+- **Proper colormaps**: Meteorologically appropriate color schemes
+- **Publication ready**: High-quality plots suitable for reports/papers
+
+### Comprehensive Testing
+- **103 total tests**: Including 13 new unit conversion tests
+- **Robust validation**: All conversion types thoroughly tested
+- **Error handling**: Comprehensive error checking and warnings
+
+## 🚀 Getting Started with New Examples
+
+### 1. Start with Comprehensive Demo
+```bash
+cd examples/
+python comprehensive_demo.py
+```
+This demonstrates all v1.1.0 features with synthetic data.
+
+### 2. Run Specific Variable Examples
+```bash
+# Temperature analysis
+python temperature_examples.py
+
+# Pressure and dynamics
+python pressure_examples.py
+
+# Humidity and moisture
+python humidity_examples.py
+```
+
+### 3. Try Advanced Composite Plotting
+```bash
+# Multi-variable composite analysis
+python composite_850hPa_example.py
+```
+This demonstrates professional meteorological analysis with multiple overlaid variables.
+
+### 4. Update Your Data Paths
+Edit the configuration section in each script:
+```python
+grid_file = "/path/to/your/grid.nc"
+data_dir = "/path/to/your/diagnostic/files/"
+output_dir = "/path/to/output/directory/"
 ```
 
 ## 🔧 Customization Options

@@ -32,6 +32,35 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 - **Extensive Testing**: Comprehensive unit test suite with detailed examples
 - **Command-Line Tools**: Multiple specialized CLI tools for different analysis types
 
+## 🆕 New in Version 1.1.0
+
+### ⚗️ Automatic Unit Conversion System
+- **Temperature**: Kelvin ↔ Celsius with intelligent detection
+- **Pressure**: Pascal ↔ hectoPascal (hPa) for meteorological standards
+- **Humidity**: kg/kg ↔ g/kg for better readability
+- **Wind Speed**: m/s ↔ knots conversion support
+- **Precipitation**: mm/hour standardization
+
+### 🔬 Enhanced Scientific Notation
+- **Smart Formatting**: Automatic scientific notation for extreme values
+- **Configurable Thresholds**: Customizable limits for notation switching
+- **Professional Display**: Clean, publication-ready tick formatting
+
+### 🌪️ Advanced Composite Plotting
+- **Multi-Variable Overlays**: Combine humidity, wind, and pressure data
+- **850 hPa Analysis**: Professional synoptic-scale composite plots
+- **Meteorological Standards**: Industry-standard contour intervals and styling
+
+### 🎨 Professional Branding & Timestamps
+- **MPASdiag Branding**: Consistent branding across all visualizations  
+- **Automatic Timestamps**: Date and time stamps on all plots
+- **Sample Plot Gallery**: Pre-generated examples showing all capabilities
+
+### 📊 Comprehensive Examples
+- **8 Example Scripts**: Over 3,000 lines of analysis examples
+- **11 Sample Plots**: Professional demonstration plots included
+- **Complete Coverage**: Temperature, pressure, humidity, wind, precipitation, composite, and surface analysis
+
 ## Installation
 
 ### Prerequisites
@@ -142,7 +171,10 @@ mpas-validate --grid-file grid.nc --data-dir ./data
 ### Python API Usage
 
 ```python
-from mpas_analysis import MPASDataProcessor, MPASVisualizer, MPASConfig
+from mpas_analysis import (
+    MPASDataProcessor, MPASPrecipitationPlotter, 
+    MPASSurfacePlotter, MPASWindPlotter, MPASConfig
+)
 
 # Configure analysis parameters
 config = MPASConfig(
@@ -166,9 +198,9 @@ lon, lat = processor.extract_spatial_coordinates()
 time_index = 10
 precip_data = processor.compute_precipitation_difference(time_index, config.variable)
 
-# Create visualization
-visualizer = MPASVisualizer(figsize=(12, 8), dpi=300)
-fig, ax = visualizer.create_precipitation_map(
+# Create precipitation visualization (specialized plotter)
+precip_plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
+fig, ax = precip_plotter.create_precipitation_map(
     lon, lat, precip_data.values,
     config.lon_min, config.lon_max,
     config.lat_min, config.lat_max,
@@ -176,7 +208,25 @@ fig, ax = visualizer.create_precipitation_map(
 )
 
 # Save the plot
-visualizer.save_plot("./output/precipitation_map", formats=["png", "pdf"])
+precip_plotter.save_plot("./output/precipitation_map", formats=["png", "pdf"])
+
+# Example: Surface variable plotting
+surface_plotter = MPASSurfacePlotter()
+t2m_data = processor.get_variable_data('t2m', time_index)
+fig, ax = surface_plotter.create_surface_map(
+    lon, lat, t2m_data.values, 't2m',
+    config.lon_min, config.lon_max, config.lat_min, config.lat_max,
+    title="2m Temperature", plot_type='scatter'
+)
+
+# Example: Wind vector plotting  
+wind_plotter = MPASWindPlotter()
+u_data, v_data = processor.get_wind_components('u10', 'v10', time_index)
+fig, ax = wind_plotter.create_wind_plot(
+    lon, lat, u_data.values, v_data.values,
+    config.lon_min, config.lon_max, config.lat_min, config.lat_max,
+    plot_type='barbs', show_background=True
+)
 ```
 
 ## Configuration Files
@@ -236,17 +286,43 @@ mpas-analyze --config config.yaml
 
 The package includes comprehensive examples for all analysis types:
 
+### 📚 Complete Example Suite (v1.1.0)
+- **temperature_examples.py**: 🌡️ Temperature analysis with unit conversion (K↔°C)
+- **pressure_examples.py**: 🌪️ Pressure and atmospheric dynamics (Pa↔hPa)
+- **humidity_examples.py**: 💧 Humidity and moisture analysis (kg/kg↔g/kg)
+- **composite_850hPa_example.py**: 🌀 Advanced multi-variable composite plots
+- **comprehensive_demo.py**: 📊 Unit conversion and feature demonstration
 - **precipitation_examples.py**: 🌧️ Complete precipitation analysis workflows
-- **surface_examples.py**: 🌡️ Temperature, pressure, and surface variables  
+- **surface_examples.py**: � Surface variable analysis and visualization
 - **wind_examples.py**: 💨 Wind vector analysis with barbs and arrows
 
-Run examples:
+### 🎨 Sample Plot Gallery
+Pre-generated sample plots demonstrating all capabilities:
 ```bash
 cd examples/
-python precipitation_examples.py  # 4 precipitation scenarios
-python surface_examples.py        # 5 surface variable examples 
-python wind_examples.py           # 6 wind vector examples
+python generate_sample_plots.py  # Generate 11 professional sample plots
 ```
+
+Run individual examples:
+```bash
+cd examples/
+python temperature_examples.py    # Temperature analysis with automatic unit conversion
+python pressure_examples.py       # Pressure analysis with scientific notation
+python humidity_examples.py       # Humidity analysis with enhanced formatting
+python composite_850hPa_example.py # Advanced composite plotting
+python comprehensive_demo.py      # Feature comparison demonstrations
+```
+
+### 📁 Sample Plots Location
+All sample plots are saved to: `sample_plots/`
+- `temperature/` - Temperature analysis plots
+- `pressure/` - Pressure and dynamics plots  
+- `humidity/` - Moisture analysis plots
+- `composite/` - Multi-variable composite plots
+- `wind/` - Wind vector visualizations
+- `precipitation/` - Precipitation analysis plots
+- `surface/` - Surface variable plots
+- `comprehensive/` - Feature demonstration plots
 
 See [examples/README.md](examples/README.md) for detailed descriptions and console script alternatives.
 
@@ -290,6 +366,7 @@ see expected outputs.
 
 ## Architecture
 
+### File Structure
 ```
 mpas_analysis/
 ├── data_processing.py    # Core data loading and processing
@@ -309,6 +386,37 @@ tests/
 └── __init__.py               # Test package initialization
 └── __init__.py              # Test runner
 ```
+
+### Class Hierarchy
+
+The package follows a clean, object-oriented architecture with specialized classes:
+
+```
+📦 mpas_analysis.visualization
+├── 🔧 UnitConverter                   # Meteorological unit conversions
+├── 📋 MPASFileMetadata               # Variable metadata management  
+├── 🎨 MPASVisualizer                 # Base visualization class
+│   ├── 🌧️ MPASPrecipitationPlotter   # Specialized precipitation plots
+│   ├── 🌡️ MPASSurfacePlotter         # Surface variable scatter/contour
+│   └── 💨 MPASWindPlotter            # Wind vector barbs/arrows
+│
+📦 mpas_analysis.data_processing  
+├── 📊 MPASDataProcessor              # Core data loading and processing
+│
+📦 mpas_analysis.utils
+├── ⚙️ MPASConfig                     # Configuration management
+├── 📝 MPASLogger                     # Logging utilities
+├── 📁 FileManager                    # File operations
+├── ✅ DataValidator                  # Data validation
+└── ⏱️ PerformanceMonitor            # Performance tracking
+```
+
+**Design Benefits:**
+- **Separation of Concerns**: Each class has a single responsibility
+- **Code Reusability**: Common functionality in base classes
+- **Extensibility**: Easy to add new plot types or data sources
+- **Maintainability**: Clean interfaces and organized functionality
+- **Testing**: Individual components can be tested in isolation
 
 ## Dependencies
 
@@ -466,5 +574,5 @@ If you use this package in your research, please cite:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.1.1  
 **Last Updated**: October 2025

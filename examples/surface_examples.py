@@ -65,7 +65,7 @@ def example_temperature_analysis():
     ]
     
     for plot_type, plot_name in plot_types:
-        visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+        visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
         
         if plot_type == "scatter":
             fig, ax = visualizer.create_simple_scatter_plot(
@@ -126,7 +126,7 @@ def example_pressure_analysis():
     else:
         pressure_units = getattr(pressure_data, 'units', 'hPa')
     
-    visualizer = MPASVisualizer(figsize=(14, 10), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     pressure_min = float(pressure_data.min())
     pressure_max = float(pressure_data.max())
@@ -200,7 +200,7 @@ def example_humidity_analysis():
     else:
         humidity_units = getattr(humidity_data, 'units', 'g/kg')
     
-    visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+    visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
     
     fig, ax = visualizer.create_simple_scatter_plot(
         lon, lat, humidity_data.values,
@@ -248,7 +248,7 @@ def example_wind_speed_analysis():
         
         lon, lat = processor.extract_spatial_coordinates()
         
-        visualizer = MPASVisualizer(figsize=(12, 10), dpi=300)
+        visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
         
         wind_levels = [0, 2, 4, 6, 8, 10, 12, 15, 18, 20, 25]
         
@@ -319,7 +319,7 @@ def example_multi_variable_comparison():
                 else:  
                     var_data = var_data * conversion
             
-            visualizer = MPASVisualizer(figsize=(10, 8), dpi=300)
+            visualizer = MPASVisualizer(figsize=(10, 12), dpi=300)
             
             fig, ax = visualizer.create_simple_scatter_plot(
                 lon, lat, var_data.values,
