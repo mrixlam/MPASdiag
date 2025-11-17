@@ -1,0 +1,154 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mpasdiag"
+version = "1.0.0"
+authors = [
+    {name = "Rubaiat Islam", email = "mrislam@ucar.edu"},
+]
+description = "Python package for MPAS model output analysis and visualization"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "MPAS",
+    "atmospheric modeling",
+    "unstructured mesh",
+    "precipitation analysis",
+    "visualization",
+    "meteorology",
+    "climate modeling",
+    "weather prediction",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "xarray>=0.19.0",
+    "uxarray>=2024.01.0",
+    "matplotlib>=3.5.0",
+    "cartopy>=0.20.0",
+    "netCDF4>=1.5.0",
+    "scipy>=1.7.0",
+    "PyYAML>=5.4.0",
+    "dask>=2021.6.0",
+    "psutil>=5.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.10",
+    "pytest-mock>=3.6.0",
+    "black>=21.0",
+    "flake8>=3.8",
+    "mypy>=0.800",
+    "sphinx>=4.0",
+    "sphinx-rtd-theme>=0.5",
+]
+performance = [
+    "numba>=0.55.0",
+    "bottleneck>=1.3.0",
+]
+plotting = [
+    "seaborn>=0.11.0",
+    "plotly>=5.0.0",
+]
+
+[project.scripts]
+mpasdiag = "mpasdiag.cli:main"
+
+[project.urls]
+"Homepage" = "https://github.com/mrixlam/MPASdiag"
+"Bug Reports" = "https://github.com/mrixlam/MPASdiag/issues"
+"Source" = "https://github.com/mrixlam/MPASdiag"
+"Documentation" = "https://github.com/mrixlam/MPASdiag#readme"
+
+[tool.setuptools]
+packages = ["mpasdiag"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"*" = [
+    "data/*.yaml",
+    "data/*.json",
+    "templates/*.yaml",
+]
+
+[tool.setuptools.dynamic]
+# Keep this empty since we're using static configuration
+
+# Development tools configuration
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["mpasdiag"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -vv --strict-markers"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "ignore:numpy.ndarray size changed.*:RuntimeWarning"
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cartopy.*",
+    "netCDF4.*",
+    "uxarray.*",
+    "matplotlib.*",
+    "scipy.*",
+    "dask.*",
+]
+ignore_missing_imports = true

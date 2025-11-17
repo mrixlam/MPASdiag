@@ -1,0 +1,56 @@
+# Ignore large binary data files (NetCDF, HDF5) that should not be uploaded to the repo
+# NetCDF files
+*.nc
+# Common NetCDF variants
+*.nc4
+*.nc.gz
+
+# HDF5 files
+*.h5
+*.hdf5
+
+# Patterns for local directories
+# output/
+data/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+
+# Byte-compiled / C extensions
+*.so
+
+# Virtual environments
+venv/
+venv*/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+eggs/
+
+# Testing and coverage
+.pytest_cache/
+.mypy_cache/
+.tox/
+.nox/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store
+
+# Output and generated figures
+output/
+*.png
+*.pdf
+
+# Misc
+*.pyc
