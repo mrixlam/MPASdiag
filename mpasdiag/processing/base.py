@@ -415,6 +415,71 @@ class MPASBaseProcessor:
         
         return lon_coords_normalized, lat_coords_flat
     
+    def _add_spatial_coords_helper(
+        self, 
+        combined_ds: xr.Dataset, 
+        dimensions_to_add: List[str],
+        spatial_vars: List[str],
+        processor_type: str
+    ) -> xr.Dataset:
+        """
+        Shared helper method to add spatial coordinates and mesh connectivity to MPAS datasets. This method eliminates code duplication between 2D and 3D processors by providing common coordinate addition logic. It loads the grid file, adds dimensional index coordinates for specified dimensions that exist in the dataset, copies spatial variable data from grid to dataset, and handles errors gracefully with verbose output. The method is dimension-agnostic, allowing each processor to specify which dimensions and spatial variables are relevant for their data type.
+
+        Parameters:
+            combined_ds (xr.Dataset): Combined dataset to enrich with spatial coordinates.
+            dimensions_to_add (List[str]): List of dimension names to add index coordinates for (e.g., ['nCells', 'nVertices']).
+            spatial_vars (List[str]): List of spatial variable names to copy from grid file (e.g., ['latCell', 'lonCell']).
+            processor_type (str): Type identifier for error messages ('2D' or '3D').
+
+        Returns:
+            xr.Dataset: Enriched dataset with added coordinate variables.
+        """
+        try:
+            grid_file_ds = xr.open_dataset(self.grid_file)
+
+            if self.verbose:
+                print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")
+            
+            coords_to_add = {}
+            data_vars_to_add = {}
+            
+            for dim_name in dimensions_to_add:
+                if dim_name in combined_ds.sizes:
+                    coords_to_add[dim_name] = (dim_name, np.arange(combined_ds.sizes[dim_name]))
+                    if self.verbose:
+                        print(f"Added {dim_name} index coordinate for {dim_name} dimension ({combined_ds.sizes[dim_name]} values)")
+            
+            for var_name in spatial_vars:
+                if var_name in grid_file_ds.variables and var_name not in combined_ds.data_vars:
+                    var_data = grid_file_ds[var_name]
+                    data_vars_to_add[var_name] = var_data
+                    if self.verbose:
+                        print(f"Added spatial coordinate variable: {var_name}")
+            
+            if coords_to_add:
+                combined_ds = combined_ds.assign_coords(coords_to_add)
+                if self.verbose:
+                    print(f"\nSuccessfully added {len(coords_to_add)} coordinate variables")
+                
+            if data_vars_to_add:
+                for var_name, var_data in data_vars_to_add.items():
+                    combined_ds[var_name] = var_data
+                if self.verbose:
+                    print(f"Successfully added {len(data_vars_to_add)} spatial variables")
+                    print("\nUpdated dataset coordinates:", list(combined_ds.coords.keys()))
+            else:
+                if self.verbose:
+                    print("No additional coordinate variables found to add")
+                
+            grid_file_ds.close()
+            
+        except Exception as coord_error:
+            if self.verbose:
+                print(f"Warning: Could not add {processor_type} spatial coordinates: {coord_error}")
+                print("Continuing without additional coordinates...")
+        
+        return combined_ds
+    
     def get_time_info(self, time_index: int, var_context: str = "") -> str:
         """
         Retrieve formatted time coordinate information for diagnostic output and plot labeling. This method delegates to MPASDateTimeUtils to extract and format timestamp information from the dataset's time coordinate at the specified index. The formatted string includes human-readable date and time suitable for plot titles, filenames, or diagnostic messages. Optional variable context can be included to customize the output message for specific variables or analysis operations. This utility method provides a consistent interface for time information retrieval across different processing classes. The method validates that a dataset has been loaded before attempting coordinate access to ensure robust error handling.

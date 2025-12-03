@@ -579,6 +579,50 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             
         return levels
     
+    def _extract_height_from_dataset(self,
+                                     mpas_3d_processor: MPAS3DProcessor,
+                                     time_index: int,
+                                     vertical_coords: np.ndarray,
+                                     var_name: str) -> Optional[np.ndarray]:
+        """Helper method to extract and interpolate height data from dataset variables.
+        
+        Attempts to extract height from 'zgrid' or 'height' variables, handling
+        different array sizes through interpolation when necessary.
+        
+        Parameters:
+            mpas_3d_processor: MPAS3DProcessor instance
+            time_index: Time index for extraction
+            vertical_coords: Target vertical coordinates for interpolation
+            var_name: Variable name ('zgrid' or 'height')
+            
+        Returns:
+            Optional[np.ndarray]: Extracted height data in meters, or None if unavailable
+        """
+        try:
+            if var_name not in mpas_3d_processor.dataset.data_vars:
+                return None
+                
+            height_data = mpas_3d_processor.dataset[var_name].isel(Time=time_index, nCells=0).values
+            height_data = np.asarray(height_data, dtype=float)
+            
+            if len(height_data) == len(vertical_coords) + 1:
+                mid_heights = 0.5 * (height_data[:-1] + height_data[1:])
+                return mid_heights
+            elif len(height_data) == len(vertical_coords):
+                return height_data
+            else:
+                try:
+                    from scipy.interpolate import interp1d
+                    xp = np.linspace(0, 1, len(height_data))
+                    fp = height_data
+                    f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
+                    xq = np.linspace(0, 1, len(vertical_coords))
+                    return f(xq)
+                except Exception:
+                    return None
+        except Exception:
+            return None
+    
     def _convert_vertical_to_height(self, 
                                    vertical_coords: np.ndarray,
                                    vertical_coord_type: str,
@@ -605,40 +649,15 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return vertical_coords / 1000.0, 'height_km'
         elif vertical_coord_type == 'pressure':
             try:
-                if 'zgrid' in mpas_3d_processor.dataset.data_vars:
-                    height_data = mpas_3d_processor.dataset['zgrid'].isel(Time=time_index, nCells=0).values
-                    height_data = np.asarray(height_data, dtype=float)
-                    if len(height_data) == len(vertical_coords) + 1:
-                        mid_heights = 0.5 * (height_data[:-1] + height_data[1:])
-                        return mid_heights / 1000.0, 'height_km'
-                    elif len(height_data) == len(vertical_coords):
-                        return height_data / 1000.0, 'height_km'
-                    else:
-                        try:
-                            from scipy.interpolate import interp1d
-                            xp = np.linspace(0, 1, len(height_data))
-                            fp = height_data
-                            f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                            xq = np.linspace(0, 1, len(vertical_coords))
-                            return f(xq) / 1000.0, 'height_km'
-                        except Exception:
-                            pass
+                height_m = self._extract_height_from_dataset(mpas_3d_processor, time_index, vertical_coords, 'zgrid')
 
-                if 'height' in mpas_3d_processor.dataset.data_vars:
-                    height_data = mpas_3d_processor.dataset['height'].isel(Time=time_index, nCells=0).values
-                    height_data = np.asarray(height_data, dtype=float)
-                    if len(height_data) == len(vertical_coords):
-                        return height_data / 1000.0, 'height_km'
-                    else:
-                        try:
-                            from scipy.interpolate import interp1d
-                            xp = np.linspace(0, 1, len(height_data))
-                            fp = height_data
-                            f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                            xq = np.linspace(0, 1, len(vertical_coords))
-                            return f(xq) / 1000.0, 'height_km'
-                        except Exception:
-                            pass
+                if height_m is not None:
+                    return height_m / 1000.0, 'height_km'
+                
+                height_m = self._extract_height_from_dataset(mpas_3d_processor, time_index, vertical_coords, 'height')
+
+                if height_m is not None:
+                    return height_m / 1000.0, 'height_km'
             except Exception:
                 pass
 
@@ -671,46 +690,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         else:  # model_levels
             # For model levels, try to get geometric height if available
             try:
-                # Check if geometric height is available in the dataset
-                if 'zgrid' in mpas_3d_processor.dataset.data_vars:
-                    # Extract geometric height at first horizontal point for reference
-                    height_data = mpas_3d_processor.dataset['zgrid'].isel(Time=time_index, nCells=0).values
-                    # zgrid may be defined at interfaces (nVertLevelsP1). If so and the
-                    # requested vertical_coords correspond to model levels (nVertLevels),
-                    # compute midpoint heights between interfaces to align lengths.
-                    height_data = np.asarray(height_data, dtype=float)
-                    if len(height_data) == len(vertical_coords) + 1:
-                        mid_heights = 0.5 * (height_data[:-1] + height_data[1:])
-                        return mid_heights / 1000.0, 'height_km'
-                    elif len(height_data) == len(vertical_coords):
-                        return height_data / 1000.0, 'height_km'
-                    else:
-                        try:
-                            from scipy.interpolate import interp1d
-                            xp = np.linspace(0, 1, len(height_data))
-                            fp = height_data
-                            f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                            xq = np.linspace(0, 1, len(vertical_coords))
-                            return f(xq) / 1000.0, 'height_km'
-                        except Exception:
-                            return vertical_coords, 'model_levels'
-                elif 'height' in mpas_3d_processor.dataset.data_vars:
-                    height_data = mpas_3d_processor.dataset['height'].isel(Time=time_index, nCells=0).values
-                    height_data = np.asarray(height_data, dtype=float)
-                    if len(height_data) == len(vertical_coords):
-                        return height_data / 1000.0, 'height_km'
-                    else:
-                        try:
-                            from scipy.interpolate import interp1d
-                            xp = np.linspace(0, 1, len(height_data))
-                            fp = height_data
-                            f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                            xq = np.linspace(0, 1, len(vertical_coords))
-                            return f(xq) / 1000.0, 'height_km'
-                        except Exception:
-                            return vertical_coords, 'model_levels'
-                else:
-                    return vertical_coords, 'model_levels'
+                height_m = self._extract_height_from_dataset(mpas_3d_processor, time_index, vertical_coords, 'zgrid')
+
+                if height_m is not None:
+                    return height_m / 1000.0, 'height_km'
+                
+                height_m = self._extract_height_from_dataset(mpas_3d_processor, time_index, vertical_coords, 'height')
+
+                if height_m is not None:
+                    return height_m / 1000.0, 'height_km'
+                
+                return vertical_coords, 'model_levels'
             except Exception:
                 return vertical_coords, 'model_levels'
         

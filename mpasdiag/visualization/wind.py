@@ -76,6 +76,74 @@ class MPASWindPlotter(MPASVisualizer):
 
         return np.asarray(arr)
     
+    def _prepare_wind_data(self, lon: np.ndarray, lat: np.ndarray, 
+                          u_data: np.ndarray, v_data: np.ndarray,
+                          subsample: int = 1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Helper method to prepare wind data by converting to numpy, subsampling, and filtering invalid values.
+        This eliminates duplication between create_wind_plot and add_wind_overlay.
+        
+        Parameters:
+            lon (np.ndarray): Longitude array.
+            lat (np.ndarray): Latitude array.
+            u_data (np.ndarray): U-component wind data.
+            v_data (np.ndarray): V-component wind data.
+            subsample (int): Subsampling factor (default: 1).
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Valid lon, lat, u, v arrays.
+        """
+        lon = self.convert_to_numpy(lon)
+        lat = self.convert_to_numpy(lat)
+        u_data = self.convert_to_numpy(u_data)
+        v_data = self.convert_to_numpy(v_data)
+        
+        if subsample > 1:
+            indices = np.arange(0, len(lon), subsample)
+            lon_sub = lon[indices]
+            lat_sub = lat[indices]
+            u_sub = u_data[indices]
+            v_sub = v_data[indices]
+        else:
+            lon_sub, lat_sub, u_sub, v_sub = lon, lat, u_data, v_data
+        
+        valid_mask = ~(np.isnan(u_sub) | np.isnan(v_sub))
+        lon_valid = lon_sub[valid_mask]
+        lat_valid = lat_sub[valid_mask]
+        u_valid = u_sub[valid_mask]
+        v_valid = v_sub[valid_mask]
+        
+        return lon_valid, lat_valid, u_valid, v_valid
+    
+    def _render_wind_vectors(self, ax: Axes, lon: np.ndarray, lat: np.ndarray,
+                            u_data: np.ndarray, v_data: np.ndarray,
+                            plot_type: str = 'barbs', color: str = 'black',
+                            scale: Optional[float] = None) -> None:
+        """
+        Helper method to render wind vectors as barbs or arrows on a map axes.
+        This eliminates duplication between create_wind_plot and add_wind_overlay.
+        
+        Parameters:
+            ax (Axes): Map axes to draw on.
+            lon (np.ndarray): Longitude array.
+            lat (np.ndarray): Latitude array.
+            u_data (np.ndarray): U-component wind data.
+            v_data (np.ndarray): V-component wind data.
+            plot_type (str): 'barbs' or 'arrows' (default: 'barbs').
+            color (str): Vector color (default: 'black').
+            scale (Optional[float]): Arrow scale for quiver plots (default: None).
+        """
+        if plot_type == 'barbs':
+            ax.barbs(lon, lat, u_data, v_data,
+                    transform=ccrs.PlateCarree(), color=color, length=6)
+        elif plot_type == 'arrows':
+            if scale is None:
+                scale = 200
+            ax.quiver(lon, lat, u_data, v_data,
+                     transform=ccrs.PlateCarree(), color=color, scale=scale)
+        else:
+            raise ValueError(f"plot_type must be 'barbs' or 'arrows', got '{plot_type}'")
+    
     def create_wind_plot(self,
                         lon: np.ndarray,
                         lat: np.ndarray,
@@ -131,11 +199,14 @@ class MPASWindPlotter(MPASVisualizer):
         
         assert isinstance(self.ax, GeoAxes), "Axes must be a GeoAxes instance"
         
-        lon = self.convert_to_numpy(lon)
-        lat = self.convert_to_numpy(lat)
-        u_data = self.convert_to_numpy(u_data)
-        v_data = self.convert_to_numpy(v_data)
-
+        lon_valid, lat_valid, u_valid, v_valid = self._prepare_wind_data(
+            lon, lat, u_data, v_data, subsample
+        )
+        
+        if len(lon_valid) == 0:
+            print("Warning: No valid wind data found")
+            return self.fig, self.ax
+        
         is_global_lon = (lon_max - lon_min) >= 359.0
         is_global_lat = (lat_max - lat_min) >= 179.0
         
@@ -156,37 +227,9 @@ class MPASWindPlotter(MPASVisualizer):
         
         self.add_regional_features(lon_min, lon_max, lat_min, lat_max)
         
-        if subsample > 1:
-            indices = np.arange(0, len(lon), subsample)
-            lon_sub = lon[indices]
-            lat_sub = lat[indices]
-            u_sub = u_data[indices]
-            v_sub = v_data[indices]
-        else:
-            lon_sub, lat_sub, u_sub, v_sub = lon, lat, u_data, v_data
-        
-        valid_mask = ~(np.isnan(u_sub) | np.isnan(v_sub))
-        lon_valid = lon_sub[valid_mask]
-        lat_valid = lat_sub[valid_mask]
-        u_valid = u_sub[valid_mask]
-        v_valid = v_sub[valid_mask]
-        
-        if len(lon_valid) == 0:
-            print("Warning: No valid wind data found")
-            return self.fig, self.ax
-        
         color = 'black'
-        
-        if plot_type == 'barbs':
-            self.ax.barbs(lon_valid, lat_valid, u_valid, v_valid,
-                         transform=ccrs.PlateCarree(), color=color, length=6)
-        elif plot_type == 'arrows':
-            if scale is None:
-                scale = 200  
-            self.ax.quiver(lon_valid, lat_valid, u_valid, v_valid,
-                          transform=ccrs.PlateCarree(), color=color, scale=scale)
-        else:
-            raise ValueError(f"plot_type must be 'barbs' or 'arrows', got '{plot_type}'")
+        self._render_wind_vectors(self.ax, lon_valid, lat_valid, u_valid, v_valid,
+                                 plot_type, color, scale)
         
         gl = self.ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
         gl.xlabel_style = {'size': 10, 'color': 'black'}
@@ -198,8 +241,10 @@ class MPASWindPlotter(MPASVisualizer):
             mean_speed = np.mean(wind_speed)
             
             title_parts = ["MPAS Wind Analysis"]
+
             if level_info:
                 title_parts.append(f"({level_info})")
+
             if time_stamp:
                 time_str = time_stamp.strftime('%Y-%m-%d %H:%M UTC')
                 title_parts.append(f"- {time_str}")
@@ -243,8 +288,6 @@ class MPASWindPlotter(MPASVisualizer):
         scale = wind_config.get('scale', None)
         level_index = wind_config.get('level_index', None)
         
-        lon = self.convert_to_numpy(lon)
-        lat = self.convert_to_numpy(lat)
         u_data = self.convert_to_numpy(u_data)
         v_data = self.convert_to_numpy(v_data)
 
@@ -256,35 +299,16 @@ class MPASWindPlotter(MPASVisualizer):
                 u_data = u_data[:, -1]
                 v_data = v_data[:, -1]
         
-        if subsample > 1:
-            indices = np.arange(0, len(lon), subsample)
-            lon_sub = lon[indices]
-            lat_sub = lat[indices]
-            u_sub = u_data[indices]
-            v_sub = v_data[indices]
-        else:
-            lon_sub, lat_sub, u_sub, v_sub = lon, lat, u_data, v_data
-        
-        valid_mask = ~(np.isnan(u_sub) | np.isnan(v_sub))
-        lon_valid = lon_sub[valid_mask]
-        lat_valid = lat_sub[valid_mask]
-        u_valid = u_sub[valid_mask]
-        v_valid = v_sub[valid_mask]
+        lon_valid, lat_valid, u_valid, v_valid = self._prepare_wind_data(
+            lon, lat, u_data, v_data, subsample
+        )
         
         if len(lon_valid) == 0:
             print("Warning: No valid wind data for overlay")
             return
         
-        if plot_type == 'barbs':
-            ax.barbs(lon_valid, lat_valid, u_valid, v_valid,
-                    transform=ccrs.PlateCarree(), color=color, length=6)
-        elif plot_type == 'arrows':
-            if scale is None:
-                scale = 200
-            ax.quiver(lon_valid, lat_valid, u_valid, v_valid,
-                     transform=ccrs.PlateCarree(), color=color, scale=scale)
-        else:
-            raise ValueError(f"Unsupported wind plot_type: {plot_type}")
+        self._render_wind_vectors(ax, lon_valid, lat_valid, u_valid, v_valid,
+                                 plot_type, color, scale)
         
         print(f"Added {len(lon_valid)} wind vectors as overlay")
 
@@ -315,18 +339,15 @@ class MPASWindPlotter(MPASVisualizer):
             raise ValueError("Processor has no loaded dataset. Call load_2d_data() first.")
 
         dataset = processor.dataset
-        # Determine time dimension and length using existing utility
         _, _, time_size = MPASDateTimeUtils.validate_time_parameters(dataset, 0, False)
 
         created_files: List[str] = []
 
         for time_idx in range(time_size):
-            # Extract u/v and coordinates for this time step
             u_data = processor.get_2d_variable_data(u_variable, time_idx)
             v_data = processor.get_2d_variable_data(v_variable, time_idx)
             lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
 
-            # Create the wind plot
             fig, ax = self.create_wind_plot(
                 lon, lat, u_data.values, v_data.values,
                 lon_min, lon_max, lat_min, lat_max,
@@ -337,7 +358,6 @@ class MPASWindPlotter(MPASVisualizer):
                 time_stamp=None,
             )
 
-            # Add branding/timestamp and save
             try:
                 time_str = MPASDateTimeUtils.get_time_info(dataset, time_idx, var_context='wind', verbose=False)
             except Exception:

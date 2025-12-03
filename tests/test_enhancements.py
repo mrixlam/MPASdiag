@@ -170,6 +170,27 @@ class TestConditionalTimeDisplay(unittest.TestCase):
         if hasattr(self.surface_plotter, 'fig') and self.surface_plotter.fig:
             plt.close(self.surface_plotter.fig)
     
+    def _setup_mocks(self):
+        """
+        Configure matplotlib and Cartopy mocks for time display testing. This helper method creates mock figure and axes objects with text capture functionality to eliminate duplicate setup code across multiple test methods. Returns a tuple containing the mock figure, mock axes, and text_calls list for validation. The mock axes has GeoAxes specification and transAxes transform attribute. Text capture function intercepts ax.text calls to verify timestamp placement logic.
+
+        Parameters:
+            None
+
+        Returns:
+            Tuple[MagicMock, MagicMock, List]: Mock figure, mock axes with text capture, and text_calls list
+        """
+        mock_fig = MagicMock()
+        mock_ax = MagicMock(spec=GeoAxes)
+        mock_ax.transAxes = MagicMock()
+        
+        text_calls = []
+        def capture_text(*args, **kwargs):
+            text_calls.append((args, kwargs))
+        mock_ax.text = capture_text
+        
+        return mock_fig, mock_ax, text_calls
+    
     def test_default_title_with_time(self) -> None:
         """
         Verify automatic time stamp integration in default plot titles without corner text duplication. This test validates that surface plots with default titles (title=None) automatically embed the valid time in the title text using "Valid Time: YYYYMMDDTHH" format. Mock matplotlib and Cartopy objects capture set_title and text method calls to verify timestamp placement. Assertions confirm the title contains the formatted timestamp (20240917T03) and no duplicate corner text is displayed. This ensures default plots display temporal information prominently in titles, supporting operational workflows where time identification is critical for forecast verification and model output analysis.
@@ -181,15 +202,9 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             None
         """
         with patch('matplotlib.pyplot.figure') as mock_figure:
-            mock_fig = MagicMock()
-            mock_ax = MagicMock(spec=GeoAxes)
+            mock_fig, mock_ax, text_calls = self._setup_mocks()
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
-            
-            text_calls = []
-            def capture_text(*args, **kwargs):
-                text_calls.append((args, kwargs))
-            mock_ax.text = capture_text
             
             fig, ax = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
@@ -219,16 +234,9 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             None
         """
         with patch('matplotlib.pyplot.figure') as mock_figure:
-            mock_fig = MagicMock()
-            mock_ax = MagicMock(spec=GeoAxes)
-            mock_ax.transAxes = MagicMock()  
+            mock_fig, mock_ax, text_calls = self._setup_mocks()
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
-            
-            text_calls = []
-            def capture_text(*args, **kwargs):
-                text_calls.append((args, kwargs))
-            mock_ax.text = capture_text
             
             fig, ax = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
@@ -253,17 +261,11 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             None
         """
         with patch('matplotlib.pyplot.figure') as mock_figure:
-            mock_fig = MagicMock()
-            mock_ax = MagicMock(spec=GeoAxes)
+            mock_fig, mock_ax, text_calls = self._setup_mocks()
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
             
-            text_calls = []
-        def capture_text(*args, **kwargs):
-            text_calls.append((args, kwargs))
-        mock_ax.text = capture_text
-        
-        fig, ax = self.surface_plotter.create_surface_map(
+            fig, ax = self.surface_plotter.create_surface_map(
             lon=self.lon, lat=self.lat, data=self.data,
             var_name='t2m',
             lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
@@ -286,17 +288,10 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             None
         """
         with patch('matplotlib.pyplot.figure') as mock_figure:
-            mock_fig = MagicMock()
-            mock_ax = MagicMock(spec=GeoAxes)
-            mock_ax.transAxes = MagicMock() 
+            mock_fig, mock_ax, text_calls = self._setup_mocks()
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
-        
-            text_calls = []
-            def capture_text(*args, **kwargs):
-                text_calls.append((args, kwargs))
-            mock_ax.text = capture_text
-        
+            
             fig, ax = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
                 var_name='t2m',

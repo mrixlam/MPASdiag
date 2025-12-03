@@ -475,7 +475,8 @@ class TestEnhancedSurfacePlotting(unittest.TestCase):
                 self.lon_min, self.lon_max, self.lat_min, self.lat_max,
                 wind_overlay=wind_config
             )
-        self.assertIn("Unsupported wind plot_type: invalid_type", str(context.exception))
+
+        self.assertIn("plot_type must be 'barbs' or 'arrows'", str(context.exception))
         
     def test_data_dimension_validation(self) -> None:
         """

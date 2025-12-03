@@ -347,6 +347,105 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
+def _process_parallel_results(
+    results: List[Any],
+    time_indices: List[int],
+    output_dir: str,
+    manager: MPASParallelManager,
+    processing_type: str,
+    var_info: Optional[str] = None
+) -> List[str]:
+    """
+    Process and report results from parallel batch processing operations with comprehensive timing statistics. This helper function aggregates results from parallel workers, collects timing metrics, computes statistics, and generates detailed performance reports. It handles both successful and failed tasks, accumulates timing data across all processed timesteps, and calculates min/max/mean/total statistics for each processing phase. The function provides formatted console output with status summaries, timing breakdowns, and parallel execution metrics including speedup and load imbalance.
+
+    Parameters:
+        results (List[Any]): List of result objects from parallel_map containing success status, output files, and timing data.
+        time_indices (List[int]): List of timestep indices that were processed in parallel.
+        output_dir (str): Directory path where output files were saved.
+        manager (MPASParallelManager): Parallel manager instance for accessing execution statistics.
+        processing_type (str): Type of processing performed - 'PRECIPITATION' or 'SURFACE' for report headers.
+        var_info (Optional[str]): Additional variable information for report header (default: None).
+
+    Returns:
+        List[str]: List of successfully created output file paths.
+    """
+    created_files = []
+    successful = 0
+    failed = 0
+    
+    all_timings = {
+        'data_processing': [],
+        'plotting': [],
+        'saving': [],
+        'total': []
+    }
+    
+    for result in results:
+        if result.success:
+            created_files.extend(result.result['files'])
+            successful += 1
+            
+            timings = result.result['timings']
+            for key in all_timings:
+                all_timings[key].append(timings[key])
+        else:
+            failed += 1
+            print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
+    
+    timing_stats = {}
+
+    for key, values in all_timings.items():
+        if values:
+            timing_stats[key] = {
+                'min': min(values),
+                'max': max(values),
+                'mean': sum(values) / len(values),
+                'total': sum(values)
+            }
+    
+    print(f"\n{'='*70}")
+    print(f"{processing_type} BATCH PROCESSING RESULTS")
+    print(f"{'='*70}")
+
+    if var_info:
+        print(var_info)
+
+    print("Status:" if not var_info else "\nStatus:")
+    print(f"  Successful: {successful}/{len(time_indices)}")
+    print(f"  Failed: {failed}/{len(time_indices)}")
+    print(f"  Created files: {len(created_files)} in {output_dir}")
+    
+    if timing_stats:
+        print("\nTiming Breakdown (per time step):")
+        print("  Data Processing:")
+        print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
+        print("  Plotting:")
+        print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
+        print("  Saving:")
+        print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
+        print("  Total per step:")
+        print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
+        
+        stats = manager.get_statistics()
+        if stats:
+            print("\nOverall Parallel Execution:")
+            print(f"  Wall time: {stats.total_time:.2f}s")
+            print(f"  Speedup potential: {timing_stats['total']['total']:.2f}s / {stats.total_time:.2f}s = {timing_stats['total']['total']/stats.total_time:.2f}x")
+            print(f"  Load imbalance: {100*stats.load_imbalance:.1f}%")
+    
+    print(f"{'='*70}\n")
+    
+    return created_files
+
+
 class ParallelPrecipitationProcessor:
     """
     Parallel wrapper for precipitation batch processing using MPI-based distributed computing. This class wraps MPASPrecipitationPlotter batch methods to enable efficient parallel processing of multiple timesteps across available MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
@@ -461,78 +560,9 @@ class ParallelPrecipitationProcessor:
         )
         
         if manager.is_master and results is not None:
-            created_files = []
-            successful = 0
-            failed = 0
-            
-            all_timings = {
-                'data_processing': [],
-                'plotting': [],
-                'saving': [],
-                'total': []
-            }
-            
-            for result in results:
-                if result.success:
-                    created_files.extend(result.result['files'])
-                    successful += 1
-                    
-                    timings = result.result['timings']
-                    for key in all_timings:
-                        all_timings[key].append(timings[key])
-                else:
-                    failed += 1
-                    print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
-            
-            timing_stats = {}
-
-            for key, values in all_timings.items():
-                if values:
-                    timing_stats[key] = {
-                        'min': min(values),
-                        'max': max(values),
-                        'mean': sum(values) / len(values),
-                        'total': sum(values)
-                    }
-            
-            print(f"\n{'='*70}")
-            print("PRECIPITATION BATCH PROCESSING RESULTS")
-            print(f"{'='*70}")
-            print("Status:")
-            print(f"  Successful: {successful}/{len(time_indices)}")
-            print(f"  Failed: {failed}/{len(time_indices)}")
-            print(f"  Created files: {len(created_files)} in {output_dir}")
-            
-            if timing_stats:
-                print("\nTiming Breakdown (per time step):")
-                print("  Data Processing:")
-                print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
-                print("  Plotting:")
-                print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
-                print("  Saving:")
-                print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
-                print("  Total per step:")
-                print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
-                
-                stats = manager.get_statistics()
-
-                if stats:
-                    print("\nOverall Parallel Execution:")
-                    print(f"  Wall time: {stats.total_time:.2f}s")
-                    print(f"  Speedup potential: {timing_stats['total']['total']:.2f}s / {stats.total_time:.2f}s = {timing_stats['total']['total']/stats.total_time:.2f}x")
-                    print(f"  Load imbalance: {100*stats.load_imbalance:.1f}%")
-            
-            print(f"{'='*70}\n")
-            
-            return created_files
+            return _process_parallel_results(
+                results, time_indices, output_dir, manager, "PRECIPITATION"
+            )
         
         return None
 
@@ -640,78 +670,10 @@ class ParallelSurfaceProcessor:
         results = manager.parallel_map(_surface_worker, worker_args)
         
         if manager.is_master and results is not None:
-            created_files = []
-            successful = 0
-            failed = 0
-            
-            all_timings = {
-                'data_processing': [],
-                'plotting': [],
-                'saving': [],
-                'total': []
-            }
-            
-            for result in results:
-                if result.success:
-                    created_files.extend(result.result['files'])
-                    successful += 1                    
-                    timings = result.result['timings']
-                    for key in all_timings:
-                        all_timings[key].append(timings[key])
-                else:
-                    failed += 1
-                    print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
-            
-            timing_stats = {}
-
-            for key, values in all_timings.items():
-                if values:
-                    timing_stats[key] = {
-                        'min': min(values),
-                        'max': max(values),
-                        'mean': sum(values) / len(values),
-                        'total': sum(values)
-                    }
-            
-            print(f"\n{'='*70}")
-            print("SURFACE BATCH PROCESSING RESULTS")
-            print(f"{'='*70}")
-            print(f"Variable: {var_name}, Plot type: {plot_type}")
-            print("\nStatus:")
-            print(f"  Successful: {successful}/{len(time_indices)}")
-            print(f"  Failed: {failed}/{len(time_indices)}")
-            print(f"  Created files: {len(created_files)} in {output_dir}")
-            
-            if timing_stats:
-                print("\nTiming Breakdown (per time step):")
-                print("  Data Processing:")
-                print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
-                print("  Plotting:")
-                print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
-                print("  Saving:")
-                print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
-                print("  Total per step:")
-                print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
-                print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
-                print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
-                
-                stats = manager.get_statistics()
-
-                if stats:
-                    print("\nOverall Parallel Execution:")
-                    print(f"  Wall time: {stats.total_time:.2f}s")
-                    print(f"  Speedup potential: {timing_stats['total']['total']:.2f}s / {stats.total_time:.2f}s = {timing_stats['total']['total']/stats.total_time:.2f}x")
-                    print(f"  Load imbalance: {100*stats.load_imbalance:.1f}%")
-            
-            print(f"{'='*70}\n")
-            
-            return created_files
+            var_info = f"Variable: {var_name}, Plot type: {plot_type}"
+            return _process_parallel_results(
+                results, time_indices, output_dir, manager, "SURFACE", var_info
+            )
         
         return None
 

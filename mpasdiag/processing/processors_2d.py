@@ -58,76 +58,12 @@ class MPAS2DProcessor(MPASBaseProcessor):
         Returns:
             xr.Dataset: Enriched dataset with added coordinate variables for spatial dimensions and geographic coordinates for plotting.
         """
-        try:
-            grid_file_ds = xr.open_dataset(self.grid_file)
-
-            if self.verbose:
-                print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")
-            
-            coords_to_add = {}
-            data_vars_to_add = {}
-            
-            if ('lonCell' in grid_file_ds.variables and 'latCell' in grid_file_ds.variables 
-                and 'nCells' in combined_ds.sizes):
-                coords_to_add['nCells'] = ('nCells', np.arange(combined_ds.sizes['nCells'])) 
-
-                if self.verbose:
-                    print(f"Added nCells index coordinate for nCells dimension ({combined_ds.sizes['nCells']} values)")
-            
-            if ('lonVertex' in grid_file_ds.variables and 'latVertex' in grid_file_ds.variables 
-                and 'nVertices' in combined_ds.sizes):
-                coords_to_add['nVertices'] = ('nVertices', np.arange(combined_ds.sizes['nVertices']))  
-
-                if self.verbose:
-                    print(f"Added nVertices index coordinate for nVertices dimension ({combined_ds.sizes['nVertices']} values)")
-
-            if 'nIsoLevelsT' in combined_ds.sizes:
-                coords_to_add['nIsoLevelsT'] = ('nIsoLevelsT', np.arange(combined_ds.sizes['nIsoLevelsT']))
-
-                if self.verbose:
-                    print(f"Added nIsoLevelsT index coordinate for nIsoLevelsT dimension ({combined_ds.sizes['nIsoLevelsT']} values)")
-
-            if 'nIsoLevelsZ' in combined_ds.sizes:
-                coords_to_add['nIsoLevelsZ'] = ('nIsoLevelsZ', np.arange(combined_ds.sizes['nIsoLevelsZ']))
-
-                if self.verbose:
-                    print(f"Added nIsoLevelsZ index coordinate for nIsoLevelsZ dimension ({combined_ds.sizes['nIsoLevelsZ']} values)\n")
-            
-            spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
-
-            for var_name in spatial_vars:
-                if var_name in grid_file_ds.variables and var_name not in combined_ds.data_vars:
-                    var_data = grid_file_ds[var_name]
-                    data_vars_to_add[var_name] = var_data
-
-                    if self.verbose:
-                        print(f"Added spatial coordinate variable: {var_name}")
-            
-            if coords_to_add:
-                combined_ds = combined_ds.assign_coords(coords_to_add)
-
-                if self.verbose:
-                    print(f"\nSuccessfully added {len(coords_to_add)} coordinate variables")
-                
-            if data_vars_to_add:
-                for var_name, var_data in data_vars_to_add.items():
-                    combined_ds[var_name] = var_data
-
-                if self.verbose:
-                    print(f"Successfully added {len(data_vars_to_add)} spatial variables")
-                    print("\nUpdated dataset coordinates:", list(combined_ds.coords.keys()))
-            else:
-                if self.verbose:
-                    print("No additional coordinate variables found to add")
-                
-            grid_file_ds.close()
-            
-        except Exception as coord_error:
-            if self.verbose:
-                print(f"Warning: Could not add 2D spatial coordinates: {coord_error}")
-                print("Continuing without additional coordinates...")
+        dimensions_to_add = ['nCells', 'nVertices', 'nIsoLevelsT', 'nIsoLevelsZ']
+        spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
         
-        return combined_ds
+        return self._add_spatial_coords_helper(
+            combined_ds, dimensions_to_add, spatial_vars, "2D"
+        )
 
     def load_2d_data(self, data_dir: str, use_pure_xarray: bool = False, 
                      reference_file: str = "") -> 'MPAS2DProcessor':

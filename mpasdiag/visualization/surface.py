@@ -376,6 +376,103 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         return self.fig, self.ax
 
+    def _interpolate_to_grid(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
+                           lon_min: float, lon_max: float, lat_min: float, lat_max: float,
+                           grid_resolution: Optional[int] = None,
+                           grid_resolution_deg: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Helper method to interpolate scattered data to a regular grid with adaptive resolution.
+        This eliminates duplication between _create_contour_plot and _create_contourf_plot.
+        
+        Parameters:
+            lon (np.ndarray): Source longitude array.
+            lat (np.ndarray): Source latitude array.
+            data (np.ndarray): Source data values.
+            lon_min (float): Western grid bound.
+            lon_max (float): Eastern grid bound.
+            lat_min (float): Southern grid bound.
+            lat_max (float): Northern grid bound.
+            grid_resolution (Optional[int]): Grid points per axis.
+            grid_resolution_deg (Optional[float]): Grid spacing in degrees.
+            
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: lon_mesh, lat_mesh, data_interp
+        """
+        if griddata is None:
+            raise ImportError("scipy.interpolate.griddata is required for contour plotting")
+        
+        if grid_resolution_deg is not None:
+            step = float(grid_resolution_deg)
+            if step <= 0:
+                raise ValueError("grid_resolution_deg must be > 0")
+
+            lon_coords = np.arange(lon_min, lon_max + 1e-12, step)
+            lat_coords = np.arange(lat_min, lat_max + 1e-12, step)
+
+            nx = len(lon_coords)
+            ny = len(lat_coords)
+            max_points = 1200
+
+            if nx > max_points or ny > max_points:
+                lon_coords = np.linspace(lon_min, lon_max, min(nx, max_points))
+                lat_coords = np.linspace(lat_min, lat_max, min(ny, max_points))
+                print(f"Requested degree step {step}° produces >{max_points} points per axis; clipping to {len(lat_coords)}x{len(lon_coords)} grid")
+
+            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+            print(f"Interpolating {len(data)} points to {lon_mesh.shape[0]}x{lon_mesh.shape[1]} grid (~{step}° resolution)...")
+        else:
+            if grid_resolution is None:
+                adaptive = int(np.sqrt(len(data)) / 9)
+                grid_resolution = max(25, min(adaptive, 200))
+                print(f"Auto-selected grid resolution: {grid_resolution}")
+
+            lon_coords = np.linspace(lon_min, lon_max, grid_resolution)
+            lat_coords = np.linspace(lat_min, lat_max, grid_resolution)
+            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+            print(f"Interpolating {len(data)} points to {grid_resolution}x{grid_resolution} grid...")
+
+        data_interp = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='linear')
+
+        try:
+            if np.any(np.isnan(data_interp)):
+                data_interp_nearest = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='nearest')
+                data_interp[np.isnan(data_interp)] = data_interp_nearest[np.isnan(data_interp)]
+                print("Filled NaN values in interpolated grid using nearest-neighbor interpolation to avoid edge clipping")
+        except Exception:
+            pass
+        
+        return lon_mesh, lat_mesh, data_interp
+
+    def _add_colorbar_with_metadata(self, mappable) -> None:
+        """
+        Helper method to add colorbar with metadata-driven labels and formatting.
+        This eliminates duplication between _create_scatter_plot and _create_contourf_plot.
+        
+        Parameters:
+            mappable: Matplotlib mappable object (scatter or contourf result).
+        """
+        assert self.fig is not None, "Figure must be created before adding colorbar"
+        
+        cbar = self.fig.colorbar(mappable, ax=self.ax, orientation='horizontal', extend='both',
+                               pad=0.06, shrink=0.8, aspect=30)
+        
+        if hasattr(self, '_current_var_metadata') and self._current_var_metadata:
+            var_units = self._current_var_metadata.get('units', '')
+            var_long_name = self._current_var_metadata.get('long_name', 'Value')
+            if var_units and f'({var_units})' in var_long_name:
+                cbar_label = var_long_name
+            else:
+                cbar_label = f"{var_long_name} ({var_units})" if var_units else var_long_name
+            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-50)
+        
+        try:
+            ticks = cbar.get_ticks().tolist()
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
+            cbar.ax.tick_params(labelsize=8)
+        except Exception:
+            pass
+
     def _create_scatter_plot(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
                            cmap_obj: Union[str, mcolors.Colormap], norm: Optional[mcolors.Normalize],
                            data_crs: ccrs.CRS) -> None:
@@ -423,25 +520,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                                cmap=cmap_obj, norm=norm, s=marker_size, alpha=alpha_val,
                                transform=data_crs, edgecolors='none')
         
-        cbar = self.fig.colorbar(scatter, ax=self.ax, orientation='horizontal', extend='both',
-                               pad=0.06, shrink=0.8, aspect=30)
-        
-        if hasattr(self, '_current_var_metadata') and self._current_var_metadata:
-            var_units = self._current_var_metadata.get('units', '')
-            var_long_name = self._current_var_metadata.get('long_name', 'Value')
-            if var_units and f'({var_units})' in var_long_name:
-                cbar_label = var_long_name
-            else:
-                cbar_label = f"{var_long_name} ({var_units})" if var_units else var_long_name
-            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-50)
-        
-        try:
-            ticks = cbar.get_ticks().tolist()
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-            cbar.ax.tick_params(labelsize=8)  
-        except Exception:
-            pass
+        self._add_colorbar_with_metadata(scatter)
     
     def _create_contour_plot(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
                            lon_min: float, lon_max: float, lat_min: float, lat_max: float,
@@ -478,53 +557,10 @@ class MPASSurfacePlotter(MPASVisualizer):
         assert self.ax is not None, "Axes must be created before contour plot"
         assert self.fig is not None, "Figure must be created before contour plot"
         
-        try:
-            if griddata is None:
-                raise ImportError("scipy.interpolate.griddata is required for contour plotting")
-        except ImportError:
-            raise ImportError("scipy is required for contour plots. Install with: pip install scipy")
-
-        if grid_resolution_deg is not None:
-            step = float(grid_resolution_deg)
-            if step <= 0:
-                raise ValueError("grid_resolution_deg must be > 0")
-
-            lon_coords = np.arange(lon_min, lon_max + 1e-12, step)
-            lat_coords = np.arange(lat_min, lat_max + 1e-12, step)
-
-            nx = len(lon_coords)
-            ny = len(lat_coords)
-
-            max_points = 1200
-
-            if nx > max_points or ny > max_points:
-                lon_coords = np.linspace(lon_min, lon_max, min(nx, max_points))
-                lat_coords = np.linspace(lat_min, lat_max, min(ny, max_points))
-                print(f"Requested degree step {step}° produces >{max_points} points per axis; clipping to {len(lat_coords)}x{len(lon_coords)} grid")
-
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-            print(f"Interpolating {len(data)} points to {lon_mesh.shape[0]}x{lon_mesh.shape[1]} grid (~{step}° resolution)...")
-
-        else:
-            if grid_resolution is None:
-                adaptive = int(np.sqrt(len(data)) / 9)
-                grid_resolution = max(25, min(adaptive, 200))
-                print(f"Auto-selected grid resolution: {grid_resolution}")
-
-            lon_coords = np.linspace(lon_min, lon_max, grid_resolution)
-            lat_coords = np.linspace(lat_min, lat_max, grid_resolution)
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-            print(f"Interpolating {len(data)} points to {grid_resolution}x{grid_resolution} grid...")
-
-        data_interp = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='linear')
-
-        try:
-            if np.any(np.isnan(data_interp)):
-                data_interp_nearest = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='nearest')
-                data_interp[np.isnan(data_interp)] = data_interp_nearest[np.isnan(data_interp)]
-                print("Filled NaN values in interpolated grid using nearest-neighbor interpolation to avoid edge clipping")
-        except Exception:
-            pass
+        lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
+            lon, lat, data, lon_min, lon_max, lat_min, lat_max,
+            grid_resolution, grid_resolution_deg
+        )
 
         try:
             contour_color = 'black'
@@ -582,34 +618,10 @@ class MPASSurfacePlotter(MPASVisualizer):
         assert self.ax is not None, "Axes must be created before contourf plot"
         assert self.fig is not None, "Figure must be created before contourf plot"
         
-        if griddata is None:
-            raise ImportError("scipy.interpolate.griddata is required for contour plotting")
-        
-        if grid_resolution_deg is not None:
-            lon_coords = np.arange(lon_min, lon_max + grid_resolution_deg, grid_resolution_deg)
-            lat_coords = np.arange(lat_min, lat_max + grid_resolution_deg, grid_resolution_deg)
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-        else:
-            if grid_resolution is None:
-                adaptive = int(np.sqrt(len(data)) / 9)
-                grid_resolution = max(25, min(adaptive, 200))
-                print(f"Auto-selected grid resolution: {grid_resolution}")
-
-            lon_coords = np.linspace(lon_min, lon_max, grid_resolution)
-            lat_coords = np.linspace(lat_min, lat_max, grid_resolution)
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-
-            print(f"Interpolating {len(data)} points to {grid_resolution}x{grid_resolution} grid...")
-
-        data_interp = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='linear')
-
-        try:
-            if np.any(np.isnan(data_interp)):
-                data_interp_nearest = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='nearest')
-                data_interp[np.isnan(data_interp)] = data_interp_nearest[np.isnan(data_interp)]
-                print("Filled NaN values in interpolated grid using nearest-neighbor interpolation to avoid edge clipping")
-        except Exception:
-            pass
+        lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
+            lon, lat, data, lon_min, lon_max, lat_min, lat_max,
+            grid_resolution, grid_resolution_deg
+        )
 
         if levels is not None:
             cs = self.ax.contourf(lon_mesh, lat_mesh, data_interp, levels=levels,
@@ -618,25 +630,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             cs = self.ax.contourf(lon_mesh, lat_mesh, data_interp,
                                 cmap=cmap_obj, norm=norm, transform=data_crs, extend='both')
 
-        cbar = self.fig.colorbar(cs, ax=self.ax, orientation='horizontal', extend='both',
-                               pad=0.06, shrink=0.8, aspect=30)
-        
-        if hasattr(self, '_current_var_metadata') and self._current_var_metadata:
-            var_units = self._current_var_metadata.get('units', '')
-            var_long_name = self._current_var_metadata.get('long_name', 'Value')
-            if var_units and f'({var_units})' in var_long_name:
-                cbar_label = var_long_name
-            else:
-                cbar_label = f"{var_long_name} ({var_units})" if var_units else var_long_name
-            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-50)
-        
-        try:
-            ticks = cbar.get_ticks().tolist()
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-            cbar.ax.tick_params(labelsize=8)
-        except Exception:
-            pass
+        self._add_colorbar_with_metadata(cs)
 
     def _add_surface_overlay(self, lon: np.ndarray, lat: np.ndarray, surface_config: dict) -> None:
         """

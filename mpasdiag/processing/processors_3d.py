@@ -509,83 +509,16 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             xr.Dataset: Enriched dataset with added coordinate variables for all spatial dimensions and geographic coordinates for plotting.
         """
-        try:
-            grid_file_ds = xr.open_dataset(self.grid_file)
-            if self.verbose:
-                print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")
-            
-            coords_to_add = {}
-            data_vars_to_add = {}
-            
-            if 'lonCell' in grid_file_ds.variables and 'nCells' in combined_ds.sizes:
-                coords_to_add['nCells'] = ('nCells', np.arange(combined_ds.sizes['nCells'])) 
+        dimensions_to_add = [
+            'nCells', 'nVertLevels', 'nVertLevelsP1', 
+            'nEdges', 'nVertices', 'nSoilLevels'
+        ]
 
-                if self.verbose:
-                    print(f"Added nCells index coordinate for nCells dimension ({combined_ds.sizes['nCells']} values)")
-            
-            if 'nVertLevels' in combined_ds.sizes:
-                coords_to_add['nVertLevels'] = ('nVertLevels', np.arange(combined_ds.sizes['nVertLevels']))
-
-                if self.verbose:
-                    print(f"Added nVertLevels index coordinate for nVertLevels dimension ({combined_ds.sizes['nVertLevels']} values)")
-
-            if 'nVertLevelsP1' in combined_ds.sizes:
-                coords_to_add['nVertLevelsP1'] = ('nVertLevelsP1', np.arange(combined_ds.sizes['nVertLevelsP1']))
-
-                if self.verbose:
-                    print(f"Added nVertLevelsP1 index coordinate for nVertLevelsP1 dimension ({combined_ds.sizes['nVertLevelsP1']} values)")
-
-            if 'nEdges' in combined_ds.sizes:
-                coords_to_add['nEdges'] = ('nEdges', np.arange(combined_ds.sizes['nEdges']))
-
-                if self.verbose:
-                    print(f"Added nEdges index coordinate for nEdges dimension ({combined_ds.sizes['nEdges']} values)")
-
-            if 'nVertices' in combined_ds.sizes:
-                coords_to_add['nVertices'] = ('nVertices', np.arange(combined_ds.sizes['nVertices']))
-
-                if self.verbose:
-                    print(f"Added nVertices index coordinate for nVertices dimension ({combined_ds.sizes['nVertices']} values)")
-
-            if 'nSoilLevels' in combined_ds.sizes:
-                coords_to_add['nSoilLevels'] = ('nSoilLevels', np.arange(combined_ds.sizes['nSoilLevels']))
-
-                if self.verbose:
-                    print(f"Added nSoilLevels index coordinate for nSoilLevels dimension ({combined_ds.sizes['nSoilLevels']} values)")
-            
-            spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
-
-            for var_name in spatial_vars:
-                if var_name in grid_file_ds.variables and var_name not in combined_ds.data_vars:
-                    var_data = grid_file_ds[var_name]
-                    data_vars_to_add[var_name] = var_data
-
-                    if self.verbose:
-                        print(f"Added spatial coordinate variable: {var_name}")
-            
-            if coords_to_add:
-                combined_ds = combined_ds.assign_coords(coords_to_add)
-                if self.verbose:
-                    print(f"\nSuccessfully added {len(coords_to_add)} coordinate variables")
-                
-            if data_vars_to_add:
-                for var_name, var_data in data_vars_to_add.items():
-                    combined_ds[var_name] = var_data
-                if self.verbose:
-                    print(f"Successfully added {len(data_vars_to_add)} spatial variables")
-                    print("\nUpdated dataset coordinates:", list(combined_ds.coords.keys()))
-            else:
-                if self.verbose:
-                    print("No additional coordinate variables found to add")
-                
-            grid_file_ds.close()
-            
-        except Exception as coord_error:
-            if self.verbose:
-                print(f"Warning: Could not add 3D spatial coordinates: {coord_error}")
-                print("Continuing without additional coordinates...")
+        spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
         
-        return combined_ds
+        return self._add_spatial_coords_helper(
+            combined_ds, dimensions_to_add, spatial_vars, "3D"
+        )
 
     @staticmethod
     def extract_2d_from_3d(data_3d: Union[np.ndarray, xr.DataArray],
