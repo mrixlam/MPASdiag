@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-MPASdiag Example4: 2D Surface Map with Scatter Plots
+MPASdiag Example3: 2D Surface Map with Filled Contours
 
 This script generates professional plots using real MPAS diagnostic data.
-It demonstrates all the enhanced features of MPASdiag v1.0.0 including:
+It demonstrates all the enhanced features of MPASdiag v1.1.0 including:
 - Automatic unit conversion
 - Professional branding
 - Enhanced scientific notation
@@ -29,7 +29,6 @@ sys.path.insert(0, str(package_dir))
 from mpasdiag.processing import MPAS2DProcessor
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
 
 
 def generate_real_data_plots() -> Optional[str]:
@@ -49,6 +48,9 @@ def generate_real_data_plots() -> Optional[str]:
     print("=" * 80)
     print()
     
+    # Plot type: 'contour' for line contours, 'contourf' for filled contours
+    plotType = 'contourf'
+    
     grid_file = "../data/grids/x1.2621442.init.nc"
     data_file = "../data/u15k/diag/diag.2024-09-17_03.00.00.nc"
     output_dir = Path("testPlot")
@@ -67,9 +69,7 @@ def generate_real_data_plots() -> Optional[str]:
         else:
             data_ds = processor.dataset
         
-        surface_viz = MPASSurfacePlotter(figsize=(10, 12), dpi=300)
-        precip_viz = MPASPrecipitationPlotter(figsize=(10, 12), dpi=300)
-        wind_viz = MPASWindPlotter(figsize=(10, 12), dpi=300)
+        surface_viz = MPASSurfacePlotter(figsize=(10, 12), dpi=100)
         
         lon, lat = processor.extract_spatial_coordinates()
         extent = [-180.0, 180.0, -90.0, 90.0]
@@ -87,13 +87,13 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, t2m_data, 't2m',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Temperature',
-            plot_type='scatter',
+            plot_type=plotType,
             data_array=t2m_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / "mpasdiag_sample_plot_t2m_scatter.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_t2m_{plotType}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()
@@ -110,13 +110,13 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, mslp_data, 'mslp',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS Mean Sea Level Pressure',
-            plot_type='scatter',
+            plot_type=plotType,
             data_array=mslp_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / "mpasdiag_sample_plot_mslp_scatter.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_mslp_{plotType}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()
@@ -133,69 +133,19 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, q2_data, 'q2',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Specific Humidity',
-            plot_type='scatter',
+            plot_type=plotType,
             data_array=q2_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / "mpasdiag_sample_plot_q2_scatter.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_q2_{plotType}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()
 
     except Exception as e:
         print(f"❌ Error generating humidity plot: {e}")
-
-    print("\n----------------- Generating Wind Plot ----------------- \n")
-
-    try:
-        u10_data = data_ds.u10[0, :]
-        v10_data = data_ds.v10[0, :]
-
-        _, _ = wind_viz.create_wind_plot(
-            lon, lat, u10_data, v10_data,
-            extent[0], extent[1], extent[2], extent[3],
-            plot_type='barbs',
-            title='MPAS 10-meter Wind',
-            subsample=2500,
-            show_background=True
-        )
-
-        wind_viz.add_timestamp_and_branding()
-
-        output_path = output_dir / "mpasdiag_sample_plot_wind_barb.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✅ Saved: {output_path}")
-        plt.close()
-
-    except Exception as e:
-        print(f"❌ Error generating wind plot: {e}")
-
-    print("\n----------------- Generating Precipitation Plot ----------------- \n")
-
-    try:
-        rainc_data = data_ds.rainc[0, :]
-        rainnc_data = data_ds.rainnc[0, :]
-        total_precip = rainc_data + rainnc_data
-
-        _, _ = precip_viz.create_precipitation_map(
-            lon, lat, total_precip,
-            extent[0], extent[1], extent[2], extent[3],
-            title='MPAS Total Precipitation',
-            accum_period='total',
-            data_array=total_precip
-        )
-
-        precip_viz.add_timestamp_and_branding()
-
-        output_path = output_dir / "mpasdiag_sample_plot_precipitation_scatter.png"
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        print(f"✅ Saved: {output_path}")
-        plt.close()
-
-    except Exception as e:
-        print(f"❌ Error generating precipitation plot: {e}")
 
     print("\n" + "=" * 80)
     print("✅ Real Data Plot Generation Complete!")
