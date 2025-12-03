@@ -189,7 +189,7 @@ class MPASVisualizationStyle:
                            any(precip_key in var_lower for precip_key in ['precip', 'rain', 'snow', 'qpf']))
         
         if is_precipitation:
-            accum_match = re.search(r'(\d+)h', var_lower)
+            accum_match = re.search(r'(?<!\d)(\d{1,3})h', var_lower)
             if accum_match:
                 hours = int(accum_match.group(1))
                 if hours == 1:
@@ -668,10 +668,7 @@ class MPASVisualizationStyle:
             min_abs = np.min(np.abs(non_zero_t))
             
             if max_abs >= 1e4 or min_abs < 1e-3:
-                if max_abs >= 1e4:
-                    return [f'{x:.1e}' for x in ticks]
-                else:
-                    return [f'{x:.1e}' for x in ticks]
+                return [f'{x:.1e}' for x in ticks]
         
         if len(t) > 1:
             spacings = np.abs(np.diff(np.sort(t)))

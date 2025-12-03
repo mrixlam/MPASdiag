@@ -288,7 +288,7 @@ class TestMPASLogger(unittest.TestCase):
         logger = MPASLogger("test_logger", verbose=True)
         
         self.assertEqual(logger.logger.name, "test_logger")
-        self.assertTrue(len(logger.logger.handlers) > 0)
+        self.assertGreater(len(logger.logger.handlers), 0)
     
     def test_logger_with_file(self) -> None:
         """

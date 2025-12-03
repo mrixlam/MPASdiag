@@ -19,6 +19,8 @@ import numpy as np
 import xarray as xr
 from typing import Tuple, Union, Optional, Any, cast
 
+WIND_SPEED_UNITS = 'm s^{-1}'
+
 
 class WindDiagnostics:
     """
@@ -59,7 +61,7 @@ class WindDiagnostics:
             keep_attrs=True
         )
         wind_speed.attrs.update({
-            'units': 'm s^{-1}',
+            'units': WIND_SPEED_UNITS,
             'standard_name': 'wind_speed',
             'long_name': 'horizontal wind speed',
         })
@@ -158,7 +160,7 @@ class WindDiagnostics:
             'max': float(u_component.max()),
             'mean': float(u_component.mean()),
             'std': float(u_component.std()),
-            'units': u_component.attrs.get('units', 'm s^{-1}')
+            'units': u_component.attrs.get('units', WIND_SPEED_UNITS)
         }
         
         analysis['v_component'] = {
@@ -166,7 +168,7 @@ class WindDiagnostics:
             'max': float(v_component.max()),
             'mean': float(v_component.mean()),
             'std': float(v_component.std()),
-            'units': v_component.attrs.get('units', 'm s^{-1}')
+            'units': v_component.attrs.get('units', WIND_SPEED_UNITS)
         }
         
         wind_speed = self.compute_wind_speed(u_component, v_component)
@@ -175,7 +177,7 @@ class WindDiagnostics:
             'max': float(wind_speed.max()),
             'mean': float(wind_speed.mean()),
             'std': float(wind_speed.std()),
-            'units': 'm s^{-1}'
+            'units': WIND_SPEED_UNITS
         }
         
         wind_direction = self.compute_wind_direction(u_component, v_component, degrees=True)
@@ -193,7 +195,7 @@ class WindDiagnostics:
                 'max': float(w_component.max()),
                 'mean': float(w_component.mean()),
                 'std': float(w_component.std()),
-                'units': w_component.attrs.get('units', 'm s^{-1}')
+                'units': w_component.attrs.get('units', WIND_SPEED_UNITS)
             }
             
             wind_speed_3d = np.sqrt(u_component**2 + v_component**2 + w_component**2)
@@ -202,7 +204,7 @@ class WindDiagnostics:
                 'max': float(wind_speed_3d.max()),
                 'mean': float(wind_speed_3d.mean()),
                 'std': float(wind_speed_3d.std()),
-                'units': 'm s^{-1}'
+                'units': WIND_SPEED_UNITS
             }
         
         if self.verbose:
@@ -241,7 +243,7 @@ class WindDiagnostics:
             keep_attrs=True
         )
         shear_magnitude.attrs.update({
-            'units': 'm s^{-1}',
+            'units': WIND_SPEED_UNITS,
             'standard_name': 'wind_shear_magnitude',
             'long_name': 'wind shear magnitude',
         })
@@ -356,7 +358,7 @@ class WindDiagnostics:
                     print(f"Warning: Could not extract {w_variable} at level {level}: {e}")
                     print("Setting W component to zero...")
                 w_data = xr.zeros_like(u_data)
-                w_data.attrs['units'] = 'm s^{-1}'
+                w_data.attrs['units'] = WIND_SPEED_UNITS
                 w_data.attrs['long_name'] = f'Zero vertical velocity (could not extract {w_variable})'
             
             wind_speed = np.sqrt(u_data**2 + v_data**2)
@@ -372,7 +374,7 @@ class WindDiagnostics:
                 print(f"Wind component {w_variable} range: {w_min:.2f} to {w_max:.2f} m/s")
                 print(f"Horizontal wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
                 
-                u_units = u_data.attrs.get('units', 'm s^{-1}')
+                u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
                 print(f"Units: {u_units}")
             
             return u_data, v_data, w_data
@@ -459,8 +461,8 @@ class WindDiagnostics:
                 print(f"Wind component {v_variable} range: {v_min:.2f} to {v_max:.2f} m/s") 
                 print(f"Wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
                 
-                u_units = u_data.attrs.get('units', 'm s^{-1}')
-                v_units = v_data.attrs.get('units', 'm s^{-1}')
+                u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
+                v_units = v_data.attrs.get('units', WIND_SPEED_UNITS)
 
                 print(f"Units: {u_units}")
                 

@@ -102,8 +102,8 @@ def run_mpasdiag_command(workers: Optional[int] = None, plot_type: str = 'surfac
         subprocess.CompletedProcess or None: CompletedProcess object containing return code, stdout, and stderr if successful. Returns None if test data is not available, command times out, or execution fails.
     """
     
-    grid_file = "data/grids/x1.2621442.init.nc"
-    data_dir = "data/u15k"
+    grid_file = "data/grids/x1.40962.init.nc"
+    data_dir = "data/u120k"
     
     if not os.path.exists(grid_file):
         print(f"⚠️  Test data not found at {grid_file}")
@@ -203,7 +203,7 @@ def test_workers_argument_single() -> None:
     result = run_mpasdiag_command(workers=1, plot_type='surface')
     assert result is not None, "Command failed to run or data not available"
     
-    assert result.returncode == 0, f"Command failed with exit code {result.returncode}\nSTDERR: {result.stderr[:500]}"
+    assert getattr(result, 'returncode', None) == 0, f"Command failed with exit code {getattr(result, 'returncode', None)}\nSTDERR: {getattr(result, 'stderr', '')[:500]}"
     
     metrics = extract_metrics(result.stdout + result.stderr)
     print(f"Metrics: {metrics}")
@@ -238,7 +238,7 @@ def test_workers_argument_multiple() -> None:
     result = run_mpasdiag_command(workers=4, plot_type='surface')
     assert result is not None, "Command failed to run or data not available"
     
-    assert result.returncode == 0, f"Command failed with exit code {result.returncode}\nSTDERR: {result.stderr[:500]}"
+    assert getattr(result, 'returncode', None) == 0, f"Command failed with exit code {getattr(result, 'returncode', None)}\nSTDERR: {getattr(result, 'stderr', '')[:500]}"
     
     metrics = extract_metrics(result.stdout + result.stderr)
     print(f"Metrics: {metrics}")
@@ -248,12 +248,14 @@ def test_workers_argument_multiple() -> None:
         assert metrics['workers'] == 4, f"Worker count wrong: expected 4, got {metrics['workers']}"
         print(f"✓ Worker count correct: {metrics['workers']}")
     
-    if 'speedup' in metrics:
-        print(f"Speedup: {metrics['speedup']}x")
-        if metrics['speedup'] > 1.0:
-            print(f"✓ Speedup indicates parallel execution: {metrics['speedup']}x")
-        else:
-            print(f"⚠️  Low speedup with 4 workers: {metrics['speedup']}x")
+    speedup = metrics.get('speedup')
+    
+    if speedup is not None and speedup > 1.0:
+        print(f"Speedup: {speedup}x")
+        print(f"✓ Speedup indicates parallel execution: {speedup}x")
+    elif speedup is not None:
+        print(f"Speedup: {speedup}x")
+        print(f"⚠️  Low speedup with 4 workers: {speedup}x")
     
     print("✓ Test passed")
 
@@ -276,7 +278,7 @@ def test_workers_argument_default() -> None:
     if result is None:
         pytest.skip("Test data not available")
     
-    assert result.returncode == 0, f"Command failed with exit code {result.returncode}\nSTDERR: {result.stderr[:500]}"
+    assert getattr(result, 'returncode', None) == 0, f"Command failed with exit code {getattr(result, 'returncode', None)}\nSTDERR: {getattr(result, 'stderr', '')[:500]}"
     
     metrics = extract_metrics(result.stdout + result.stderr)
     print(f"Metrics: {metrics}")
@@ -289,12 +291,12 @@ def test_workers_argument_default() -> None:
         else:
             print(f"⚠️  Worker count: expected {expected}, got {metrics['workers']}")
     
-    if 'speedup' in metrics:
-        if metrics['speedup'] > 1.0:
-            print(f"✓ Speedup indicates parallel execution: {metrics['speedup']}x")
+    speedup = metrics.get('speedup')
+
+    if speedup is not None and speedup > 1.0:
+        print(f"✓ Speedup indicates parallel execution: {speedup}x")
     
     print("✓ Test passed")
-    assert True
 
 
 def test_workers_all_plot_types() -> None:
@@ -319,12 +321,12 @@ def test_workers_all_plot_types() -> None:
         result = run_mpasdiag_command(workers=2, plot_type=plot_type)
         
         if result is None:
-            print(f"  ⚠️  Skipped (data not available)")
+            print("  ⚠️  Skipped (data not available)")
             continue
         
-        if result.returncode != 0:
+        if getattr(result, 'returncode', None) != 0:
             print(f"  ✗ Failed for {plot_type}")
-            print(f"     Exit code: {result.returncode}")
+            print(f"     Exit code: {getattr(result, 'returncode', None)}")
             if result.stderr:
                 print(f"     Error: {result.stderr[:500]}")
             all_passed = False

@@ -96,8 +96,8 @@ def test_2d_coordinates() -> None:
     print("🧪 Testing MPAS2DProcessor Coordinate Handling")
     print("=" * 50)
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
-    data_dir = "data/u15k/diag"
+    invariant_file = "data/grids/x1.40962.init.nc"
+    data_dir = "data/u120k/diag"
     
     try:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
@@ -153,8 +153,8 @@ def test_3d_coordinates() -> None:
     print("🧪 Testing MPAS3DProcessor Coordinate Handling")
     print("=" * 50)
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
-    data_dir = "data/u15k/mpasout"
+    invariant_file = "data/grids/x1.40962.init.nc"
+    data_dir = "data/u120k/mpasout"
     
     try:
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
@@ -215,9 +215,9 @@ def test_coordinate_differences() -> None:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
-        invariant_file = "data/grids/x1.2621442.init.nc"
-        data_dir_2d = "data/u15k/diag"
-        data_dir_3d = "data/u15k/mpasout"
+        invariant_file = "data/grids/x1.40962.init.nc"
+        data_dir_2d = "data/u120k/diag"
+        data_dir_3d = "data/u120k/mpasout"
 
         processor_2d = MPAS2DProcessor(invariant_file, verbose=False)
         processor_2d.load_2d_data(data_dir_2d)

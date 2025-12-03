@@ -99,6 +99,7 @@ except ImportError:
     GeoAxes = None
     CARTOPY_AVAILABLE = False
 from datetime import datetime
+import math
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
@@ -169,10 +170,10 @@ class TestMPASConfig:
         assert config.grid_file == ""
         assert config.data_dir == ""
         assert config.output_dir == ""
-        assert config.lat_min == -90.0
-        assert config.lat_max == 90.0
-        assert config.lon_min == -180.0
-        assert config.lon_max == 180.0
+        assert math.isclose(config.lat_min, -90.0, abs_tol=1e-6)
+        assert math.isclose(config.lat_max, 90.0, abs_tol=1e-6)
+        assert math.isclose(config.lon_min, -180.0, abs_tol=1e-6)
+        assert math.isclose(config.lon_max, 180.0, abs_tol=1e-6)
         assert config.variable == "rainnc"
         assert config.verbose is True  
     
@@ -198,10 +199,10 @@ class TestMPASConfig:
         
         assert config.grid_file == "test_grid.nc"
         assert config.data_dir == "test_data/"
-        assert config.lat_min == -10.0
-        assert config.lat_max == 15.0
-        assert config.lon_min == 91.0
-        assert config.lon_max == 113.0
+        assert math.isclose(config.lat_min, -10.0, abs_tol=1e-6)
+        assert math.isclose(config.lat_max, 15.0, abs_tol=1e-6)
+        assert math.isclose(config.lon_min, 91.0, abs_tol=1e-6)
+        assert math.isclose(config.lon_max, 113.0, abs_tol=1e-6)
         assert config.verbose is True
     
     def test_wind_config_parameters(self) -> None:
@@ -254,9 +255,7 @@ class TestMPAS2DProcessor:
         import tempfile
         import os
         with tempfile.NamedTemporaryFile(suffix='.nc', delete=False) as tmp_file:
-            import xarray as xr
-            dummy_data = xr.Dataset({'dummy': ('x', [1, 2, 3])})
-            dummy_data.to_netcdf(tmp_file.name)
+            tmp_file.write(b'')
             return tmp_file.name
     
     @pytest.fixture

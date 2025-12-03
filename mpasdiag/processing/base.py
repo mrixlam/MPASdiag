@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import List, Tuple, Any, Optional, Dict, Union, cast
 
 from .utils_datetime import MPASDateTimeUtils
+from .constants import DATASET_NOT_LOADED_MSG, DIAG_GLOB
 warnings.filterwarnings('ignore', message='The specified chunks separate the stored chunks.*')
 warnings.filterwarnings('ignore', message='invalid value encountered in create_collection')
 warnings.filterwarnings('ignore', message='.*Shapely.*')
@@ -137,8 +138,6 @@ class MPASBaseProcessor:
         Returns:
             Tuple[Any, str]: Two-element tuple containing (dataset_object, data_type_identifier) where dataset_object is xarray.Dataset or ux.UxDataset and data_type_identifier is either 'xarray' or 'uxarray'.
         """
-        # Prefer explicit processor methods when implemented on subclasses.
-        # Use getattr + callable checks to avoid dynamic-attribute warnings from linters.
         data_files: List[str]
         finder = getattr(self, 'find_diagnostic_files', None)
         if callable(finder):
@@ -148,7 +147,7 @@ class MPASBaseProcessor:
             if callable(finder2):
                 data_files = cast(List[str], finder2(data_dir))
             else:
-                data_files = self._find_files_by_pattern(data_dir, "diag*.nc", "diagnostic files")
+                data_files = self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
         
         file_datetimes = MPASDateTimeUtils.parse_file_datetimes(data_files, self.verbose)
         
@@ -324,7 +323,7 @@ class MPASBaseProcessor:
             ValueError: If no dataset has been loaded prior to calling this method.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         return list(self.dataset.data_vars.keys())
     
@@ -382,7 +381,7 @@ class MPASBaseProcessor:
             ValueError: If dataset is not loaded or if spatial coordinates cannot be found in dataset with list of available variables.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         lon_names = ['lonCell', 'longitude', 'lon']
         lat_names = ['latCell', 'latitude', 'lat']
@@ -431,7 +430,7 @@ class MPASBaseProcessor:
             ValueError: If no dataset has been loaded prior to calling this method with instruction to call load methods first.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         from .utils_datetime import MPASDateTimeUtils
         return MPASDateTimeUtils.get_time_info(self.dataset, time_index, var_context, self.verbose)
@@ -463,7 +462,7 @@ class MPASBaseProcessor:
             ValueError: If dataset is not loaded with instruction to call load methods first, or if time index is out of bounds with valid range information.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         from .utils_datetime import MPASDateTimeUtils
         return MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
@@ -487,7 +486,7 @@ class MPASBaseProcessor:
             ValueError: If dataset is not loaded prior to filtering with instruction to call load methods first.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         from .utils_geog import MPASGeographicUtils
         return MPASGeographicUtils.filter_by_spatial_extent(

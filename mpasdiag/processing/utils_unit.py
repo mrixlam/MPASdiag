@@ -19,6 +19,13 @@ import numpy as np
 import xarray as xr
 from typing import Union, Tuple, Dict, Any
 
+from .constants import (
+    MM_PER_HR, MM_PER_DAY, DBZ, KELVIN, M_PER_S, PA, PERCENT,
+    METER, MILES_PER_HR, KG_PER_KG, KG_PER_M3, MICRONS, PER_KG,
+    M3_PER_M3, G_PER_KG, KM_PER_HR, NOUNIT, HPA, MB, KNOT, FEET, 
+    CELSIUS, FAHRENHEIT, KILOMETER, INCHES_PER_HR
+)
+
 
 class UnitConverter:
     """
@@ -50,39 +57,39 @@ class UnitConverter:
             return data
         
         conversion_map = {
-        ('K', '°C'): lambda x: x - 273.15,
-        ('°C', 'K'): lambda x: x + 273.15,
-        ('K', '°F'): lambda x: (x - 273.15) * 9/5 + 32,
-        ('°F', 'K'): lambda x: (x - 32) * 5/9 + 273.15,
-        ('°C', '°F'): lambda x: x * 9/5 + 32,
-        ('°F', '°C'): lambda x: (x - 32) * 5/9,
+        (KELVIN, CELSIUS): lambda x: x - 273.15,
+        (CELSIUS, KELVIN): lambda x: x + 273.15,
+        (KELVIN, FAHRENHEIT): lambda x: (x - 273.15) * 9/5 + 32,
+        (FAHRENHEIT, KELVIN): lambda x: (x - 32) * 5/9 + 273.15,
+        (CELSIUS, FAHRENHEIT): lambda x: x * 9/5 + 32,
+        (FAHRENHEIT, CELSIUS): lambda x: (x - 32) * 5/9,
         
-        ('Pa', 'hPa'): lambda x: x / 100.0,
-        ('hPa', 'Pa'): lambda x: x * 100.0,
-        ('Pa', 'mb'): lambda x: x / 100.0,
-        ('mb', 'Pa'): lambda x: x * 100.0,
-        ('hPa', 'mb'): lambda x: x,  
-        ('mb', 'hPa'): lambda x: x,  
+        (PA, HPA): lambda x: x / 100.0,
+        (HPA, PA): lambda x: x * 100.0,
+        (PA, MB): lambda x: x / 100.0,
+        (MB, PA): lambda x: x * 100.0,
+        (HPA, MB): lambda x: x,  
+        (MB, HPA): lambda x: x,  
         
-        ('kg/kg', 'g/kg'): lambda x: x * 1000.0,
-        ('g/kg', 'kg/kg'): lambda x: x / 1000.0,
+        (KG_PER_KG, G_PER_KG): lambda x: x * 1000.0,
+        (G_PER_KG, KG_PER_KG): lambda x: x / 1000.0,
         
-        ('mm/hr', 'mm/day'): lambda x: x * 24.0,
-        ('mm/day', 'mm/hr'): lambda x: x / 24.0,
-        ('mm/hr', 'in/hr'): lambda x: x / 25.4,
-        ('in/hr', 'mm/hr'): lambda x: x * 25.4,
+        (MM_PER_HR, MM_PER_DAY): lambda x: x * 24.0,
+        (MM_PER_DAY, MM_PER_HR): lambda x: x / 24.0,
+        (MM_PER_HR, INCHES_PER_HR): lambda x: x / 25.4,
+        (INCHES_PER_HR, MM_PER_HR): lambda x: x * 25.4,
         
-        ('m/s', 'kt'): lambda x: x * 1.94384,
-        ('kt', 'm/s'): lambda x: x / 1.94384,
-        ('m/s', 'mph'): lambda x: x * 2.23694,
-        ('mph', 'm/s'): lambda x: x / 2.23694,
-        ('m/s', 'km/h'): lambda x: x * 3.6,
-        ('km/h', 'm/s'): lambda x: x / 3.6,
+        (M_PER_S, KNOT): lambda x: x * 1.94384,
+        (KNOT, M_PER_S): lambda x: x / 1.94384,
+        (M_PER_S, MILES_PER_HR): lambda x: x * 2.23694,
+        (MILES_PER_HR, M_PER_S): lambda x: x / 2.23694,
+        (M_PER_S, KM_PER_HR): lambda x: x * 3.6,
+        (KM_PER_HR, M_PER_S): lambda x: x / 3.6,
         
-        ('m', 'km'): lambda x: x / 1000.0,
-        ('km', 'm'): lambda x: x * 1000.0,
-        ('m', 'ft'): lambda x: x * 3.28084,
-            ('ft', 'm'): lambda x: x / 3.28084,
+        (METER, KILOMETER): lambda x: x / 1000.0,
+        (KILOMETER, METER): lambda x: x * 1000.0,
+        (METER, FEET): lambda x: x * 3.28084,
+        (FEET, METER): lambda x: x / 3.28084,
         }
         
         conversion_key = (from_unit, to_unit)
@@ -113,10 +120,10 @@ class UnitConverter:
         original_units = data.attrs.get('units', metadata.get('units', ''))
         display_units = original_units
 
-        if var_name in ['t2m', 'temperature', 'temp'] and original_units == 'K':
-            display_units = '°C'
-        elif var_name in ['mslp', 'pressure'] and original_units == 'Pa':
-            display_units = 'hPa' 
+        if var_name in ['t2m', 'temperature', 'temp'] and original_units == KELVIN:
+            display_units = CELSIUS
+        elif var_name in ['mslp', 'pressure'] and original_units == PA:
+            display_units = HPA 
             
         converted_data = data
 
@@ -146,30 +153,30 @@ class UnitConverter:
         unit = unit.strip()
         
         unit_map = {
-        'kelvin': 'K', 'k': 'K',
-        'celsius': '°C', 'degc': '°C', 'deg_c': '°C', 'c': '°C',
-        'fahrenheit': '°F', 'degf': '°F', 'deg_f': '°F', 'f': '°F',
+        'kelvin': KELVIN, 'k': KELVIN,
+        'celsius': CELSIUS, 'degc': CELSIUS, 'deg_c': CELSIUS, 'c': CELSIUS,
+        'fahrenheit': FAHRENHEIT, 'degf': FAHRENHEIT, 'deg_f': FAHRENHEIT, 'f': FAHRENHEIT,
         
-        'pascal': 'Pa', 'pa': 'Pa',
-        'hectopascal': 'hPa', 'hpa': 'hPa',
-        'millibar': 'mb', 'mbar': 'mb',
+        'pascal': PA, 'pa': PA,
+        'hectopascal': HPA, 'hpa': HPA,
+        'millibar': MB, 'mbar': MB,
         
-        'kg kg-1': 'kg/kg', 'kg_kg-1': 'kg/kg', 'kg kg^{-1}': 'kg/kg',
-        'g kg-1': 'g/kg', 'g_kg-1': 'g/kg', 'g kg^{-1}': 'g/kg',
+        'kg kg-1': KG_PER_KG, 'kg_kg-1': KG_PER_KG, 'kg kg^{-1}': KG_PER_KG,
+        'g kg-1': G_PER_KG, 'g_kg-1': G_PER_KG, 'g kg^{-1}': G_PER_KG,
         
-        'mm hr-1': 'mm/hr', 'mm_hr-1': 'mm/hr',
-        'mm day-1': 'mm/day', 'mm_day-1': 'mm/day',
+        'mm hr-1': MM_PER_HR, 'mm_hr-1': MM_PER_HR,
+        'mm day-1': MM_PER_DAY, 'mm_day-1': MM_PER_DAY,
         
-        'percent': '%', 'pct': '%',
-        'in hr-1': 'in/hr', 'in_hr-1': 'in/hr',
+        'percent': PERCENT, 'pct': PERCENT,
+        'in hr-1': INCHES_PER_HR, 'in_hr-1': INCHES_PER_HR,
         
-        'knots': 'kt', 'knot': 'kt', 'kts': 'kt',
-        'miles per hour': 'mph', 'mi/hr': 'mph',
-        'kilometers per hour': 'km/h', 'km hr-1': 'km/h', 'km_hr-1': 'km/h',
+        'knots': KNOT, 'knot': KNOT, 'kts': KNOT,
+        'miles per hour': MILES_PER_HR, 'mi/hr': MILES_PER_HR,
+        'kilometers per hour': KM_PER_HR, 'km hr-1': KM_PER_HR, 'km_hr-1': KM_PER_HR,
         
-        'meter': 'm', 'meters': 'm',
-        'kilometer': 'km', 'kilometers': 'km',
-            'foot': 'ft', 'feet': 'ft',
+        'meter': METER, 'meters': METER,
+        'kilometer': KILOMETER, 'kilometers': KILOMETER,
+        'foot': FEET, 'feet': FEET,
         }
         
         return unit_map.get(unit.lower(), unit)
@@ -189,31 +196,31 @@ class UnitConverter:
         current_unit = UnitConverter._normalize_unit_string(current_unit)
             
         display_unit_preferences = {
-            't2m': '°C', 'temperature': '°C', 'temp': '°C', 'theta': '°C',
-            'tsk': '°C', 'sst': '°C', 'meanT': '°C', 'theta_base': '°C', 'tslb': '°C',
-            'dewpoint': '°C', 'dewpt': '°C', 'dpt': '°C',
+            't2m': CELSIUS, 'temperature': CELSIUS, 'temp': CELSIUS, 'theta': CELSIUS,
+            'tsk': CELSIUS, 'sst': CELSIUS, 'meanT': CELSIUS, 'theta_base': CELSIUS, 'tslb': CELSIUS,
+            'dewpoint': CELSIUS, 'dewpt': CELSIUS, 'dpt': CELSIUS,
             
-            'pressure': 'hPa', 'slp': 'hPa', 'psfc': 'hPa', 'pressure_p': 'hPa',
-            'mslp': 'hPa', 'pmsl': 'hPa', 'pressure_base': 'hPa',
+            'pressure': HPA, 'slp': HPA, 'psfc': HPA, 'pressure_p': HPA,
+            'mslp': HPA, 'pmsl': HPA, 'pressure_base': HPA,
             
-            'rainnc': 'mm/hr', 'rainc': 'mm/hr', 'rain': 'mm/hr',
-            'precipitation': 'mm/hr', 'precip': 'mm/hr',
+            'rainnc': MM_PER_HR, 'rainc': MM_PER_HR, 'rain': MM_PER_HR,
+            'precipitation': MM_PER_HR, 'precip': MM_PER_HR,
             
-            'u10': 'm/s', 'v10': 'm/s', 'wspd10': 'm/s', 'u': 'm/s', 'w': 'm/s',
-            'wind_speed': 'm/s', 'wind': 'm/s', 'uReconstructZonal': 'm/s', 'uReconstructMeridional': 'm/s',
+            'u10': M_PER_S, 'v10': M_PER_S, 'wspd10': M_PER_S, 'u': M_PER_S, 'w': M_PER_S,
+            'wind_speed': M_PER_S, 'wind': M_PER_S, 'uReconstructZonal': M_PER_S, 'uReconstructMeridional': M_PER_S,
             
-            'qv': 'g/kg', 'qc': 'g/kg', 'qr': 'g/kg', 'qi': 'g/kg', 'qs': 'g/kg', 'qg': 'g/kg',
-            'humidity': 'g/kg', 'mixing_ratio': 'g/kg', 'q2': 'g/kg', 'qv2m': 'g/kg',
-            'relhum': '%',
+            'qv': G_PER_KG, 'qc': G_PER_KG, 'qr': G_PER_KG, 'qi': G_PER_KG, 'qs': G_PER_KG, 'qg': G_PER_KG,
+            'humidity': G_PER_KG, 'mixing_ratio': G_PER_KG, 'q2': G_PER_KG, 'qv2m': G_PER_KG,
+            'relhum': PERCENT,
             
-            'rho': 'kg/m^3', 'rho_base': 'kg/m^3',
+            'rho': KG_PER_M3, 'rho_base': KG_PER_M3,
             
-            'refl10cm': 'dBZ',
+            'refl10cm': DBZ,
             
-            'ni': '1/kg', 're_cloud': 'microns', 're_ice': 'microns', 're_snow': 'microns',
-            'cldfrac': '',
+            'ni': PER_KG, 're_cloud': MICRONS, 're_ice': MICRONS, 're_snow': MICRONS,
+            'cldfrac': NOUNIT,
             
-            'sh2o': 'm^3/m^3', 'smois': 'm^3/m^3',
+            'sh2o': M3_PER_M3, 'smois': M3_PER_M3,
         }
         
         var_name_lower = variable_name.lower()
@@ -251,10 +258,10 @@ class UnitConverter:
         Returns:
             str: Cleaned label string with standardized unit symbols such as '°C' replacing all verbose temperature unit representations.
         """
-        label = label.replace('deg_C', '°C')
-        label = label.replace('deg C', '°C')
-        label = label.replace('degrees C', '°C')
-        label = label.replace('degrees_C', '°C')
-        label = label.replace('degC', '°C')
+        label = label.replace('deg_C', CELSIUS)
+        label = label.replace('deg C', CELSIUS)
+        label = label.replace('degrees C', CELSIUS)
+        label = label.replace('degrees_C', CELSIUS)
+        label = label.replace('degC', CELSIUS)
         
         return label

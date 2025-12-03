@@ -49,6 +49,7 @@ from .parallel_wrappers import (
     ParallelCrossSectionProcessor,
     auto_batch_processor
 )
+from .constants import DIAG_GLOB, MPASOUT_GLOB, PERFORMANCE_MONITOR_MSG
 
 try:
     from ..visualization.precipitation import MPASPrecipitationPlotter
@@ -747,15 +748,15 @@ class MPASUnifiedCLI:
         
         if config.data_dir and Path(config.data_dir).exists():
             data_path = Path(config.data_dir)
-            data_files = list(data_path.glob("diag*.nc"))
+            data_files = list(data_path.glob(DIAG_GLOB))
             if not data_files and (data_path / 'diag').exists():
-                data_files = list((data_path / 'diag').glob("diag*.nc"))
+                data_files = list((data_path / 'diag').glob(DIAG_GLOB))
             if not data_files:
-                data_files = list(data_path.glob("mpasout*.nc"))
+                data_files = list(data_path.glob(MPASOUT_GLOB))
             if not data_files and (data_path / 'mpasout').exists():
-                data_files = list((data_path / 'mpasout').glob("mpasout*.nc"))
+                data_files = list((data_path / 'mpasout').glob(MPASOUT_GLOB))
             if not data_files:
-                data_files = list(data_path.rglob("diag*.nc")) + list(data_path.rglob("mpasout*.nc"))
+                data_files = list(data_path.rglob(DIAG_GLOB)) + list(data_path.rglob(MPASOUT_GLOB))
             if not data_files:
                 errors.append(f"No MPAS data files found in: {config.data_dir}")
         
@@ -850,7 +851,7 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if precipitation analysis completes successfully, False if errors occur during processing or plotting.
         """
-        assert self.perf_monitor is not None, "Performance monitor must be initialized"
+        assert self.perf_monitor is not None, PERFORMANCE_MONITOR_MSG
         with self.perf_monitor.timer("Precipitation analysis"):
             processor = MPAS2DProcessor(config.grid_file, verbose=config.verbose)
             processor = processor.load_2d_data(config.data_dir)
@@ -930,7 +931,7 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if surface analysis workflow completes successfully, False if processing or plotting errors occur.
         """
-        assert self.perf_monitor is not None, "Performance monitor must be initialized"
+        assert self.perf_monitor is not None, PERFORMANCE_MONITOR_MSG
         with self.perf_monitor.timer("Surface analysis"):
             processor = MPAS2DProcessor(config.grid_file, verbose=config.verbose)
             processor = processor.load_2d_data(config.data_dir)
@@ -1013,7 +1014,7 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if wind visualization completes successfully, False if data loading or plotting errors occur.
         """
-        assert self.perf_monitor is not None, "Performance monitor must be initialized"
+        assert self.perf_monitor is not None, PERFORMANCE_MONITOR_MSG
         with self.perf_monitor.timer("Wind analysis"):
             processor = MPAS2DProcessor(config.grid_file, verbose=config.verbose)
             processor = processor.load_2d_data(config.data_dir)
@@ -1081,7 +1082,7 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if cross-section analysis completes successfully, False if data loading, interpolation, or plotting errors occur.
         """
-        assert self.perf_monitor is not None, "Performance monitor must be initialized"
+        assert self.perf_monitor is not None, PERFORMANCE_MONITOR_MSG
         with self.perf_monitor.timer("Cross-section analysis"):
             processor = MPAS3DProcessor(config.grid_file, verbose=config.verbose)
             processor = processor.load_3d_data(config.data_dir)
@@ -1172,7 +1173,7 @@ class MPASUnifiedCLI:
         Returns:
             bool: True when the overlay routine completes even if placeholder implementation, False on error.
         """
-        assert self.perf_monitor is not None, "Performance monitor must be initialized"
+        assert self.perf_monitor is not None, PERFORMANCE_MONITOR_MSG
         with self.perf_monitor.timer("Overlay analysis"):
             if self.logger:
                 self.logger.info(f"Running {config.overlay_type} overlay analysis...")

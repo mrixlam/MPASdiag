@@ -82,7 +82,7 @@ def test_cli_help() -> None:
         result = subprocess.run(['mpasdiag', 'cross', '--help'],
                                 capture_output=True, text=True, timeout=30)
 
-        assert result.returncode == 0, f"CLI help failed with return code: {result.returncode}\nError: {result.stderr}"
+        assert getattr(result, 'returncode', None) == 0, f"CLI help failed with return code: {getattr(result, 'returncode', None)}\nError: {getattr(result, 'stderr', '')}"
         print("✅ CLI help system working correctly")
         print(f"Help output length: {len(result.stdout)} characters")
 
@@ -104,7 +104,7 @@ def test_cli_validation() -> None:
     result = subprocess.run(['mpasdiag', 'cross'],
                             capture_output=True, text=True, timeout=30)
 
-    assert result.returncode != 0, f"CLI validation should fail without required arguments, got return code: {result.returncode}"
+    assert getattr(result, 'returncode', None) != 0, f"CLI validation should fail without required arguments, got return code: {getattr(result, 'returncode', None)}"
     assert "required" in result.stderr.lower(), f"Expected 'required' in error message, got: {result.stderr}"
     print("✅ CLI argument validation working correctly")
 

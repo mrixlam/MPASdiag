@@ -55,6 +55,27 @@ class MPASWindPlotter(MPASVisualizer):
         """
         super().__init__(figsize=figsize, dpi=dpi)
         
+    def convert_to_numpy(self, arr):
+        """
+        Convert xarray DataArray, dask array or other array-like to a NumPy ndarray.
+        If the object has a `.compute()` method (dask), call it first to avoid
+        creating boolean dask indexers later. If it's an xarray.DataArray, use
+        its `.values`. Otherwise attempt `np.asarray` as a fallback.
+        """
+        try:
+            if isinstance(arr, xr.DataArray):
+                arr = arr.values
+        except Exception:
+            pass
+
+        if hasattr(arr, 'compute') and not isinstance(arr, np.ndarray):
+            try:
+                arr = arr.compute()
+            except Exception:
+                pass
+
+        return np.asarray(arr)
+    
     def create_wind_plot(self,
                         lon: np.ndarray,
                         lat: np.ndarray,
@@ -110,6 +131,11 @@ class MPASWindPlotter(MPASVisualizer):
         
         assert isinstance(self.ax, GeoAxes), "Axes must be a GeoAxes instance"
         
+        lon = self.convert_to_numpy(lon)
+        lat = self.convert_to_numpy(lat)
+        u_data = self.convert_to_numpy(u_data)
+        v_data = self.convert_to_numpy(v_data)
+
         is_global_lon = (lon_max - lon_min) >= 359.0
         is_global_lat = (lat_max - lat_min) >= 179.0
         
@@ -217,7 +243,12 @@ class MPASWindPlotter(MPASVisualizer):
         scale = wind_config.get('scale', None)
         level_index = wind_config.get('level_index', None)
         
-        if u_data.ndim > 1:
+        lon = self.convert_to_numpy(lon)
+        lat = self.convert_to_numpy(lat)
+        u_data = self.convert_to_numpy(u_data)
+        v_data = self.convert_to_numpy(v_data)
+
+        if getattr(u_data, 'ndim', 1) > 1:
             if level_index is not None:
                 u_data = u_data[:, level_index]
                 v_data = v_data[:, level_index]

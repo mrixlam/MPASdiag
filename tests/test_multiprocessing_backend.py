@@ -297,9 +297,9 @@ def test_n_workers_argument() -> None:
     print(f"  Auto:      {time_auto:.2f}s")
     
     print("\n✓ Worker count control verified:")
-    print(f"  - n_workers=1 correctly created pool with 1 worker")
-    print(f"  - n_workers=4 correctly created pool with 4 workers")
-    print(f"  - n_workers=None correctly auto-detected workers")
+    print("  - n_workers=1 correctly created pool with 1 worker")
+    print("  - n_workers=4 correctly created pool with 4 workers")
+    print("  - n_workers=None correctly auto-detected workers")
     print("✓ Test passed")
 
 

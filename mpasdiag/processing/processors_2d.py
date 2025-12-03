@@ -23,6 +23,7 @@ from typing import List, Tuple, Any, Optional, cast
 
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
+from .constants import DIAG_GLOB
 
 
 class MPAS2DProcessor(MPASBaseProcessor):
@@ -175,13 +176,13 @@ class MPAS2DProcessor(MPASBaseProcessor):
             ValueError: If insufficient files are present for meaningful temporal analysis.
         """
         try:
-            return self._find_files_by_pattern(data_dir, "diag*.nc", "diagnostic files")
+            return self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
         except FileNotFoundError:
             diag_sub = os.path.join(data_dir, "diag")
             try:
-                return self._find_files_by_pattern(diag_sub, "diag*.nc", "diagnostic files")
+                return self._find_files_by_pattern(diag_sub, DIAG_GLOB, "diagnostic files")
             except FileNotFoundError:
-                files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", "diag*.nc"), recursive=True))]
+                files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", DIAG_GLOB), recursive=True))]
                 if not files:
                     raise FileNotFoundError(f"No diagnostic files found under: {data_dir}")
                 if len(files) < 2:

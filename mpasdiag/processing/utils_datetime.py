@@ -21,6 +21,7 @@ import pandas as pd
 import xarray as xr
 from datetime import datetime
 from typing import List, Tuple, Optional, Any
+from .constants import DATASET_NOT_LOADED_MSG
 
 
 class MPASDateTimeUtils:
@@ -84,7 +85,7 @@ class MPASDateTimeUtils:
             ValueError: If dataset is None with instruction to load dataset first.
         """
         if dataset is None:
-            raise ValueError("Dataset not loaded. Call load_2d_data() or load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_MSG)
         
         time_dim = 'Time' if 'Time' in dataset.sizes else 'time'
         time_size = dataset.sizes[time_dim]

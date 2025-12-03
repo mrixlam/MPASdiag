@@ -25,6 +25,7 @@ from typing import List, Tuple, Any, Optional, Union, cast
 
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
+from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG
 
 
 class MPAS3DProcessor(MPASBaseProcessor):
@@ -64,7 +65,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             ValueError: If dataset is not loaded or spatial dimension cannot be determined.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_3D_MSG)
             
         try:
             with xr.open_dataset(self.grid_file) as grid_ds:
@@ -142,13 +143,13 @@ class MPAS3DProcessor(MPASBaseProcessor):
             ValueError: If insufficient files are present for temporal analysis operations.
         """
         try:
-            return self._find_files_by_pattern(data_dir, "mpasout*.nc", "MPAS output files")
+            return self._find_files_by_pattern(data_dir, MPASOUT_GLOB, "MPAS output files")
         except FileNotFoundError:
             mpasout_sub = os.path.join(data_dir, "mpasout")
             try:
-                return self._find_files_by_pattern(mpasout_sub, "mpasout*.nc", "MPAS output files")
+                return self._find_files_by_pattern(mpasout_sub, MPASOUT_GLOB, "MPAS output files")
             except FileNotFoundError:
-                files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", "mpasout*.nc"), recursive=True))]
+                files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True))]
                 if not files:
                     raise FileNotFoundError(f"No MPAS output files found under: {data_dir}")
                 if len(files) < 2:
@@ -247,7 +248,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             ValueError: If dataset not loaded, variable not found, variable lacks vertical dimension, or level specification is invalid.
         """
         if self.dataset is None:
-            raise ValueError("No 3D dataset loaded. Call load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_3D_MSG)
         
         if var_name not in self.dataset.data_vars:
             available_vars = list(self.dataset.data_vars.keys())
@@ -393,7 +394,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             ValueError: If dataset not loaded, variable not found, or variable lacks vertical dimension structure.
         """
         if self.dataset is None:
-            raise ValueError("Dataset not loaded. Call load_3d_data() first.")
+            raise ValueError(DATASET_NOT_LOADED_3D_MSG)
         
         if var_name not in self.dataset.data_vars:
             raise ValueError(f"Variable '{var_name}' not found in dataset")
@@ -467,7 +468,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
                 if not np.all(np.isfinite(mean_pressure_levels)) or np.nanmin(mean_pressure_levels) <= 0:
                     idx = np.arange(len(mean_pressure_levels))
-                    good_idx = np.where(np.isfinite(mean_pressure_levels) & (mean_pressure_levels > 0))[0]
+                    good_idx = np.nonzero(np.isfinite(mean_pressure_levels) & (mean_pressure_levels > 0))[0]
 
                     if good_idx.size >= 2:
                         mean_pressure_levels = np.interp(idx, good_idx, mean_pressure_levels[good_idx])

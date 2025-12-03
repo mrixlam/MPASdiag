@@ -348,7 +348,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         path_in_lat = (min(path_lats[0], path_lats[-1]) >= np.min(lat_coords) and max(path_lats[0], path_lats[-1]) <= np.max(lat_coords))
 
         if not (path_in_lon and path_in_lat):
-            print(f"WARNING: Cross-section path extends outside grid domain!")
+            print("WARNING: Cross-section path extends outside grid domain!")
             print(f"  Longitude OK: {path_in_lon}, Latitude OK: {path_in_lat}")
         
         print(f"Interpolating {var_name} data along cross-section...")

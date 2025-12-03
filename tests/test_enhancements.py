@@ -66,6 +66,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
+import math
 
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
@@ -204,7 +205,7 @@ class TestConditionalTimeDisplay(unittest.TestCase):
         self.assertIn("Valid Time: 20240917T03", title_text)
         
         corner_text_calls = [call for call in text_calls 
-                           if len(call[0]) >= 3 and call[0][1] == 0.98 and call[0][2] == 0.02]
+                   if len(call[0]) >= 3 and math.isclose(call[0][1], 0.98, abs_tol=1e-6) and math.isclose(call[0][2], 0.02, abs_tol=1e-6)]
         self.assertEqual(len(corner_text_calls), 0, "Corner text should not be displayed when time is in title")
     
     def test_custom_title_without_time(self) -> None:

@@ -215,7 +215,7 @@ def simulate_workload() -> None:
             print("\nWarning: Statistics not available")
             return
         
-        print(f"\nDummy workload completed:")
+        print("\nDummy workload completed:")
         print(f"  Tasks: {stats.total_tasks}")
         print(f"  Success: {stats.completed_tasks}")
         print(f"  Wall time: {stats.total_time:.2f}s")
@@ -225,7 +225,7 @@ def simulate_workload() -> None:
         serial_time = 0.65 * stats.total_tasks  
         speedup = serial_time / stats.total_time
         
-        print(f"\nPerformance metrics:")
+        print("\nPerformance metrics:")
         print(f"  Estimated serial time: {serial_time:.2f}s")
         print(f"  Parallel time: {stats.total_time:.2f}s")
         print(f"  Speedup: {speedup:.2f}x")

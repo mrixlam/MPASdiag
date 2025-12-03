@@ -361,9 +361,6 @@ python __init__.py
 ### Getting Help
 
 1. **Get help for any CLI tool**:
-## CLI Examples (common use cases)
-
-These compact examples show common commands you can run from a terminal.
    ```bash
    # Main unified CLI help
    mpasdiag --help

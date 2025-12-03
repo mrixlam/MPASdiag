@@ -199,7 +199,7 @@ def test_cache_lru_eviction() -> None:
     cache._variables['var2_t0'] = var2
     cache._access_count['var2_t0'] = 0
     
-    print(f"✓ Added 2 variables to cache (max=2)")
+    print("✓ Added 2 variables to cache (max=2)")
     print(f"  Cache size: {len(cache._variables)}")
     
     for _ in range(5):
@@ -213,7 +213,7 @@ def test_cache_lru_eviction() -> None:
     
     cache._evict_least_accessed()
     
-    print(f"✓ Added 3rd variable, triggered eviction")
+    print("✓ Added 3rd variable, triggered eviction")
     print(f"  Cache size after eviction: {len(cache._variables)}")
     
     assert 'var1_t0' not in cache._variables, "var1 should have been evicted!"
@@ -377,7 +377,7 @@ def test_cache_multiprocessing() -> None:
     if not result['success']:
         raise RuntimeError(f"Worker failed: {result.get('error', 'Unknown error')}")
     
-    print(f"✓ Worker process accessed cache successfully")
+    print("✓ Worker process accessed cache successfully")
     print(f"  Data size: {result['size']} points")
     print(f"  Checksums: lon_sum={result['lon_sum']:.2f}, lat_sum={result['lat_sum']:.2f}")
     

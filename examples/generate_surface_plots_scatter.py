@@ -60,8 +60,12 @@ def generate_real_data_plots() -> Optional[str]:
         processor = MPAS2DProcessor(grid_file, verbose=True)
         
         data_dir = os.path.dirname(data_file)
-        dataset = processor.load_2d_data(data_dir)        
-        data_ds = xr.open_dataset(data_file)
+        processor.load_2d_data(data_dir)
+
+        if hasattr(processor.dataset, 'ds'):
+            data_ds = processor.dataset.ds
+        else:
+            data_ds = processor.dataset
         
         surface_viz = MPASSurfacePlotter(figsize=(10, 12), dpi=300)
         precip_viz = MPASPrecipitationPlotter(figsize=(10, 12), dpi=300)
@@ -79,7 +83,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         t2m_data = data_ds.t2m[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, t2m_data, 't2m',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Temperature',
@@ -102,7 +106,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         mslp_data = data_ds.mslp[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, mslp_data, 'mslp',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS Mean Sea Level Pressure',
@@ -125,7 +129,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         q2_data = data_ds.q2[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, q2_data, 'q2',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Specific Humidity',
@@ -149,7 +153,7 @@ def generate_real_data_plots() -> Optional[str]:
         u10_data = data_ds.u10[0, :]
         v10_data = data_ds.v10[0, :]
 
-        _, ax = wind_viz.create_wind_plot(
+        _, _ = wind_viz.create_wind_plot(
             lon, lat, u10_data, v10_data,
             extent[0], extent[1], extent[2], extent[3],
             plot_type='barbs',
@@ -175,7 +179,7 @@ def generate_real_data_plots() -> Optional[str]:
         rainnc_data = data_ds.rainnc[0, :]
         total_precip = rainc_data + rainnc_data
 
-        _, ax = precip_viz.create_precipitation_map(
+        _, _ = precip_viz.create_precipitation_map(
             lon, lat, total_precip,
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS Total Precipitation',

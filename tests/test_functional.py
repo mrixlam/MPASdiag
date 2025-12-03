@@ -82,8 +82,8 @@ def test_3d_processor() -> None:
     print("🧪 Testing MPAS3DProcessor Functionality")
     print("=" * 50)
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
-    data_dir = "data/u15k/mpasout"
+    invariant_file = "data/grids/x1.40962.init.nc"
+    data_dir = "data/u120k/mpasout"
     
     try:
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
@@ -147,8 +147,8 @@ def test_backward_compatibility() -> None:
     print("🧪 Testing Backward Compatibility")
     print("=" * 50)
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
-    data_dir = "data/u15k/diag"
+    invariant_file = "data/grids/x1.40962.init.nc"
+    data_dir = "data/u120k/diag"
     
     try:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor

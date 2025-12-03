@@ -200,7 +200,7 @@ class PrecipitationDiagnostics:
             else:
                 if self.verbose:
                     print(f"Warning: Time index {time_index} < required {accum_hours}-hour lookback")
-                    print(f"Creating zero precipitation field for insufficient data")
+                    print("Creating zero precipitation field for insufficient data")
                 
                 zero_precip = sample_data * 0.0  
                 zero_precip.attrs.update({

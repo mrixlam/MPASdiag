@@ -102,7 +102,7 @@ def test_axis_formatting() -> None:
         test_pressure, 'pressure', mock_processor, 0
     )
 
-    print(f"✅ Pressure to height conversion successful")
+    print("✅ Pressure to height conversion successful")
     print(f"   Input pressure range: {test_pressure.min():.0f} - {test_pressure.max():.0f} Pa")
     print(f"   Output height range: {height_coords.min():.1f} - {height_coords.max():.1f} km")
     print(f"   Coordinate type: {coord_type}")
@@ -111,10 +111,10 @@ def test_axis_formatting() -> None:
     assert height_coords.max() > height_coords.min(), "Height conversion should produce increasing values"
     
     print("   ✅ Height conversion produces reasonable values")
-    print(f"\n✅ Cross-section axis modifications appear to be working correctly!")
-    print(f"   - X-axis now uses longitude coordinates")
-    print(f"   - Y-axis uses height in km with lowest elevation at bottom")
-    print(f"   - Pressure coordinates are converted to approximate height")
+    print("\n✅ Cross-section axis modifications appear to be working correctly!")
+    print("   - X-axis now uses longitude coordinates")
+    print("   - Y-axis uses height in km with lowest elevation at bottom")
+    print("   - Pressure coordinates are converted to approximate height")
 
 def main() -> int:
     """

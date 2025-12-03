@@ -44,6 +44,7 @@ Version: 1.0.0
 import sys
 import os
 import numpy as np
+import math
 import pytest
 from typing import cast, Any
 from pathlib import Path
@@ -98,13 +99,13 @@ def test_great_circle_path_generation() -> None:
     assert len(lats) == num_points
     assert len(distances) == num_points
     
-    assert abs(lons[0] - start_point[0]) < 0.01
-    assert abs(lats[0] - start_point[1]) < 0.01
-    assert abs(lons[-1] - end_point[0]) < 0.01
-    assert abs(lats[-1] - end_point[1]) < 0.01
+    assert math.isclose(lons[0], start_point[0], abs_tol=0.01)
+    assert math.isclose(lats[0], start_point[1], abs_tol=0.01)
+    assert math.isclose(lons[-1], end_point[0], abs_tol=0.01)
+    assert math.isclose(lats[-1], end_point[1], abs_tol=0.01)
     
     assert np.all(np.diff(distances) >= 0)
-    assert distances[0] == 0.0
+    assert math.isclose(distances[0], 0.0, abs_tol=1e-6)
     assert distances[-1] > 0.0
     
     print("Great circle path generation test passed!")
@@ -204,7 +205,6 @@ def test_input_validation() -> None:
         assert False, "Should have raised ValueError for invalid processor"
     except ValueError as e:
         assert "MPAS3DProcessor" in str(e)
-        print("Input validation test passed!")
         print("Input validation test passed!")
 
 

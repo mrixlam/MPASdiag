@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 from .utils_config import MPASConfig
+from .constants import DIAG_GLOB
 
 
 class FileManager:
@@ -233,15 +234,15 @@ class FileManager:
             errors.append(f"Data path is not a directory: {config.data_dir}")
 
         if getattr(config, "data_dir", None) and os.path.exists(config.data_dir):
-            data_files = FileManager.find_files(config.data_dir, "diag*.nc", recursive=False)
+            data_files = FileManager.find_files(config.data_dir, DIAG_GLOB, recursive=False)
             if not data_files:
                 diag_sub = os.path.join(config.data_dir, 'diag')
                 mpasout_sub = os.path.join(config.data_dir, 'mpasout')
-                data_files = FileManager.find_files(diag_sub, "diag*.nc", recursive=False)
+                data_files = FileManager.find_files(diag_sub, DIAG_GLOB, recursive=False)
                 if not data_files:
-                    data_files = FileManager.find_files(mpasout_sub, "diag*.nc", recursive=False)
+                    data_files = FileManager.find_files(mpasout_sub, DIAG_GLOB, recursive=False)
             if not data_files:
-                data_files = FileManager.find_files(config.data_dir, "diag*.nc", recursive=True)
+                data_files = FileManager.find_files(config.data_dir, DIAG_GLOB, recursive=True)
             if not data_files:
                 errors.append(f"No diagnostic files found in: {config.data_dir}")
 

@@ -59,11 +59,14 @@ def generate_real_data_plots() -> Optional[str]:
         processor = MPAS2DProcessor(grid_file, verbose=True)
         
         data_dir = os.path.dirname(data_file)
-        dataset = processor.load_2d_data(data_dir)        
-        data_ds = xr.open_dataset(data_file)
+        processor.load_2d_data(data_dir)
+
+        if hasattr(processor.dataset, 'ds'):
+            data_ds = processor.dataset.ds
+        else:
+            data_ds = processor.dataset
         
         surface_viz = MPASSurfacePlotter(figsize=(10, 12), dpi=100)
-        precip_viz = MPASPrecipitationPlotter(figsize=(10, 12), dpi=100)
         
         lon, lat = processor.extract_spatial_coordinates()
         extent = [-180.0, 180.0, -90.0, 90.0]
@@ -77,7 +80,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         t2m_data = data_ds.t2m[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, t2m_data, 't2m',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Temperature',
@@ -100,7 +103,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         mslp_data = data_ds.mslp[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, mslp_data, 'mslp',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS Mean Sea Level Pressure',
@@ -123,7 +126,7 @@ def generate_real_data_plots() -> Optional[str]:
     try:
         q2_data = data_ds.q2[0, :]
 
-        _, ax = surface_viz.create_surface_map(
+        _, _ = surface_viz.create_surface_map(
             lon, lat, q2_data, 'q2',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Specific Humidity',

@@ -222,12 +222,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             map_area = (lon_max - lon_min) * (lat_max - lat_min)
             point_density = len(precip_valid) / map_area if map_area > 0 else 0
             
-            if point_density > 1000:
-                alpha_val = 0.9   
-            elif point_density > 100:
-                alpha_val = 0.9   
-            else:
-                alpha_val = 0.9  
+            alpha_val = 0.9
             
             sort_indices = np.argsort(precip_valid)
             lon_sorted = lon_valid[sort_indices]

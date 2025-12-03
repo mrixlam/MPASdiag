@@ -434,7 +434,7 @@ class MPASParallelManager:
             elif self.backend == 'multiprocessing':
                 print(f"MPASParallelManager initialized in multiprocessing mode with {self.size} workers")
             else:
-                print(f"MPASParallelManager initialized in serial mode")
+                print("MPASParallelManager initialized in serial mode")
     
     def set_error_policy(self, policy: Union[str, ErrorPolicy]) -> None:
         """
@@ -550,7 +550,7 @@ class MPASParallelManager:
         """
         if self.verbose:
             print(f"\nProcessing {len(tasks)} tasks across {self.size} workers...")
-            print(f"Backend: Python multiprocessing")
+            print("Backend: Python multiprocessing")
             print(f"Error policy: {self.error_policy.value}")
         
         start_time = time.time()        
@@ -580,7 +580,7 @@ class MPASParallelManager:
                 if self.verbose:
                     print(f"Multiprocessing with '{ctx_method}' failed: {e}")
                     if ctx_method != ctx_methods[-1]:
-                        print(f"Trying next method...")
+                        print("Trying next method...")
                     else:
                         print("Falling back to serial execution")
                 
@@ -731,7 +731,7 @@ class MPASParallelManager:
         print(f"Total time:        {self.stats.total_time:.2f} seconds")
         
         if len(self.stats.worker_times) > 1:
-            print(f"\nPer-worker times:")
+            print("\nPer-worker times:")
             for rank, worker_time in sorted(self.stats.worker_times.items()):
                 print(f"  Rank {rank:2d}:  {worker_time:8.2f} seconds")
             print(f"\nLoad imbalance:    {100*self.stats.load_imbalance:.1f}%")

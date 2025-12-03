@@ -61,8 +61,8 @@ def create_complex_weather_map(
     Generate a publication-quality composite meteorological map at the 850 hPa pressure level.
     This function creates an advanced multi-variable visualization by combining specific humidity
     shading, geopotential height contours, and horizontal wind barbs into a single comprehensive
-        plot. The function automatically handles unit conversions and applies professional styling with
-        legends and annotations. It raises an error if required variables are missing.
+    plot. The function automatically handles unit conversions and applies professional styling with
+    legends and annotations. It raises an error if required variables are missing.
     
     Parameters:
         processor (MPAS2DProcessor): Processor instance for reading MPAS diagnostic fields and extracting 2D grids.
@@ -241,7 +241,8 @@ def main() -> Union[str, None]:
 
     os.makedirs(output_dir, exist_ok=True)
 
-    diag_files = glob.glob(os.path.join(data_dir, "diag*.nc")) if os.path.exists(data_dir) else []
+    from mpasdiag.processing.constants import DIAG_GLOB
+    diag_files = glob.glob(os.path.join(data_dir, DIAG_GLOB)) if os.path.exists(data_dir) else []
 
     if not os.path.exists(grid_file) or not diag_files:
         print("Data files not found. Update `grid_file` and `data_dir` to point to MPAS files.")

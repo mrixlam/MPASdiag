@@ -61,7 +61,7 @@ def create_zonal_wind_cross_section(
             u_var = u_candidates[0] if u_candidates else None
 
         if not u_var:
-            print("Zonal wind variable not found in dataset. Available vars:", available_vars[:20])
+            print(f"Zonal wind variable not found in dataset. Available vars: {available_vars[:20]}")
             return
 
         start_point = (90.0, 15.1)
@@ -69,7 +69,7 @@ def create_zonal_wind_cross_section(
 
         cross_section_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 10))
 
-        fig_h, ax_h = cross_section_plotter.create_vertical_cross_section(
+        _, _ = cross_section_plotter.create_vertical_cross_section(
             mpas_3d_processor=processor_3d,
             var_name=u_var,
             start_point=start_point,
@@ -86,7 +86,7 @@ def create_zonal_wind_cross_section(
             save_path=str(OUTPUT_DIR / f'mpasdiag_sample_plot_cross_section_{u_var.lower()}_height.png')
         )
 
-        fig_p, ax_p = cross_section_plotter.create_vertical_cross_section(
+        _, _ = cross_section_plotter.create_vertical_cross_section(
             mpas_3d_processor=processor_3d,
             var_name=u_var,
             start_point=start_point,
@@ -103,7 +103,7 @@ def create_zonal_wind_cross_section(
             save_path=str(OUTPUT_DIR / f'mpasdiag_sample_plot_cross_section_{u_var.lower()}_pressure.png')
         )
 
-        fig_m, ax_m = cross_section_plotter.create_vertical_cross_section(
+        _, _ = cross_section_plotter.create_vertical_cross_section(
             mpas_3d_processor=processor_3d,
             var_name=u_var,
             start_point=start_point,

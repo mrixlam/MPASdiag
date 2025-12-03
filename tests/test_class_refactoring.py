@@ -155,7 +155,7 @@ def test_instantiation() -> None:
     """
     print("\n=== Testing Class Instantiation ===")
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
+    invariant_file = "data/grids/x1.40962.init.nc"
     
     if not os.path.exists(invariant_file):
         print(f"⚠️  Invariant file not found: {invariant_file}")
@@ -198,7 +198,7 @@ def test_method_availability() -> None:
     """
     print("\n=== Testing Method Availability ===")
     
-    invariant_file = "data/grids/x1.2621442.init.nc"
+    invariant_file = "data/grids/x1.40962.init.nc"
     
     if not os.path.exists(invariant_file):
         print(f"⚠️  Invariant file not found: {invariant_file}")
