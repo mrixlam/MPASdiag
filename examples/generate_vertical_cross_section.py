@@ -9,6 +9,7 @@ variables from MPAS model output using the new MPASVerticalCrossSectionPlotter c
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
 Email: mrislam@ucar.edu
+Date: November 2025
 Version: 1.0.0
 """
 
@@ -32,19 +33,14 @@ def create_zonal_wind_cross_section(
     data_directory: str = "../data/u60k/",
 ) -> None:
     """
-    Create and save vertical cross-section plots of the zonal wind component from MPAS output.
-    The function locates a suitable zonal wind variable in the provided dataset, extracts a transect
-    between two geographic points, and writes three cross-section plots (height, pressure, and
-    model-level coordinates) to the output directory. Contour levels, colormap, and plotting
-    options are chosen to highlight signed wind fields (e.g., diverging colormap and symmetric
-    contour ranges).
+    Create and save comprehensive vertical cross-section visualizations of zonal wind component through the atmosphere using three different vertical coordinate systems. This function demonstrates the complete workflow for generating atmospheric cross-sections from MPAS 3D model output by locating appropriate wind variables in the dataset, configuring a transect between specified geographic endpoints, and producing publication-quality plots with properly scaled contours and diverging colormaps. The function generates three separate cross-section plots using height AGL (above ground level), pressure, and model-level vertical coordinates to show the same atmospheric slice with different vertical perspectives. Each visualization uses a symmetric contour range with diverging colormap to highlight positive (eastward) and negative (westward) wind components. The resulting PNG files are saved to the configured output directory for inspection and further use.
 
     Parameters:
-        grid_file (str): Path to the MPAS grid/static file containing mesh topology and spatial coordinates.
-        data_directory (str): Directory containing MPAS 3D output files (e.g., mpasout*.nc).
+        grid_file (str): Absolute or relative path to MPAS grid initialization file containing mesh topology, cell connectivity, and spatial coordinate information (default: "../data/grids/x1.163842.init.nc").
+        data_directory (str): Directory path containing MPAS 3D atmospheric output files in mpasout*.nc format with time-varying fields (default: "../data/u60k/").
 
     Returns:
-        None: This function does not return a value. It saves generated PNG files to the configured output directory.
+        None
     """
     
     print("\n=== Advanced Cross-Section: Wind Speed ===")
@@ -126,16 +122,13 @@ def create_zonal_wind_cross_section(
 
 def main() -> int:
     """
-    Run the vertical cross-section demonstration examples if required MPAS files are present.
-    The function validates that the grid and data files exist, prints user guidance if files are missing,
-    and then runs the example routines while capturing and returning an appropriate exit code.
-    It is designed to be used as the script entry point for command-line execution.
+    Execute the vertical cross-section demonstration workflow validating file availability and orchestrating example routines with error handling. This entry point function performs prerequisite validation by checking for the existence of required MPAS grid and data files, provides helpful diagnostic messages to users when files are missing with instructions for proper configuration, and invokes the cross-section generation examples while capturing exceptions for graceful error reporting. The function is designed as the primary script entry point for command-line execution and returns standard Unix exit codes for integration with shell scripts and automation workflows. Successful execution produces multiple cross-section visualization files in the designated output directory.
 
     Parameters:
         None
 
     Returns:
-        int: Exit code (0 on success, 1 on missing files or execution error).
+        int: Unix exit status code where 0 indicates successful completion with all cross-sections generated, and 1 indicates missing prerequisite files or execution errors.
     """
     example_grid_file = "../data/grids/x1.163842.init.nc"
 

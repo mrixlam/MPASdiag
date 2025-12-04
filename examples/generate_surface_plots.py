@@ -33,14 +33,13 @@ from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 
 def generate_real_data_plots() -> Optional[str]:
     """
-    Generate a comprehensive suite of publication-ready meteorological plots from real MPAS diagnostic data.
-    This function orchestrates the complete plotting workflow by loading MPAS grid and diagnostic files,
-    initializing specialized visualizers for different variable types, and generating professional plots
-    for temperature, pressure, humidity, wind, precipitation, composite 850 hPa analysis, and surface
-    variables with automatic unit conversion, branding, and high-resolution output to organized subdirectories.
-    
+    Generate a comprehensive suite of publication-ready meteorological surface plots from MPAS atmospheric model diagnostic output data. This function orchestrates the complete visualization workflow by loading MPAS grid topology and diagnostic files, initializing the MPAS2DProcessor for coordinate extraction and data management, and creating specialized MPASSurfacePlotter instances for professional visualization. The function systematically generates three primary surface meteorological plots: 2-meter temperature with automatic Kelvin to Celsius conversion, mean sea level pressure with proper unit handling and contour formatting, and 2-meter specific humidity with scientific notation. Each plot includes automatic unit conversion based on CF conventions, professional branding with timestamp and institution logos, enhanced scientific notation formatting for readability, and high-resolution 300 DPI output suitable for publications. All generated PNG files are saved to the configured testPlot output directory with descriptive filenames.
+
+    Parameters:
+        None
+
     Returns:
-        Optional[str]: Path to the output directory containing all generated plots when successful, or None if data loading or plotting encounters errors.
+        Optional[str]: Absolute path string to the output directory containing all successfully generated plot files, or None if data loading failures or plotting errors occur during execution.
     """
     
     print("=" * 80)
@@ -49,10 +48,10 @@ def generate_real_data_plots() -> Optional[str]:
     print()
     
     # Plot type: 'contour' for line contours, 'contourf' for filled contours
-    plotType = 'contourf'
+    plot_type = 'contourf'
     
-    grid_file = "../data/grids/x1.2621442.init.nc"
-    data_file = "../data/u15k/diag/diag.2024-09-17_03.00.00.nc"
+    grid_file = "../data/grids/x1.40962.init.nc"
+    data_file = "../data/u120k/diag/diag.2024-09-17_02.00.00.nc"
     output_dir = Path("testPlot")
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -87,13 +86,13 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, t2m_data, 't2m',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Temperature',
-            plot_type=plotType,
+            plot_type=plot_type,
             data_array=t2m_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / f"mpasdiag_sample_plot_t2m_{plotType}.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_t2m_{plot_type}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()
@@ -110,13 +109,13 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, mslp_data, 'mslp',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS Mean Sea Level Pressure',
-            plot_type=plotType,
+            plot_type=plot_type,
             data_array=mslp_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / f"mpasdiag_sample_plot_mslp_{plotType}.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_mslp_{plot_type}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()
@@ -133,13 +132,13 @@ def generate_real_data_plots() -> Optional[str]:
             lon, lat, q2_data, 'q2',
             extent[0], extent[1], extent[2], extent[3],
             title='MPAS 2-meter Specific Humidity',
-            plot_type=plotType,
+            plot_type=plot_type,
             data_array=q2_data
         )
 
         surface_viz.add_timestamp_and_branding()
 
-        output_path = output_dir / f"mpasdiag_sample_plot_q2_{plotType}.png"
+        output_path = output_dir / f"mpasdiag_sample_plot_q2_{plot_type}.png"
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"✅ Saved: {output_path}")
         plt.close()

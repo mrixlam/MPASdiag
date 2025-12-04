@@ -78,6 +78,8 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     lat_max = kwargs['lat_max']
     var_name = kwargs['var_name']
     accum_period = kwargs['accum_period']
+    plot_type = kwargs.get('plot_type', 'scatter')
+    grid_resolution = kwargs.get('grid_resolution', None)
     file_prefix = kwargs['file_prefix']
     formats = kwargs['formats']
     custom_title_template = kwargs.get('custom_title_template')
@@ -138,6 +140,8 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         lon_min, lon_max, lat_min, lat_max,
         title=title,
         accum_period=accum_period,
+        plot_type=plot_type,
+        grid_resolution=grid_resolution,
         colormap=colormap,
         levels=levels,
         data_array=precip_data,
@@ -356,18 +360,18 @@ def _process_parallel_results(
     var_info: Optional[str] = None
 ) -> List[str]:
     """
-    Process and report results from parallel batch processing operations with comprehensive timing statistics. This helper function aggregates results from parallel workers, collects timing metrics, computes statistics, and generates detailed performance reports. It handles both successful and failed tasks, accumulates timing data across all processed timesteps, and calculates min/max/mean/total statistics for each processing phase. The function provides formatted console output with status summaries, timing breakdowns, and parallel execution metrics including speedup and load imbalance.
+    Aggregate and report results from distributed parallel batch processing operations with detailed timing analysis and performance metrics. This helper function collects results from all parallel workers, extracts timing information for each processing phase, computes comprehensive statistics across all timesteps, and generates formatted performance reports with status summaries. It processes both successful and failed tasks, accumulates timing data across data extraction, plotting, and saving phases, and calculates minimum, maximum, mean, and total execution times for each phase. The function outputs formatted console reports showing task completion status, detailed timing breakdowns per processing stage, and overall parallel execution metrics including speedup potential and load imbalance factors.
 
     Parameters:
-        results (List[Any]): List of result objects from parallel_map containing success status, output files, and timing data.
-        time_indices (List[int]): List of timestep indices that were processed in parallel.
-        output_dir (str): Directory path where output files were saved.
-        manager (MPASParallelManager): Parallel manager instance for accessing execution statistics.
-        processing_type (str): Type of processing performed - 'PRECIPITATION' or 'SURFACE' for report headers.
-        var_info (Optional[str]): Additional variable information for report header (default: None).
+        results (List[Any]): List of result objects from parallel_map calls containing success status flags, generated output file paths, and timing dictionaries for each completed task.
+        time_indices (List[int]): List of integer timestep indices that were distributed across parallel workers for processing.
+        output_dir (str): Absolute or relative directory path where all output visualization files were saved during processing.
+        manager (MPASParallelManager): Active parallel manager instance providing access to execution statistics, load balancing metrics, and worker performance data.
+        processing_type (str): Processing operation type identifier string displayed in report headers, typically 'PRECIPITATION', 'SURFACE', or 'CROSS-SECTION'.
+        var_info (Optional[str]): Optional additional variable-specific information string to display in report header for context (default: None).
 
     Returns:
-        List[str]: List of successfully created output file paths.
+        List[str]: List of successfully generated output file paths collected from all parallel workers.
     """
     created_files = []
     successful = 0
@@ -461,6 +465,8 @@ class ParallelPrecipitationProcessor:
         lat_max: float,
         var_name: str = 'rainnc',
         accum_period: str = 'a01h',
+        plot_type: str = 'scatter',
+        grid_resolution: Optional[float] = None,
         file_prefix: str = 'mpas_precipitation_map',
         formats: List[str] = ['png'],
         custom_title_template: Optional[str] = None,
@@ -482,6 +488,8 @@ class ParallelPrecipitationProcessor:
             lat_max (float): Maximum latitude for map spatial extent in degrees.
             var_name (str): Name of precipitation variable in dataset (default: 'rainnc').
             accum_period (str): Accumulation period identifier like 'a01h' or 'a24h' (default: 'a01h').
+            plot_type (str): Rendering method - 'scatter' for direct cell display or 'contourf' for interpolated smooth fields (default: 'scatter').
+            grid_resolution (Optional[float]): Target grid resolution in degrees for contourf interpolation (default: None uses adaptive).
             file_prefix (str): Prefix string for output filenames (default: 'mpas_precipitation_map').
             formats (List[str]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
             custom_title_template (Optional[str]): Custom template string for plot titles (default: None).
@@ -531,6 +539,8 @@ class ParallelPrecipitationProcessor:
             'lat_max': lat_max,
             'var_name': var_name,
             'accum_period': accum_period,
+            'plot_type': plot_type,
+            'grid_resolution': grid_resolution,
             'file_prefix': file_prefix,
             'formats': formats,
             'custom_title_template': custom_title_template,
@@ -794,16 +804,19 @@ class ParallelCrossSectionProcessor:
         return None
 
 
-def auto_batch_processor(use_parallel: Optional[bool] = None, **kwargs) -> bool:
+def auto_batch_processor(
+    use_parallel: Optional[bool] = None,
+    **kwargs: Any
+) -> bool:
     """
-    Automatically select between parallel and serial batch processing modes based on runtime environment. This convenience function detects MPI availability and the number of available processes to determine the optimal execution strategy. When use_parallel is None, it attempts to import mpi4py and checks if multiple processes are available via COMM_WORLD. If MPI is not available or only a single process is running, it defaults to serial mode. Users can override auto-detection by explicitly passing True or False. Returns the selected mode as a boolean for downstream processing decisions.
+    Automatically detect and select optimal batch processing mode by analyzing runtime environment and MPI availability. This utility function intelligently chooses between parallel MPI-based execution and serial single-process execution based on detected system capabilities and configuration. When use_parallel is None, the function attempts to import mpi4py and queries MPI.COMM_WORLD to check if multiple processes are available for distributed computation. If MPI is unavailable or only a single process is detected, the function defaults to serial processing mode. Users can explicitly override auto-detection by providing True for forced parallel mode or False for forced serial mode.
 
     Parameters:
-        use_parallel (Optional[bool]): Explicit mode selection - True for parallel, False for serial, None for auto-detection based on MPI environment.
-        **kwargs (dict): Additional arguments to pass to batch processors (currently unused but reserved for future extensibility).
+        use_parallel (Optional[bool]): Explicit processing mode override - True forces parallel MPI execution, False forces serial single-process execution, None enables automatic detection based on MPI environment (default: None).
+        **kwargs (Any): Additional keyword arguments reserved for future extensibility, currently unused but available for passing extra configuration to batch processors.
 
     Returns:
-        bool: True if parallel processing should be used, False for serial execution.
+        bool: Boolean flag indicating selected processing mode - True for parallel MPI-based distributed processing, False for serial single-process execution.
     """
     if use_parallel is None:
         try:

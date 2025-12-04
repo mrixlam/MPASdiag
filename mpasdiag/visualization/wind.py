@@ -32,6 +32,7 @@ from mpasdiag.processing.utils_geog import MPASGeographicUtils
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.processing.utils_unit import UnitConverter
+from mpasdiag.processing.remapping import remap_mpas_to_latlon
 
 
 class MPASWindPlotter(MPASVisualizer):
@@ -39,28 +40,28 @@ class MPASWindPlotter(MPASVisualizer):
     Specialized plotter for creating professional wind vector visualizations and wind overlay capabilities for MPAS atmospheric model output including both 2D surface winds and 3D winds at pressure levels. This class extends MPASVisualizer to provide comprehensive wind plotting functionality supporting wind barbs (meteorological convention showing speed and direction with flags), wind arrows (vector representation), and flexible overlay configurations for superimposing wind vectors on existing surface variable maps (temperature, pressure, moisture plots). The plotter handles automatic extraction of 2D wind fields from 3D datasets at specified pressure levels or model layers, computes wind speed and direction from u/v components, performs data subsampling for performance optimization on high-resolution meshes, and provides geographic map setup with coastlines, borders, and gridlines. Wind plots include automatic statistics (mean, maximum speed) in titles, configurable vector scaling and density, and seamless integration with MPASSurfacePlotter for creating multi-variable diagnostic plots.
     """
     
-    def __init__(self, figsize: Tuple[float, float] = (12, 10), dpi: int = 100):
+    def __init__(self, figsize: Tuple[float, float] = (12, 10), dpi: int = 100) -> None:
         """
-        Initializes the wind plotter with figure dimensions and resolution settings for creating
-        cartographic wind visualizations. This constructor inherits from MPASVisualizer to establish
-        the base plotting framework and configures default figure size and DPI for high-quality
-        publication-ready wind barb and arrow plots with proper map projections.
+        Initialize the wind plotter with customized figure dimensions and resolution for professional cartographic wind visualizations. This constructor inherits from the MPASVisualizer base class to establish the foundational plotting framework with matplotlib and cartopy integration. The method configures default figure size optimized for publication-quality wind barb and arrow plots with proper map projections. These settings provide appropriate canvas dimensions for displaying wind vectors with geographic features including coastlines, borders, and gridlines. The DPI parameter ensures high-resolution output suitable for both screen display and print publication.
 
         Parameters:
-            figsize (Tuple[int, int]): Figure dimensions in inches as (width, height) (default: (12, 10)).
-            dpi (int): Figure resolution in dots per inch for output quality (default: 300).
+            figsize (Tuple[float, float]): Figure dimensions in inches as (width, height) tuple for the plot canvas (default: (12, 10) for landscape orientation).
+            dpi (int): Figure resolution in dots per inch determining output image quality and detail level (default: 100 for screen display, use 300+ for publication).
 
         Returns:
-            None: Initializes instance attributes through parent class constructor.
+            None: This constructor initializes instance attributes through parent class inheritance and does not return a value.
         """
         super().__init__(figsize=figsize, dpi=dpi)
         
-    def convert_to_numpy(self, arr):
+    def convert_to_numpy(self, arr: Union[np.ndarray, xr.DataArray, Any]) -> np.ndarray:
         """
-        Convert xarray DataArray, dask array or other array-like to a NumPy ndarray.
-        If the object has a `.compute()` method (dask), call it first to avoid
-        creating boolean dask indexers later. If it's an xarray.DataArray, use
-        its `.values`. Otherwise attempt `np.asarray` as a fallback.
+        Convert various array-like objects including xarray DataArray and dask arrays to standard NumPy ndarray format. This utility method handles the heterogeneous data types commonly encountered when processing MPAS model output by providing a unified conversion pathway. The function prioritizes lazy evaluation by calling compute() on dask arrays before conversion to avoid creating inefficient boolean dask indexers during subsequent operations. For xarray DataArray objects, it extracts the underlying values attribute to obtain the raw NumPy array. For all other array-like objects, the method attempts conversion using np.asarray as a robust fallback mechanism.
+
+        Parameters:
+            arr (Union[np.ndarray, xr.DataArray, Any]): Input array-like object which may be a NumPy array, xarray DataArray, dask array, or any object supporting array conversion protocols.
+
+        Returns:
+            np.ndarray: Standard NumPy ndarray containing the array data with all lazy computations resolved and metadata stripped.
         """
         try:
             if isinstance(arr, xr.DataArray):
@@ -76,22 +77,26 @@ class MPASWindPlotter(MPASVisualizer):
 
         return np.asarray(arr)
     
-    def _prepare_wind_data(self, lon: np.ndarray, lat: np.ndarray, 
-                          u_data: np.ndarray, v_data: np.ndarray,
-                          subsample: int = 1) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _prepare_wind_data(
+        self,
+        lon: Union[np.ndarray, xr.DataArray],
+        lat: Union[np.ndarray, xr.DataArray],
+        u_data: Union[np.ndarray, xr.DataArray],
+        v_data: Union[np.ndarray, xr.DataArray],
+        subsample: int = 1
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Helper method to prepare wind data by converting to numpy, subsampling, and filtering invalid values.
-        This eliminates duplication between create_wind_plot and add_wind_overlay.
-        
+        Prepare wind component data for visualization by converting to NumPy arrays, applying spatial subsampling, and filtering invalid values. This internal helper method standardizes data preparation workflows to eliminate code duplication between create_wind_plot and add_wind_overlay methods. The function handles array type conversion from xarray or dask formats, reduces data density through systematic subsampling for performance optimization, and removes NaN values that would cause rendering errors. The subsampling operation selects every Nth point based on the subsample factor to reduce computational load while maintaining representative spatial coverage. Invalid data filtering ensures only finite wind vectors are passed to matplotlib rendering functions.
+
         Parameters:
-            lon (np.ndarray): Longitude array.
-            lat (np.ndarray): Latitude array.
-            u_data (np.ndarray): U-component wind data.
-            v_data (np.ndarray): V-component wind data.
-            subsample (int): Subsampling factor (default: 1).
-            
+            lon (Union[np.ndarray, xr.DataArray]): Longitude coordinate array in degrees east, may be NumPy array or xarray DataArray requiring conversion.
+            lat (Union[np.ndarray, xr.DataArray]): Latitude coordinate array in degrees north, may be NumPy array or xarray DataArray requiring conversion.
+            u_data (Union[np.ndarray, xr.DataArray]): U-component (eastward) wind data in m/s, may be NumPy array or xarray DataArray requiring conversion.
+            v_data (Union[np.ndarray, xr.DataArray]): V-component (northward) wind data in m/s, may be NumPy array or xarray DataArray requiring conversion.
+            subsample (int): Spatial subsampling stride factor where 1 means no subsampling, 2 means every other point, etc. (default: 1 for full resolution).
+
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Valid lon, lat, u, v arrays.
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Four-element tuple containing (longitude, latitude, u_component, v_component) as 1D NumPy arrays with NaN values removed and subsampling applied.
         """
         lon = self.convert_to_numpy(lon)
         lat = self.convert_to_numpy(lat)
@@ -115,23 +120,32 @@ class MPASWindPlotter(MPASVisualizer):
         
         return lon_valid, lat_valid, u_valid, v_valid
     
-    def _render_wind_vectors(self, ax: Axes, lon: np.ndarray, lat: np.ndarray,
-                            u_data: np.ndarray, v_data: np.ndarray,
-                            plot_type: str = 'barbs', color: str = 'black',
-                            scale: Optional[float] = None) -> None:
+    def _render_wind_vectors(
+        self,
+        ax: Axes,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        u_data: np.ndarray,
+        v_data: np.ndarray,
+        plot_type: str = 'barbs',
+        color: str = 'black',
+        scale: Optional[float] = None
+    ) -> None:
         """
-        Helper method to render wind vectors as barbs or arrows on a map axes.
-        This eliminates duplication between create_wind_plot and add_wind_overlay.
-        
+        Render wind vectors as meteorological barbs or directional arrows onto an existing cartographic axes. This internal helper method provides a unified interface for wind vector visualization, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function supports two rendering styles: wind barbs following meteorological conventions with flags indicating speed, and arrow vectors showing magnitude and direction through length and orientation. Vector rendering utilizes cartopy's PlateCarree coordinate transformation to ensure proper geographic positioning regardless of the axes projection. The method validates plot_type parameters and raises descriptive errors for unsupported visualization modes.
+
         Parameters:
-            ax (Axes): Map axes to draw on.
-            lon (np.ndarray): Longitude array.
-            lat (np.ndarray): Latitude array.
-            u_data (np.ndarray): U-component wind data.
-            v_data (np.ndarray): V-component wind data.
-            plot_type (str): 'barbs' or 'arrows' (default: 'barbs').
-            color (str): Vector color (default: 'black').
-            scale (Optional[float]): Arrow scale for quiver plots (default: None).
+            ax (Axes): Matplotlib axes object (typically GeoAxes) serving as the rendering target for wind vectors.
+            lon (np.ndarray): 1D longitude coordinate array in degrees east specifying vector base positions.
+            lat (np.ndarray): 1D latitude coordinate array in degrees north specifying vector base positions.
+            u_data (np.ndarray): 1D U-component (eastward) wind array in m/s determining horizontal vector components.
+            v_data (np.ndarray): 1D V-component (northward) wind array in m/s determining vertical vector components.
+            plot_type (str): Vector rendering style selector, either 'barbs' for meteorological wind barbs or 'arrows' for quiver arrows (default: 'barbs').
+            color (str): Matplotlib color specification for vector rendering, accepts named colors, hex codes, or RGB tuples (default: 'black').
+            scale (Optional[float]): Scaling factor for arrow length in quiver plots where larger values produce shorter arrows, unused for barbs (default: None which sets scale=200 for arrows).
+
+        Returns:
+            None: This method draws wind vectors directly onto the provided axes and does not return objects.
         """
         if plot_type == 'barbs':
             ax.barbs(lon, lat, u_data, v_data,
@@ -144,31 +158,104 @@ class MPASWindPlotter(MPASVisualizer):
         else:
             raise ValueError(f"plot_type must be 'barbs' or 'arrows', got '{plot_type}'")
     
-    def create_wind_plot(self,
-                        lon: np.ndarray,
-                        lat: np.ndarray,
-                        u_data: np.ndarray,
-                        v_data: np.ndarray,
-                        lon_min: float,
-                        lon_max: float,
-                        lat_min: float,
-                        lat_max: float,
-                        wind_level: str = "surface",
-                        plot_type: str = 'barbs',
-                        subsample: int = 1,
-                        scale: Optional[float] = None,
-                        show_background: bool = False,
-                        bg_colormap: str = "viridis",
-                        title: Optional[str] = None,
-                        time_stamp: Optional[datetime] = None,
-                        projection: str = 'PlateCarree',
-                        level_info: Optional[str] = None) -> Tuple[Figure, Axes]:
+    def _regrid_wind_components(
+        self,
+        lon: Union[np.ndarray, xr.DataArray],
+        lat: Union[np.ndarray, xr.DataArray],
+        u_data: Union[np.ndarray, xr.DataArray],
+        v_data: Union[np.ndarray, xr.DataArray],
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        grid_resolution: float,
+        regrid_method: str = 'linear'
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Creates a cartographic wind plot displaying wind vectors as barbs or arrows with geographic
-        features and automatic statistics. This method generates a complete wind visualization with
-        coastlines, borders, land/ocean features, regional map elements, and gridlines, supports
-        data subsampling for performance optimization, filters invalid values, and computes wind
-        speed statistics for the title. It returns a fully configured figure and axes for display or saving.
+        Regrid irregular MPAS wind components onto a regular latitude-longitude grid using spatial interpolation. This internal helper method transforms unstructured mesh data into structured grid format, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function processes U and V components independently through the remap_mpas_to_latlon utility, supporting both linear interpolation for smooth fields and nearest-neighbor for value preservation. Linear interpolation uses scipy's griddata with triangulation to create continuous wind fields suitable for contour visualization, while nearest-neighbor uses KDTree for computational efficiency. The method converts input data to xarray DataArray format when needed, performs remapping, creates 2D meshgrid coordinates, and flattens all arrays for vector plotting compatibility.
+
+        Parameters:
+            lon (np.ndarray): Original 1D longitude coordinate array in degrees east from the irregular MPAS mesh.
+            lat (np.ndarray): Original 1D latitude coordinate array in degrees north from the irregular MPAS mesh.
+            u_data (np.ndarray): U-component (eastward) wind data array in m/s on the irregular MPAS mesh.
+            v_data (np.ndarray): V-component (northward) wind data array in m/s on the irregular MPAS mesh.
+            lon_min (float): Western longitude boundary in degrees east for the target regular grid extent.
+            lon_max (float): Eastern longitude boundary in degrees east for the target regular grid extent.
+            lat_min (float): Southern latitude boundary in degrees north for the target regular grid extent.
+            lat_max (float): Northern latitude boundary in degrees north for the target regular grid extent.
+            grid_resolution (float): Spacing between grid points in degrees for both longitude and latitude dimensions of the target regular grid.
+            regrid_method (str): Spatial interpolation algorithm selector, either 'linear' for smooth continuous fields using triangulation or 'nearest' for value-preserving nearest-neighbor (default: 'linear').
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Four-element tuple containing (longitude, latitude, u_component, v_component) as flattened 1D NumPy arrays on the regular grid suitable for matplotlib vector plotting functions.
+        """
+        print(f"Regridding wind components to {grid_resolution}° grid using {regrid_method} interpolation...")
+        
+        u_xr = xr.DataArray(u_data, dims=['nCells']) if not isinstance(u_data, xr.DataArray) else u_data
+        v_xr = xr.DataArray(v_data, dims=['nCells']) if not isinstance(v_data, xr.DataArray) else v_data
+        
+        u_regridded = remap_mpas_to_latlon(
+            data=u_xr,
+            lon=lon,
+            lat=lat,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            resolution=grid_resolution,
+            method=regrid_method
+        )
+        
+        v_regridded = remap_mpas_to_latlon(
+            data=v_xr,
+            lon=lon,
+            lat=lat,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            resolution=grid_resolution,
+            method=regrid_method
+        )
+        
+        lon_grid = u_regridded.lon.values
+        lat_grid = u_regridded.lat.values
+        lon_2d, lat_2d = np.meshgrid(lon_grid, lat_grid)
+        
+        lon_flat = lon_2d.flatten()
+        lat_flat = lat_2d.flatten()
+        u_flat = u_regridded.values.flatten()
+        v_flat = v_regridded.values.flatten()
+        
+        print(f"Regridded to {u_regridded.shape[0]}x{u_regridded.shape[1]} grid")
+        
+        return lon_flat, lat_flat, u_flat, v_flat
+    
+    def create_wind_plot(
+        self,
+        lon: Union[np.ndarray, xr.DataArray],
+        lat: Union[np.ndarray, xr.DataArray],
+        u_data: Union[np.ndarray, xr.DataArray],
+        v_data: Union[np.ndarray, xr.DataArray],
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        wind_level: str = "surface",
+        plot_type: str = 'barbs',
+        subsample: int = 1,
+        scale: Optional[float] = None,
+        show_background: bool = False,
+        bg_colormap: str = "viridis",
+        title: Optional[str] = None,
+        time_stamp: Optional[datetime] = None,
+        projection: str = 'PlateCarree',
+        level_info: Optional[str] = None,
+        grid_resolution: Optional[float] = None,
+        regrid_method: str = 'linear'
+    ) -> Tuple[Figure, Axes]:
+        """
+        Creates a cartographic wind plot displaying wind vectors as barbs or arrows with geographic features and automatic statistics. This method generates a complete wind visualization with coastlines, borders, land/ocean features, regional map elements, and gridlines, supports data subsampling for performance optimization, filters invalid values, and computes wind speed statistics for the title. Optionally regrids wind components to a regular lat-lon grid using linear interpolation for smooth fields. It returns a fully configured figure and axes for display or saving.
 
         Parameters:
             lon (np.ndarray): 1D longitude array in degrees for vector positions.
@@ -189,6 +276,8 @@ class MPASWindPlotter(MPASVisualizer):
             time_stamp (Optional[datetime]): Timestamp for title annotation (default: None).
             projection (str): Cartopy projection name for map axes (default: 'PlateCarree').
             level_info (Optional[str]): Additional level descriptor for title (default: None).
+            grid_resolution (Optional[float]): Grid resolution in degrees for regridding wind components (default: None for no regridding).
+            regrid_method (str): Interpolation method for regridding - 'linear' for smooth fields or 'nearest' for preserving values (default: 'linear').
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib figure and GeoAxes containing the wind plot.
@@ -198,6 +287,13 @@ class MPASWindPlotter(MPASVisualizer):
                                         subplot_kw={'projection': proj})
         
         assert isinstance(self.ax, GeoAxes), "Axes must be a GeoAxes instance"
+        
+        if grid_resolution is not None:
+            lon, lat, u_data, v_data = self._regrid_wind_components(
+                lon, lat, u_data, v_data,
+                lon_min, lon_max, lat_min, lat_max,
+                grid_resolution, regrid_method
+            )
         
         lon_valid, lat_valid, u_valid, v_valid = self._prepare_wind_data(
             lon, lat, u_data, v_data, subsample
@@ -259,23 +355,29 @@ class MPASWindPlotter(MPASVisualizer):
         
         return self.fig, self.ax
     
-    def add_wind_overlay(self,
-                        ax: Axes,
-                        lon: np.ndarray,
-                        lat: np.ndarray,
-                        wind_config: Dict[str, Any]) -> None:
+    def add_wind_overlay(
+        self,
+        ax: Axes,
+        lon: Union[np.ndarray, xr.DataArray],
+        lat: Union[np.ndarray, xr.DataArray],
+        wind_config: Dict[str, Any],
+        lon_min: Optional[float] = None,
+        lon_max: Optional[float] = None,
+        lat_min: Optional[float] = None,
+        lat_max: Optional[float] = None
+    ) -> None:
         """
-        Adds wind vectors as an overlay onto an existing map axes using a configuration dictionary
-        for flexible styling and data selection. This method extracts U/V wind components from the
-        configuration, handles 3D data by selecting a specific vertical level, applies optional
-        subsampling for performance, filters invalid values, and renders wind barbs or arrows using
-        the specified plot type and styling parameters without creating a new figure.
+        Adds wind vectors as an overlay onto an existing map axes using a configuration dictionary for flexible styling and data selection. This method extracts U/V wind components from the configuration, handles 3D data by selecting a specific vertical level, optionally regrids wind components to a regular lat-lon grid using linear interpolation, applies subsampling for performance, filters invalid values, and renders wind barbs or arrows using the specified plot type and styling parameters without creating a new figure.
 
         Parameters:
             ax (Axes): Existing map axes (typically GeoAxes) to receive the wind overlay.
             lon (np.ndarray): 1D longitude array in degrees for wind vector positions.
             lat (np.ndarray): 1D latitude array in degrees for wind vector positions.
-            wind_config (Dict[str, Any]): Configuration dictionary with required keys 'u_data' (ndarray), 'v_data' (ndarray) and optional keys 'plot_type' ('barbs'/'arrows'), 'subsample' (int), 'color' (str), 'scale' (float), 'level_index' (int).
+            wind_config (Dict[str, Any]): Configuration dictionary with required keys 'u_data' (ndarray), 'v_data' (ndarray) and optional keys 'plot_type' ('barbs'/'arrows'), 'subsample' (int), 'color' (str), 'scale' (float), 'level_index' (int), 'grid_resolution' (float), 'regrid_method' (str).
+            lon_min (Optional[float]): Western longitude bound for regridding (required if grid_resolution specified).
+            lon_max (Optional[float]): Eastern longitude bound for regridding (required if grid_resolution specified).
+            lat_min (Optional[float]): Southern latitude bound for regridding (required if grid_resolution specified).
+            lat_max (Optional[float]): Northern latitude bound for regridding (required if grid_resolution specified).
 
         Returns:
             None: Draws wind overlay directly onto provided axes without returning objects.
@@ -287,6 +389,8 @@ class MPASWindPlotter(MPASVisualizer):
         color = wind_config.get('color', 'black')
         scale = wind_config.get('scale', None)
         level_index = wind_config.get('level_index', None)
+        grid_resolution = wind_config.get('grid_resolution', None)
+        regrid_method = wind_config.get('regrid_method', 'linear')
         
         u_data = self.convert_to_numpy(u_data)
         v_data = self.convert_to_numpy(v_data)
@@ -298,6 +402,16 @@ class MPASWindPlotter(MPASVisualizer):
             else:
                 u_data = u_data[:, -1]
                 v_data = v_data[:, -1]
+        
+        if grid_resolution is not None:
+            if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
+                raise ValueError("lon_min, lon_max, lat_min, lat_max must be provided when grid_resolution is specified")
+            
+            lon, lat, u_data, v_data = self._regrid_wind_components(
+                lon, lat, u_data, v_data,
+                lon_min, lon_max, lat_min, lat_max,
+                grid_resolution, regrid_method
+            )
         
         lon_valid, lat_valid, u_valid, v_valid = self._prepare_wind_data(
             lon, lat, u_data, v_data, subsample
@@ -312,25 +426,46 @@ class MPASWindPlotter(MPASVisualizer):
         
         print(f"Added {len(lon_valid)} wind vectors as overlay")
 
-    def create_batch_wind_plots(self,
-                                processor,
-                                output_dir: str,
-                                lon_min: float,
-                                lon_max: float,
-                                lat_min: float,
-                                lat_max: float,
-                                u_variable: str = 'u',
-                                v_variable: str = 'v',
-                                plot_type: str = 'barbs',
-                                formats: Optional[List[str]] = None,
-                                subsample: int = 1,
-                                scale: Optional[float] = None,
-                                show_background: bool = False) -> List[str]:
+    def create_batch_wind_plots(
+        self,
+        processor: Any,
+        output_dir: str,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        u_variable: str = 'u',
+        v_variable: str = 'v',
+        plot_type: str = 'barbs',
+        formats: Optional[List[str]] = None,
+        subsample: int = 1,
+        scale: Optional[float] = None,
+        show_background: bool = False,
+        grid_resolution: Optional[float] = None,
+        regrid_method: str = 'linear'
+    ) -> List[str]:
         """
-        Create a batch of wind plots from a processor's loaded dataset and save them to disk.
+        Generate a complete batch of wind vector plots from an MPAS processor's loaded dataset and save them to disk with configurable formatting. This high-level method orchestrates the entire batch plotting workflow including data extraction, optional regridding, visualization creation, and file output for all available time steps in the dataset. The function iterates through each time index, extracts U and V wind components, creates individual wind plots with consistent styling and map features, and saves them in user-specified formats with descriptive filenames. Optional regridding transforms irregular MPAS mesh data onto regular latitude-longitude grids for smoother vector field visualization. The method integrates with MPAS2DProcessor for data access and supports both wind barbs and arrows with customizable density through subsampling.
 
-        Parameters mirror the CLI usage and the processor API. Returns a list of created file paths
-        (base paths without extensions).
+        Parameters:
+            processor (Any): MPAS2DProcessor instance with pre-loaded wind dataset containing u and v variables across time dimension.
+            output_dir (str): Absolute or relative path to output directory where plot files will be saved with auto-generated filenames.
+            lon_min (float): Western longitude boundary in degrees east defining the map extent for all plots in the batch.
+            lon_max (float): Eastern longitude boundary in degrees east defining the map extent for all plots in the batch.
+            lat_min (float): Southern latitude boundary in degrees north defining the map extent for all plots in the batch.
+            lat_max (float): Northern latitude boundary in degrees north defining the map extent for all plots in the batch.
+            u_variable (str): NetCDF variable name for U-component (eastward) wind in the dataset (default: 'u' for standard MPAS convention).
+            v_variable (str): NetCDF variable name for V-component (northward) wind in the dataset (default: 'v' for standard MPAS convention).
+            plot_type (str): Vector visualization style selector, either 'barbs' for meteorological wind barbs or 'arrows' for quiver arrows (default: 'barbs').
+            formats (Optional[List[str]]): List of output file format extensions for saving plots such as 'png', 'pdf', 'jpg' (default: ['png'] for raster output).
+            subsample (int): Spatial subsampling stride factor to reduce vector density where 1 means full resolution and higher values skip points (default: 1).
+            scale (Optional[float]): Arrow length scaling factor for quiver plots where larger values produce shorter arrows (default: None which auto-scales or uses 200).
+            show_background (bool): Flag to enable wind speed magnitude as colored background field under vectors (default: False for vectors only).
+            grid_resolution (Optional[float]): Target grid spacing in degrees for regridding MPAS data to regular lat-lon grid (default: None disables regridding).
+            regrid_method (str): Spatial interpolation algorithm for regridding, either 'linear' for smooth fields or 'nearest' for value preservation (default: 'linear').
+
+        Returns:
+            List[str]: Ordered list of base file paths (without format extensions) for all successfully created wind plot files corresponding to each time step.
         """
         if formats is None:
             formats = ['png']
@@ -356,6 +491,8 @@ class MPASWindPlotter(MPASVisualizer):
                 scale=scale,
                 show_background=show_background,
                 time_stamp=None,
+                grid_resolution=grid_resolution,
+                regrid_method=regrid_method
             )
 
             try:
@@ -374,28 +511,26 @@ class MPASWindPlotter(MPASVisualizer):
 
         return created_files
     
-    def extract_2d_from_3d_wind(self,
-                               u_data_3d: np.ndarray,
-                               v_data_3d: np.ndarray,
-                               level_index: Optional[int] = None,
-                               level_value: Optional[float] = None,
-                               pressure_levels: Optional[np.ndarray] = None) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_2d_from_3d_wind(
+        self,
+        u_data_3d: Union[np.ndarray, xr.DataArray],
+        v_data_3d: Union[np.ndarray, xr.DataArray],
+        level_index: Optional[int] = None,
+        level_value: Optional[float] = None,
+        pressure_levels: Optional[np.ndarray] = None
+    ) -> Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]:
         """
-        Extracts 2D horizontal wind components from 3D wind data at a specified vertical level using
-        either direct indexing or pressure-based level matching. This utility method supports three
-        selection modes: explicit level index, pressure value matching (finding nearest level), or
-        default top-level extraction when no parameters are provided. It returns horizontal slices
-        of U and V wind components suitable for 2D plotting and overlay operations.
+        Extracts 2D horizontal wind components from 3D wind data at a specified vertical level using either direct indexing or pressure-based level matching. This utility method supports three selection modes: explicit level index, pressure value matching (finding nearest level), or default top-level extraction when no parameters are provided. It returns horizontal slices of U and V wind components suitable for 2D plotting and overlay operations.
 
         Parameters:
-            u_data_3d (np.ndarray): 3D U-component wind array with shape (cells, levels) in m/s.
-            v_data_3d (np.ndarray): 3D V-component wind array with shape (cells, levels) in m/s.
-            level_index (Optional[int]): Direct vertical level index for extraction (default: None).
-            level_value (Optional[float]): Target pressure level value in Pa or hPa for nearest match (default: None).
-            pressure_levels (Optional[np.ndarray]): Pressure level values for level_value matching (default: None).
+            u_data_3d (Union[np.ndarray, xr.DataArray]): 3D U-component wind array with shape (cells, levels) in m/s, may be NumPy or xarray.
+            v_data_3d (Union[np.ndarray, xr.DataArray]): 3D V-component wind array with shape (cells, levels) in m/s, may be NumPy or xarray.
+            level_index (Optional[int]): Direct vertical level index for extraction where 0 is bottom and higher values go upward (default: None).
+            level_value (Optional[float]): Target pressure level value in Pa or hPa for nearest match requiring pressure_levels array (default: None).
+            pressure_levels (Optional[np.ndarray]): 1D array of pressure level values corresponding to the vertical dimension for level_value matching (default: None).
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: 2D U and V wind component arrays at the selected level.
+            Tuple[Union[np.ndarray, xr.DataArray], Union[np.ndarray, xr.DataArray]]: Two-element tuple containing 2D U and V wind component arrays at the selected level, preserving input type.
         """
         if level_index is not None:
             return u_data_3d[:, level_index], v_data_3d[:, level_index]
@@ -406,15 +541,13 @@ class MPASWindPlotter(MPASVisualizer):
         
         return u_data_3d[:, -1], v_data_3d[:, -1]
     
-    def compute_wind_speed_and_direction(self,
-                                       u_data: np.ndarray,
-                                       v_data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_wind_speed_and_direction(
+        self,
+        u_data: Union[np.ndarray, xr.DataArray],
+        v_data: Union[np.ndarray, xr.DataArray]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Computes wind speed magnitude and meteorological direction from U and V wind components using
-        standard vector mathematics and meteorological conventions. This utility method calculates wind
-        speed as the vector magnitude (sqrt(u² + v²)) and converts mathematical angles to meteorological
-        direction (0-360° where 0 is north, 90 is east) using the transformation (270 - arctan2(v, u)) % 360.
-        It returns arrays matching the input shapes for element-wise wind analysis.
+        Computes wind speed magnitude and meteorological direction from U and V wind components using standard vector mathematics and meteorological conventions. This utility method calculates wind speed as the vector magnitude (sqrt(u² + v²)) and converts mathematical angles to meteorological direction (0-360° where 0 is north, 90 is east) using the transformation (270 - arctan2(v, u)) % 360. It returns arrays matching the input shapes for element-wise wind analysis.
 
         Parameters:
             u_data (np.ndarray): U-component (eastward) wind array in m/s.

@@ -38,11 +38,11 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 
 def setup_warnings() -> None:
     """
-    Configure warning filters to suppress common third-party library messages for cleaner output.
-    This function applies warning filters to silence known cartopy and shapely deprecation warnings
-    that do not affect functionality. By suppressing these routine warnings, the console output
-    becomes more readable and focuses on relevant diagnostic messages from the analysis workflow.
-    
+    Configure Python warning filters to suppress non-critical third-party library deprecation messages enabling cleaner console output during analysis workflows. This function applies targeted warning suppression filters for known cartopy projection warnings and shapely geometry deprecation messages that appear routinely but do not affect computational accuracy or visualization quality. By filtering these benign warnings from matplotlib's cartopy extension and shapely's geometry operations, the console output becomes more readable and allows users to focus on relevant diagnostic messages from the MPASdiag processing pipeline. This setup is particularly important for batch processing workflows where numerous plots are generated and warning verbosity can obscure important status messages.
+
+    Parameters:
+        None
+
     Returns:
         None
     """
@@ -58,21 +58,17 @@ def create_complex_weather_map(
     output_dir: str,
 ) -> str:
     """
-    Generate a publication-quality composite meteorological map at the 850 hPa pressure level.
-    This function creates an advanced multi-variable visualization by combining specific humidity
-    shading, geopotential height contours, and horizontal wind barbs into a single comprehensive
-    plot. The function automatically handles unit conversions and applies professional styling with
-    legends and annotations. It raises an error if required variables are missing.
-    
+    Generate a publication-quality composite meteorological analysis map at the 850 hPa pressure level combining multiple atmospheric variables into a unified visualization. This function orchestrates the complete composite plotting workflow by searching for appropriate humidity, wind component, and geopotential height variables in the MPAS diagnostic dataset, extracting spatial coordinates and data values for each field, and applying automatic unit conversions for professional meteorological display. The visualization layers specific humidity as filled contours with a sequential colormap for the background field, overlays geopotential height as black contour lines for synoptic pattern identification, and adds wind barbs subsampled to maintain visual clarity showing horizontal wind speed and direction. The function performs comprehensive error handling for missing variables and data extraction failures while generating high-resolution 300 DPI PNG output suitable for presentations and publications. This composite plot type is standard in operational meteorology for analyzing moisture transport, wind patterns, and synoptic-scale features.
+
     Parameters:
-        processor (MPAS2DProcessor): Processor instance for reading MPAS diagnostic fields and extracting 2D grids.
-        visualizer (MPASVisualizer): Visualization helper providing styling utilities and branding elements.
-        time_index (int or slice): Index or slice into the processor time dimension for selecting analysis time.
-        extent (tuple of float): Geographic domain as (lon_min, lon_max, lat_min, lat_max) in degrees.
-        output_dir (str): Directory path to save the generated PNG file.
-    
+        processor (MPAS2DProcessor): Initialized processor instance providing access to MPAS diagnostic fields with methods for variable extraction and coordinate retrieval.
+        visualizer (MPASSurfacePlotter): Surface plotting instance providing professional styling, overlay capabilities, timestamp branding, and output formatting.
+        time_index (Union[int, slice]): Integer index or slice object selecting the temporal snapshot from the dataset's time dimension for analysis.
+        extent (Tuple[float, float, float, float]): Geographic domain specification as (lon_min, lon_max, lat_min, lat_max) in decimal degrees defining the map boundaries.
+        output_dir (str): Directory path for saving the generated composite plot PNG file with timestamp-based filename.
+
     Returns:
-        str: Absolute path to the saved composite plot PNG file.
+        str: Absolute filesystem path to the saved high-resolution composite plot PNG file.
     """
     if isinstance(time_index, slice):
         time_index = 0 
@@ -214,13 +210,13 @@ def create_complex_weather_map(
 
 def main() -> Union[str, None]:
     """
-    Execute the complete 850 hPa composite analysis workflow from configuration to visualization.
-    This driver function orchestrates the entire composite plotting process including environment
-    setup, file path configuration, data loading, and visualization generation. The function
-        raises an error if required MPAS diagnostic files are unavailable, providing an informative message.
-    
+    Execute the complete 850 hPa composite meteorological analysis workflow from environment configuration through final visualization output. This driver function orchestrates the entire composite plotting pipeline including warning filter setup for cleaner console output, file path configuration for grid and diagnostic data sources, prerequisite validation checking for required MPAS files, data loading through MPAS2DProcessor initialization, visualizer instantiation with default styling, and invocation of the composite plot generation routine. The function performs comprehensive error checking to ensure grid initialization files and diagnostic output files exist before attempting data processing, providing informative error messages when files are missing. Upon successful execution, the function returns the filesystem path to the generated high-resolution composite plot suitable for operational meteorology applications.
+
+    Parameters:
+        None
+
     Returns:
-        Union[str, None]: Path to the generated composite plot image file, or None if creation fails.
+        Union[str, None]: Absolute filesystem path string to the generated composite weather map PNG file upon successful execution, or None if prerequisite files are missing or plot creation encounters errors.
     """
     setup_warnings()
 

@@ -36,6 +36,7 @@ from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
 from ..processing.utils_unit import UnitConverter
 from ..processing.utils_metadata import MPASFileMetadata
+from ..processing.remapping import remap_mpas_to_latlon
 from ..diagnostics.precipitation import PrecipitationDiagnostics
 
 warnings.filterwarnings('ignore', category=UserWarning, module='cartopy')
@@ -60,7 +61,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         """
         super().__init__(figsize, dpi)
     
-    def create_precip_colormap(self, accum: str = "a24h") -> Tuple[mcolors.ListedColormap, List[float]]:
+    def create_precip_colormap(
+        self,
+        accum: str = "a24h"
+    ) -> Tuple[mcolors.ListedColormap, List[float]]:
         """
         Create a discrete colormap and contour level specifications tailored for precipitation visualization with accumulation-period-specific color schemes. This method delegates to MPASVisualizationStyle to generate a ListedColormap and associated contour levels that follow meteorological conventions for precipitation display, using blue-to-purple color gradients optimized for rainfall intensity representation. The accumulation period string determines the contour level spacing and range, with finer intervals for hourly accumulations and broader intervals for daily totals. This colormap design ensures consistent, publication-quality precipitation visualization across all MPAS precipitation diagnostics, matching the original mpas_analysis module's precipitation color schemes for backward compatibility.
 
@@ -72,27 +76,31 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         """
         return MPASVisualizationStyle.create_precip_colormap(accum)
     
-    def create_precipitation_map(self, 
-                               lon: np.ndarray, 
-                               lat: np.ndarray, 
-                               precip_data: np.ndarray,
-                               lon_min: float, 
-                               lon_max: float, 
-                               lat_min: float, 
-                               lat_max: float,
-                               title: str = "MPAS Precipitation",
-                               accum_period: str = "a01h",
-                               colormap: Optional[str] = None,
-                               levels: Optional[List[float]] = None,
-                               clim_min: Optional[float] = None,
-                               clim_max: Optional[float] = None,
-                               projection: str = 'PlateCarree',
-                               time_end: Optional[datetime] = None,
-                               time_start: Optional[datetime] = None,
-                               data_array: Optional[xr.DataArray] = None,
-                               var_name: str = 'precipitation') -> Tuple[Figure, Axes]:
+    def create_precipitation_map(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        precip_data: np.ndarray,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        title: str = "MPAS Precipitation",
+        accum_period: str = "a01h",
+        plot_type: str = 'scatter',
+        colormap: Optional[str] = None,
+        levels: Optional[List[float]] = None,
+        clim_min: Optional[float] = None,
+        clim_max: Optional[float] = None,
+        projection: str = 'PlateCarree',
+        time_end: Optional[datetime] = None,
+        time_start: Optional[datetime] = None,
+        data_array: Optional[xr.DataArray] = None,
+        var_name: str = 'precipitation',
+        grid_resolution: Optional[float] = None
+    ) -> Tuple[Figure, Axes]:
         """
-        Create a professional cartographic precipitation map from MPAS unstructured mesh data with precipitation-specific color schemes and geographic context. This method implements the complete precipitation visualization workflow including unit conversion via UnitConverter, map projection setup with Cartopy, precipitation-specific colormap selection based on accumulation period, scatter plot rendering of MPAS cell values, discrete colorbar with meteorological contour levels, and geographic feature overlays (coastlines, borders, ocean, land). The method validates geographic extents, handles optional custom colormaps and contour levels, applies color limit clipping when specified, and adds time period annotations for accumulation context. This implementation maintains exact compatibility with the original mpas_analysis precipitation plotter while using modern MPASdiag visualization architecture.
+        Create a professional cartographic precipitation map from MPAS unstructured mesh data with precipitation-specific color schemes and geographic context. This method implements the complete precipitation visualization workflow including unit conversion via UnitConverter, map projection setup with Cartopy, precipitation-specific colormap selection based on accumulation period, flexible rendering with either scatter plot (direct MPAS cell values) or contourf (interpolated smooth fields via MPASRemapper), discrete colorbar with meteorological contour levels, and geographic feature overlays (coastlines, borders, ocean, land). The method validates geographic extents, handles optional custom colormaps and contour levels, applies color limit clipping when specified, and adds time period annotations for accumulation context. When plot_type='contourf', the method uses MPASRemapper's hybrid KDTree-xESMF approach for high-quality bilinear interpolation to regular grids.
 
         Parameters:
             lon (np.ndarray): 1D array of longitude coordinates in degrees [-180, 180] for MPAS mesh cell centers.
@@ -104,6 +112,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lat_max (float): Northern boundary of map extent in degrees.
             title (str): Plot title string, auto-generated from metadata if not provided (default: "MPAS Precipitation").
             accum_period (str): Accumulation period identifier for colormap selection (e.g., 'a01h', 'a24h') (default: "a01h").
+            plot_type (str): Rendering method - 'scatter' for direct cell display or 'contourf' for interpolated smooth fields (default: 'scatter').
             colormap (Optional[str]): Custom matplotlib colormap name overriding default precipitation colormap (default: None).
             levels (Optional[List[float]]): Custom contour levels overriding default precipitation levels (default: None).
             clim_min (Optional[float]): Minimum color limit to clip contour levels (default: None).
@@ -113,6 +122,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             time_start (Optional[datetime]): Start datetime for accumulation period, derived from time_end and accum_period if None (default: None).
             data_array (Optional[xr.DataArray]): Source xarray DataArray for metadata extraction (units, long_name attributes) (default: None).
             var_name (str): Variable name for metadata lookup and unit conversion (default: 'precipitation').
+            grid_resolution (Optional[float]): Target grid resolution in degrees for contourf interpolation (default: None uses adaptive).
 
         Returns:
             Tuple[Figure, Axes]: Two-element tuple containing (matplotlib_figure, cartopy_geoaxes) with rendered precipitation map.
@@ -120,6 +130,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Raises:
             ValueError: If geographic extent parameters are invalid (out of range or improperly ordered).
         """
+        if plot_type not in ['scatter', 'contourf']:
+            raise ValueError(f"plot_type must be 'scatter' or 'contourf', got '{plot_type}'")
+        
         if not (-180 <= lon_min <= 180 and -180 <= lon_max <= 180 and
                 -90 <= lat_min <= 90 and -90 <= lat_max <= 90 and
                 lon_max > lon_min and lat_max > lat_min):
@@ -215,35 +228,73 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lat_valid = lat_flat[valid_mask]
             precip_valid = precip_data_flat[valid_mask]
             
-            map_extent = (lon_min, lon_max, lat_min, lat_max)
-            fig_size = (self.figsize[0], self.figsize[1])
-            marker_size = self.calculate_adaptive_marker_size(map_extent, len(precip_valid), fig_size)
+            mappable = None
             
-            map_area = (lon_max - lon_min) * (lat_max - lat_min)
-            point_density = len(precip_valid) / map_area if map_area > 0 else 0
+            if plot_type == 'scatter':
+                map_extent = (lon_min, lon_max, lat_min, lat_max)
+                fig_size = (self.figsize[0], self.figsize[1])
+                marker_size = self.calculate_adaptive_marker_size(map_extent, len(precip_valid), fig_size)
+                
+                alpha_val = 0.9
+                
+                sort_indices = np.argsort(precip_valid)
+                lon_sorted = lon_valid[sort_indices]
+                lat_sorted = lat_valid[sort_indices]
+                precip_sorted = precip_valid[sort_indices]
+                
+                mappable = self.ax.scatter(lon_sorted, lat_sorted, c=precip_sorted, 
+                                       cmap=cmap, norm=norm, s=marker_size, alpha=alpha_val, 
+                                       transform=data_crs, edgecolors='none')
+                
+            elif plot_type == 'contourf':
+                print(f"Interpolating {len(precip_valid)} precipitation points using linear interpolation...")
+                
+                if grid_resolution is None:
+                    lon_range = lon_max - lon_min
+                    lat_range = lat_max - lat_min
+                    grid_resolution = max(lon_range / 100, lat_range / 100)
+                    grid_resolution = max(0.1, min(grid_resolution, 1.0))  
+                    print(f"Auto-selected grid resolution: {grid_resolution:.3f}°")
+                
+                data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+
+                remapped_precip = remap_mpas_to_latlon(
+                    data=data_xr,
+                    lon=lon_valid,
+                    lat=lat_valid,
+                    lon_min=lon_min,
+                    lon_max=lon_max,
+                    lat_min=lat_min,
+                    lat_max=lat_max,
+                    resolution=grid_resolution,
+                    method='linear'
+                )
+                
+                lon_grid = remapped_precip.lon.values
+                lat_grid = remapped_precip.lat.values
+                precip_grid = remapped_precip.values
+                
+                print(f"Remapped to {precip_grid.shape[0]}x{precip_grid.shape[1]} grid")
+                
+                mappable = self.ax.contourf(lon_grid, lat_grid, precip_grid, 
+                                          levels=color_levels_sorted,
+                                          cmap=cmap,
+                                          norm=norm,
+                                          transform=data_crs, extend='both')
             
-            alpha_val = 0.9
-            
-            sort_indices = np.argsort(precip_valid)
-            lon_sorted = lon_valid[sort_indices]
-            lat_sorted = lat_valid[sort_indices]
-            precip_sorted = precip_valid[sort_indices]
-            
-            scatter = self.ax.scatter(lon_sorted, lat_sorted, c=precip_sorted, 
-                                   cmap=cmap, norm=norm, s=marker_size, alpha=alpha_val, 
-                                   transform=data_crs, edgecolors='none')
-            
-            cbar = self.fig.colorbar(scatter, ax=self.ax, orientation='horizontal', extend='both',
-                                   pad=0.06, shrink=0.8, aspect=30)
-            cbar.set_label(f'Precipitation ({unit_label})', fontsize=12, fontweight='bold', labelpad=-50)
-            cbar.ax.tick_params(labelsize=8)
-            
-            if len(color_levels_sorted) <= 15:
-                cbar.set_ticks(color_levels_sorted)
-                cbar.set_ticklabels(self._format_ticks_dynamic(color_levels_sorted))
+            if mappable is not None:
+                cbar = self.fig.colorbar(mappable, ax=self.ax, orientation='horizontal', extend='both',
+                                       pad=0.06, shrink=0.8, aspect=30)
+                cbar.set_label(f'Precipitation ({unit_label})', fontsize=12, fontweight='bold', labelpad=-50)
+                cbar.ax.tick_params(labelsize=8)
+                
+                if len(color_levels_sorted) <= 15:
+                    cbar.set_ticks(color_levels_sorted)
+                    cbar.set_ticklabels(self._format_ticks_dynamic(color_levels_sorted))
         
         gl = self.ax.gridlines(crs=data_crs, draw_labels=True, 
                              linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+
         gl.top_labels = False
         gl.right_labels = False
         gl.xlabel_style = {'size': 10}
@@ -280,21 +331,25 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         
         return self.fig, self.ax
     
-    def create_batch_precipitation_maps(self, 
-                                      processor, 
-                                      output_dir: str,
-                                      lon_min: float, 
-                                      lon_max: float,
-                                      lat_min: float, 
-                                      lat_max: float,
-                                      var_name: str = 'rainnc',
-                                      accum_period: str = 'a01h',
-                                      file_prefix: str = 'mpas_precipitation_map',
-                                      formats: List[str] = ['png'],
-                                      custom_title_template: Optional[str] = None,
-                                      colormap: Optional[str] = None,
-                                      levels: Optional[List[float]] = None,
-                                      time_indices: Optional[List[int]] = None) -> List[str]:
+    def create_batch_precipitation_maps(
+        self,
+        processor: Any,
+        output_dir: str,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        var_name: str = 'rainnc',
+        accum_period: str = 'a01h',
+        plot_type: str = 'scatter',
+        grid_resolution: Optional[float] = None,
+        file_prefix: str = 'mpas_precipitation_map',
+        formats: List[str] = ['png'],
+        custom_title_template: Optional[str] = None,
+        colormap: Optional[str] = None,
+        levels: Optional[List[float]] = None,
+        time_indices: Optional[List[int]] = None
+    ) -> List[str]:
         """
         Generate precipitation maps for multiple time steps in batch processing mode with automatic accumulation calculation and file naming. This method iterates through time indices in the loaded MPAS dataset, extracts precipitation data at each time step, calculates accumulation periods by differencing with earlier time steps based on accum_period specification, creates individual precipitation maps using create_precipitation_map(), and saves each plot to output directory with standardized filenames encoding variable, accumulation type, and valid time. The batch processing handles time dimension detection, applies minimum time index constraints based on accumulation period requirements, and provides progress feedback for long-running batch operations. This workflow enables automated generation of complete precipitation analysis sequences matching the original mpas_analysis batch processing capabilities.
 
@@ -307,6 +362,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lat_max (float): Northern boundary of all maps in degrees.
             var_name (str): Precipitation variable name in dataset (e.g., 'rainnc', 'rainc') (default: 'rainnc').
             accum_period (str): Accumulation period identifier ('a01h', 'a03h', 'a06h', 'a12h', 'a24h') (default: 'a01h').
+            plot_type (str): Rendering method - 'scatter' for direct cell display or 'contourf' for interpolated smooth fields (default: 'scatter').
+            grid_resolution (Optional[float]): Target grid resolution in degrees for contourf interpolation (default: None uses adaptive).
             file_prefix (str): Prefix string for output filenames (default: 'mpas_precipitation_map').
             formats (List[str]): Output file format extensions (default: ['png']).
             custom_title_template (Optional[str]): Custom title template with {var_name}, {time_str} placeholders (default: None).
@@ -384,16 +441,19 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     title = custom_title_template.format(
                         var_name=var_name.upper(),
                         time_str=time_str,
-                        accum_period=accum_period
+                        accum_period=accum_period,
+                        plot_type=plot_type
                     )
                 else:
-                    title = f"MPAS Precipitation | VarType: {var_name.upper()} | Valid Time: {time_str}"
+                    title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
 
                 fig, ax = self.create_precipitation_map(
                     lon, lat, precip_data.values,
                     lon_min, lon_max, lat_min, lat_max,
                     title=title,
                     accum_period=accum_period,
+                    plot_type=plot_type,
+                    grid_resolution=grid_resolution,
                     time_end=time_end,
                     colormap=colormap,
                     levels=levels,
@@ -403,7 +463,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 
                 output_path = os.path.join(
                     output_dir, 
-                    f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_point"
+                    f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}"
                 )
                 
                 self.save_plot(output_path, formats=formats)
@@ -423,19 +483,21 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         print(f"\nBatch processing completed. Created {len(created_files)} files in: {output_dir}")
         return created_files
     
-    def create_precipitation_comparison_plot(self,
-                                           lon: np.ndarray,
-                                           lat: np.ndarray,
-                                           precip_data1: np.ndarray,
-                                           precip_data2: np.ndarray,
-                                           lon_min: float,
-                                           lon_max: float,
-                                           lat_min: float,
-                                           lat_max: float,
-                                           title1: str = "Precipitation 1",
-                                           title2: str = "Precipitation 2",
-                                           accum_period: str = "a01h",
-                                           projection: str = 'PlateCarree') -> Tuple[Figure, List[Axes]]:
+    def create_precipitation_comparison_plot(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        precip_data1: np.ndarray,
+        precip_data2: np.ndarray,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        title1: str = "Precipitation 1",
+        title2: str = "Precipitation 2",
+        accum_period: str = "a01h",
+        projection: str = 'PlateCarree'
+    ) -> Tuple[Figure, List[Axes]]:
         """
         Create side-by-side precipitation comparison plots for analyzing differences between two precipitation datasets or accumulation periods. This method generates a two-panel figure with synchronized map projections, color scales, and geographic extents to enable direct visual comparison of precipitation patterns from different model runs, accumulation periods, or observational datasets. Both panels share the same precipitation-specific colormap and contour levels determined by accum_period, use identical map projections and geographic features (coastlines, borders, ocean, land), and are rendered with consistent marker sizes for MPAS unstructured mesh cells. A shared colorbar is positioned between or below the panels to facilitate quantitative comparison of precipitation intensities across the two datasets.
 
@@ -560,8 +622,13 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         
         return self.fig, axes
     
-    def save_plot(self, output_path: str, formats: List[str] = ['png'],
-                  bbox_inches: str = 'tight', pad_inches: float = 0.1) -> None:
+    def save_plot(
+        self,
+        output_path: str,
+        formats: List[str] = ['png'],
+        bbox_inches: str = 'tight',
+        pad_inches: float = 0.1
+    ) -> None:
         """
         Save the current matplotlib figure to disk in one or more file formats with configurable bounding box and padding options. This method writes the active figure stored in self.fig to files using the provided base output path, appending format-specific extensions for each requested format in the formats list. The bbox_inches='tight' option removes excess whitespace around the plot, while pad_inches controls additional padding around the figure edges. Multiple formats can be specified to generate publication-ready outputs (PNG for web/presentations, PDF/SVG for print), with each file saved at the configured DPI resolution. The method prints confirmation messages for each saved file and safely handles cases where no figure is active by returning without error.
 
@@ -601,7 +668,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             self.fig = None
             self.ax = None
     
-    def _format_ticks_dynamic(self, ticks: List[float]) -> List[str]:
+    def _format_ticks_dynamic(
+        self,
+        ticks: List[float]
+    ) -> List[str]:
         """
         Format axis tick labels dynamically with intelligent precision selection based on the numeric range and magnitude of tick values. This method delegates to MPASVisualizationStyle.format_ticks_dynamic() which analyzes the tick value array to determine appropriate decimal places and formatting style (scientific notation for very large/small values, fixed decimal for typical ranges). The dynamic formatting ensures tick labels are concise yet informative, avoiding excessive decimal places for large numbers while maintaining necessary precision for small values. This adaptive approach produces clean, professional axis labels across diverse data ranges encountered in meteorological visualizations, from millimeter-scale precipitation to large geographic coordinates.
 
@@ -613,7 +683,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         """
         return MPASVisualizationStyle.format_ticks_dynamic(ticks)
     
-    def apply_style(self, style_name: str = 'default') -> None:
+    def apply_style(
+        self,
+        style_name: str = 'default'
+    ) -> None:
         """
         Apply a named visualization style to the plotter and active figure for consistent professional appearance across all precipitation plots. This method delegates to the style_manager if available to apply registered matplotlib style configurations (fonts, colors, line widths, etc.), then sets figure and axes background colors to standard defaults (light gray for axes, white for figure background). Style application affects all subsequent plotting operations and can be used to implement organization-specific branding, publication requirements, or different visual themes for presentation vs print media. The method safely handles cases where no style_manager is configured or no figure/axes are active, making it suitable for initialization and runtime style switching.
 

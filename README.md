@@ -1,6 +1,6 @@
 # MPASdiag - MPAS Diagnostic Analysis Package
 
-A comprehensive Python package for analyzing and visualizing MPAS (Model for Prediction Across Scales) unstructured mesh model output data. This package provides tools for data processing, visualization, and analysis of MPAS atmospheric model simulations, including **precipitation analysis**, **surface variable plotting**, **wind vector visualization**, and **3D vertical cross-section analysis**.
+A comprehensive Python package for analyzing and visualizing MPAS (Model for Prediction Across Scales) unstructured mesh model output data with support for both serial and parallel processing workflows. This package provides specialized tools for atmospheric model diagnostics including precipitation accumulation analysis with configurable periods, 2D surface variable visualization using scatter plots and filled contours, horizontal wind vector plotting with barbs and arrows, and 3D vertical atmospheric cross-sections along arbitrary paths. The toolkit features automatic unit conversion following CF conventions, professional meteorological styling, memory-efficient data processing through lazy loading and chunking strategies, and extensible architecture with modular processors and plotters. Advanced capabilities include powerful remapping from unstructured MPAS meshes to regular latitude-longitude grids using xESMF and SciPy, MPI-based parallel batch processing for time series generation, comprehensive command-line interface with YAML configuration support, and flexible vertical coordinate systems (pressure, height, model levels) for 3D analysis. The package is designed for operational meteorology applications, climate model evaluation, and research workflows requiring publication-quality visualizations from MPAS atmospheric simulations.
 
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -55,14 +55,18 @@ pip install -e .
 The package exposes a small, focused programmatic API in the `mpasdiag` package. Below are common classes and a short example showing the typical workflow.
 
 ### Key classes
-- `mpasdiag.MPASConfig` — configuration container for CLI and programmatic runs
-- `mpasdiag.MPAS2DProcessor` — load and extract 2D (surface) fields from MPAS output
-- `mpasdiag.MPAS3DProcessor` — load and extract 3D atmospheric fields
-- `mpasdiag.diagnostics.PrecipitationDiagnostics` — compute precipitation diagnostics
-- `mpasdiag.visualization.MPASPrecipitationPlotter` — create precipitation maps
-- `mpasdiag.visualization.MPASSurfacePlotter` — surface scatter/contour maps
-- `mpasdiag.visualization.MPASWindPlotter` — wind vector visualizations (barbs/arrows)
-- `mpasdiag.visualization.MPASVerticalCrossSectionPlotter` — vertical cross sections
+- `mpasdiag.processing.utils_config.MPASConfig` — configuration container for CLI and programmatic runs with YAML support
+- `mpasdiag.processing.processors_2d.MPAS2DProcessor` — load and extract 2D (surface) fields from MPAS output with UXarray/xarray backends
+- `mpasdiag.processing.processors_3d.MPAS3DProcessor` — load and extract 3D atmospheric fields with vertical coordinate handling
+- `mpasdiag.processing.remapping.MPASRemapper` — remap unstructured MPAS data to regular grids using xESMF
+- `mpasdiag.processing.parallel.MPASParallelManager` — MPI-based parallel execution manager for batch processing
+- `mpasdiag.processing.data_cache.MPASDataCache` — intelligent caching for coordinates and frequently accessed data
+- `mpasdiag.diagnostics.precipitation.PrecipitationDiagnostics` — compute precipitation accumulation and diagnostics
+- `mpasdiag.diagnostics.wind.WindDiagnostics` — compute wind speed, direction, and derived quantities
+- `mpasdiag.visualization.precipitation.MPASPrecipitationPlotter` — create professional precipitation accumulation maps
+- `mpasdiag.visualization.surface.MPASSurfacePlotter` — surface scatter/contour maps with automatic unit conversion
+- `mpasdiag.visualization.wind.MPASWindPlotter` — wind vector visualizations (barbs/arrows/streamlines)
+- `mpasdiag.visualization.cross_section.MPASVerticalCrossSectionPlotter` — vertical atmospheric cross sections
 
 ### Minimal example
 
@@ -101,11 +105,11 @@ If you prefer the command line, see the `CLI Examples` section below.
 ```bash
 # Basic precipitation analysis (single time)
 mpasdiag precipitation \
-  --grid-file grid.nc --data-dir ./data --variable total --accumulation a01h
+  --grid-file grid.nc --data-dir ./data --variable total --accumulation a01h --plot-type contourf
 
 # Batch process all time steps
 mpasdiag precipitation \
-  --grid-file grid.nc --data-dir ./data --variable total --batch-all --dpi 300
+  --grid-file grid.nc --data-dir ./data --variable total --batch-all --dpi 300 --figure-size 12 12
 
 # Batch processing with parallel execution (multiprocessing backend)
 mpasdiag precipitation \
@@ -193,27 +197,27 @@ lon_min: 98.0
 lon_max: 110.0
 
 # Precipitation analysis parameters
-variable: "total"  # total = rainc + rainnc (recommended)
-accumulation_period: "a01h"  # 1-hour accumulation
-batch_mode: true  # Process all time steps
+variable: "total"                 # total = rainc + rainnc (recommended)
+accumulation_period: "a01h"       # 1-hour accumulation
+batch_mode: true                  # Process all time steps
 
 # Visualization settings
 figure_width: 14.0
 figure_height: 10.0
 dpi: 400
 output_formats: ["png", "pdf"]
-colormap: "default"  # Auto-selected based on variable
+colormap: "default"               # Auto-selected based on variable
 
 # Advanced options
 title: "MPAS Maritime Continent Analysis"
-time_index: 0  # Specific time step (ignored if batch_mode: true)
-figure_size: [12.0, 10.0]  # Custom figure dimensions
+time_index: 0                     # Specific time step (ignored if batch_mode: true)
+figure_size: [12.0, 10.0]         # Custom figure dimensions
 
 # Processing options
-use_pure_xarray: false  # Use UXarray for better unstructured grid support
+use_pure_xarray: false            # Use UXarray for better unstructured grid support
 verbose: true
-parallel: false  # Experimental parallel processing
-chunk_size: 100000  # Data chunk size for memory optimization
+parallel: false                   # Parallel processing
+chunk_size: 100000                # Data chunk size for memory optimization
 ```
 
 Use with unified command line:
@@ -231,46 +235,103 @@ mpasdiag precipitation --config config.yaml \
 ### File Structure
 ```
 mpasdiag/
-├── data_processing.py    # Core data loading and processing
-├── visualization.py      # Plotting and visualization tools
-├── utils.py              # Configuration, logging, and utilities
-├── cli.py                # Command-line interfaces
-└── __init__.py           # Package initialization
+├── __init__.py              # Package initialization and exports
+├── cli.py                   # Legacy CLI interface
+├── processing/              # Data processing and analysis modules
+│   ├── __init__.py
+│   ├── base.py              # Base processor classes
+│   ├── processors_2d.py     # 2D surface data processing
+│   ├── processors_3d.py     # 3D atmospheric data processing
+│   ├── remapping.py         # Grid remapping with xESMF/KDTree
+│   ├── cli_unified.py       # Unified command-line interface
+│   ├── parallel.py          # MPI parallel execution manager
+│   ├── parallel_wrappers.py # Parallel processing wrappers
+│   ├── data_cache.py        # Data caching for performance
+│   ├── constants.py         # Physical and configuration constants
+│   ├── utils_config.py      # Configuration management
+│   ├── utils_logger.py      # Logging utilities
+│   ├── utils_monitor.py     # Performance monitoring
+│   ├── utils_validator.py   # Data validation
+│   ├── utils_unit.py        # Unit conversion
+│   ├── utils_metadata.py    # Metadata handling
+│   ├── utils_file.py        # File operations
+│   ├── utils_geog.py        # Geographic calculations
+│   ├── utils_datetime.py    # Date/time utilities
+│   └── utils_parser.py      # Argument parsing
+├── visualization/           # Plotting and visualization tools
+│   ├── __init__.py
+│   ├── base_visualizer.py   # Base visualization class
+│   ├── precipitation.py     # Precipitation plotting
+│   ├── surface.py           # Surface variable plotting
+│   ├── wind.py              # Wind vector plotting
+│   ├── cross_section.py     # Vertical cross-section plotting
+│   └── styling.py           # Plot styling utilities
+└── diagnostics/             # Diagnostic computation modules
+    ├── __init__.py
+    ├── precipitation.py     # Precipitation diagnostics
+    └── wind.py              # Wind diagnostics
 
 examples/
-├── precipitation_examples.py  # Comprehensive precipitation workflows
-├── surface_examples.py        # Surface variable analysis examples
-├── wind_examples.py           # Wind vector plotting examples
-└── README.md                  # Detailed example documentation
+├── generate_complex_weather_map.py         # Multi-variable composite plots
+├── generate_surface_plots.py               # Surface variable examples
+├── generate_vertical_cross_section.py      # 3D cross-section examples
+└── remap_mpas_data.py                      # Grid remapping examples
 
 tests/
-├── test_mpas_analysis.py      # Comprehensive unit test suite
-└── __init__.py                # Test package initialization
-└── __init__.py                # Test runner
+├── test_*.py                # Comprehensive unit test suite
+└── __init__.py              # Test package initialization
 ```
 
 ### Class Hierarchy
 
-The package follows a clean, object-oriented architecture with specialized classes:
+The package follows a modular, object-oriented architecture with specialized processing, visualization, and diagnostic components:
 
 ```
+mpasdiag.processing
+├── Base Processing
+│   ├── MPASBaseProcessor                 # Abstract base processor class
+│   ├── MPAS2DProcessor                   # 2D surface field processing
+│   └── MPAS3DProcessor                   # 3D atmospheric field processing
+│
+├── Grid Remapping
+│   └── MPASRemapper                      # xESMF/KDTree remapping engine
+│
+├── Parallel Processing
+│   ├── MPASParallelManager               # MPI coordination and load balancing
+│   ├── ParallelPrecipitationProcessor    # Parallel precipitation workflows
+│   ├── ParallelSurfaceProcessor          # Parallel surface plotting
+│   └── ParallelCrossSectionProcessor     # Parallel cross-section generation
+│
+├── Utilities
+│   ├── MPASConfig                  # Configuration management with YAML
+│   ├── MPASLogger                  # Structured logging system
+│   ├── MPASDataCache               # Intelligent data caching
+│   ├── PerformanceMonitor          # Execution timing and profiling
+│   ├── DataValidator               # Input validation and checks
+│   ├── UnitConverter               # CF-compliant unit conversions
+│   ├── MPASFileMetadata            # Variable metadata extraction
+│   ├── FileManager                 # File discovery and operations
+│   └── GeographicUtils             # Coordinate transformations
+│
+└── CLI
+    └── MPASUnifiedCLI              # Command-line interface coordinator
+
 mpasdiag.visualization
-├── UnitConverter                   # Meteorological unit conversions
-├── MPASFileMetadata                # Variable metadata management  
-├── MPASVisualizer                  # Base visualization class
-│   ├── MPASPrecipitationPlotter    # Specialized precipitation plots
-│   ├── MPASSurfacePlotter          # Surface variable scatter/contour
-│   └── MPASWindPlotter             # Wind vector barbs/arrows
+├── Base Visualization
+│   └── MPASVisualizer              # Abstract base visualizer class
 │
-mpasdiag.data_processing  
-├── MPAS2DProcessor                 # Core 2D data loading and processing
+├── Specialized Plotters
+│   ├── MPASPrecipitationPlotter             # Precipitation accumulation maps
+│   ├── MPASSurfacePlotter                   # Surface scalar field visualization
+│   ├── MPASWindPlotter                      # Wind vector plots (barbs/arrows/streamlines)
+│   └── MPASVerticalCrossSectionPlotter      # 3D atmospheric cross-sections
 │
-mpasdiag.utils
-├── MPASConfig                      # Configuration management
-├── MPASLogger                      # Logging utilities
-├── FileManager                     # File operations
-├── DataValidator                   # Data validation
-└── PerformanceMonitor              # Performance tracking
+└── Styling
+    └── PlotStyleManager            # Consistent plot styling and branding
+
+mpasdiag.diagnostics
+├── PrecipitationDiagnostics        # Accumulation and precipitation metrics
+└── WindDiagnostics                 # Wind speed, direction, and derivatives
 ```
 
 ## Dependencies
@@ -455,4 +516,4 @@ If you use this package in your research, please cite:
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: November 17, 2025
+**Last Updated**: December 4, 2025

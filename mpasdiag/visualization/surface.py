@@ -3,7 +3,7 @@
 """
 MPAS Surface Variable Visualization
 
-This module provides specialized plotting functionality for MPAS surface variables including 2-meter temperature, sea-level pressure, humidity, and wind speed with flexible rendering options and comprehensive cartographic presentation. It implements the MPASSurfacePlotter class that creates professional geographic maps using both scatter plot rendering (direct MPAS cell display preserving unstructured mesh resolution) and contour/filled contour plots (interpolated to regular grids for smooth gradients), with automatic unit conversion from model output to display units, variable-specific colormap and contour level selection, and optional feature overlays including wind vectors and geographic elements. The plotter supports batch processing for creating time series of surface maps with consistent styling, adaptive marker sizing based on map extent and data density, multiple map projections via Cartopy, and handles both 2D surface data and automatic extraction of surface levels from 3D datasets. Core capabilities include scipy-based grid interpolation for contour plots, geographic extent validation, metadata-driven styling, and publication-quality output suitable for operational weather analysis and climate model diagnostics.
+This module provides specialized plotting functionality for MPAS surface variables including 2-meter temperature, sea-level pressure, humidity, and wind speed with flexible rendering options and comprehensive cartographic presentation. It implements the MPASSurfacePlotter class that creates professional geographic maps using both scatter plot rendering (direct MPAS cell display preserving unstructured mesh resolution) and contour/filled contour plots (interpolated to regular grids for smooth gradients using MPASRemapper's hybrid KDTree-xESMF approach), with automatic unit conversion from model output to display units, variable-specific colormap and contour level selection, and optional feature overlays including wind vectors and geographic elements. The plotter supports batch processing for creating time series of surface maps with consistent styling, adaptive marker sizing based on map extent and data density, multiple map projections via Cartopy, and handles both 2D surface data and automatic extraction of surface levels from 3D datasets. Core capabilities include MPASRemapper-based grid interpolation for contour plots, geographic extent validation, metadata-driven styling, and publication-quality output suitable for operational weather analysis and climate model diagnostics.
 
 Classes:
     MPASSurfacePlotter: Specialized class for creating surface variable visualizations from MPAS model output with cartographic presentation.
@@ -32,14 +32,10 @@ import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter
-from typing import Tuple, Optional, List, Union, Any, cast
-
-try:
-    from scipy.interpolate import griddata
-except ImportError:
-    griddata = None
+from typing import Tuple, Optional, List, Union, Any, cast, Dict
 
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
 from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.wind import MPASWindPlotter
@@ -50,32 +46,34 @@ class MPASSurfacePlotter(MPASVisualizer):
     Specialized plotter for creating professional cartographic visualizations of MPAS surface variables including 2-meter temperature, sea-level pressure, humidity, and wind speed with flexible rendering options. This class extends MPASVisualizer to provide comprehensive surface diagnostic plotting capabilities including both scatter plot rendering (direct MPAS cell display preserving unstructured mesh resolution) and contour/filled contour plots (interpolated to regular grids for smooth gradients), automatic unit conversion from model output to display units via UnitConverter, variable-specific colormap and contour level selection through MPASFileMetadata, and optional feature overlays (wind vectors, geographic features, custom surface annotations). The plotter supports batch processing for creating time series of surface maps with consistent styling, adaptive marker sizing based on map extent and data density, multiple map projections via Cartopy, and publication-quality output with timestamps, colorbars, and professional cartographic elements suitable for mesoscale weather analysis and model evaluation diagnostics.
     """
     
-    def create_surface_map(self,
-                         lon: np.ndarray,
-                         lat: np.ndarray,
-                         data: Union[np.ndarray, xr.DataArray],
-                         var_name: str,
-                         lon_min: float,
-                         lon_max: float,
-                         lat_min: float,
-                         lat_max: float,
-                         title: Optional[str] = None,
-                         plot_type: str = 'scatter',
-                         colormap: Optional[str] = None,
-                         levels: Optional[List[float]] = None,
-                         clim_min: Optional[float] = None,
-                         clim_max: Optional[float] = None,
-                         projection: str = 'PlateCarree',
-                         time_stamp: Optional[datetime] = None,
-                         data_array: Optional[xr.DataArray] = None,
-                         grid_resolution: Optional[int] = None,
-                         grid_resolution_deg: Optional[float] = None,
-                         wind_overlay: Optional[dict] = None,
-                         surface_overlay: Optional[dict] = None,
-                         level_index: Optional[int] = None,
-                         level_value: Optional[float] = None) -> Tuple[Figure, Axes]:
+    def create_surface_map(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: Union[np.ndarray, xr.DataArray],
+        var_name: str,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        title: Optional[str] = None,
+        plot_type: str = 'scatter',
+        colormap: Optional[str] = None,
+        levels: Optional[List[float]] = None,
+        clim_min: Optional[float] = None,
+        clim_max: Optional[float] = None,
+        projection: str = 'PlateCarree',
+        time_stamp: Optional[datetime] = None,
+        data_array: Optional[xr.DataArray] = None,
+        grid_resolution: Optional[int] = None,
+        grid_resolution_deg: Optional[float] = None,
+        wind_overlay: Optional[dict] = None,
+        surface_overlay: Optional[dict] = None,
+        level_index: Optional[int] = None,
+        level_value: Optional[float] = None
+    ) -> Tuple[Figure, Axes]:
         """
-        Create professional cartographic map visualizations for MPAS surface variables with flexible rendering options and automatic metadata handling. This comprehensive method serves as the main entry point for surface variable plotting, supporting both scatter (direct cell rendering) and contour (interpolated) plot types for 2-meter temperature, surface pressure, humidity, wind speed, and other MPAS surface diagnostics. The method performs automatic unit conversion via UnitConverter, retrieves variable-specific colormaps and contour levels from MPASFileMetadata, handles geographic extent validation and map projection setup, and optionally overlays wind vectors or additional surface features. Grid interpolation for contour plots uses adaptive or user-specified resolution, with scipy griddata performing triangulation-based interpolation from MPAS unstructured mesh to regular grids for smooth contoured fields.
+        Create professional cartographic map visualizations for MPAS surface variables with flexible rendering options and automatic metadata handling. This comprehensive method serves as the main entry point for surface variable plotting, supporting both scatter (direct cell rendering) and contour (interpolated) plot types for 2-meter temperature, surface pressure, humidity, wind speed, and other MPAS surface diagnostics. The method performs automatic unit conversion via UnitConverter, retrieves variable-specific colormaps and contour levels from MPASFileMetadata, handles geographic extent validation and map projection setup, and optionally overlays wind vectors or additional surface features. Grid interpolation for contour plots uses adaptive or user-specified resolution, with MPASRemapper's hybrid two-step approach (KDTree for unstructured-to-structured conversion followed by xESMF bilinear interpolation) transforming MPAS unstructured mesh data to regular grids for smooth contoured fields.
 
         Parameters:
             lon (np.ndarray): 1D array of longitude coordinates in degrees for MPAS mesh cell centers.
@@ -376,80 +374,88 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         return self.fig, self.ax
 
-    def _interpolate_to_grid(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
-                           lon_min: float, lon_max: float, lat_min: float, lat_max: float,
-                           grid_resolution: Optional[int] = None,
-                           grid_resolution_deg: Optional[float] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _interpolate_to_grid(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: np.ndarray,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        grid_resolution: Optional[int] = None,
+        grid_resolution_deg: Optional[float] = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Helper method to interpolate scattered data to a regular grid with adaptive resolution.
-        This eliminates duplication between _create_contour_plot and _create_contourf_plot.
-        
+        Interpolate scattered MPAS data points onto a regular latitude-longitude grid using MPASRemapper's hybrid two-stage approach combining KDTree and xESMF bilinear interpolation. This internal helper method transforms unstructured mesh data into structured grid format for smooth contour visualization, eliminating code duplication between _create_contour_plot and _create_contourf_plot methods. The function supports both fixed-resolution (grid_resolution) and degree-based (grid_resolution_deg) grid specifications with automatic adaptive resolution selection when neither parameter is provided. Adaptive resolution scales with data density, ranging from 25 to 200 grid points per axis to balance visualization quality with computational performance. The method returns 2D meshgrid coordinates and interpolated data values ready for matplotlib contour functions.
+
         Parameters:
-            lon (np.ndarray): Source longitude array.
-            lat (np.ndarray): Source latitude array.
-            data (np.ndarray): Source data values.
-            lon_min (float): Western grid bound.
-            lon_max (float): Eastern grid bound.
-            lat_min (float): Southern grid bound.
-            lat_max (float): Northern grid bound.
-            grid_resolution (Optional[int]): Grid points per axis.
-            grid_resolution_deg (Optional[float]): Grid spacing in degrees.
-            
+            lon (np.ndarray): Source 1D longitude array in degrees east from irregular MPAS mesh cell centers.
+            lat (np.ndarray): Source 1D latitude array in degrees north from irregular MPAS mesh cell centers.
+            data (np.ndarray): Source 1D data value array corresponding to lon/lat positions in physical units.
+            lon_min (float): Western boundary in degrees east for the target regular grid extent.
+            lon_max (float): Eastern boundary in degrees east for the target regular grid extent.
+            lat_min (float): Southern boundary in degrees north for the target regular grid extent.
+            lat_max (float): Northern boundary in degrees north for the target regular grid extent.
+            grid_resolution (Optional[int]): Number of grid points per axis for uniform grid spacing, ranging from 25-200 (default: None triggers adaptive selection).
+            grid_resolution_deg (Optional[float]): Explicit grid spacing in degrees for both longitude and latitude dimensions, overrides grid_resolution when specified (default: None).
+
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: lon_mesh, lat_mesh, data_interp
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Three-element tuple containing (lon_mesh, lat_mesh, data_interp) where meshes are 2D coordinate arrays and data_interp is the 2D interpolated data grid.
         """
-        if griddata is None:
-            raise ImportError("scipy.interpolate.griddata is required for contour plotting")
-        
         if grid_resolution_deg is not None:
             step = float(grid_resolution_deg)
+
             if step <= 0:
                 raise ValueError("grid_resolution_deg must be > 0")
 
-            lon_coords = np.arange(lon_min, lon_max + 1e-12, step)
-            lat_coords = np.arange(lat_min, lat_max + 1e-12, step)
-
-            nx = len(lon_coords)
-            ny = len(lat_coords)
-            max_points = 1200
-
-            if nx > max_points or ny > max_points:
-                lon_coords = np.linspace(lon_min, lon_max, min(nx, max_points))
-                lat_coords = np.linspace(lat_min, lat_max, min(ny, max_points))
-                print(f"Requested degree step {step}° produces >{max_points} points per axis; clipping to {len(lat_coords)}x{len(lon_coords)} grid")
-
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-            print(f"Interpolating {len(data)} points to {lon_mesh.shape[0]}x{lon_mesh.shape[1]} grid (~{step}° resolution)...")
+            resolution = step
+            print(f"Using MPASRemapper with target resolution: {resolution}°")
         else:
             if grid_resolution is None:
                 adaptive = int(np.sqrt(len(data)) / 9)
                 grid_resolution = max(25, min(adaptive, 200))
-                print(f"Auto-selected grid resolution: {grid_resolution}")
+                print(f"Auto-selected grid resolution: {grid_resolution} points")
+            
+            lon_range = lon_max - lon_min
+            lat_range = lat_max - lat_min
 
-            lon_coords = np.linspace(lon_min, lon_max, grid_resolution)
-            lat_coords = np.linspace(lat_min, lat_max, grid_resolution)
-            lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-            print(f"Interpolating {len(data)} points to {grid_resolution}x{grid_resolution} grid...")
+            resolution = max(lon_range / grid_resolution, lat_range / grid_resolution)
+            print(f"Converted to resolution: {resolution:.4f}°")
+        
+        print(f"Interpolating {len(data)} points using MPASRemapper (KDTree→xESMF bilinear)...")
+        
+        data_xr = xr.DataArray(data, dims=['nCells'])
 
-        data_interp = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='linear')
-
-        try:
-            if np.any(np.isnan(data_interp)):
-                data_interp_nearest = griddata((lon, lat), data, (lon_mesh, lat_mesh), method='nearest')
-                data_interp[np.isnan(data_interp)] = data_interp_nearest[np.isnan(data_interp)]
-                print("Filled NaN values in interpolated grid using nearest-neighbor interpolation to avoid edge clipping")
-        except Exception:
-            pass
+        remapped_result = remap_mpas_to_latlon(
+            data=data_xr,
+            lon=lon,
+            lat=lat,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            resolution=resolution
+        )
+        
+        lon_coords = remapped_result.lon.values
+        lat_coords = remapped_result.lat.values
+        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+        data_interp = remapped_result.values
+        
+        print(f"MPASRemapper produced {data_interp.shape[0]}x{data_interp.shape[1]} grid")
         
         return lon_mesh, lat_mesh, data_interp
 
-    def _add_colorbar_with_metadata(self, mappable) -> None:
+    def _add_colorbar_with_metadata(self, mappable: Any) -> None:
         """
-        Helper method to add colorbar with metadata-driven labels and formatting.
-        This eliminates duplication between _create_scatter_plot and _create_contourf_plot.
-        
+        Add a horizontal colorbar to the current figure with metadata-driven labels and dynamic tick formatting. This internal helper method creates a standardized colorbar presentation for both scatter and contourf plots, eliminating code duplication across rendering methods. The function retrieves variable metadata from the instance's _current_var_metadata attribute to construct descriptive labels combining long_name and units. It applies dynamic tick formatting using _format_ticks_dynamic to ensure appropriate precision based on value ranges. The colorbar is positioned below the plot with standardized sizing and padding for consistent visual appearance across all surface visualizations.
+
         Parameters:
-            mappable: Matplotlib mappable object (scatter or contourf result).
+            mappable (Any): Matplotlib mappable object (ScalarMappable) from scatter or contourf rendering containing color mapping information for colorbar generation.
+
+        Returns:
+            None: This method adds a colorbar to self.fig and does not return objects.
         """
         assert self.fig is not None, "Figure must be created before adding colorbar"
         
@@ -473,15 +479,17 @@ class MPASSurfacePlotter(MPASVisualizer):
         except Exception:
             pass
 
-    def _create_scatter_plot(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
-                           cmap_obj: Union[str, mcolors.Colormap], norm: Optional[mcolors.Normalize],
-                           data_crs: ccrs.CRS) -> None:
+    def _create_scatter_plot(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: np.ndarray,
+        cmap_obj: Union[str, mcolors.Colormap],
+        norm: Optional[mcolors.Normalize],
+        data_crs: ccrs.CRS
+    ) -> None:
         """
-        Renders a scatter plot of point data on the active cartographic axes with adaptive marker sizing
-        and density-based transparency. This internal method calculates optimal marker sizes based on
-        map extent and point density, sorts data values for proper color overlay ordering, and applies
-        density-dependent alpha values to prevent overplotting. It generates a horizontal colorbar with
-        metadata-driven labels formatted using the instance's current variable metadata if available.
+        Renders a scatter plot of point data on the active cartographic axes with adaptive marker sizing and density-based transparency. This internal method calculates optimal marker sizes based on map extent and point density, sorts data values for proper color overlay ordering, and applies density-dependent alpha values to prevent overplotting. It generates a horizontal colorbar with metadata-driven labels formatted using the instance's current variable metadata if available.
 
         Parameters:
             lon (np.ndarray): 1D longitude array in degrees matching lat and data arrays.
@@ -522,19 +530,24 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         self._add_colorbar_with_metadata(scatter)
     
-    def _create_contour_plot(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
-                           lon_min: float, lon_max: float, lat_min: float, lat_max: float,
-                           cmap_obj: Union[str, mcolors.Colormap], norm: Optional[mcolors.Normalize],
-                           levels: Optional[List[float]], data_crs: ccrs.CRS,
-                           grid_resolution: Optional[int] = None,
-                           grid_resolution_deg: Optional[float] = None) -> None:
+    def _create_contour_plot(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: np.ndarray,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        cmap_obj: Union[str, mcolors.Colormap],
+        norm: Optional[mcolors.Normalize],
+        levels: Optional[List[float]],
+        data_crs: ccrs.CRS,
+        grid_resolution: Optional[int] = None,
+        grid_resolution_deg: Optional[float] = None
+    ) -> None:
         """
-        Interpolates scattered point data to a regular grid using scipy griddata and renders
-        line contours (matplotlib.contour) on the cartographic axes. This internal method
-        supports fixed-resolution and degree-based grids, applies adaptive resolution when
-        parameters are omitted, and performs linear interpolation using scipy's griddata.
-        Unlike the filled-contour helper, this method draws contour lines and optionally
-        labels them when contour levels are provided.
+        Interpolates scattered point data to a regular grid using MPASRemapper and renders line contours (matplotlib.contour) on the cartographic axes. This internal method supports fixed-resolution and degree-based grids, applies adaptive resolution when parameters are omitted, and performs bilinear interpolation using MPASRemapper's hybrid approach. Unlike the filled-contour helper, this method draws contour lines and optionally labels them when contour levels are provided.
 
         Parameters:
             lon (np.ndarray): 1D source longitude array in degrees.
@@ -584,18 +597,24 @@ class MPASSurfacePlotter(MPASVisualizer):
         except Exception as e:
             raise RuntimeError(f"Contour plotting failed: {e}")
         
-    def _create_contourf_plot(self, lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
-                             lon_min: float, lon_max: float, lat_min: float, lat_max: float,
-                             cmap_obj: Union[str, mcolors.Colormap], norm: Optional[mcolors.Normalize],
-                             levels: Optional[List[float]], data_crs: ccrs.CRS,
-                             grid_resolution: Optional[int] = None,
-                             grid_resolution_deg: Optional[float] = None) -> None:
+    def _create_contourf_plot(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: np.ndarray,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        cmap_obj: Union[str, mcolors.Colormap],
+        norm: Optional[mcolors.Normalize],
+        levels: Optional[List[float]],
+        data_crs: ccrs.CRS,
+        grid_resolution: Optional[int] = None,
+        grid_resolution_deg: Optional[float] = None
+    ) -> None:
         """
-        Interpolates scattered data to a regular grid and renders filled contours using matplotlib's contourf
-        on the cartographic axes. This internal method parallels _create_contour_plot functionality but uses
-        contourf specifically for filled contour rendering, supports both fixed-resolution and degree-based
-        grid generation with adaptive resolution selection, and produces a horizontal colorbar with
-        metadata-driven labels extracted from the instance's current variable metadata.
+        Interpolates scattered data to a regular grid and renders filled contours using matplotlib's contourf on the cartographic axes. This internal method parallels _create_contour_plot functionality but uses contourf specifically for filled contour rendering, supports both fixed-resolution and degree-based grid generation with adaptive resolution selection, and produces a horizontal colorbar with metadata-driven labels extracted from the instance's current variable metadata.
 
         Parameters:
             lon (np.ndarray): Input longitude array in degrees.
@@ -632,13 +651,14 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         self._add_colorbar_with_metadata(cs)
 
-    def _add_surface_overlay(self, lon: np.ndarray, lat: np.ndarray, surface_config: dict) -> None:
+    def _add_surface_overlay(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        surface_config: Dict[str, Any]
+    ) -> None:
         """
-        Adds an auxiliary contour or filled contour overlay to the current cartographic axes using
-        interpolated scattered point data. This internal method processes a configuration dictionary
-        specifying overlay data, variable name, plot type (contour/contourf), styling parameters
-        (levels, colors, linewidth, alpha), and optional vertical level indexing for 3D data. It
-        performs grid interpolation using scipy griddata and renders the overlay with optional contour labels.
+        Adds an auxiliary contour or filled contour overlay to the current cartographic axes using interpolated scattered point data via MPASRemapper. This internal method processes a configuration dictionary specifying overlay data, variable name, plot type (contour/contourf), styling parameters (levels, colors, linewidth, alpha), and optional vertical level indexing for 3D data. It performs grid interpolation using MPASRemapper's hybrid approach and renders the overlay with optional contour labels.
 
         Parameters:
             lon (np.ndarray): Longitude array in degrees for overlay points.
@@ -649,9 +669,6 @@ class MPASSurfacePlotter(MPASVisualizer):
             None: Draws overlay directly onto self.ax without returning objects.
         """
         assert self.ax is not None, "Axes must be created before surface overlay"
-        
-        if griddata is None:
-            raise ImportError("scipy.interpolate.griddata is required for contour plotting")
         
         overlay_data = surface_config['data']
         var_name = surface_config.get('var_name', 'overlay')
@@ -683,12 +700,28 @@ class MPASSurfacePlotter(MPASVisualizer):
         data_valid = overlay_data[valid_mask]
         
         grid_resolution = 50
-        lon_coords = np.linspace(lon.min(), lon.max(), grid_resolution)
-        lat_coords = np.linspace(lat.min(), lat.max(), grid_resolution)
-        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+        lon_range = lon.max() - lon.min()
+        lat_range = lat.max() - lat.min()
+
+        resolution = max(lon_range / grid_resolution, lat_range / grid_resolution)
+        print(f"Interpolating overlay using MPASRemapper (resolution: {resolution:.4f}°)")
+        data_xr = xr.DataArray(data_valid, dims=['nCells'])
+
+        remapped_overlay = remap_mpas_to_latlon(
+            data=data_xr,
+            lon=lon_valid,
+            lat=lat_valid,
+            lon_min=float(lon.min()),
+            lon_max=float(lon.max()),
+            lat_min=float(lat.min()),
+            lat_max=float(lat.max()),
+            resolution=resolution
+        )
         
-        data_interp = griddata((lon_valid, lat_valid), data_valid, 
-                              (lon_mesh, lat_mesh), method='linear')
+        lon_coords = remapped_overlay.lon.values
+        lat_coords = remapped_overlay.lat.values
+        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+        data_interp = remapped_overlay.values
         
         if plot_type == 'contour':
             if levels is not None:
@@ -716,25 +749,13 @@ class MPASSurfacePlotter(MPASVisualizer):
     @staticmethod
     def convert_to_numpy(x: Any) -> np.ndarray:
         """
-        Convert xarray DataArray or dask-backed arrays to a plain NumPy array.
-
-        This helper accepts xarray DataArray objects, dask-backed arrays, or any array-like
-        object and returns a 1D or N-D NumPy ndarray suitable for downstream numeric
-        operations and boolean indexing. It safely unwraps xarray DataArray objects to their
-        underlying values, computes any dask-backed arrays to materialize them in memory,
-        and finally coerces the result into a NumPy ndarray. Use this function when a
-        NumPy array is required for masking, indexing, or plotting operations that do not
-        support lazy/dask-backed arrays.
+        Convert xarray DataArray or dask-backed arrays to a standard NumPy ndarray for downstream numeric operations. This static helper method provides a unified conversion pathway for heterogeneous array types commonly encountered in MPAS data processing workflows. The function safely unwraps xarray DataArray objects to their underlying values attribute, computes any dask-backed lazy arrays to materialize them in memory for immediate use, and coerces the final result into a NumPy ndarray using np.asarray. This conversion is essential for operations requiring boolean indexing, masking, or direct array manipulation that do not support lazy evaluation or xarray's coordinate-aware structures. The method handles exceptions gracefully to ensure robust conversion across different input types.
 
         Parameters:
-            x (Any): Input array-like object. Typical values are an `xarray.DataArray`, a
-                dask-backed array-like object, a NumPy ndarray, or other array-like values
-                returned by processing routines.
+            x (Any): Input array-like object which may be an xarray.DataArray with coordinates and attributes, a dask-backed array supporting lazy evaluation, a NumPy ndarray, or any array-like object with array protocol support.
 
         Returns:
-            np.ndarray: A NumPy ndarray containing the computed/converted values. The shape
-                and dtype match the input where possible; this array is safe for boolean
-                indexing and other NumPy operations.
+            np.ndarray: Standard NumPy ndarray with computed values materialized in memory, suitable for indexing, masking, plotting, and mathematical operations requiring immediate data access.
         """
         try:
             if isinstance(x, xr.DataArray):
@@ -752,23 +773,25 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         return np.asarray(arr)
 
-    def create_batch_surface_maps(self, processor, output_dir: str,
-                                 lon_min: float, lon_max: float,
-                                 lat_min: float, lat_max: float,
-                                 var_name: str = 't2m',
-                                 plot_type: str = 'scatter',
-                                 file_prefix: str = 'mpas_surface',
-                                 formats: List[str] = ['png'],
-                                 grid_resolution: Optional[int] = None,
-                                 grid_resolution_deg: Optional[float] = None,
-                                 clim_min: Optional[float] = None,
-                                 clim_max: Optional[float] = None) -> List[str]:
+    def create_batch_surface_maps(
+        self,
+        processor: Any,
+        output_dir: str,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        var_name: str = 't2m',
+        plot_type: str = 'scatter',
+        file_prefix: str = 'mpas_surface',
+        formats: List[str] = ['png'],
+        grid_resolution: Optional[int] = None,
+        grid_resolution_deg: Optional[float] = None,
+        clim_min: Optional[float] = None,
+        clim_max: Optional[float] = None
+    ) -> List[str]:
         """
-        Generates surface variable maps for all time steps in the dataset using batch processing with
-        automatic coordinate extraction and metadata handling. This method iterates through all available
-        time steps, extracts 2D variable data and coordinates using the processor instance, constructs
-        descriptive titles with timestamp information, and saves plots in multiple formats. It provides
-        progress updates every 10 steps and handles individual step failures gracefully.
+        Generates surface variable maps for all time steps in the dataset using batch processing with automatic coordinate extraction and metadata handling. This method iterates through all available time steps, extracts 2D variable data and coordinates using the processor instance, constructs descriptive titles with timestamp information, and saves plots in multiple formats. It provides progress updates every 10 steps and handles individual step failures gracefully.
 
         Parameters:
             processor: MPAS2DProcessor instance with loaded dataset and time dimension.
@@ -843,13 +866,13 @@ class MPASSurfacePlotter(MPASVisualizer):
         print(f"\nBatch processing completed. Created {len(created_files)} files.")
         return created_files
 
-    def get_surface_colormap_and_levels(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[str, List[float]]:
+    def get_surface_colormap_and_levels(
+        self,
+        var_name: str,
+        data_array: Optional[xr.DataArray] = None
+    ) -> Tuple[str, List[float]]:
         """
-        Retrieves variable-specific colormap name and contour levels for 2D surface variables by querying
-        the MPASFileMetadata system. This convenience method extracts colormap and level specifications
-        from metadata definitions based on variable name and optional data array for automatic level
-        detection, returning a tuple suitable for direct use in plotting functions. It provides consistent
-        color mapping across all surface visualizations.
+        Retrieves variable-specific colormap name and contour levels for 2D surface variables by querying the MPASFileMetadata system. This convenience method extracts colormap and level specifications from metadata definitions based on variable name and optional data array for automatic level detection, returning a tuple suitable for direct use in plotting functions. It provides consistent color mapping across all surface visualizations.
 
         Parameters:
             var_name (str): 2D surface variable name (e.g., 't2m', 'psfc', 'q2').
@@ -861,20 +884,18 @@ class MPASSurfacePlotter(MPASVisualizer):
         metadata = MPASFileMetadata.get_2d_variable_metadata(var_name, data_array)
         return metadata['colormap'], metadata['levels']
 
-    def create_simple_scatter_plot(self,
-                                 lon: np.ndarray,
-                                 lat: np.ndarray,
-                                 data: np.ndarray,
-                                 title: str = "MPAS Surface Variable",
-                                 colorbar_label: str = "Value",
-                                 colormap: str = 'viridis',
-                                 point_size: float = 2.0) -> Tuple[Figure, Axes]:
+    def create_simple_scatter_plot(
+        self,
+        lon: np.ndarray,
+        lat: np.ndarray,
+        data: np.ndarray,
+        title: str = "MPAS Surface Variable",
+        colorbar_label: str = "Value",
+        colormap: str = 'viridis',
+        point_size: float = 2.0
+    ) -> Tuple[Figure, Axes]:
         """
-        Creates a simple scatter plot without cartographic projections for quick visualization and debugging
-        purposes. This lightweight method uses standard matplotlib axes rather than cartopy projections,
-        filters invalid data points (NaN/inf), renders a basic scatter plot with colorbar, applies grid
-        lines and axis labels, and adds timestamp/branding through the standard method. It returns figure
-        and axes objects for further customization or immediate display.
+        Creates a simple scatter plot without cartographic projections for quick visualization and debugging purposes. This lightweight method uses standard matplotlib axes rather than cartopy projections, filters invalid data points (NaN/inf), renders a basic scatter plot with colorbar, applies grid lines and axis labels, and adds timestamp/branding through the standard method. It returns figure and axes objects for further customization or immediate display.
 
         Parameters:
             lon (np.ndarray): Longitude coordinate array in degrees.
@@ -916,26 +937,33 @@ class MPASSurfacePlotter(MPASVisualizer):
         return self.fig, self.ax
 
 
-def create_surface_plot(lon: np.ndarray, lat: np.ndarray, data: np.ndarray,
-                       var_name: str, extent: Tuple[float, float, float, float],
-                       plot_type: str = 'scatter', title: Optional[str] = None,
-                       colormap: Optional[str] = None, **kwargs) -> Tuple[Figure, Axes]:
+def create_surface_plot(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    data: np.ndarray,
+    var_name: str,
+    extent: Tuple[float, float, float, float],
+    plot_type: str = 'scatter',
+    title: Optional[str] = None,
+    colormap: Optional[str] = None,
+    **kwargs: Any
+) -> Tuple[Figure, Axes]:
     """
-    Convenience function for quick surface plotting.
-    
+    Convenience function providing quick surface plot generation without explicit class instantiation for rapid prototyping and scripting. This standalone function wraps the MPASSurfacePlotter class to create cartographic surface visualizations in a single function call, accepting essential parameters and forwarding additional keyword arguments to the underlying create_surface_map method. The function automatically instantiates a plotter object, unpacks the geographic extent tuple into individual bounds, and delegates to the comprehensive plotting pipeline. This interface is ideal for interactive analysis, Jupyter notebooks, and simple scripts where object-oriented setup is unnecessary. The function supports all plot types including scatter, contour, and contourf with automatic metadata handling and unit conversion.
+
     Parameters:
-        lon (np.ndarray): Longitude coordinates.
-        lat (np.ndarray): Latitude coordinates.
-        data (np.ndarray): Data values.
-        var_name (str): Variable name.
-        extent (Tuple[float, float, float, float]): Map extent (lon_min, lon_max, lat_min, lat_max).
-        plot_type (str): Plot type ('scatter' or 'contour').
-        title (Optional[str]): Plot title.
-        colormap (Optional[str]): Colormap name.
-        **kwargs: Additional arguments passed to create_surface_map.
-        
+        lon (np.ndarray): 1D longitude coordinate array in degrees east for MPAS mesh cell centers.
+        lat (np.ndarray): 1D latitude coordinate array in degrees north for MPAS mesh cell centers.
+        data (np.ndarray): 1D data value array in physical units corresponding to lon/lat positions.
+        var_name (str): Variable name for metadata lookup, unit conversion, and colormap selection (e.g., 't2m', 'mslp').
+        extent (Tuple[float, float, float, float]): Geographic bounding box as (lon_min, lon_max, lat_min, lat_max) in degrees.
+        plot_type (str): Rendering method selector, either 'scatter' for direct cell display or 'contour'/'contourf' for interpolated rendering (default: 'scatter').
+        title (Optional[str]): Custom plot title overriding auto-generated metadata-based title (default: None for automatic title).
+        colormap (Optional[str]): Custom matplotlib colormap name overriding variable-specific default from metadata (default: None for automatic selection).
+        **kwargs (Any): Additional keyword arguments passed directly to MPASSurfacePlotter.create_surface_map for advanced configuration including levels, projections, and overlays.
+
     Returns:
-        Tuple[plt.Figure, plt.Axes]: Figure and axes objects.
+        Tuple[Figure, Axes]: Two-element tuple containing (matplotlib.figure.Figure, cartopy.mpl.geoaxes.GeoAxes) with the rendered surface map.
     """
     plotter = MPASSurfacePlotter()
     lon_min, lon_max, lat_min, lat_max = extent

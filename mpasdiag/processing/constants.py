@@ -5,6 +5,12 @@ Shared constants for the mpasdiag.processing package.
 
 Place commonly reused literal messages and unit strings here to avoid
 duplication across modules.
+
+Author: Rubaiat Islam
+Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
+Email: mrislam@ucar.edu
+Date: November 2025
+Version: 1.0.0
 """
 
 DIAG_GLOB = "diag*.nc"

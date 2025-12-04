@@ -28,6 +28,7 @@ ENV/
 
 # Distribution / packaging
 build/
+docs/
 dist/
 *.egg-info/
 pip-wheel-metadata/
