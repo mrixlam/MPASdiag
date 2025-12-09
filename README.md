@@ -70,6 +70,7 @@ The package exposes a small, focused programmatic API in the `mpasdiag` package.
 
 ### Minimal example
 
+#### Precipitation Analysis
 ```python
 # Correct import paths and usage for current package layout
 from mpasdiag.processing.utils_config import MPASConfig
@@ -97,6 +98,54 @@ fig, ax = plotter.create_precipitation_map(lon, lat, precip.values,
                                            cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
                                            title='Total precipitation', accum_period='a01h', data_array=precip)
 plotter.save_plot('./output/total_precipitation', formats=['png'])
+```
+
+#### Complex Wind Plot (Wind Speed + Barbs Overlay)
+```python
+from mpasdiag.processing.processors_2d import MPAS2DProcessor
+from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.visualization.wind import MPASWindPlotter
+import numpy as np
+
+# (1) Load data
+processor = MPAS2DProcessor(grid_file='data/grids/x1.10242.init.nc')
+processor.load_2d_data('./data/u240k/diag')
+
+# (2) Extract wind components at time index 0
+u_data = processor.get_2d_variable_data('u10', 0)
+v_data = processor.get_2d_variable_data('v10', 0)
+lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
+
+# (3) Compute wind speed
+wind_speed = np.sqrt(u_data.values**2 + v_data.values**2)
+
+# (4) Create wind speed background with filled contours
+surface_plotter = MPASSurfacePlotter(figsize=(14, 11), dpi=150)
+fig, ax = surface_plotter.create_surface_map(
+    lon=lon, lat=lat, data=wind_speed, var_name='wind_speed',
+    lon_min=-130, lon_max=-60, lat_min=20, lat_max=55,
+    title='MPAS Wind Analysis - Speed with Direction Barbs',
+    plot_type='contourf', colormap='YlOrRd'
+)
+
+# (5) Add wind barbs overlay showing direction
+wind_plotter = MPASWindPlotter()
+wind_config = {
+    'u_data': u_data.values,
+    'v_data': v_data.values,
+    'plot_type': 'barbs',
+    'subsample': -1,  # Auto-calculate optimal density
+    'color': 'black',
+    'grid_resolution': 0.1,
+    'regrid_method': 'linear'
+}
+wind_plotter.add_wind_overlay(
+    ax=ax, lon=lon, lat=lat, wind_config=wind_config,
+    lon_min=-130, lon_max=-60, lat_min=20, lat_max=55
+)
+
+# (6) Save the multi-layer visualization
+surface_plotter.save_plot('./output/wind_complex', formats=['png'])
 ```
 
 If you prefer the command line, see the `CLI Examples` section below.
@@ -142,20 +191,34 @@ mpasdiag surface \
 
 #### Wind Vector Analysis  
 ```bash
-# Surface wind barbs
+# Wind barbs (meteorological convention)
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
-  --u-variable u10 --v-variable v10 --wind-plot-type barbs
+  --u-variable u10 --v-variable v10 --wind-plot-type barbs \
+  --grid-resolution 0.1 --regrid-method linear
+
+# Wind arrows/vectors (quiver plot)
+mpasdiag wind \
+  --grid-file grid.nc --data-dir ./data \
+  --u-variable u10 --v-variable v10 --wind-plot-type arrows \
+  --scale 300 --grid-resolution 0.1
+
+# Wind streamlines (flow trajectories)
+mpasdiag wind \
+  --grid-file grid.nc --data-dir ./data \
+  --u-variable u10 --v-variable v10 --wind-plot-type streamlines \
+  --grid-resolution 0.5 --regrid-method linear
 
 # Batch processing of wind vectors
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
-  --u-variable u10 --v-variable v10 --batch-all
+  --u-variable u10 --v-variable v10 --wind-plot-type barbs --batch-all
 
 # Parallel batch processing
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
-  --u-variable u10 --v-variable v10 --batch-all --parallel
+  --u-variable u10 --v-variable v10 --wind-plot-type arrows \
+  --batch-all --parallel --workers 4
 ```
 
 #### 3D Vertical Cross-Section Analysis

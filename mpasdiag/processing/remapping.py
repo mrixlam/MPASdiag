@@ -43,6 +43,52 @@ except ImportError:
     )
 
 
+def _convert_coordinates_to_degrees(lon: Union[np.ndarray, xr.DataArray],
+                                     lat: Union[np.ndarray, xr.DataArray]) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Helper function to convert coordinates from radians to degrees and extract numpy arrays.
+    
+    Parameters:
+        lon: Longitude coordinates (may be DataArray or ndarray, in degrees or radians)
+        lat: Latitude coordinates (may be DataArray or ndarray, in degrees or radians)
+    
+    Returns:
+        Tuple of (lon_deg, lat_deg) as numpy arrays in degrees
+    """
+    if isinstance(lon, xr.DataArray):
+        lon = lon.values
+
+    if isinstance(lat, xr.DataArray):
+        lat = lat.values
+    
+    lon_deg = np.degrees(lon) if np.max(np.abs(lon)) <= np.pi else lon
+    lat_deg = np.degrees(lat) if np.max(np.abs(lat)) <= np.pi else lat
+    
+    return lon_deg, lat_deg
+
+
+def _compute_grid_bounds(coords: np.ndarray, resolution: float) -> np.ndarray:
+    """
+    Helper function to compute grid cell bounds from cell centers.
+    
+    Parameters:
+        coords: 1D array of coordinate centers
+        resolution: Grid spacing
+    
+    Returns:
+        1D array of coordinate bounds (length = len(coords) + 1)
+    """
+    bounds = np.zeros(len(coords) + 1)
+    bounds[0] = coords[0] - resolution / 2
+    
+    for i in range(1, len(coords)):
+        bounds[i] = (coords[i-1] + coords[i]) / 2
+    
+    bounds[-1] = coords[-1] + resolution / 2
+    
+    return bounds
+
+
 class MPASRemapper:
     """
     This class provides a high-level interface to xESMF regridding functionality specifically designed for MPAS output, supporting all interpolation methods (bilinear, conservative, patch, nearest_s2d, nearest_d2s, conservative_normed), automatic coordinate detection from MPAS conventions, weight file caching for repeated operations, and batch processing of multiple variables. The remapper handles both cell-centered (nCells) and vertex-based (nVertices) MPAS fields, performs proper unit sphere coordinate conversion, manages periodic boundaries for global domains, and applies conservative renormalization when needed. It integrates seamlessly with xarray workflows and provides options for handling masked regions, parallel processing, and memory-efficient chunked operations.
@@ -133,18 +179,7 @@ class MPASRemapper:
         Returns:
             xr.Dataset: Source grid dataset containing 'lon' and 'lat' coordinate arrays plus optional 'lon_b' and 'lat_b' boundary arrays.
         """
-        if isinstance(lon, xr.DataArray):
-            lon = lon.values
-
-        if isinstance(lat, xr.DataArray):
-            lat = lat.values
-        
-        if np.max(np.abs(lon)) <= np.pi:
-            lon = np.degrees(lon)
-
-        if np.max(np.abs(lat)) <= np.pi:
-            lat = lat.values if isinstance(lat, xr.DataArray) else lat
-            lat = np.degrees(lat)
+        lon, lat = _convert_coordinates_to_degrees(lon, lat)
         
         lon = np.where(lon < 0, lon + 360, lon)
         
@@ -154,17 +189,7 @@ class MPASRemapper:
         })
         
         if lon_bounds is not None and lat_bounds is not None:
-            if isinstance(lon_bounds, xr.DataArray):
-                lon_bounds = lon_bounds.values
-
-            if isinstance(lat_bounds, xr.DataArray):
-                lat_bounds = lat_bounds.values
-            
-            if np.max(np.abs(lon_bounds)) <= np.pi:
-                lon_bounds = np.degrees(lon_bounds)
-
-            if np.max(np.abs(lat_bounds)) <= np.pi:
-                lat_bounds = np.degrees(lat_bounds)
+            lon_bounds, lat_bounds = _convert_coordinates_to_degrees(lon_bounds, lat_bounds)
             
             lon_bounds = np.where(lon_bounds < 0, lon_bounds + 360, lon_bounds)
             
@@ -407,12 +432,6 @@ class MPASRemapper:
         except ImportError:
             raise ImportError("scipy is required. Install with: pip install scipy")
         
-        if isinstance(lon, xr.DataArray):
-            lon = lon.values
-
-        if isinstance(lat, xr.DataArray):
-            lat = lat.values
-
         if isinstance(data, xr.DataArray):
             data_attrs = data.attrs
             data_values = data.values
@@ -420,8 +439,7 @@ class MPASRemapper:
             data_attrs = {}
             data_values = data
         
-        lon_deg = np.degrees(lon) if np.max(np.abs(lon)) <= np.pi else lon
-        lat_deg = np.degrees(lat) if np.max(np.abs(lat)) <= np.pi else lat
+        lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
         
         if lon_min is None:
             lon_min = float(np.min(lon_deg) - buffer)
@@ -470,29 +488,9 @@ class MPASRemapper:
             attrs=data_attrs
         )
         
-        # Create grid bounds for conservative remapping
-        # For a 2D structured grid, xESMF needs corner coordinates (Nx+1, Ny+1)
-        # These are the cell vertices/edges
-        lon_b = np.zeros(len(intermediate_lons) + 1)
-        lat_b = np.zeros(len(intermediate_lats) + 1)
+        lon_b = _compute_grid_bounds(intermediate_lons, intermediate_resolution)
+        lat_b = _compute_grid_bounds(intermediate_lats, intermediate_resolution)
         
-        # Longitude bounds (cell edges)
-        lon_b[0] = intermediate_lons[0] - intermediate_resolution / 2
-
-        for i in range(1, len(intermediate_lons)):
-            lon_b[i] = (intermediate_lons[i-1] + intermediate_lons[i]) / 2
-
-        lon_b[-1] = intermediate_lons[-1] + intermediate_resolution / 2
-        
-        # Latitude bounds (cell edges)
-        lat_b[0] = intermediate_lats[0] - intermediate_resolution / 2
-
-        for i in range(1, len(intermediate_lats)):
-            lat_b[i] = (intermediate_lats[i-1] + intermediate_lats[i]) / 2
-
-        lat_b[-1] = intermediate_lats[-1] + intermediate_resolution / 2
-        
-        # Create grid dataset for xESMF with bounds
         structured_grid = xr.Dataset({
             'lon': xr.DataArray(intermediate_lons, dims=['lon']),
             'lat': xr.DataArray(intermediate_lats, dims=['lat']),
@@ -591,12 +589,6 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     print(f"Remapping MPAS → regular lat-lon grid ({resolution}°) using {method} interpolation")
     
-    if isinstance(lon, xr.DataArray):
-        lon = lon.values
-
-    if isinstance(lat, xr.DataArray):
-        lat = lat.values
-
     if isinstance(data, xr.DataArray):
         data_attrs = data.attrs
         data_values = data.values
@@ -604,8 +596,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
         data_attrs = {}
         data_values = data
     
-    lon_deg = np.degrees(lon) if np.max(np.abs(lon)) <= np.pi else lon
-    lat_deg = np.degrees(lat) if np.max(np.abs(lat)) <= np.pi else lat
+    lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
     
     print(f"  Original MPAS data statistics:")
     print(f"    Min: {float(np.nanmin(data_values)):.4f}, Max: {float(np.nanmax(data_values)):.4f}")

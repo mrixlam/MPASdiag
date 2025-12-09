@@ -27,13 +27,81 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
-from typing import cast
+from typing import cast, Optional
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+
+
+def setup_wind_data(grid_file: str, data_file: str, time_idx: int = 0) -> dict:
+    """
+    Helper function to set up common wind data for all examples.
+    
+    Parameters:
+        grid_file (str): Path to MPAS grid file
+        data_file (str): Path to MPAS data file
+        time_idx (int): Time index to extract (default: 0)
+    
+    Returns:
+        dict: Dictionary containing processor, u_data, v_data, lon, lat, time_stamp
+    """
+    processor = MPAS2DProcessor(grid_file=grid_file)
+    data_dir = os.path.dirname(data_file)
+    processor.load_2d_data(data_dir)
+    
+    u_data = processor.get_2d_variable_data('u10', time_idx)
+    v_data = processor.get_2d_variable_data('v10', time_idx)
+    lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
+    
+    time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, var_context='wind', verbose=False)
+    time_stamp = pd.to_datetime(processor.dataset.Time.values[time_idx]).to_pydatetime() if hasattr(processor.dataset, 'Time') else None
+    
+    return {
+        'processor': processor,
+        'u_data': u_data,
+        'v_data': v_data,
+        'lon': lon,
+        'lat': lat,
+        'time_stamp': time_stamp
+    }
+
+
+def get_plot_bounds() -> dict:
+    """
+    Helper function to get standard plot geographic bounds.
+    
+    Returns:
+        dict: Dictionary with lon_min, lon_max, lat_min, lat_max
+    """
+    return {
+        'lon_min': -130,
+        'lon_max': -60,
+        'lat_min': 20,
+        'lat_max': 55
+    }
+
+
+def save_and_cleanup(plotter, output_path: str, success_message: str, details: Optional[list] = None) -> None:
+    """
+    Helper function to save plot and cleanup resources.
+    
+    Parameters:
+        plotter: Plotter object with save_plot and close_plot methods
+        output_path (str): Path to save the plot (without extension)
+        success_message (str): Success message to display
+        details (list): Optional list of detail strings to display
+    """
+    plotter.add_timestamp_and_branding()
+    plotter.save_plot(output_path, formats=['png'])
+    plotter.close_plot()
+    
+    print(f"\n✓ {success_message}: {output_path}.png")
+    if details:
+        for detail in details:
+            print(f"  - {detail}")
 
 
 def example_1_wind_barbs(
@@ -56,53 +124,36 @@ def example_1_wind_barbs(
     print("EXAMPLE 1: Wind Barbs Plot")
     print("="*70)
     
-    processor = MPAS2DProcessor(grid_file=grid_file)
-    data_dir = os.path.dirname(data_file)
-    processor.load_2d_data(data_dir)
-    
-    time_idx = 0
-    u_data = processor.get_2d_variable_data('u10', time_idx)
-    v_data = processor.get_2d_variable_data('v10', time_idx)
-    lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
-    
-    lon_min, lon_max = -130, -60
-    lat_min, lat_max = 20, 55
+    data = setup_wind_data(grid_file, data_file)
+    bounds = get_plot_bounds()
     
     plotter = MPASWindPlotter(figsize=(14, 11), dpi=150)
     
-    time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, var_context='wind', verbose=False)
-    time_stamp = pd.to_datetime(processor.dataset.Time.values[time_idx]).to_pydatetime() if hasattr(processor.dataset, 'Time') else None
-    
-    fig, ax = plotter.create_wind_plot(
-        lon=lon,
-        lat=lat,
-        u_data=u_data.values,
-        v_data=v_data.values,
-        lon_min=lon_min,
-        lon_max=lon_max,
-        lat_min=lat_min,
-        lat_max=lat_max,
+    _, _ = plotter.create_wind_plot(
+        lon=data['lon'],
+        lat=data['lat'],
+        u_data=data['u_data'].values,
+        v_data=data['v_data'].values,
         wind_level="10-m",
         plot_type='barbs',
         subsample=-1,
         grid_resolution=0.1,
         regrid_method='linear',
         title="MPAS 10-m Wind Analysis - Wind Barbs",
-        time_stamp=time_stamp,
-        projection='PlateCarree'
+        time_stamp=data['time_stamp'],
+        projection='PlateCarree',
+        **bounds
     )
     
     output_path = os.path.join(output_dir, "mpas_wind_barbs_example")
-    plotter.add_timestamp_and_branding()
-    plotter.save_plot(output_path, formats=['png'])
-    plotter.close_plot()
-    
-    print(f"\n✓ Wind barbs plot saved to: {output_path}.png")
-    print("  - Uses meteorological wind barb convention")
-    print("  - Data regridded to 0.1° resolution for smooth visualization")
-    print("  - Automatic intelligent subsampling for optimal density")
-    print("  - Flags indicate wind speed (full barb = ~5 m/s)")
-    print("  - Barbs point toward wind source direction")
+    details = [
+        "Uses meteorological wind barb convention",
+        "Data regridded to 0.1° resolution for smooth visualization",
+        "Automatic intelligent subsampling for optimal density",
+        "Flags indicate wind speed (full barb = ~5 m/s)",
+        "Barbs point toward wind source direction"
+    ]
+    save_and_cleanup(plotter, output_path, "Wind barbs plot saved to", details)
 
 
 def example_2_wind_arrows(
@@ -125,32 +176,16 @@ def example_2_wind_arrows(
     print("EXAMPLE 2: Wind Arrows (Quiver) Plot")
     print("="*70)
     
-    processor = MPAS2DProcessor(grid_file=grid_file)
-    data_dir = os.path.dirname(data_file)
-    processor.load_2d_data(data_dir)
-    
-    time_idx = 0
-    u_data = processor.get_2d_variable_data('u10', time_idx)
-    v_data = processor.get_2d_variable_data('v10', time_idx)
-    lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
-    
-    lon_min, lon_max = -130, -60
-    lat_min, lat_max = 20, 55
+    data = setup_wind_data(grid_file, data_file)
+    bounds = get_plot_bounds()
     
     plotter = MPASWindPlotter(figsize=(14, 11), dpi=150)
     
-    time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, var_context='wind', verbose=False)
-    time_stamp = pd.to_datetime(processor.dataset.Time.values[time_idx]).to_pydatetime() if hasattr(processor.dataset, 'Time') else None
-    
-    fig, ax = plotter.create_wind_plot(
-        lon=lon,
-        lat=lat,
-        u_data=u_data.values,
-        v_data=v_data.values,
-        lon_min=lon_min,
-        lon_max=lon_max,
-        lat_min=lat_min,
-        lat_max=lat_max,
+    _, _ = plotter.create_wind_plot(
+        lon=data['lon'],
+        lat=data['lat'],
+        u_data=data['u_data'].values,
+        v_data=data['v_data'].values,
         wind_level="10-m",
         plot_type='arrows',
         subsample=-1,
@@ -158,21 +193,20 @@ def example_2_wind_arrows(
         grid_resolution=0.1,
         regrid_method='linear',
         title="MPAS 10-m Wind Analysis - Vector Arrows",
-        time_stamp=time_stamp,
-        projection='PlateCarree'
+        time_stamp=data['time_stamp'],
+        projection='PlateCarree',
+        **bounds
     )
     
     output_path = os.path.join(output_dir, "mpas_wind_arrows_example")
-    plotter.add_timestamp_and_branding()
-    plotter.save_plot(output_path, formats=['png'])
-    plotter.close_plot()
-    
-    print(f"\n✓ Wind arrows plot saved to: {output_path}.png")
-    print("  - Arrow length proportional to wind speed")
-    print("  - Data regridded to 0.1° resolution for smooth visualization")
-    print("  - Automatic intelligent subsampling for optimal density")
-    print("  - Arrows point in wind direction")
-    print("  - Custom scale=300 for optimal arrow sizing")
+    details = [
+        "Arrow length proportional to wind speed",
+        "Data regridded to 0.1° resolution for smooth visualization",
+        "Automatic intelligent subsampling for optimal density",
+        "Arrows point in wind direction",
+        "Custom scale=300 for optimal arrow sizing"
+    ]
+    save_and_cleanup(plotter, output_path, "Wind arrows plot saved to", details)
 
 
 def example_3_wind_streamlines(
@@ -195,37 +229,22 @@ def example_3_wind_streamlines(
     print("EXAMPLE 3: Wind Streamlines Plot")
     print("="*70)
     
-    processor = MPAS2DProcessor(grid_file=grid_file)
-    data_dir = os.path.dirname(data_file)
-    processor.load_2d_data(data_dir)
-    
-    time_idx = 0
-    u_data = processor.get_2d_variable_data('u10', time_idx)
-    v_data = processor.get_2d_variable_data('v10', time_idx)
-    lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
-    
-    lon_min, lon_max = -130, -60
-    lat_min, lat_max = 20, 55
+    data = setup_wind_data(grid_file, data_file)
+    bounds = get_plot_bounds()
     
     plotter = MPASWindPlotter(figsize=(14, 11), dpi=150)
-    
-    time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, var_context='wind', verbose=False)
-    time_stamp = pd.to_datetime(processor.dataset.Time.values[time_idx]).to_pydatetime() if hasattr(processor.dataset, 'Time') else None
     
     print("Regridding wind data for streamlines (this may take a moment)...")
     grid_resolution = 0.5
     
     lon_2d, lat_2d, u_2d, v_2d = plotter._regrid_wind_components(
-        lon=lon,
-        lat=lat,
-        u_data=u_data.values,
-        v_data=v_data.values,
-        lon_min=lon_min,
-        lon_max=lon_max,
-        lat_min=lat_min,
-        lat_max=lat_max,
+        lon=data['lon'],
+        lat=data['lat'],
+        u_data=data['u_data'].values,
+        v_data=data['v_data'].values,
         grid_resolution=grid_resolution,
-        regrid_method='linear'
+        regrid_method='linear',
+        **bounds
     )
     
     lon_1d = lon_2d[0, :]
@@ -238,7 +257,7 @@ def example_3_wind_streamlines(
     fig = plt.figure(figsize=(14, 10), dpi=150)
     ax = cast(GeoAxes, plt.axes(projection=ccrs.PlateCarree()))
     
-    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+    ax.set_extent([bounds['lon_min'], bounds['lon_max'], bounds['lat_min'], bounds['lat_max']], crs=ccrs.PlateCarree())
     
     ax.add_feature(cfeature.COASTLINE, linewidth=0.8, color='black')
     ax.add_feature(cfeature.BORDERS, linewidth=0.5, color='gray')
@@ -280,8 +299,8 @@ def example_3_wind_streamlines(
     speed_unit = wind_speed_metadata.get('units', 'm s^{-1}')
     
     title = f"MPAS 10-m Wind Analysis - Streamlines\n"
-    if time_stamp:
-        title += f"{time_stamp.strftime('%Y-%m-%d %H:%M UTC')} - "
+    if data['time_stamp']:
+        title += f"{data['time_stamp'].strftime('%Y-%m-%d %H:%M UTC')} - "
     title += f"Max: {max_speed:.1f} {speed_unit}, Mean: {mean_speed:.1f} {speed_unit}"
     
     ax.set_title(title, fontsize=12, pad=20)
@@ -290,14 +309,12 @@ def example_3_wind_streamlines(
     plotter.ax = ax
     
     output_path = os.path.join(output_dir, "mpas_wind_streamlines_example")
-    plotter.add_timestamp_and_branding()
-    plotter.save_plot(output_path, formats=['png'])
-    plotter.close_plot()
-    
-    print(f"\n✓ Wind streamlines plot saved to: {output_path}.png")
-    print("  - Streamlines follow wind flow trajectories")
-    print("  - Color indicates wind speed magnitude")
-    print("  - Regridded to regular lat-lon grid for smooth visualization")
+    details = [
+        "Streamlines follow wind flow trajectories",
+        "Color indicates wind speed magnitude",
+        "Regridded to regular lat-lon grid for smooth visualization"
+    ]
+    save_and_cleanup(plotter, output_path, "Wind streamlines plot saved to", details)
 
 
 def example_4_complex_wind_plot(
@@ -320,49 +337,34 @@ def example_4_complex_wind_plot(
     print("EXAMPLE 4: Complex Wind Plot (Wind Speed + Wind Barbs)")
     print("="*70)
     
-    processor = MPAS2DProcessor(grid_file=grid_file)
-    data_dir = os.path.dirname(data_file)
-    processor.load_2d_data(data_dir)
+    data = setup_wind_data(grid_file, data_file)
+    bounds = get_plot_bounds()
     
-    time_idx = 0
-    u_data = processor.get_2d_variable_data('u10', time_idx)
-    v_data = processor.get_2d_variable_data('v10', time_idx)
-    lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
-    
-    wind_speed = np.sqrt(u_data.values**2 + v_data.values**2)
-    
-    lon_min, lon_max = -130, -60
-    lat_min, lat_max = 20, 55
+    wind_speed = np.sqrt(data['u_data'].values**2 + data['v_data'].values**2)
     
     surface_plotter = MPASSurfacePlotter(figsize=(14, 11), dpi=150)
     
-    time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, var_context='wind', verbose=False)
-    time_stamp = pd.to_datetime(processor.dataset.Time.values[time_idx]).to_pydatetime() if hasattr(processor.dataset, 'Time') else None
-    
     print("Creating wind speed background...")
     fig, ax = surface_plotter.create_surface_map(
-        lon=lon,
-        lat=lat,
+        lon=data['lon'],
+        lat=data['lat'],
         data=wind_speed,
         var_name='wind_speed',
-        lon_min=lon_min,
-        lon_max=lon_max,
-        lat_min=lat_min,
-        lat_max=lat_max,
         title="MPAS 10-m Wind Analysis - Wind Speed with Direction Barbs",
         plot_type='contourf',
         grid_resolution=100,
         colormap='YlOrRd',
-        time_stamp=time_stamp,
-        projection='PlateCarree'
+        time_stamp=data['time_stamp'],
+        projection='PlateCarree',
+        **bounds
     )
     
     print("Adding wind barb overlay...")
     wind_plotter = MPASWindPlotter()
     
     wind_config = {
-        'u_data': u_data.values,
-        'v_data': v_data.values,
+        'u_data': data['u_data'].values,
+        'v_data': data['v_data'].values,
         'plot_type': 'barbs',
         'subsample': -1,
         'color': 'black',
@@ -373,13 +375,10 @@ def example_4_complex_wind_plot(
     
     wind_plotter.add_wind_overlay(
         ax=ax,
-        lon=lon,
-        lat=lat,
+        lon=data['lon'],
+        lat=data['lat'],
         wind_config=wind_config,
-        lon_min=lon_min,
-        lon_max=lon_max,
-        lat_min=lat_min,
-        lat_max=lat_max
+        **bounds
     )
     
     wind_speed_max = np.max(wind_speed)
@@ -396,17 +395,15 @@ def example_4_complex_wind_plot(
     surface_plotter.ax = ax
     
     output_path = os.path.join(output_dir, "mpas_wind_complex_example")
-    surface_plotter.add_timestamp_and_branding()
-    surface_plotter.save_plot(output_path, formats=['png'])
-    surface_plotter.close_plot()
-    
-    print(f"\n✓ Complex wind plot saved to: {output_path}.png")
-    print("  - Background shows wind speed magnitude (colored contours)")
-    print("  - Wind speed regridded to regular grid for smooth contours")
-    print("  - Overlaid wind barbs regridded to 0.1° resolution")
-    print("  - Automatic intelligent subsampling for optimal barb density")
-    print("  - Combines MPASSurfacePlotter + MPASWindPlotter")
-    print("  - Publication-quality multi-layer visualization")
+    details = [
+        "Background shows wind speed magnitude (colored contours)",
+        "Wind speed regridded to regular grid for smooth contours",
+        "Overlaid wind barbs regridded to 0.1° resolution",
+        "Automatic intelligent subsampling for optimal barb density",
+        "Combines MPASSurfacePlotter + MPASWindPlotter",
+        "Publication-quality multi-layer visualization"
+    ]
+    save_and_cleanup(surface_plotter, output_path, "Complex wind plot saved to", details)
 
 
 def main():
