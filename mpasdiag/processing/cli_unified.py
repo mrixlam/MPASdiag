@@ -1109,6 +1109,14 @@ class MPASUnifiedCLI:
             os.makedirs(config.output_dir, exist_ok=True)
             
             if config.batch_mode:
+                use_parallel = getattr(config, 'parallel', False)
+                
+                if use_parallel:
+                    if self.logger:
+                        self.logger.warning("Parallel processing for wind analysis is not yet implemented. Falling back to serial processing.")
+                    # Explicitly disable parallel flag to prevent multiprocessing issues
+                    config.parallel = False
+                
                 created_files = plotter.create_batch_wind_plots(  
                     processor, config.output_dir,
                     config.lon_min, config.lon_max,
@@ -1185,6 +1193,7 @@ class MPASUnifiedCLI:
             
             assert config.start_lon is not None and config.start_lat is not None, \
                 "Cross-section start coordinates must be specified"
+
             assert config.end_lon is not None and config.end_lat is not None, \
                 "Cross-section end coordinates must be specified"
             
@@ -1363,10 +1372,13 @@ class MPASUnifiedCLI:
             print("\nAnalysis interrupted by user")
             return 130
         except Exception as e:
+            import traceback
             if self.logger:
                 self.logger.error(f"Unexpected error: {e}")
+                self.logger.error(traceback.format_exc())
             else:
                 print(f"Error: {e}")
+                traceback.print_exc()
             return 1
     
     def _print_system_info(self) -> None:

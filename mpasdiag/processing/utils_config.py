@@ -84,6 +84,7 @@ class MPASConfig:
     figure_size: Tuple[float, float] = (12.0, 10.0)
     grid_resolution: Optional[int] = None
     grid_resolution_deg: Optional[float] = None
+    regrid_method: str = "linear"
 
     u_variable: str = "u10"
     v_variable: str = "v10"

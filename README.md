@@ -30,6 +30,9 @@ conda install -c conda-forge numpy pandas xarray matplotlib cartopy netcdf4 dask
 # Install UXarray (for unstructured grid support)
 conda install -c conda-forge uxarray
 
+# Install MPI support for parallel processing
+conda install -c conda-forge mpi4py
+
 # Install the package
 pip install -e .
 ```
@@ -48,6 +51,11 @@ source mpas-analysis-env/bin/activate  # On Windows: mpas-analysis-env\Scripts\a
 # Install the package
 pip install -r requirements.txt
 pip install -e .
+
+# Note: mpi4py requires MPI libraries (OpenMPI or MPICH) installed on your system
+# On macOS: brew install open-mpi
+# On Ubuntu/Debian: sudo apt-get install libopenmpi-dev
+# On RHEL/CentOS: sudo yum install openmpi-devel
 ```
 
 ## Python API Usage
