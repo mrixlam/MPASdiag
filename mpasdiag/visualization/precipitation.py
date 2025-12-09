@@ -285,7 +285,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             if mappable is not None:
                 cbar = self.fig.colorbar(mappable, ax=self.ax, orientation='horizontal', extend='both',
                                        pad=0.06, shrink=0.8, aspect=30)
-                cbar.set_label(f'Precipitation ({unit_label})', fontsize=12, fontweight='bold', labelpad=-50)
+                cbar.set_label(f'Precipitation [{unit_label}]', fontsize=12, fontweight='bold', labelpad=-50)
                 cbar.ax.tick_params(labelsize=8)
                 
                 if len(color_levels_sorted) <= 15:
@@ -609,7 +609,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         assert scatter is not None, "At least one subplot must have valid data for colorbar"
         cbar = self.fig.colorbar(scatter, ax=axes, orientation='horizontal', extend='both',
                                pad=0.08, shrink=0.6, aspect=30)
-        cbar.set_label('Precipitation (mm)', fontsize=12, fontweight='bold')
+        cbar.set_label('Precipitation [mm]', fontsize=12, fontweight='bold')
         cbar.ax.tick_params(labelsize=8)
         
         if len(color_levels_sorted) <= 15:

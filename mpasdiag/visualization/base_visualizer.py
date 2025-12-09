@@ -513,5 +513,5 @@ class MPASVisualizer:
         
         cbar = plt.colorbar(sc, ax=self.ax, orientation='vertical', 
                           pad=0.05, shrink=0.8)
-        cbar.set_label('Wind Speed (m/s)', fontsize=11)
+        cbar.set_label('Wind Speed [m s$^{-1}$]', fontsize=11)
         cbar.ax.tick_params(labelsize=10)

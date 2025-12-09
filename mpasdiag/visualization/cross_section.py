@@ -235,7 +235,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             try:
                 units = metadata.get('units', '')
                 long_name = metadata.get('long_name', var_name)
-                cbar_label = f"{long_name} ({units})" if units else long_name
+                cbar_label = f"{long_name} [{units}]" if units else long_name
             except Exception:
                 cbar_label = var_name
                 
@@ -766,11 +766,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             pass  # Fall back to default formatting if styling fails
         
         if vertical_coord_type == 'height_km':
-            self.ax.set_ylabel('Height (km)', fontsize=12)
+            self.ax.set_ylabel('Height [km]', fontsize=12)
             y_max = max_height if max_height is not None else vertical_coords.max()
             self.ax.set_ylim(0, y_max)  # Start from bottom (0 km)
         elif vertical_coord_type == 'pressure_hPa':
-            self.ax.set_ylabel('Pressure (hPa)', fontsize=12)
+            self.ax.set_ylabel('Pressure [hPa]', fontsize=12)
             if max_height is not None:
                 # Convert max_height to pressure using standard atmosphere
                 # P = P0 * exp(-h/H) where H ≈ 8.4 km
@@ -786,7 +786,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 self.ax.set_ylim(vertical_coords.max(), vertical_coords.min()) 
             self._setup_pressure_axis(vertical_coords, use_standard_ticks=True)
         elif vertical_coord_type == 'pressure':
-            self.ax.set_ylabel('Pressure (Pa)', fontsize=12)
+            self.ax.set_ylabel('Pressure [Pa]', fontsize=12)
             if max_height is not None:
                 P0 = 101325  # Sea level pressure in Pa
                 H = 8.4  # Scale height in km
@@ -800,7 +800,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 self.ax.set_ylim(vertical_coords.max(), vertical_coords.min()) 
             self._setup_pressure_axis(vertical_coords, use_standard_ticks=False)
         elif vertical_coord_type == 'height':
-            self.ax.set_ylabel('Height (m)', fontsize=12)
+            self.ax.set_ylabel('Height [m]', fontsize=12)
             y_max = max_height * 1000 if max_height is not None else vertical_coords.max() 
             self.ax.set_ylim(vertical_coords.min(), y_max)
         else: 

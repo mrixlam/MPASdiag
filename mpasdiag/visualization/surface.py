@@ -465,11 +465,11 @@ class MPASSurfacePlotter(MPASVisualizer):
         if hasattr(self, '_current_var_metadata') and self._current_var_metadata:
             var_units = self._current_var_metadata.get('units', '')
             var_long_name = self._current_var_metadata.get('long_name', 'Value')
-            if var_units and f'({var_units})' in var_long_name:
+            if var_units and f'[{var_units}]' in var_long_name:
                 cbar_label = var_long_name
             else:
-                cbar_label = f"{var_long_name} ({var_units})" if var_units else var_long_name
-            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-50)
+                cbar_label = f"{var_long_name} [{var_units}]" if var_units else var_long_name
+            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-60)
         
         try:
             ticks = cbar.get_ticks().tolist()

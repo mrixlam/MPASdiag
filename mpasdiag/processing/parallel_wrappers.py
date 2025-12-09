@@ -132,7 +132,7 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             accum_period=accum_period
         )
     else:
-        title = f"MPAS Precipitation | VarType: {var_name.upper()} | Valid Time: {time_str}"
+        title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
     
     plot_start = time.time()
     fig, ax = plotter.create_precipitation_map(
@@ -153,7 +153,7 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     save_start = time.time()
     output_path = os.path.join(
         output_dir,
-        f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_point"
+        f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}"
     )
     
     plotter.save_plot(output_path, formats=formats)

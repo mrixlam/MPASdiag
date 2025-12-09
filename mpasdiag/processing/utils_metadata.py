@@ -128,6 +128,8 @@ class MPASFileMetadata:
             'updraft_helicity_max': {'units': M2_PER_S2, 'long_name': 'Maximum Updraft Helicity'},
             'w_velocity_max': {'units': M_PER_S, 'long_name': 'Maximum Vertical Velocity'},
             'wind_speed_level1_max': {'units': M_PER_S, 'long_name': 'Maximum Wind Speed at Level 1'},
+            'wind_speed': {'units': M_PER_S, 'long_name': 'Wind Speed'},
+            'wspd10': {'units': M_PER_S, 'long_name': '10-m Wind Speed'},
 
             't_oml': {'units': KELVIN, 'long_name': 'Ocean Mixed Layer Temperature'},
             'h_oml': {'units': METER, 'long_name': 'Ocean Mixed Layer Depth'},
