@@ -287,8 +287,13 @@ def main() -> bool:
     ]
     
     results = []
+
     for test in tests:
-        results.append(test())
+        try:
+            test()
+            results.append(True)
+        except (AssertionError, Exception):
+            results.append(False)
     
     print("\n" + "=" * 60)
     print("=== Final Test Summary ===")

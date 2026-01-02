@@ -646,7 +646,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     data_sum = float(np.nansum(data_values))
 
-    if data_sum == 0.0:
+    if np.abs(data_sum) < 1e-10:
         print("\n[ERROR] Input data for remapping is empty, all zeros, or all NaNs. Cannot compute remapping ratio.\n")
         print("  Please check your input data source and variable selection.")
         print(f"  Data shape: {data_values.shape}, dtype: {data_values.dtype}")
