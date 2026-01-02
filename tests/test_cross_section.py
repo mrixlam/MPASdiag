@@ -374,23 +374,23 @@ class TestMPASVerticalCrossSectionPlotter(unittest.TestCase):
             start_point = (-100.0, 35.0)
             end_point = (-80.0, 45.0)
             
-            self.plotter._format_cross_section_axes(
-                longitudes, vertical_coords, 'height_km', start_point, end_point
-            )
-            
-            mock_ax.set_xlabel.assert_called_with('Longitude', fontsize=12, labelpad=10)
-            mock_ax.set_ylabel.assert_called_with('Height (km)', fontsize=12)
-            mock_ax.set_xlim.assert_called_once()
-            mock_ax.set_ylim.assert_called_once()
-            
-            mock_ax.reset_mock()
-            pressure_coords = np.array([1000, 850, 700, 500, 300])
-            self.plotter._format_cross_section_axes(
-                longitudes, pressure_coords, 'pressure_hPa', start_point, end_point
-            )
-            
-            mock_ax.set_ylabel.assert_called_with('Pressure (hPa)', fontsize=12)
-            mock_ax.set_yscale.assert_called_with('log')
+        self.plotter._format_cross_section_axes(
+            longitudes, vertical_coords, 'height_km', start_point, end_point
+        )
+        
+        mock_ax.set_xlabel.assert_called_with('Longitude', fontsize=12, labelpad=10)
+        mock_ax.set_ylabel.assert_called_with('Height [km]', fontsize=12)
+        mock_ax.set_xlim.assert_called_once()
+        mock_ax.set_ylim.assert_called_once()
+        
+        mock_ax.reset_mock()
+        pressure_coords = np.array([1000, 850, 700, 500, 300])
+        self.plotter._format_cross_section_axes(
+            longitudes, pressure_coords, 'pressure_hPa', start_point, end_point
+        )
+        
+        mock_ax.set_ylabel.assert_called_with('Pressure [hPa]', fontsize=12)
+        mock_ax.set_yscale.assert_called_with('log')
     
     @patch('mpasdiag.visualization.cross_section.plt.subplots')
     def test_create_vertical_cross_section_validation(self, mock_subplots) -> None:

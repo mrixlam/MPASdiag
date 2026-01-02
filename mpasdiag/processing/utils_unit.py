@@ -21,9 +21,9 @@ from typing import Union, Tuple, Dict, Any
 
 from .constants import (
     MM_PER_HR, MM_PER_DAY, DBZ, KELVIN, M_PER_S, PA, PERCENT,
-    METER, MILES_PER_HR, KG_PER_KG, KG_PER_M3, MICRONS, PER_KG,
+    METER, MILES_PER_HR, KG_PER_KG, KG_PER_M2, KG_PER_M3, MICRONS, PER_KG,
     M3_PER_M3, G_PER_KG, KM_PER_HR, NOUNIT, HPA, MB, KNOT, FEET, 
-    CELSIUS, FAHRENHEIT, KILOMETER, INCHES_PER_HR
+    CELSIUS, FAHRENHEIT, KILOMETER, INCHES_PER_HR, MM
 )
 
 
@@ -73,6 +73,9 @@ class UnitConverter:
         
         (KG_PER_KG, G_PER_KG): lambda x: x * 1000.0,
         (G_PER_KG, KG_PER_KG): lambda x: x / 1000.0,
+        
+        (KG_PER_M2, MM): lambda x: x,  # 1 kg/m² = 1 mm of water
+        (MM, KG_PER_M2): lambda x: x,  # 1 mm of water = 1 kg/m²
         
         (MM_PER_HR, MM_PER_DAY): lambda x: x * 24.0,
         (MM_PER_DAY, MM_PER_HR): lambda x: x / 24.0,
@@ -153,30 +156,33 @@ class UnitConverter:
         unit = unit.strip()
         
         unit_map = {
-        'kelvin': KELVIN, 'k': KELVIN,
-        'celsius': CELSIUS, 'degc': CELSIUS, 'deg_c': CELSIUS, 'c': CELSIUS,
-        'fahrenheit': FAHRENHEIT, 'degf': FAHRENHEIT, 'deg_f': FAHRENHEIT, 'f': FAHRENHEIT,
+        'kelvin': KELVIN, 'k': KELVIN, KELVIN.lower(): KELVIN,
+        'celsius': CELSIUS, 'degc': CELSIUS, 'deg_c': CELSIUS, 'c': CELSIUS, CELSIUS.lower(): CELSIUS,
+        'fahrenheit': FAHRENHEIT, 'degf': FAHRENHEIT, 'deg_f': FAHRENHEIT, 'f': FAHRENHEIT, FAHRENHEIT.lower(): FAHRENHEIT,
         
-        'pascal': PA, 'pa': PA,
-        'hectopascal': HPA, 'hpa': HPA,
-        'millibar': MB, 'mbar': MB,
+        'pascal': PA, 'pa': PA, PA.lower(): PA,
+        'hectopascal': HPA, 'hpa': HPA, HPA.lower(): HPA,
+        'millibar': MB, 'mbar': MB, MB.lower(): MB,
         
-        'kg kg-1': KG_PER_KG, 'kg_kg-1': KG_PER_KG, 'kg kg^{-1}': KG_PER_KG,
-        'g kg-1': G_PER_KG, 'g_kg-1': G_PER_KG, 'g kg^{-1}': G_PER_KG,
+        'kg kg-1': KG_PER_KG, 'kg_kg-1': KG_PER_KG, 'kg kg^{-1}': KG_PER_KG, KG_PER_KG.lower(): KG_PER_KG,
+        'g kg-1': G_PER_KG, 'g_kg-1': G_PER_KG, 'g kg^{-1}': G_PER_KG, G_PER_KG.lower(): G_PER_KG,
         
-        'mm hr-1': MM_PER_HR, 'mm_hr-1': MM_PER_HR,
-        'mm day-1': MM_PER_DAY, 'mm_day-1': MM_PER_DAY,
+        'kg m-2': KG_PER_M2, 'kg_m-2': KG_PER_M2, 'kg m^{-2}': KG_PER_M2, KG_PER_M2.lower(): KG_PER_M2,
         
-        'percent': PERCENT, 'pct': PERCENT,
-        'in hr-1': INCHES_PER_HR, 'in_hr-1': INCHES_PER_HR,
+        'mm hr-1': MM_PER_HR, 'mm_hr-1': MM_PER_HR, MM_PER_HR.lower(): MM_PER_HR,
+        'mm day-1': MM_PER_DAY, 'mm_day-1': MM_PER_DAY, MM_PER_DAY.lower(): MM_PER_DAY,
         
-        'knots': KNOT, 'knot': KNOT, 'kts': KNOT,
-        'miles per hour': MILES_PER_HR, 'mi/hr': MILES_PER_HR,
-        'kilometers per hour': KM_PER_HR, 'km hr-1': KM_PER_HR, 'km_hr-1': KM_PER_HR,
+        'percent': PERCENT, 'pct': PERCENT, PERCENT.lower(): PERCENT,
+        'in hr-1': INCHES_PER_HR, 'in_hr-1': INCHES_PER_HR, INCHES_PER_HR.lower(): INCHES_PER_HR,
         
-        'meter': METER, 'meters': METER,
-        'kilometer': KILOMETER, 'kilometers': KILOMETER,
-        'foot': FEET, 'feet': FEET,
+        'knots': KNOT, 'knot': KNOT, 'kts': KNOT, KNOT.lower(): KNOT,
+        'miles per hour': MILES_PER_HR, 'mi/hr': MILES_PER_HR, MILES_PER_HR.lower(): MILES_PER_HR,
+        'kilometers per hour': KM_PER_HR, 'km hr-1': KM_PER_HR, 'km_hr-1': KM_PER_HR, KM_PER_HR.lower(): KM_PER_HR,
+        'm s-1': M_PER_S, 'm_s-1': M_PER_S, 'm s^{-1}': M_PER_S, M_PER_S.lower(): M_PER_S,
+        
+        'meter': METER, 'meters': METER, METER.lower(): METER,
+        'kilometer': KILOMETER, 'kilometers': KILOMETER, KILOMETER.lower(): KILOMETER,
+        'foot': FEET, 'feet': FEET, FEET.lower(): FEET,
         }
         
         return unit_map.get(unit.lower(), unit)
@@ -203,8 +209,8 @@ class UnitConverter:
             'pressure': HPA, 'slp': HPA, 'psfc': HPA, 'pressure_p': HPA,
             'mslp': HPA, 'pmsl': HPA, 'pressure_base': HPA,
             
-            'rainnc': MM_PER_HR, 'rainc': MM_PER_HR, 'rain': MM_PER_HR,
-            'precipitation': MM_PER_HR, 'precip': MM_PER_HR,
+            'precipw': MM,            
+            'precipitation': MM_PER_HR, 'precip': MM_PER_HR, 'precip_rate': MM_PER_HR,
             
             'u10': M_PER_S, 'v10': M_PER_S, 'wspd10': M_PER_S, 'u': M_PER_S, 'w': M_PER_S,
             'wind_speed': M_PER_S, 'wind': M_PER_S, 'uReconstructZonal': M_PER_S, 'uReconstructMeridional': M_PER_S,
@@ -236,7 +242,7 @@ class UnitConverter:
                 return preferred_unit
         
         for var_pattern, preferred_unit in display_unit_preferences.items():
-            if len(var_pattern) > 1 and var_pattern.lower() in var_name_lower:
+            if len(var_pattern) > 2 and var_pattern.lower() in var_name_lower:
                 if current_unit != preferred_unit:
                     try:
                         UnitConverter.convert_units(1.0, current_unit, preferred_unit)

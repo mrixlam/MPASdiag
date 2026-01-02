@@ -34,6 +34,7 @@ import os
 import argparse
 import textwrap
 import logging
+import pandas as pd
 from typing import Dict, List, Any, Optional, Union, Tuple
 from pathlib import Path
 
@@ -46,6 +47,7 @@ from .processors_3d import MPAS3DProcessor
 from .parallel_wrappers import (
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
+    ParallelWindProcessor,
     ParallelCrossSectionProcessor,
     auto_batch_processor
 )
@@ -1066,7 +1068,8 @@ class MPASUnifiedCLI:
                     plot_type=config.plot_type,
                     colormap=config.colormap if config.colormap != 'default' else None,
                     clim_min=config.clim_min,
-                    clim_max=config.clim_max
+                    clim_max=config.clim_max,
+                    data_array=var_data  
                 )
                 
                 output_path = config.output or os.path.join(
@@ -1113,25 +1116,39 @@ class MPASUnifiedCLI:
                 
                 if use_parallel:
                     if self.logger:
-                        self.logger.warning("Parallel processing for wind analysis is not yet implemented. Falling back to serial processing.")
-                    # Explicitly disable parallel flag to prevent multiprocessing issues
-                    config.parallel = False
+                        self.logger.info("Using parallel processing for batch wind analysis")
+                    created_files = ParallelWindProcessor.create_batch_wind_plots_parallel(
+                        processor, config.output_dir,
+                        config.lon_min, config.lon_max,
+                        config.lat_min, config.lat_max,
+                        u_variable=config.u_variable,
+                        v_variable=config.v_variable,
+                        plot_type=config.wind_plot_type,
+                        formats=config.output_formats or ['png'],
+                        subsample=config.subsample_factor,
+                        scale=config.wind_scale,
+                        show_background=config.show_background,
+                        grid_resolution=getattr(config, 'grid_resolution', None),
+                        regrid_method=getattr(config, 'regrid_method', 'linear'),
+                        n_processes=config.workers
+                    )
+                else:
+                    created_files = plotter.create_batch_wind_plots(  
+                        processor, config.output_dir,
+                        config.lon_min, config.lon_max,
+                        config.lat_min, config.lat_max,
+                        u_variable=config.u_variable,
+                        v_variable=config.v_variable,
+                        plot_type=config.wind_plot_type,
+                        formats=config.output_formats,
+                        subsample=config.subsample_factor,
+                        scale=config.wind_scale,
+                        show_background=config.show_background,
+                        grid_resolution=getattr(config, 'grid_resolution', None),
+                        regrid_method=getattr(config, 'regrid_method', 'linear')
+                    )
                 
-                created_files = plotter.create_batch_wind_plots(  
-                    processor, config.output_dir,
-                    config.lon_min, config.lon_max,
-                    config.lat_min, config.lat_max,
-                    u_variable=config.u_variable,
-                    v_variable=config.v_variable,
-                    plot_type=config.wind_plot_type,
-                    formats=config.output_formats,
-                    subsample=config.subsample_factor,
-                    scale=config.wind_scale,
-                    show_background=config.show_background,
-                    grid_resolution=getattr(config, 'grid_resolution', None),
-                    regrid_method=getattr(config, 'regrid_method', 'linear')
-                )
-                if self.logger:
+                if self.logger and created_files:
                     self.logger.info(f"Created {len(created_files)} wind plots")
             else:
                 u_data = processor.get_2d_variable_data(config.u_variable, config.time_index)
@@ -1152,9 +1169,15 @@ class MPASUnifiedCLI:
                     regrid_method=getattr(config, 'regrid_method', 'linear')
                 )
                 
+                if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > config.time_index:
+                    time_end = pd.Timestamp(processor.dataset.Time.values[config.time_index]).to_pydatetime()
+                    time_str = time_end.strftime('%Y%m%dT%H')
+                else:
+                    time_str = f"t{config.time_index:03d}"
+                
                 output_path = config.output or os.path.join(
                     config.output_dir,
-                    f"mpas_wind_{config.wind_level}_{config.wind_plot_type}_{config.time_index:03d}"
+                    f"mpas_wind_{config.u_variable}_{config.v_variable}_{config.wind_plot_type}_valid_{time_str}"
                 )
                 
                 plotter.save_plot(output_path, formats=config.output_formats or ['png'])

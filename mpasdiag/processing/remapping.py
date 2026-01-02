@@ -644,19 +644,31 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
         attrs=data_attrs
     )
     
-    sum_ratio = float(result.sum()) / float(np.nansum(data_values))
+    data_sum = float(np.nansum(data_values))
+
+    if data_sum == 0.0:
+        print("\n[ERROR] Input data for remapping is empty, all zeros, or all NaNs. Cannot compute remapping ratio.\n")
+        print("  Please check your input data source and variable selection.")
+        print(f"  Data shape: {data_values.shape}, dtype: {data_values.dtype}")
+        print(f"  Data min: {np.nanmin(data_values)}, max: {np.nanmax(data_values)}")
+        print(f"  Data contains only NaNs: {np.isnan(data_values).all()}")
+        print(f"  Data contains only zeros: {np.count_nonzero(data_values)==0}")
+        print("  Remapping aborted. Returning empty result array.")
+        return result
+
+    sum_ratio = float(result.sum()) / data_sum
 
     print(f"  Remapped data statistics:")
     print(f"    Min: {float(result.min()):.4f}, Max: {float(result.max()):.4f}")
     print(f"    Mean: {float(result.mean()):.4f}, Median: {float(result.median()):.4f}")
     print(f"    Std: {float(result.std()):.4f}, Sum: {float(result.sum()):.4f}")
-    
+
     if method == 'linear':
         print(f"  NOTE: Linear interpolation creates smooth fields but increases total sum by {sum_ratio:.1f}x")
         print(f"        This is expected when interpolating to a denser grid ({grid_expansion_ratio:.1f}x more points)")
-    
+
     print(f"✓ Remapping completed successfully using {method} interpolation")
-    
+
     return result
 
 

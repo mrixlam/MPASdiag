@@ -201,7 +201,7 @@ class MPASWindPlotter(MPASVisualizer):
         scale: Optional[float] = None
     ) -> None:
         """
-        Render wind vectors as meteorological barbs or directional arrows onto an existing cartographic axes. This internal helper method provides a unified interface for wind vector visualization, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function supports two rendering styles: wind barbs following meteorological conventions with flags indicating speed, and arrow vectors showing magnitude and direction through length and orientation. Supports both 1D scattered data (irregular MPAS mesh) and 2D gridded data (regridded fields), with matplotlib/cartopy automatically handling the appropriate rendering. Vector rendering utilizes cartopy's PlateCarree coordinate transformation to ensure proper geographic positioning regardless of the axes projection. The method validates plot_type parameters and raises descriptive errors for unsupported visualization modes.
+        Render wind vectors as meteorological barbs, directional arrows, or streamlines onto an existing cartographic axes. This internal helper method provides a unified interface for wind vector visualization, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function supports three rendering styles: wind barbs following meteorological conventions with flags indicating speed, arrow vectors showing magnitude and direction through length and orientation, and streamlines showing continuous flow trajectories colored by wind speed. Supports both 1D scattered data (irregular MPAS mesh) for barbs and arrows, and 2D gridded data (regridded fields) for all three types, with streamlines requiring 2D gridded data. Vector rendering utilizes cartopy's PlateCarree coordinate transformation to ensure proper geographic positioning regardless of the axes projection. The method validates plot_type parameters and raises descriptive errors for unsupported visualization modes.
 
         Parameters:
             ax (Axes): Matplotlib axes object (typically GeoAxes) serving as the rendering target for wind vectors.
@@ -209,9 +209,9 @@ class MPASWindPlotter(MPASVisualizer):
             lat (np.ndarray): Latitude coordinate array (1D for scattered data, 2D meshgrid for gridded data) in degrees north specifying vector base positions.
             u_data (np.ndarray): U-component (eastward) wind array (1D or 2D matching lon/lat dimensions) in m/s determining horizontal vector components.
             v_data (np.ndarray): V-component (northward) wind array (1D or 2D matching lon/lat dimensions) in m/s determining vertical vector components.
-            plot_type (str): Vector rendering style selector, either 'barbs' for meteorological wind barbs or 'arrows' for quiver arrows (default: 'barbs').
-            color (str): Matplotlib color specification for vector rendering, accepts named colors, hex codes, or RGB tuples (default: 'black').
-            scale (Optional[float]): Scaling factor for arrow length in quiver plots where larger values produce shorter arrows, unused for barbs (default: None which sets scale=200 for arrows).
+            plot_type (str): Vector rendering style selector - 'barbs' for meteorological wind barbs, 'arrows' for quiver arrows, or 'streamlines' for flow trajectories (default: 'barbs').
+            color (str): Matplotlib color specification for vector rendering, accepts named colors, hex codes, or RGB tuples (default: 'black'). Not used for streamlines.
+            scale (Optional[float]): Scaling factor for arrow length in quiver plots where larger values produce shorter arrows, unused for barbs and streamlines (default: None which sets scale=200 for arrows).
 
         Returns:
             None: This method draws wind vectors directly onto the provided axes and does not return objects.
@@ -224,8 +224,33 @@ class MPASWindPlotter(MPASVisualizer):
                 scale = 200
             ax.quiver(lon, lat, u_data, v_data,
                      transform=ccrs.PlateCarree(), color=color, scale=scale)
+        elif plot_type == 'streamlines':
+            if lon.ndim == 1:
+                raise ValueError("Streamlines require gridded data. Use grid_resolution parameter to enable regridding.")
+            
+            lon_1d = lon[0, :] if lon.ndim == 2 else lon
+            lat_1d = lat[:, 0] if lat.ndim == 2 else lat
+            
+            wind_speed = np.sqrt(u_data**2 + v_data**2)
+            
+            strm = ax.streamplot(
+                lon_1d, lat_1d, u_data, v_data,
+                transform=ccrs.PlateCarree(),
+                color=wind_speed,
+                cmap='viridis',
+                linewidth=1.5,
+                density=2,
+                arrowsize=1.5,
+                arrowstyle='->',
+                minlength=0.1
+            )
+            
+            from matplotlib import pyplot as plt
+            cbar = plt.colorbar(strm.lines, ax=ax, orientation='horizontal', 
+                               pad=0.05, shrink=0.8, aspect=40)
+            cbar.set_label('Wind Speed [m s$^{-1}$]', fontsize=12, fontweight='bold', labelpad=10)
         else:
-            raise ValueError(f"plot_type must be 'barbs' or 'arrows', got '{plot_type}'")
+            raise ValueError(f"plot_type must be 'barbs', 'arrows', or 'streamlines', got '{plot_type}'")
     
     def _regrid_wind_components(
         self,
@@ -322,7 +347,7 @@ class MPASWindPlotter(MPASVisualizer):
         regrid_method: str = 'linear'
     ) -> Tuple[Figure, Axes]:
         """
-        Creates a cartographic wind plot displaying wind vectors as barbs or arrows with geographic features and automatic statistics. This method generates a complete wind visualization with coastlines, borders, land/ocean features, regional map elements, and gridlines, supports data subsampling for performance optimization, filters invalid values, and computes wind speed statistics for the title. Optionally regrids wind components to a regular lat-lon grid using linear interpolation for smooth fields. When subsample is set to -1, the method automatically calculates optimal subsampling to prevent visual clutter. It returns a fully configured figure and axes for display or saving.
+        Creates a cartographic wind plot displaying wind vectors as barbs, arrows, or streamlines with geographic features and automatic statistics. This method generates a complete wind visualization with coastlines, borders, land/ocean features, regional map elements, and gridlines, supports data subsampling for performance optimization, filters invalid values, and computes wind speed statistics for the title. Optionally regrids wind components to a regular lat-lon grid using linear interpolation for smooth fields. When subsample is set to -1, the method automatically calculates optimal subsampling to prevent visual clutter. Streamlines require regridded data and will automatically enable regridding if not already specified. It returns a fully configured figure and axes for display or saving.
 
         Parameters:
             lon (np.ndarray): 1D longitude array in degrees for vector positions.
@@ -334,8 +359,8 @@ class MPASWindPlotter(MPASVisualizer):
             lat_min (float): Southern latitude bound in degrees for map extent.
             lat_max (float): Northern latitude bound in degrees for map extent.
             wind_level (str): Descriptive level string for labeling (default: "surface").
-            plot_type (str): Vector rendering style 'barbs' or 'arrows' (default: 'barbs').
-            subsample (int): Subsampling factor for reducing vector density, use -1 for automatic calculation (default: 1).
+            plot_type (str): Vector rendering style - 'barbs', 'arrows', or 'streamlines' (default: 'barbs').
+            subsample (int): Subsampling factor for reducing vector density, use -1 for automatic calculation (default: 1). Not used for streamlines.
             scale (Optional[float]): Arrow length scaling for quiver plots (default: 200 for arrows).
             show_background (bool): Whether to show wind speed background color (default: False).
             bg_colormap (str): Colormap for background if enabled (default: "viridis").
@@ -354,6 +379,10 @@ class MPASWindPlotter(MPASVisualizer):
                                         subplot_kw={'projection': proj})
         
         assert isinstance(self.ax, GeoAxes), "Axes must be a GeoAxes instance"
+        
+        if plot_type == 'streamlines' and grid_resolution is None:
+            grid_resolution = 0.5  
+            print(f"Streamlines require gridded data. Auto-enabling regridding with resolution: {grid_resolution}°")
         
         if grid_resolution is not None:
             lon, lat, u_data, v_data = self._regrid_wind_components(
@@ -633,7 +662,7 @@ class MPASWindPlotter(MPASVisualizer):
             except Exception:
                 time_str = f"time_{time_idx}"
 
-            base_name = f"mpas_wind_{plot_type}_{time_str}_{time_idx:03d}"
+            base_name = f"mpas_wind_{u_variable}_{v_variable}_{plot_type}_valid_{time_str}"
             output_path = os.path.join(output_dir, base_name)
 
             self.add_timestamp_and_branding()

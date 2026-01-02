@@ -3,11 +3,12 @@
 """
 Parallel Processing Wrappers for MPAS Visualization
 
-This module provides parallel-enabled wrapper classes and functions for MPAS batch visualization workflows allowing seamless integration of MPI-based parallelization without modifying core visualization classes. It implements specialized parallel wrappers (ParallelPrecipitationProcessor, ParallelSurfaceProcessor, ParallelCrossSectionProcessor) that coordinate distributed processing of time series plots across multiple MPI ranks, handle data caching to minimize redundant I/O operations, manage matplotlib backend configuration for fork-safe execution on macOS systems, and provide automatic load balancing with dynamic work distribution. The parallel wrappers maintain the same interface as their serial counterparts, enabling drop-in replacement in existing workflows while dramatically improving performance for multi-timestep batch processing through spatial or temporal domain decomposition. Core capabilities include MPI rank coordination for distributing time steps across workers, shared data caching for grid and coordinate information, comprehensive error handling with graceful degradation to serial mode, progress monitoring and performance statistics, and compatibility with both interactive and batch processing environments suitable for operational weather analysis and climate model diagnostics.
+This module provides parallel-enabled wrapper classes and functions for MPAS batch visualization workflows allowing seamless integration of MPI-based parallelization without modifying core visualization classes. It implements specialized parallel wrappers (ParallelPrecipitationProcessor, ParallelSurfaceProcessor, ParallelWindProcessor, ParallelCrossSectionProcessor) that coordinate distributed processing of time series plots across multiple MPI ranks, handle data caching to minimize redundant I/O operations, manage matplotlib backend configuration for fork-safe execution on macOS systems, and provide automatic load balancing with dynamic work distribution. The parallel wrappers maintain the same interface as their serial counterparts, enabling drop-in replacement in existing workflows while dramatically improving performance for multi-timestep batch processing through spatial or temporal domain decomposition. Core capabilities include MPI rank coordination for distributing time steps across workers, shared data caching for grid and coordinate information, comprehensive error handling with graceful degradation to serial mode, progress monitoring and performance statistics, and compatibility with both interactive and batch processing environments suitable for operational weather analysis and climate model diagnostics.
 
 Classes:
     ParallelPrecipitationProcessor: Parallel wrapper for batch precipitation map generation with MPI coordination.
     ParallelSurfaceProcessor: Parallel wrapper for batch surface variable visualization with distributed processing.
+    ParallelWindProcessor: Parallel wrapper for batch wind vector visualization with distributed processing.
     ParallelCrossSectionProcessor: Parallel wrapper for batch vertical cross-section plots with work distribution.
     
 Functions:
@@ -274,6 +275,111 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         result['cache_info'] = cache.get_cache_info()
     
     return result
+
+
+def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Execute wind vector processing and plotting for a single timestep with comprehensive timing metrics. This worker function serves as a picklable entry point for parallel processing of wind vector data across multiple timesteps using a shared data cache. It extracts U and V wind components, generates wind vector visualizations with barbs or arrows, and saves outputs in specified formats. The function measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis.
+
+    Parameters:
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds, wind variables, and plotting options.
+
+    Returns:
+        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
+    """
+    time_idx, kwargs = args
+    processor = kwargs['processor']
+    cache = kwargs.get('cache', None)
+    output_dir = kwargs['output_dir']
+    lon_min = kwargs['lon_min']
+    lon_max = kwargs['lon_max']
+    lat_min = kwargs['lat_min']
+    lat_max = kwargs['lat_max']
+    u_variable = kwargs['u_variable']
+    v_variable = kwargs['v_variable']
+    plot_type = kwargs.get('plot_type', 'barbs')
+    subsample = kwargs.get('subsample', 1)
+    scale = kwargs.get('scale', None)
+    show_background = kwargs.get('show_background', False)
+    grid_resolution = kwargs.get('grid_resolution', None)
+    regrid_method = kwargs.get('regrid_method', 'linear')
+    file_prefix = kwargs['file_prefix']
+    formats = kwargs['formats']
+    
+    start_time = time.time()
+    timings = {}
+    cache_hits = {'coordinates': False, 'data': False}
+    
+    data_start = time.time()
+    
+    u_data = processor.get_2d_variable_data(u_variable, time_idx)
+    v_data = processor.get_2d_variable_data(v_variable, time_idx)
+    
+    if cache is not None:
+        try:
+            lon, lat = cache.get_coordinates(u_variable)
+            cache_hits['coordinates'] = True
+        except KeyError:
+            lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
+            try:
+                cache.load_coordinates_from_dataset(processor.dataset, u_variable)
+            except:
+                pass
+    else:
+        lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
+    
+    time_end = None
+
+    if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
+        time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
+        time_str = time_end.strftime('%Y%m%dT%H')
+    else:
+        time_str = f"t{time_idx:03d}"
+    
+    timings['data_processing'] = time.time() - data_start
+    
+    plotter = MPASWindPlotter(figsize=(12, 10))    
+    plot_start = time.time()
+
+    fig, ax = plotter.create_wind_plot(
+        lon, lat, u_data.values, v_data.values,
+        lon_min, lon_max, lat_min, lat_max,
+        plot_type=plot_type,
+        subsample=subsample,
+        scale=scale,
+        show_background=show_background,
+        time_stamp=None,
+        grid_resolution=grid_resolution,
+        regrid_method=regrid_method
+    )
+
+    timings['plotting'] = time.time() - plot_start
+    
+    save_start = time.time()
+    base_name = f"mpas_wind_{u_variable}_{v_variable}_{plot_type}_valid_{time_str}"
+    output_path = os.path.join(output_dir, base_name)
+    
+    plotter.add_timestamp_and_branding()
+    plotter.save_plot(output_path, formats=formats)
+    plotter.close_plot()
+    
+    output_files = [f"{output_path}.{fmt}" for fmt in formats]
+
+    timings['saving'] = time.time() - save_start    
+    timings['total'] = time.time() - start_time
+    
+    result = {
+        'files': output_files,
+        'timings': timings,
+        'time_str': time_str,
+        'cache_hits': cache_hits
+    }
+    
+    if cache is not None:
+        result['cache_info'] = cache.get_cache_info()
+    
+    return result
+
 
 def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -683,6 +789,130 @@ class ParallelSurfaceProcessor:
             var_info = f"Variable: {var_name}, Plot type: {plot_type}"
             return _process_parallel_results(
                 results, time_indices, output_dir, manager, "SURFACE", var_info
+            )
+        
+        return None
+
+
+class ParallelWindProcessor:
+    """
+    Parallel wrapper for wind vector batch processing using MPI-based distributed computing. This class wraps MPASWindPlotter batch methods to enable efficient parallel processing of wind vector fields across multiple timesteps and MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
+    """
+    
+    @staticmethod
+    def create_batch_wind_plots_parallel(
+        processor: MPAS2DProcessor,
+        output_dir: str,
+        lon_min: float,
+        lon_max: float,
+        lat_min: float,
+        lat_max: float,
+        u_variable: str = 'u',
+        v_variable: str = 'v',
+        plot_type: str = 'barbs',
+        formats: Optional[List[str]] = None,
+        subsample: int = 1,
+        scale: Optional[float] = None,
+        show_background: bool = False,
+        grid_resolution: Optional[float] = None,
+        regrid_method: str = 'linear',
+        time_indices: Optional[List[int]] = None,
+        n_processes: Optional[int] = None,
+        load_balance_strategy: str = "dynamic"
+    ) -> Optional[List[str]]:
+        """
+        Generate wind vector plots in parallel across multiple timesteps using distributed MPI processing. This static method distributes timesteps across MPI processes using the specified load balancing strategy and creates wind barb, arrow, or streamline plots for each timestep. It initializes a shared data cache to avoid redundant coordinate extraction, creates wind vector visualizations with optional background wind speed fields, and collects results on the master process. The method supports customizable vector density through subsampling, optional regridding for smoother fields, and multiple output formats while handling task distribution automatically.
+
+        Parameters:
+            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded wind data and grid information.
+            output_dir (str): Directory path where wind plot files will be saved.
+            lon_min (float): Minimum longitude for map spatial extent in degrees.
+            lon_max (float): Maximum longitude for map spatial extent in degrees.
+            lat_min (float): Minimum latitude for map spatial extent in degrees.
+            lat_max (float): Maximum latitude for map spatial extent in degrees.
+            u_variable (str): NetCDF variable name for U-component (eastward) wind (default: 'u').
+            v_variable (str): NetCDF variable name for V-component (northward) wind (default: 'v').
+            plot_type (str): Vector visualization style - 'barbs', 'arrows', or 'streamlines' (default: 'barbs').
+            formats (Optional[List[str]]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
+            subsample (int): Spatial subsampling stride factor to reduce vector density (default: 1).
+            scale (Optional[float]): Arrow length scaling factor for quiver plots (default: None for auto-scaling).
+            show_background (bool): Flag to enable wind speed magnitude as colored background field (default: False).
+            grid_resolution (Optional[float]): Target grid spacing in degrees for regridding (default: None disables regridding).
+            regrid_method (str): Spatial interpolation algorithm - 'linear' or 'nearest' (default: 'linear').
+            time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).
+            n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
+            load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
+
+        Returns:
+            Optional[List[str]]: List of generated file paths on master process, None on worker processes.
+        """
+        if formats is None:
+            formats = ['png']
+        
+        time_dim = 'Time' if 'Time' in processor.dataset.sizes else 'time'
+        total_times = processor.dataset.sizes[time_dim]
+        
+        if time_indices is None:
+            time_indices = list(range(total_times))
+        
+        cache = MPASDataCache(max_variables=5)
+        
+        print("Pre-loading coordinates into cache...")
+
+        try:
+            cache.load_coordinates_from_dataset(processor.dataset, u_variable)
+            print(f"Coordinates cached for variable: {u_variable}")
+        except Exception as e:
+            print(f"Warning: Could not pre-load coordinates into cache: {e}")
+            print("Workers will extract coordinates individually")
+        
+        worker_kwargs = {
+            'processor': processor,
+            'cache': cache,
+            'output_dir': output_dir,
+            'lon_min': lon_min,
+            'lon_max': lon_max,
+            'lat_min': lat_min,
+            'lat_max': lat_max,
+            'u_variable': u_variable,
+            'v_variable': v_variable,
+            'plot_type': plot_type,
+            'subsample': subsample,
+            'scale': scale,
+            'show_background': show_background,
+            'grid_resolution': grid_resolution,
+            'regrid_method': regrid_method,
+            'file_prefix': 'mpas_wind',
+            'formats': formats
+        }
+        
+        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
+        
+        manager = MPASParallelManager(
+            load_balance_strategy=load_balance_strategy,
+            verbose=True,
+            n_workers=n_processes
+        )
+        manager.set_error_policy('collect')
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        if manager.is_master:
+            print(f"\nCreating wind vector plots for {len(time_indices)} time steps in parallel...")
+            print(f"U variable: {u_variable}, V variable: {v_variable}")
+            print(f"Plot type: {plot_type}")
+            if show_background:
+                print("Background wind speed field: enabled")
+            if grid_resolution:
+                print(f"Grid resolution: {grid_resolution}° (regrid method: {regrid_method})")
+            print(f"Output directory: {output_dir}")
+        
+        results = manager.parallel_map(_wind_worker, worker_args)
+        
+        if manager.is_master and results is not None:
+            var_info = f"U: {u_variable}, V: {v_variable}, Plot type: {plot_type}"
+            return _process_parallel_results(
+                results, time_indices, output_dir, manager, "WIND", var_info
             )
         
         return None

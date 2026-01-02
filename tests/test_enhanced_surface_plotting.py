@@ -476,7 +476,7 @@ class TestEnhancedSurfacePlotting(unittest.TestCase):
                 wind_overlay=wind_config
             )
 
-        self.assertIn("plot_type must be 'barbs' or 'arrows'", str(context.exception))
+        self.assertIn("plot_type must be 'barbs', 'arrows', or 'streamlines'", str(context.exception))
         
     def test_data_dimension_validation(self) -> None:
         """

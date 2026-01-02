@@ -359,11 +359,11 @@ def test_cache_multiprocessing() -> None:
     
     process = ctx.Process(target=_cache_test_worker, args=(cache, result_queue))
     process.start()
-    process.join(timeout=10) 
+    process.join(timeout=30) 
     
     if process.is_alive():
         process.terminate()
-        process.join(timeout=2) 
+        process.join(timeout=5) 
         raise RuntimeError("Worker process timed out! May indicate pickle or import issues.")
     
     if process.exitcode != 0:

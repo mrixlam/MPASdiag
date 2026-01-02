@@ -5,6 +5,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
+![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1234567.svg)
 
 ## Installation
 
@@ -21,8 +22,8 @@ git clone https://github.com/mrixlam/MPASdiag.git
 cd MPASdiag
 
 # Create a new conda environment
-conda create -n mpas-analysis python=3.9
-conda activate mpas-analysis
+conda create -n mpasdiag python=3.9
+conda activate mpasdiag
 
 # Install dependencies
 conda install -c conda-forge numpy pandas xarray matplotlib cartopy netcdf4 dask pyyaml psutil
@@ -562,18 +563,19 @@ If you use this package in your research, please cite:
 
 ```bibtex
 @software{islam2025mpas,
-  title={MPASdiag: Python Package for MPAS Model Output Analysis and Visualization},
+  title={MPASdiag: Python Package for MPAS Model Output Analysis and Visualization from Unstructured Grids},
   author={Islam, Rubaiat},
-  year={2025},
+  year={2026},
   institution={Mesoscale \& Microscale Meteorology Laboratory, NCAR},
-  url={https://github.com/mrixlam/MPASdiag}
+  url={https://github.com/mrixlam/MPASdiag},
+  doi={10.5281/zenodo.1234567}
 }
 ```
 
 ## Acknowledgments
 
-- **NCAR MMM Lab** for MPAS model development and support
-- **UXarray Team** for unstructured grid data handling
+- **NCAR MMM** for MPAS model development and support
+- **UXarray Team** for their support with unstructured data processing
 - **Pangeo Community** for inspiration on scientific Python package design
 - **Contributors** who have helped improve this package
 
@@ -587,4 +589,4 @@ If you use this package in your research, please cite:
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: December 4, 2025
+**Last Updated**: January 1, 2026

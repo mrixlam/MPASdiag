@@ -135,6 +135,10 @@ class MPASFileMetadata:
             'h_oml': {'units': METER, 'long_name': 'Ocean Mixed Layer Depth'},
             'hu_oml': {'units': M2_PER_S, 'long_name': 'Ocean Mixed Layer U-momentum'},
             'hv_oml': {'units': M2_PER_S, 'long_name': 'Ocean Mixed Layer V-momentum'},
+            
+            't_oml_initial': {'units': KELVIN, 'long_name': 'Initial Ocean Mixed Layer Temperature'},
+            'h_oml_initial': {'units': METER, 'long_name': 'Initial Ocean Mixed Layer Depth'},
+            't_oml_200m_initial': {'units': KELVIN, 'long_name': 'Initial Ocean Mixed Layer Temperature (200m)'},
 
             'cldfrac_low_upp': {'units': NOUNIT, 'long_name': 'Low Cloud Fraction'},
             'cldfrac_mid_upp': {'units': NOUNIT, 'long_name': 'Mid Cloud Fraction'},
@@ -586,6 +590,22 @@ class MPASFileMetadata:
                 'spatial_dims': 2
             },
             
+            't_oml_initial': {
+                'colormap': 'RdYlBu_r',
+                'levels': list(range(-2, 32, 2)),
+                'spatial_dims': 2
+            },
+            'h_oml_initial': {
+                'colormap': 'viridis',
+                'levels': [0, 10, 20, 30, 50, 75, 100, 150, 200, 300, 500],
+                'spatial_dims': 2
+            },
+            't_oml_200m_initial': {
+                'colormap': 'RdYlBu_r',
+                'levels': list(range(-2, 32, 2)),
+                'spatial_dims': 2
+            },
+            
             'cldfrac_low_upp': {
                 'colormap': 'gray',
                 'levels': [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
@@ -796,13 +816,6 @@ class MPASFileMetadata:
             display_units = UnitConverter.get_display_units(var_name, original_units)
             metadata['original_units'] = original_units
             metadata['units'] = display_units
-            
-            if display_units != original_units and 'long_name' in metadata:
-                long_name = metadata['long_name']
-                if f'({original_units})' in long_name:
-                    metadata['long_name'] = long_name.replace(f'({original_units})', f'({display_units})')
-                else:
-                    metadata['long_name'] = f"{long_name} ({display_units})"
         
         return metadata
     

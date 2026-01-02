@@ -145,24 +145,20 @@ class MPASSurfacePlotter(MPASVisualizer):
         if len(data) != len(lon) or len(data) != len(lat):
             raise ValueError(f"Data array length ({len(data)}) must match coordinate arrays length (lon: {len(lon)}, lat: {len(lat)})")
         
-        var_metadata = MPASFileMetadata.get_2d_variable_metadata(var_name, data_array)
-        original_unit = None
+        file_unit = None
 
         if data_array is not None:
             try:
-                original_unit = getattr(data_array, 'attrs', {}).get('units')
+                file_unit = getattr(data_array, 'attrs', {}).get('units')
             except Exception:
-                original_unit = None
+                pass
 
-        if original_unit is None and hasattr(data, 'attrs'):
-            original_unit = getattr(data, 'attrs', {}).get('units')
-
-        if not original_unit:
-            original_unit = var_metadata.get('original_units')
-
-        if not original_unit:
-            original_unit = var_metadata.get('units')
-
+        if file_unit is None and hasattr(data, 'attrs'):
+            file_unit = getattr(data, 'attrs', {}).get('units')
+        
+        var_metadata = MPASFileMetadata.get_2d_variable_metadata(var_name, data_array)
+        
+        original_unit = file_unit if file_unit else var_metadata.get('original_units') or var_metadata.get('units')
         display_unit = UnitConverter.get_display_units(var_name, original_unit or "")
 
         var_metadata['original_units'] = original_unit
