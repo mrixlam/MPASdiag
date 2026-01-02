@@ -104,7 +104,8 @@ class TestRefactoredFunctions(unittest.TestCase):
         self.assertIn('colormap', metadata)
         self.assertEqual(metadata['units'], '°C')
         self.assertEqual(metadata['original_units'], 'K')
-        self.assertIn('°C', metadata['long_name'])  
+        # Unit is no longer appended to long_name to avoid duplicate units in colorbar labels
+        self.assertEqual(metadata['long_name'], '2-meter Temperature')  
     
     def test_3d_placeholder_functions(self) -> None:
         """

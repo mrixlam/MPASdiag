@@ -229,7 +229,7 @@ class TestUnitConversion(unittest.TestCase):
         self.assertEqual(UnitConverter.get_display_units('t2m', 'K'), '°C')
         self.assertEqual(UnitConverter.get_display_units('mslp', 'Pa'), 'hPa')
         self.assertEqual(UnitConverter.get_display_units('q2', 'kg/kg'), 'g/kg')
-        self.assertEqual(UnitConverter.get_display_units('rainnc', 'mm'), 'mm/hr')
+        self.assertEqual(UnitConverter.get_display_units('rainnc', 'mm'), 'mm')
         self.assertEqual(UnitConverter.get_display_units('u10', 'm/s'), 'm/s')
         
         self.assertEqual(UnitConverter.get_display_units('unknown_var', 'original_unit'), 'original_unit')
@@ -247,12 +247,12 @@ class TestUnitConversion(unittest.TestCase):
         metadata = MPASFileMetadata.get_2d_variable_metadata('t2m')
         self.assertEqual(metadata['units'], '°C')
         self.assertEqual(metadata.get('original_units'), 'K')
-        self.assertIn('°C', metadata['long_name'])
+        self.assertEqual(metadata['long_name'], '2-meter Temperature')
         
         metadata = MPASFileMetadata.get_2d_variable_metadata('mslp')
         self.assertEqual(metadata['units'], 'hPa')
         self.assertEqual(metadata.get('original_units'), 'Pa')
-        self.assertIn('hPa', metadata['long_name'])
+        self.assertIn('Pressure', metadata['long_name'])
     
     def test_convert_data_for_display(self) -> None:
         """

@@ -2,6 +2,9 @@
 
 A comprehensive Python package for analyzing and visualizing MPAS (Model for Prediction Across Scales) unstructured mesh model output data with support for both serial and parallel processing workflows. This package provides specialized tools for atmospheric model diagnostics including precipitation accumulation analysis with configurable periods, 2D surface variable visualization using scatter plots and filled contours, horizontal wind vector plotting with barbs and arrows, and 3D vertical atmospheric cross-sections along arbitrary paths. The toolkit features automatic unit conversion following CF conventions, professional meteorological styling, memory-efficient data processing through lazy loading and chunking strategies, and extensible architecture with modular processors and plotters. Advanced capabilities include powerful remapping from unstructured MPAS meshes to regular latitude-longitude grids using xESMF and SciPy, MPI-based parallel batch processing for time series generation, comprehensive command-line interface with YAML configuration support, and flexible vertical coordinate systems (pressure, height, model levels) for 3D analysis. The package is designed for operational meteorology applications, climate model evaluation, and research workflows requiring publication-quality visualizations from MPAS atmospheric simulations.
 
+[![Build Status](https://travis-ci.com/mrixlam/MPASdiag.svg?branch=main)](https://travis-ci.com/mrixlam/MPASdiag)
+[![CI](https://github.com/mrixlam/MPASdiag/workflows/MPASdiag%20CI/badge.svg)](https://github.com/mrixlam/MPASdiag/actions)
+[![codecov](https://codecov.io/gh/mrixlam/MPASdiag/branch/main/graph/badge.svg)](https://codecov.io/gh/mrixlam/MPASdiag)
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)

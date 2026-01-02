@@ -1,0 +1,66 @@
+language: python
+
+# Test on multiple Python versions
+python:
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
+
+# Use conda for dependency management (better for scientific packages)
+before_install:
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  - conda info -a
+
+# Create conda environment and install dependencies
+install:
+  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
+  - source activate test-env
+  - conda install -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 dask
+  - pip install pytest pytest-cov pytest-xdist
+  - pip install -e .
+
+# Run tests
+script:
+  # Run pytest with coverage
+  - pytest tests/ -v --cov=mpasdiag --cov-report=xml --cov-report=term-missing
+  
+  # Run specific test modules if they exist
+  - if [ -f tests/test_unit_conversion.py ]; then pytest tests/test_unit_conversion.py -v; fi
+  - if [ -f tests/test_class_refactoring.py ]; then pytest tests/test_class_refactoring.py -v; fi
+  - if [ -f tests/test_coordinates.py ]; then pytest tests/test_coordinates.py -v; fi
+
+# Optional: Code quality checks
+after_success:
+  - pip install codecov
+  - codecov
+
+# Cache conda packages to speed up builds
+cache:
+  directories:
+    - $HOME/miniconda/pkgs
+
+# Notification settings (optional - customize as needed)
+notifications:
+  email:
+    recipients:
+      - mrislam@ucar.edu
+    on_success: change
+    on_failure: always
+
+# Branch configuration
+branches:
+  only:
+    - main
+    - master
+    - develop
+
+# Environment variables (if needed)
+env:
+  global:
+    - MPAS_TEST_DATA_DIR="data"
