@@ -19,10 +19,10 @@ before_install:
 
 # Create conda environment and install dependencies
 install:
-  - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
-  - source activate test-env
+  - conda create -q -n mpasdiag python=$TRAVIS_PYTHON_VERSION
+  - source activate mpasdiag
   - conda install -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray
-  - pip install pytest pytest-cov pytest-xdist
+  - conda install -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet
   - pip install -e .
 
 # Run tests
