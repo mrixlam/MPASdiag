@@ -20,8 +20,27 @@ jobs:
       with:
         lfs: true
     
+    - name: Setup logging directory and variables
+      shell: bash
+      run: |
+        mkdir -p logs
+        TIMESTAMP=$(date +"%Y%m%dT%H%M")
+        OS_NAME=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
+        OS_VER=$(echo "${{ matrix.os }}" | cut -d'-' -f2)
+        PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr '.' '_')
+        LOG_FILE="logs/build_log_${OS_NAME}_${OS_VER}_python_${PYTHON_VER}_${TIMESTAMP}.txt"
+        echo "LOG_FILE=${LOG_FILE}" >> $GITHUB_ENV
+        echo "Starting CI run at $(date)" | tee -a "${LOG_FILE}"
+        echo "OS: ${{ matrix.os }}" | tee -a "${LOG_FILE}"
+        echo "Python: ${{ matrix.python-version }}" | tee -a "${LOG_FILE}"
+        echo "========================================" | tee -a "${LOG_FILE}"
+    
     - name: Checkout LFS objects
-      run: git lfs pull
+      shell: bash
+      run: |
+        echo "=== Checking out LFS objects ===" | tee -a "${LOG_FILE}"
+        git lfs pull 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
     
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@a4260408e20b96e80095f42ff7f1a15b27dd94ca # v2
@@ -36,30 +55,60 @@ jobs:
     - name: Display conda info
       shell: bash -l {0}
       run: |
-        conda info
-        conda list
+        echo "=== Conda Information ===" | tee -a "${LOG_FILE}"
+        conda info 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+        echo "=== Conda Packages ===" | tee -a "${LOG_FILE}"
+        conda list 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
     
     - name: Install dependencies
       shell: bash -l {0}
       run: |
-        echo "Installing conda packages..."
-        conda install -y -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray
-        echo "Installing test dependencies..."
-        conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet
-        echo "Installing mpasdiag..."
-        pip install -e .
+        echo "=== Installing Dependencies ===" | tee -a "${LOG_FILE}"
+        echo "Installing conda packages..." | tee -a "${LOG_FILE}"
+        conda install -y -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+        echo "Installing test dependencies..." | tee -a "${LOG_FILE}"
+        conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+        echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
+        pip install -e . 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+        echo "=== Final Package List ===" | tee -a "${LOG_FILE}"
+        conda list 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
     
     - name: Verify installation
       shell: bash -l {0}
       run: |
-        python -c "import mpasdiag; print('mpasdiag imported successfully')"
-        python -c "import uxarray; print('uxarray imported successfully')"
-        python -c "import mpi4py; print('mpi4py imported successfully')"
+        echo "=== Verifying Installation ===" | tee -a "${LOG_FILE}"
+        echo "Testing mpasdiag import..." | tee -a "${LOG_FILE}"
+        python -c "import mpasdiag; print('mpasdiag imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
+        echo "Testing uxarray import..." | tee -a "${LOG_FILE}"
+        python -c "import uxarray; print('uxarray imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
+        echo "Testing mpi4py import..." | tee -a "${LOG_FILE}"
+        python -c "import mpi4py; print('mpi4py imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
     
     - name: Run tests with pytest
       shell: bash -l {0}
       run: |
-        pytest tests/ -v --cov=mpasdiag --cov-report=xml --cov-report=term-missing
+        echo "=== Running Tests ===" | tee -a "${LOG_FILE}"
+        pytest tests/ -v --cov=mpasdiag --cov-report=xml --cov-report=term-missing 2>&1 | tee -a "${LOG_FILE}"
+        TEST_EXIT_CODE=${PIPESTATUS[0]}
+        echo "" | tee -a "${LOG_FILE}"
+        echo "Test exit code: ${TEST_EXIT_CODE}" | tee -a "${LOG_FILE}"
+        echo "CI run completed at $(date)" | tee -a "${LOG_FILE}"
+        exit ${TEST_EXIT_CODE}
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-logs-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: logs/
+        retention-days: 30
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v4.5.0
