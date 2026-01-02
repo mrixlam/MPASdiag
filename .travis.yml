@@ -21,7 +21,7 @@ before_install:
 install:
   - conda create -q -n test-env python=$TRAVIS_PYTHON_VERSION
   - source activate test-env
-  - conda install -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 dask numba llvmlite
+  - conda install -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py
   - pip install pytest pytest-cov pytest-xdist
   - pip install -e .
 

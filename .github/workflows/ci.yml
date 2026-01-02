@@ -35,7 +35,7 @@ jobs:
     - name: Install dependencies
       shell: bash -l {0}
       run: |
-        conda install -y numpy scipy xarray pandas matplotlib cartopy netCDF4 dask numba llvmlite
+        conda install -y numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py
         pip install pytest pytest-cov pytest-xdist
         pip install -e .
     
