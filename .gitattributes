@@ -1,0 +1,14 @@
+# Git LFS Configuration for MPASdiag
+# Track large NetCDF data files with Git LFS
+
+# NetCDF files in data directory
+data/**/*.nc filter=lfs diff=lfs merge=lfs -text
+data/**/*.nc4 filter=lfs diff=lfs merge=lfs -text
+data/**/*.nc.gz filter=lfs diff=lfs merge=lfs -text
+
+# HDF5 files in data directory
+data/**/*.h5 filter=lfs diff=lfs merge=lfs -text
+data/**/*.hdf5 filter=lfs diff=lfs merge=lfs -text
+
+# Weight files (can be large)
+weights/**/*.nc filter=lfs diff=lfs merge=lfs -text

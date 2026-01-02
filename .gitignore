@@ -1,17 +1,15 @@
-# Ignore large binary data files (NetCDF, HDF5) that should not be uploaded to the repo
-# NetCDF files
-*.nc
-# Common NetCDF variants
-*.nc4
-*.nc.gz
-
-# HDF5 files
-*.h5
-*.hdf5
+# Note: NetCDF and HDF5 files in data/ and weights/ directories are tracked with Git LFS
+# See .gitattributes for LFS configuration
+# Ignore NetCDF files outside of data/ and weights/ directories
+/*.nc
+/*.nc4
+/*.nc.gz
+/*.h5
+/*.hdf5
 
 # Patterns for local directories
 # output/
-data/
+tmp/
 
 # Python artifacts
 __pycache__/
