@@ -35,7 +35,7 @@ jobs:
         TIMESTAMP=$(date +"%Y%m%dT%H%M")
         OS_NAME=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
         OS_VER=$(echo "${{ matrix.os }}" | cut -d'-' -f2)
-        PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr '.' '')
+        PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr -d '.')
         LOG_FILE="$GITHUB_WORKSPACE/logs/build_log_${OS_NAME}_${OS_VER}_python_${PYTHON_VER}_${TIMESTAMP}.txt"
         
         # Save to environment
