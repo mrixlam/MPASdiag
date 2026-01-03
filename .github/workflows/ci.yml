@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
         python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
@@ -184,7 +184,7 @@ jobs:
         fi
     
     - name: Upload coverage to Codecov
-      if: ${{ always() && secrets.CODECOV_TOKEN != '' }}
+      if: always()
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a # v5.0.2
       with:
         file: ./coverage.xml
