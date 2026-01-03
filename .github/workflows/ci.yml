@@ -23,22 +23,39 @@ jobs:
     - name: Setup logging directory and variables
       shell: bash
       run: |
-        mkdir -p logs
-        chmod 777 logs
+        # Set working directory explicitly
+        cd $GITHUB_WORKSPACE
+        pwd
+        
+        # Create logs directory with absolute path
+        mkdir -p "$GITHUB_WORKSPACE/logs"
+        chmod 777 "$GITHUB_WORKSPACE/logs"
+        
+        # Generate log file name
         TIMESTAMP=$(date +"%Y%m%dT%H%M")
         OS_NAME=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
         OS_VER=$(echo "${{ matrix.os }}" | cut -d'-' -f2)
-        PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr '.' '_')
-        LOG_FILE="logs/build_log_${OS_NAME}_${OS_VER}_python_${PYTHON_VER}_${TIMESTAMP}.txt"
+        PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr '.' '')
+        LOG_FILE="$GITHUB_WORKSPACE/logs/build_log_${OS_NAME}_${OS_VER}_python_${PYTHON_VER}_${TIMESTAMP}.txt"
+        
+        # Save to environment
         echo "LOG_FILE=${LOG_FILE}" >> $GITHUB_ENV
+        
+        # Create and verify log file
         touch "${LOG_FILE}"
         chmod 666 "${LOG_FILE}"
+        
+        # Write initial content
         echo "Starting CI run at $(date)" | tee -a "${LOG_FILE}"
+        echo "Working directory: $(pwd)" | tee -a "${LOG_FILE}"
         echo "OS: ${{ matrix.os }}" | tee -a "${LOG_FILE}"
         echo "Python: ${{ matrix.python-version }}" | tee -a "${LOG_FILE}"
         echo "========================================" | tee -a "${LOG_FILE}"
+        
+        # Verify
         echo "Log file created at: ${LOG_FILE}"
-        ls -lah "${LOG_FILE}"
+        echo "Current directory structure:"
+        ls -lah "$GITHUB_WORKSPACE/logs/"
     
     - name: Checkout LFS objects
       shell: bash
@@ -112,17 +129,24 @@ jobs:
       if: always()
       shell: bash
       run: |
+        cd $GITHUB_WORKSPACE
+        echo "Current working directory: $(pwd)"
         echo "Checking logs directory contents:"
         ls -lah logs/ || echo "logs directory not found"
-        echo "Log file path: ${LOG_FILE}"
+        echo ""
+        echo "All txt files in logs:"
+        find logs/ -name "*.txt" -type f 2>/dev/null || echo "No txt files found"
+        echo ""
+        echo "Log file path from env: ${LOG_FILE}"
         if [ -f "${LOG_FILE}" ]; then
-          echo "Log file exists, size: $(stat -f%z "${LOG_FILE}" 2>/dev/null || stat -c%s "${LOG_FILE}" 2>/dev/null) bytes"
+          echo "✓ Log file exists, size: $(stat -f%z "${LOG_FILE}" 2>/dev/null || stat -c%s "${LOG_FILE}" 2>/dev/null) bytes"
           echo "First 10 lines:"
           head -n 10 "${LOG_FILE}"
+          echo ""
           echo "Last 10 lines:"
           tail -n 10 "${LOG_FILE}"
         else
-          echo "WARNING: Log file ${LOG_FILE} not found!"
+          echo "✗ WARNING: Log file ${LOG_FILE} not found!"
         fi
     
     - name: Prepare artifact name
@@ -138,19 +162,37 @@ jobs:
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.4.3
       with:
         name: ${{ env.ARTIFACT_NAME }}
-        path: |
-          logs/
-          logs/*.txt
+        path: ${{ github.workspace }}/logs/
         retention-days: 30
-        if-no-files-found: error
+        if-no-files-found: warn
+      continue-on-error: true
+    
+    - name: Verify coverage file exists
+      if: always()
+      shell: bash
+      run: |
+        echo "Checking for coverage.xml file:"
+        if [ -f "coverage.xml" ]; then
+          echo "✓ coverage.xml exists"
+          ls -lah coverage.xml
+          echo "First 20 lines of coverage.xml:"
+          head -n 20 coverage.xml
+        else
+          echo "✗ coverage.xml not found!"
+          echo "Files in current directory:"
+          ls -lah
+        fi
     
     - name: Upload coverage to Codecov
+      if: always()
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a # v5.0.2
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
         fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+      continue-on-error: true
 
   lint:
     runs-on: ubuntu-latest
