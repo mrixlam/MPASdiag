@@ -1,0 +1,4386 @@
+Starting CI run at Sat Jan  3 00:32:18 UTC 2026
+Working directory: /home/runner/work/MPASdiag/MPASdiag
+OS: ubuntu-latest
+Python: 3.11
+========================================
+=== Checking out LFS objects ===
+
+=== Conda Information ===
+
+     active environment : mpasdiag
+    active env location : /home/runner/miniconda3/envs/mpasdiag
+            shell level : 2
+       user config file : /home/runner/.condarc
+ populated config files : /home/runner/miniconda3/.condarc
+                          /home/runner/miniconda3/condarc.d/anaconda-auth.yml
+                          /home/runner/.condarc
+          conda version : 25.11.1
+    conda-build version : not installed
+         python version : 3.13.11.final.0
+                 solver : libmamba (default)
+       virtual packages : __archspec=1=zen2
+                          __conda=25.11.1=0
+                          __glibc=2.39=0
+                          __linux=6.11.0=0
+                          __unix=0=0
+       base environment : /home/runner/miniconda3  (writable)
+      conda av data dir : /home/runner/miniconda3/etc/conda
+  conda av metadata url : None
+           channel URLs : https://conda.anaconda.org/conda-forge/linux-64
+                          https://conda.anaconda.org/conda-forge/noarch
+                          https://repo.anaconda.com/pkgs/main/linux-64
+                          https://repo.anaconda.com/pkgs/main/noarch
+                          https://repo.anaconda.com/pkgs/r/linux-64
+                          https://repo.anaconda.com/pkgs/r/noarch
+          package cache : /home/runner/conda_pkgs_dir
+       envs directories : /home/runner/miniconda3/envs
+                          /home/runner/.conda/envs
+               platform : linux-64
+             user-agent : conda/25.11.1 requests/2.32.5 CPython/3.13.11 Linux/6.11.0-1018-azure ubuntu/24.04.3 glibc/2.39 solver/libmamba conda-libmamba-solver/25.11.0 libmambapy/2.3.2 aau/0.7.5 c/. s/. e/.
+                UID:GID : 1001:1001
+             netrc file : None
+           offline mode : False
+
+
+=== Conda Packages ===
+# packages in environment at /home/runner/miniconda3/envs/mpasdiag:
+#
+# Name                     Version          Build                 Channel
+_libgcc_mutex              0.1              conda_forge           conda-forge
+_openmp_mutex              4.5              2_gnu                 conda-forge
+bzip2                      1.0.8            hda65f42_8            conda-forge
+ca-certificates            2025.11.12       hbd8a1cb_0            conda-forge
+icu                        78.1             h33c6efd_0            conda-forge
+ld_impl_linux-64           2.45             default_hbd61a6d_105  conda-forge
+libexpat                   2.7.3            hecca717_0            conda-forge
+libffi                     3.5.2            h9ec8514_0            conda-forge
+libgcc                     15.2.0           he0feb66_16           conda-forge
+libgcc-ng                  15.2.0           h69a702a_16           conda-forge
+libgomp                    15.2.0           he0feb66_16           conda-forge
+liblzma                    5.8.1            hb9d3cd8_2            conda-forge
+libnsl                     2.0.1            hb9d3cd8_1            conda-forge
+libsqlite                  3.51.1           hf4e2dac_1            conda-forge
+libstdcxx                  15.2.0           h934c35e_16           conda-forge
+libuuid                    2.41.3           h5347b49_0            conda-forge
+libxcrypt                  4.4.36           hd590300_1            conda-forge
+libzlib                    1.3.1            hb9d3cd8_2            conda-forge
+ncurses                    6.5              h2d0b736_3            conda-forge
+openssl                    3.6.0            h26f9b46_0            conda-forge
+pip                        25.3             pyh8b19718_0          conda-forge
+python                     3.11.14          hd63d673_2_cpython    conda-forge
+readline                   8.3              h853b02a_0            conda-forge
+setuptools                 80.9.0           pyhff2d567_0          conda-forge
+tk                         8.6.13           noxft_ha0e22de_103    conda-forge
+tzdata                     2025c            hc9c84f9_1            conda-forge
+wheel                      0.45.1           pyhd8ed1ab_1          conda-forge
+zstd                       1.5.7            hb78ec9c_6            conda-forge
+
+=== Installing Dependencies ===
+Installing conda packages...
+CI detected...
+2 channel Terms of Service accepted
+Channels:
+ - conda-forge
+ - defaults
+Platform: linux-64
+Collecting package metadata (repodata.json): - \ | / - done
+Solving environment: | / - \ done
+
+## Package Plan ##
+
+  environment location: /home/runner/miniconda3/envs/mpasdiag
+
+  added / updated specs:
+    - cartopy
+    - dask
+    - h5netcdf
+    - llvmlite
+    - matplotlib
+    - mpi4py
+    - netcdf4
+    - numba
+    - numpy
+    - pandas
+    - scipy
+    - uxarray
+    - xarray
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    _python_abi3_support-1.0   |       hd8ed1ab_2           8 KB  conda-forge
+    alsa-lib-1.2.15.1          |       hb03c661_0         572 KB  conda-forge
+    antimeridian-0.4.5         |     pyhd8ed1ab_0          20 KB  conda-forge
+    attr-2.5.2                 |       h39aace5_0          66 KB  conda-forge
+    aws-c-auth-0.9.3           |       hef928c7_0         130 KB  conda-forge
+    aws-c-cal-0.9.13           |       h2c9d079_1          55 KB  conda-forge
+    aws-c-common-0.12.6        |       hb03c661_0         234 KB  conda-forge
+    aws-c-compression-0.3.1    |       h8b1a151_9          22 KB  conda-forge
+    aws-c-event-stream-0.5.7   |       h28f887f_1          57 KB  conda-forge
+    aws-c-http-0.10.7          |       ha8fc4e3_5         219 KB  conda-forge
+    aws-c-io-0.23.3            |       hdaf4b65_5         177 KB  conda-forge
+    aws-c-mqtt-0.13.3          |      hc63082f_11         211 KB  conda-forge
+    aws-c-s3-0.11.3            |       h06ab39a_1         148 KB  conda-forge
+    aws-c-sdkutils-0.2.4       |       h8b1a151_4          58 KB  conda-forge
+    aws-checksums-0.2.7        |       h8b1a151_5          75 KB  conda-forge
+    aws-crt-cpp-0.35.4         |       h8824e59_0         399 KB  conda-forge
+    aws-sdk-cpp-1.11.606       |      h20b40b1_10         3.3 MB  conda-forge
+    azure-core-cpp-1.16.1      |       h3a458e0_0         340 KB  conda-forge
+    azure-identity-cpp-1.13.2  |       h3a5f585_1         244 KB  conda-forge
+    azure-storage-blobs-cpp-12.15.0|       h2a74896_1         563 KB  conda-forge
+    azure-storage-common-cpp-12.11.0|       h3d7a050_1         146 KB  conda-forge
+    azure-storage-files-datalake-cpp-12.13.0|       hf38f1be_1         292 KB  conda-forge
+    backports.zstd-1.3.0       |  py311h6b1f9c4_0         239 KB  conda-forge
+    bleach-6.3.0               |     pyhcf101f3_0         139 KB  conda-forge
+    blosc-1.21.6               |       he440d0b_1          47 KB  conda-forge
+    bokeh-3.8.1                |     pyhd8ed1ab_0         4.8 MB  conda-forge
+    brotli-1.2.0               |       hed03a55_1          20 KB  conda-forge
+    brotli-bin-1.2.0           |       hb03c661_1          21 KB  conda-forge
+    brotli-python-1.2.0        |  py311h66f275b_1         359 KB  conda-forge
+    c-ares-1.34.6              |       hb03c661_0         203 KB  conda-forge
+    cached-property-1.5.2      |       hd8ed1ab_1           4 KB  conda-forge
+    cached_property-1.5.2      |     pyha770c72_1          11 KB  conda-forge
+    cairo-1.18.4               |       he90730b_1         966 KB  conda-forge
+    cartopy-0.25.0             |  py311hed34c8f_1         1.5 MB  conda-forge
+    certifi-2025.11.12         |     pyhd8ed1ab_0         153 KB  conda-forge
+    cftime-1.6.4               |  py311h0372a8f_2         233 KB  conda-forge
+    charset-normalizer-3.4.4   |     pyhd8ed1ab_0          50 KB  conda-forge
+    click-8.3.1                |     pyh8f84b5b_1          95 KB  conda-forge
+    cloudpickle-3.1.2          |     pyhcf101f3_1          27 KB  conda-forge
+    colorama-0.4.6             |     pyhd8ed1ab_1          26 KB  conda-forge
+    colorcet-3.1.0             |     pyhd8ed1ab_1         170 KB  conda-forge
+    contourpy-1.3.3            |  py311hdf67eae_3         289 KB  conda-forge
+    cpython-3.11.14            |  py311hd8ed1ab_2          46 KB  conda-forge
+    cycler-0.12.1              |     pyhcf101f3_2          14 KB  conda-forge
+    cyrus-sasl-2.1.28          |       hd9c7081_0         205 KB  conda-forge
+    cytoolz-1.1.0              |  py311h49ec1c0_1         578 KB  conda-forge
+    dask-2025.12.0             |     pyhcf101f3_0          11 KB  conda-forge
+    dask-core-2025.12.0        |     pyhcf101f3_1         1.0 MB  conda-forge
+    datashader-0.18.2          |     pyhd8ed1ab_0        16.4 MB  conda-forge
+    dbus-1.16.2                |       h24cb091_1         437 KB  conda-forge
+    distributed-2025.12.0      |     pyhcf101f3_1         824 KB  conda-forge
+    double-conversion-3.4.0    |       hecca717_0          70 KB  conda-forge
+    font-ttf-dejavu-sans-mono-2.37|       hab24e00_0         388 KB  conda-forge
+    font-ttf-inconsolata-3.000 |       h77eed37_0          94 KB  conda-forge
+    font-ttf-source-code-pro-2.038|       h77eed37_0         684 KB  conda-forge
+    font-ttf-ubuntu-0.83       |       h77eed37_3         1.5 MB  conda-forge
+    fontconfig-2.15.0          |       h7e30c49_1         259 KB  conda-forge
+    fonts-conda-ecosystem-1    |                0           4 KB  conda-forge
+    fonts-conda-forge-1        |       hc364b38_1           4 KB  conda-forge
+    fonttools-4.61.1           |  py311h3778330_0         2.9 MB  conda-forge
+    freetype-2.14.1            |       ha770c72_0         169 KB  conda-forge
+    fsspec-2025.12.0           |     pyhd8ed1ab_0         144 KB  conda-forge
+    geopandas-base-1.1.2       |     pyha770c72_0         248 KB  conda-forge
+    geos-3.14.1                |       h480dda7_0         1.9 MB  conda-forge
+    geoviews-1.15.0            |       hd8ed1ab_0           8 KB  conda-forge
+    geoviews-core-1.15.0       |     pyha770c72_0         409 KB  conda-forge
+    gflags-2.2.2               |    h5888daf_1005         117 KB  conda-forge
+    glog-0.7.1                 |       hbabe93e_0         140 KB  conda-forge
+    graphite2-1.3.14           |       hecca717_2          97 KB  conda-forge
+    h2-4.3.0                   |     pyhcf101f3_0          94 KB  conda-forge
+    h5netcdf-1.7.3             |     pyhd8ed1ab_0          51 KB  conda-forge
+    h5py-3.15.1                |nompi_py311h0b2f468_101         1.3 MB  conda-forge
+    harfbuzz-12.3.0            |       h6083320_0         2.0 MB  conda-forge
+    hdf4-4.2.15                |       h2a13503_7         739 KB  conda-forge
+    hdf5-1.14.6                |nompi_h1b119a7_104         3.5 MB  conda-forge
+    healpix-2025.1             |  py311h0372a8f_2          38 KB  conda-forge
+    holoviews-1.22.1           |     pyhd8ed1ab_0         4.7 MB  conda-forge
+    hpack-4.1.0                |     pyhd8ed1ab_0          30 KB  conda-forge
+    hvplot-0.12.2              |     pyhd8ed1ab_0         269 KB  conda-forge
+    hyperframe-6.1.0           |     pyhd8ed1ab_0          17 KB  conda-forge
+    idna-3.11                  |     pyhd8ed1ab_0          50 KB  conda-forge
+    impi_rt-2021.13.1          |     ha770c72_769        41.7 MB  conda-forge
+    importlib-metadata-8.7.0   |     pyhe01879c_1          34 KB  conda-forge
+    jinja2-3.1.6               |     pyhcf101f3_1         118 KB  conda-forge
+    joblib-1.5.3               |     pyhd8ed1ab_0         221 KB  conda-forge
+    keyutils-1.6.3             |       hb9d3cd8_0         131 KB  conda-forge
+    kiwisolver-1.4.9           |  py311h724c32c_2          77 KB  conda-forge
+    krb5-1.21.3                |       h659f571_0         1.3 MB  conda-forge
+    lcms2-2.17                 |       h717163a_0         242 KB  conda-forge
+    lerc-4.0.0                 |       h0aef613_1         258 KB  conda-forge
+    libabseil-20250512.1       | cxx17_hba17884_0         1.2 MB  conda-forge
+    libaec-1.1.4               |       h3f801dc_0          36 KB  conda-forge
+    libarrow-22.0.0            |   hb6ed5f4_6_cpu         6.0 MB  conda-forge
+    libarrow-acero-22.0.0      |   h635bf11_6_cpu         572 KB  conda-forge
+    libarrow-compute-22.0.0    |   h8c2c5c3_6_cpu         2.8 MB  conda-forge
+    libarrow-dataset-22.0.0    |   h635bf11_6_cpu         571 KB  conda-forge
+    libarrow-substrait-22.0.0  |   h3f74fd7_6_cpu         476 KB  conda-forge
+    libblas-3.11.0             |5_h4a7cf45_openblas          18 KB  conda-forge
+    libbrotlicommon-1.2.0      |       hb03c661_1          78 KB  conda-forge
+    libbrotlidec-1.2.0         |       hb03c661_1          34 KB  conda-forge
+    libbrotlienc-1.2.0         |       hb03c661_1         291 KB  conda-forge
+    libcblas-3.11.0            |5_h0358290_openblas          18 KB  conda-forge
+    libclang-cpp21.1-21.1.7    |default_h99862b1_3        20.1 MB  conda-forge
+    libclang13-21.1.7          |default_h746c552_3        11.8 MB  conda-forge
+    libcrc32c-1.1.2            |       h9c3ff4c_0          20 KB  conda-forge
+    libcups-2.3.3              |       hb8b1518_5         4.3 MB  conda-forge
+    libcurl-8.17.0             |       h4e3cde8_1         449 KB  conda-forge
+    libdeflate-1.25            |       h17f619e_0          72 KB  conda-forge
+    libdrm-2.4.125             |       hb03c661_1         304 KB  conda-forge
+    libedit-3.1.20250104       | pl5321h7949ede_0         132 KB  conda-forge
+    libegl-1.7.0               |       ha4b6fd6_2          44 KB  conda-forge
+    libev-4.33                 |       hd590300_2         110 KB  conda-forge
+    libevent-2.1.12            |       hf998b51_1         417 KB  conda-forge
+    libfreetype-2.14.1         |       ha770c72_0           7 KB  conda-forge
+    libfreetype6-2.14.1        |       h73754d4_0         378 KB  conda-forge
+    libgfortran-15.2.0         |      h69a702a_16          27 KB  conda-forge
+    libgfortran5-15.2.0        |      h68bc16d_16         2.4 MB  conda-forge
+    libgl-1.7.0                |       ha4b6fd6_2         132 KB  conda-forge
+    libglib-2.86.3             |       h6548e54_0         3.8 MB  conda-forge
+    libglvnd-1.7.0             |       ha4b6fd6_2         129 KB  conda-forge
+    libglx-1.7.0               |       ha4b6fd6_2          74 KB  conda-forge
+    libgoogle-cloud-2.39.0     |       hdb79228_0         1.2 MB  conda-forge
+    libgoogle-cloud-storage-2.39.0|       hdbdcf42_0         785 KB  conda-forge
+    libgrpc-1.73.1             |       h3288cfb_1         8.0 MB  conda-forge
+    libiconv-1.18              |       h3b78370_2         772 KB  conda-forge
+    libjpeg-turbo-3.1.2        |       hb03c661_0         619 KB  conda-forge
+    liblapack-3.11.0           |5_h47877c9_openblas          18 KB  conda-forge
+    libllvm21-21.1.8           |       hf7376ad_0        42.3 MB  conda-forge
+    libnetcdf-4.9.3            |nompi_h11f7409_103         851 KB  conda-forge
+    libnghttp2-1.67.0          |       had1ee68_0         651 KB  conda-forge
+    libntlm-1.8                |       hb9d3cd8_0          33 KB  conda-forge
+    libopenblas-0.3.30         |pthreads_h94d23a6_4         5.7 MB  conda-forge
+    libopengl-1.7.0            |       ha4b6fd6_2          50 KB  conda-forge
+    libopentelemetry-cpp-1.21.0|       hb9b0907_1         865 KB  conda-forge
+    libopentelemetry-cpp-headers-1.21.0|       ha770c72_1         355 KB  conda-forge
+    libparquet-22.0.0          |   h7376487_6_cpu         1.3 MB  conda-forge
+    libpciaccess-0.18          |       hb9d3cd8_0          28 KB  conda-forge
+    libpng-1.6.53              |       h421ea60_0         310 KB  conda-forge
+    libpq-18.1                 |       hb80d175_3         2.6 MB  conda-forge
+    libprotobuf-6.31.1         |       h49aed37_4         4.2 MB  conda-forge
+    libre2-11-2025.11.05       |       h7b12aa8_0         206 KB  conda-forge
+    libssh2-1.11.1             |       hcf80075_0         298 KB  conda-forge
+    libstdcxx-ng-15.2.0        |      hdf11a46_16          27 KB  conda-forge
+    libthrift-0.22.0           |       h454ac66_1         414 KB  conda-forge
+    libtiff-4.7.1              |       h9d88235_1         425 KB  conda-forge
+    libutf8proc-2.11.2         |       hfe17d71_0          84 KB  conda-forge
+    libvulkan-loader-1.4.328.1 |       h5279c79_0         193 KB  conda-forge
+    libwebp-base-1.6.0         |       hd42ef1d_0         419 KB  conda-forge
+    libxcb-1.17.0              |       h8a09558_0         387 KB  conda-forge
+    libxkbcommon-1.13.1        |       hca5e8e5_0         818 KB  conda-forge
+    libxml2-2.15.1             |       he237659_1          44 KB  conda-forge
+    libxml2-16-2.15.1          |       hca6bf5a_1         543 KB  conda-forge
+    libxslt-1.1.43             |       h711ed8c_1         240 KB  conda-forge
+    libzip-1.11.2              |       h6991a6a_0         106 KB  conda-forge
+    linkify-it-py-2.0.3        |     pyhd8ed1ab_1          24 KB  conda-forge
+    llvmlite-0.46.0            |  py311h41a00d4_0        32.5 MB  conda-forge
+    locket-1.0.0               |     pyhd8ed1ab_0           8 KB  conda-forge
+    lz4-4.4.5                  |  py311h1c460e0_1          43 KB  conda-forge
+    lz4-c-1.10.0               |       h5888daf_1         163 KB  conda-forge
+    markdown-3.10              |     pyhcf101f3_1          83 KB  conda-forge
+    markdown-it-py-4.0.0       |     pyhd8ed1ab_0          63 KB  conda-forge
+    markupsafe-3.0.3           |  py311h3778330_0          25 KB  conda-forge
+    matplotlib-3.10.8          |  py311h38be061_0          17 KB  conda-forge
+    matplotlib-base-3.10.8     |  py311h0f3be63_0         7.9 MB  conda-forge
+    matplotlib-inline-0.2.1    |     pyhd8ed1ab_0          15 KB  conda-forge
+    mdit-py-plugins-0.5.0      |     pyhd8ed1ab_0          43 KB  conda-forge
+    mdurl-0.1.2                |     pyhd8ed1ab_1          14 KB  conda-forge
+    mpi-1.0                    |             impi           6 KB  conda-forge
+    mpi4py-4.1.1               |py311h1496390_102         864 KB  conda-forge
+    msgpack-python-1.1.2       |  py311hdf67eae_1         101 KB  conda-forge
+    multipledispatch-0.6.0     |     pyhd8ed1ab_1          17 KB  conda-forge
+    munkres-1.1.4              |     pyhd8ed1ab_1          15 KB  conda-forge
+    narwhals-2.14.0            |     pyhcf101f3_0         265 KB  conda-forge
+    netcdf4-1.7.3              |nompi_py311h6623971_100         1.1 MB  conda-forge
+    nlohmann_json-3.12.0       |       h54a6638_1         133 KB  conda-forge
+    numba-0.63.1               |  py311h3c884d5_0         5.6 MB  conda-forge
+    numpy-2.3.5                |  py311h2e04523_1         9.0 MB  conda-forge
+    openjpeg-2.5.4             |       h55fea9a_0         347 KB  conda-forge
+    openldap-2.6.10            |       he970967_0         762 KB  conda-forge
+    orc-2.2.1                  |       hd747db4_0         1.3 MB  conda-forge
+    packaging-25.0             |     pyh29332c3_1          61 KB  conda-forge
+    pandas-2.3.3               |  py311hed34c8f_2        14.5 MB  conda-forge
+    panel-1.8.5                |     pyhd8ed1ab_0        22.0 MB  conda-forge
+    param-2.3.1                |     pyhc455866_0         176 KB  conda-forge
+    partd-1.4.2                |     pyhd8ed1ab_0          20 KB  conda-forge
+    pcre2-10.47                |       haa7fec5_0         1.2 MB  conda-forge
+    pillow-12.1.0              |  py311hf88fc01_0        1022 KB  conda-forge
+    pixman-0.46.4              |       h54a6638_1         440 KB  conda-forge
+    polars-1.36.1              |     pyh6a1acc5_0         511 KB  conda-forge
+    polars-runtime-32-1.36.1   |  py310hffdcd12_0        33.6 MB  conda-forge
+    proj-9.7.1                 |       h99ae125_0         3.1 MB  conda-forge
+    prometheus-cpp-1.3.0       |       ha5d0236_0         195 KB  conda-forge
+    psutil-7.2.1               |  py311haee01d2_0         224 KB  conda-forge
+    pthread-stubs-0.4          |    hb9d3cd8_1002           8 KB  conda-forge
+    pyarrow-22.0.0             |  py311h38be061_0          26 KB  conda-forge
+    pyarrow-core-22.0.0        |py311h342b5a4_0_cpu         5.6 MB  conda-forge
+    pyct-0.6.0                 |     pyhd8ed1ab_0          22 KB  conda-forge
+    pyparsing-3.3.1            |     pyhcf101f3_0         108 KB  conda-forge
+    pyproj-3.7.2               |  py311h4e6619b_2         524 KB  conda-forge
+    pyshp-3.0.3                |     pyhd8ed1ab_0         444 KB  conda-forge
+    pyside6-6.10.1             |  py311he4c1a5a_0         9.9 MB  conda-forge
+    pysocks-1.7.1              |     pyha55dd90_7          21 KB  conda-forge
+    python-dateutil-2.9.0.post0|     pyhe01879c_2         228 KB  conda-forge
+    python-gil-3.11.14         |       hd8ed1ab_2          46 KB  conda-forge
+    python-tzdata-2025.3       |     pyhd8ed1ab_0         140 KB  conda-forge
+    python_abi-3.11            |          8_cp311           7 KB  conda-forge
+    pytz-2025.2                |     pyhd8ed1ab_0         185 KB  conda-forge
+    pyviz_comms-3.0.6          |     pyhd8ed1ab_0          48 KB  conda-forge
+    pyyaml-6.0.3               |  py311h3778330_0         207 KB  conda-forge
+    qhull-2020.2               |       h434a139_5         540 KB  conda-forge
+    qt6-main-6.10.1            |       hb82b983_4        54.6 MB  conda-forge
+    re2-2025.11.05             |       h5301d42_0          27 KB  conda-forge
+    requests-2.32.5            |     pyhcf101f3_1          62 KB  conda-forge
+    retrying-1.4.2             |     pyhe01879c_0          20 KB  conda-forge
+    s2n-1.6.2                  |       he8a4886_1         385 KB  conda-forge
+    scikit-learn-1.8.0         |np2py311ha15b03d_1         9.5 MB  conda-forge
+    scipy-1.16.3               |  py311hbe70eeb_2        16.2 MB  conda-forge
+    shapely-2.1.2              |  py311h8a92878_2         632 KB  conda-forge
+    six-1.17.0                 |     pyhe01879c_1          18 KB  conda-forge
+    snappy-1.2.2               |       h03e3b7b_1          45 KB  conda-forge
+    sortedcontainers-2.4.0     |     pyhd8ed1ab_1          28 KB  conda-forge
+    spatialpandas-0.5.0        |     pyhd8ed1ab_0          79 KB  conda-forge
+    sqlite-3.51.1              |       h04a0ce9_1         179 KB  conda-forge
+    tblib-3.2.2                |     pyhcf101f3_0          19 KB  conda-forge
+    threadpoolctl-3.6.0        |     pyhecae5ae_0          23 KB  conda-forge
+    toolz-1.1.0                |     pyhd8ed1ab_1          53 KB  conda-forge
+    tornado-6.5.4              |  py311h41d9c34_0         851 KB  conda-forge
+    tqdm-4.67.1                |     pyhd8ed1ab_1          87 KB  conda-forge
+    traitlets-5.14.3           |     pyhd8ed1ab_1         107 KB  conda-forge
+    typing_extensions-4.15.0   |     pyhcf101f3_0          50 KB  conda-forge
+    uc-micro-py-1.0.3          |     pyhd8ed1ab_1          11 KB  conda-forge
+    unicodedata2-17.0.0        |  py311h49ec1c0_1         399 KB  conda-forge
+    urllib3-2.6.2              |     pyhd8ed1ab_0         100 KB  conda-forge
+    uxarray-2025.05.2          |     pyhd8ed1ab_0         126 KB  conda-forge
+    wayland-1.24.0             |       hd6090a7_1         322 KB  conda-forge
+    webencodings-0.5.1         |     pyhd8ed1ab_3          15 KB  conda-forge
+    xarray-2025.12.0           |     pyhcf101f3_0         971 KB  conda-forge
+    xcb-util-0.4.1             |       h4f16b4b_2          20 KB  conda-forge
+    xcb-util-cursor-0.1.6      |       hb03c661_0          20 KB  conda-forge
+    xcb-util-image-0.4.0       |       hb711507_2          24 KB  conda-forge
+    xcb-util-keysyms-0.4.1     |       hb711507_0          14 KB  conda-forge
+    xcb-util-renderutil-0.3.10 |       hb711507_0          17 KB  conda-forge
+    xcb-util-wm-0.4.2          |       hb711507_0          50 KB  conda-forge
+    xkeyboard-config-2.46      |       hb03c661_0         388 KB  conda-forge
+    xorg-libice-1.1.2          |       hb9d3cd8_0          57 KB  conda-forge
+    xorg-libsm-1.2.6           |       he73a12e_0          27 KB  conda-forge
+    xorg-libx11-1.8.12         |       h4f16b4b_0         816 KB  conda-forge
+    xorg-libxau-1.0.12         |       hb03c661_1          15 KB  conda-forge
+    xorg-libxcomposite-0.4.6   |       hb9d3cd8_2          13 KB  conda-forge
+    xorg-libxcursor-1.2.3      |       hb9d3cd8_0          32 KB  conda-forge
+    xorg-libxdamage-1.1.6      |       hb9d3cd8_0          13 KB  conda-forge
+    xorg-libxdmcp-1.1.5        |       hb03c661_1          20 KB  conda-forge
+    xorg-libxext-1.3.6         |       hb9d3cd8_0          49 KB  conda-forge
+    xorg-libxfixes-6.0.2       |       hb03c661_0          20 KB  conda-forge
+    xorg-libxi-1.8.2           |       hb9d3cd8_0          46 KB  conda-forge
+    xorg-libxrandr-1.5.4       |       hb9d3cd8_0          29 KB  conda-forge
+    xorg-libxrender-0.9.12     |       hb9d3cd8_0          32 KB  conda-forge
+    xorg-libxtst-1.2.5         |       hb9d3cd8_3          32 KB  conda-forge
+    xorg-libxxf86vm-1.1.6      |       hb9d3cd8_0          17 KB  conda-forge
+    xyzservices-2025.11.0      |     pyhd8ed1ab_0          50 KB  conda-forge
+    yaml-0.2.5                 |       h280c20c_3          83 KB  conda-forge
+    zict-3.0.0                 |     pyhd8ed1ab_1          35 KB  conda-forge
+    zipp-3.23.0                |     pyhcf101f3_1          24 KB  conda-forge
+    zlib-1.3.1                 |       hb9d3cd8_2          90 KB  conda-forge
+    zlib-ng-2.3.2              |       hceb46e0_1         119 KB  conda-forge
+    ------------------------------------------------------------
+                                           Total:       475.3 MB
+
+The following NEW packages will be INSTALLED:
+
+  _python_abi3_supp~ conda-forge/noarch::_python_abi3_support-1.0-hd8ed1ab_2 
+  alsa-lib           conda-forge/linux-64::alsa-lib-1.2.15.1-hb03c661_0 
+  antimeridian       conda-forge/noarch::antimeridian-0.4.5-pyhd8ed1ab_0 
+  attr               conda-forge/linux-64::attr-2.5.2-h39aace5_0 
+  aws-c-auth         conda-forge/linux-64::aws-c-auth-0.9.3-hef928c7_0 
+  aws-c-cal          conda-forge/linux-64::aws-c-cal-0.9.13-h2c9d079_1 
+  aws-c-common       conda-forge/linux-64::aws-c-common-0.12.6-hb03c661_0 
+  aws-c-compression  conda-forge/linux-64::aws-c-compression-0.3.1-h8b1a151_9 
+  aws-c-event-stream conda-forge/linux-64::aws-c-event-stream-0.5.7-h28f887f_1 
+  aws-c-http         conda-forge/linux-64::aws-c-http-0.10.7-ha8fc4e3_5 
+  aws-c-io           conda-forge/linux-64::aws-c-io-0.23.3-hdaf4b65_5 
+  aws-c-mqtt         conda-forge/linux-64::aws-c-mqtt-0.13.3-hc63082f_11 
+  aws-c-s3           conda-forge/linux-64::aws-c-s3-0.11.3-h06ab39a_1 
+  aws-c-sdkutils     conda-forge/linux-64::aws-c-sdkutils-0.2.4-h8b1a151_4 
+  aws-checksums      conda-forge/linux-64::aws-checksums-0.2.7-h8b1a151_5 
+  aws-crt-cpp        conda-forge/linux-64::aws-crt-cpp-0.35.4-h8824e59_0 
+  aws-sdk-cpp        conda-forge/linux-64::aws-sdk-cpp-1.11.606-h20b40b1_10 
+  azure-core-cpp     conda-forge/linux-64::azure-core-cpp-1.16.1-h3a458e0_0 
+  azure-identity-cpp conda-forge/linux-64::azure-identity-cpp-1.13.2-h3a5f585_1 
+  azure-storage-blo~ conda-forge/linux-64::azure-storage-blobs-cpp-12.15.0-h2a74896_1 
+  azure-storage-com~ conda-forge/linux-64::azure-storage-common-cpp-12.11.0-h3d7a050_1 
+  azure-storage-fil~ conda-forge/linux-64::azure-storage-files-datalake-cpp-12.13.0-hf38f1be_1 
+  backports.zstd     conda-forge/linux-64::backports.zstd-1.3.0-py311h6b1f9c4_0 
+  bleach             conda-forge/noarch::bleach-6.3.0-pyhcf101f3_0 
+  blosc              conda-forge/linux-64::blosc-1.21.6-he440d0b_1 
+  bokeh              conda-forge/noarch::bokeh-3.8.1-pyhd8ed1ab_0 
+  brotli             conda-forge/linux-64::brotli-1.2.0-hed03a55_1 
+  brotli-bin         conda-forge/linux-64::brotli-bin-1.2.0-hb03c661_1 
+  brotli-python      conda-forge/linux-64::brotli-python-1.2.0-py311h66f275b_1 
+  c-ares             conda-forge/linux-64::c-ares-1.34.6-hb03c661_0 
+  cached-property    conda-forge/noarch::cached-property-1.5.2-hd8ed1ab_1 
+  cached_property    conda-forge/noarch::cached_property-1.5.2-pyha770c72_1 
+  cairo              conda-forge/linux-64::cairo-1.18.4-he90730b_1 
+  cartopy            conda-forge/linux-64::cartopy-0.25.0-py311hed34c8f_1 
+  certifi            conda-forge/noarch::certifi-2025.11.12-pyhd8ed1ab_0 
+  cftime             conda-forge/linux-64::cftime-1.6.4-py311h0372a8f_2 
+  charset-normalizer conda-forge/noarch::charset-normalizer-3.4.4-pyhd8ed1ab_0 
+  click              conda-forge/noarch::click-8.3.1-pyh8f84b5b_1 
+  cloudpickle        conda-forge/noarch::cloudpickle-3.1.2-pyhcf101f3_1 
+  colorama           conda-forge/noarch::colorama-0.4.6-pyhd8ed1ab_1 
+  colorcet           conda-forge/noarch::colorcet-3.1.0-pyhd8ed1ab_1 
+  contourpy          conda-forge/linux-64::contourpy-1.3.3-py311hdf67eae_3 
+  cpython            conda-forge/noarch::cpython-3.11.14-py311hd8ed1ab_2 
+  cycler             conda-forge/noarch::cycler-0.12.1-pyhcf101f3_2 
+  cyrus-sasl         conda-forge/linux-64::cyrus-sasl-2.1.28-hd9c7081_0 
+  cytoolz            conda-forge/linux-64::cytoolz-1.1.0-py311h49ec1c0_1 
+  dask               conda-forge/noarch::dask-2025.12.0-pyhcf101f3_0 
+  dask-core          conda-forge/noarch::dask-core-2025.12.0-pyhcf101f3_1 
+  datashader         conda-forge/noarch::datashader-0.18.2-pyhd8ed1ab_0 
+  dbus               conda-forge/linux-64::dbus-1.16.2-h24cb091_1 
+  distributed        conda-forge/noarch::distributed-2025.12.0-pyhcf101f3_1 
+  double-conversion  conda-forge/linux-64::double-conversion-3.4.0-hecca717_0 
+  font-ttf-dejavu-s~ conda-forge/noarch::font-ttf-dejavu-sans-mono-2.37-hab24e00_0 
+  font-ttf-inconsol~ conda-forge/noarch::font-ttf-inconsolata-3.000-h77eed37_0 
+  font-ttf-source-c~ conda-forge/noarch::font-ttf-source-code-pro-2.038-h77eed37_0 
+  font-ttf-ubuntu    conda-forge/noarch::font-ttf-ubuntu-0.83-h77eed37_3 
+  fontconfig         conda-forge/linux-64::fontconfig-2.15.0-h7e30c49_1 
+  fonts-conda-ecosy~ conda-forge/noarch::fonts-conda-ecosystem-1-0 
+  fonts-conda-forge  conda-forge/noarch::fonts-conda-forge-1-hc364b38_1 
+  fonttools          conda-forge/linux-64::fonttools-4.61.1-py311h3778330_0 
+  freetype           conda-forge/linux-64::freetype-2.14.1-ha770c72_0 
+  fsspec             conda-forge/noarch::fsspec-2025.12.0-pyhd8ed1ab_0 
+  geopandas-base     conda-forge/noarch::geopandas-base-1.1.2-pyha770c72_0 
+  geos               conda-forge/linux-64::geos-3.14.1-h480dda7_0 
+  geoviews           conda-forge/noarch::geoviews-1.15.0-hd8ed1ab_0 
+  geoviews-core      conda-forge/noarch::geoviews-core-1.15.0-pyha770c72_0 
+  gflags             conda-forge/linux-64::gflags-2.2.2-h5888daf_1005 
+  glog               conda-forge/linux-64::glog-0.7.1-hbabe93e_0 
+  graphite2          conda-forge/linux-64::graphite2-1.3.14-hecca717_2 
+  h2                 conda-forge/noarch::h2-4.3.0-pyhcf101f3_0 
+  h5netcdf           conda-forge/noarch::h5netcdf-1.7.3-pyhd8ed1ab_0 
+  h5py               conda-forge/linux-64::h5py-3.15.1-nompi_py311h0b2f468_101 
+  harfbuzz           conda-forge/linux-64::harfbuzz-12.3.0-h6083320_0 
+  hdf4               conda-forge/linux-64::hdf4-4.2.15-h2a13503_7 
+  hdf5               conda-forge/linux-64::hdf5-1.14.6-nompi_h1b119a7_104 
+  healpix            conda-forge/linux-64::healpix-2025.1-py311h0372a8f_2 
+  holoviews          conda-forge/noarch::holoviews-1.22.1-pyhd8ed1ab_0 
+  hpack              conda-forge/noarch::hpack-4.1.0-pyhd8ed1ab_0 
+  hvplot             conda-forge/noarch::hvplot-0.12.2-pyhd8ed1ab_0 
+  hyperframe         conda-forge/noarch::hyperframe-6.1.0-pyhd8ed1ab_0 
+  idna               conda-forge/noarch::idna-3.11-pyhd8ed1ab_0 
+  impi_rt            conda-forge/linux-64::impi_rt-2021.13.1-ha770c72_769 
+  importlib-metadata conda-forge/noarch::importlib-metadata-8.7.0-pyhe01879c_1 
+  jinja2             conda-forge/noarch::jinja2-3.1.6-pyhcf101f3_1 
+  joblib             conda-forge/noarch::joblib-1.5.3-pyhd8ed1ab_0 
+  keyutils           conda-forge/linux-64::keyutils-1.6.3-hb9d3cd8_0 
+  kiwisolver         conda-forge/linux-64::kiwisolver-1.4.9-py311h724c32c_2 
+  krb5               conda-forge/linux-64::krb5-1.21.3-h659f571_0 
+  lcms2              conda-forge/linux-64::lcms2-2.17-h717163a_0 
+  lerc               conda-forge/linux-64::lerc-4.0.0-h0aef613_1 
+  libabseil          conda-forge/linux-64::libabseil-20250512.1-cxx17_hba17884_0 
+  libaec             conda-forge/linux-64::libaec-1.1.4-h3f801dc_0 
+  libarrow           conda-forge/linux-64::libarrow-22.0.0-hb6ed5f4_6_cpu 
+  libarrow-acero     conda-forge/linux-64::libarrow-acero-22.0.0-h635bf11_6_cpu 
+  libarrow-compute   conda-forge/linux-64::libarrow-compute-22.0.0-h8c2c5c3_6_cpu 
+  libarrow-dataset   conda-forge/linux-64::libarrow-dataset-22.0.0-h635bf11_6_cpu 
+  libarrow-substrait conda-forge/linux-64::libarrow-substrait-22.0.0-h3f74fd7_6_cpu 
+  libblas            conda-forge/linux-64::libblas-3.11.0-5_h4a7cf45_openblas 
+  libbrotlicommon    conda-forge/linux-64::libbrotlicommon-1.2.0-hb03c661_1 
+  libbrotlidec       conda-forge/linux-64::libbrotlidec-1.2.0-hb03c661_1 
+  libbrotlienc       conda-forge/linux-64::libbrotlienc-1.2.0-hb03c661_1 
+  libcblas           conda-forge/linux-64::libcblas-3.11.0-5_h0358290_openblas 
+  libclang-cpp21.1   conda-forge/linux-64::libclang-cpp21.1-21.1.7-default_h99862b1_3 
+  libclang13         conda-forge/linux-64::libclang13-21.1.7-default_h746c552_3 
+  libcrc32c          conda-forge/linux-64::libcrc32c-1.1.2-h9c3ff4c_0 
+  libcups            conda-forge/linux-64::libcups-2.3.3-hb8b1518_5 
+  libcurl            conda-forge/linux-64::libcurl-8.17.0-h4e3cde8_1 
+  libdeflate         conda-forge/linux-64::libdeflate-1.25-h17f619e_0 
+  libdrm             conda-forge/linux-64::libdrm-2.4.125-hb03c661_1 
+  libedit            conda-forge/linux-64::libedit-3.1.20250104-pl5321h7949ede_0 
+  libegl             conda-forge/linux-64::libegl-1.7.0-ha4b6fd6_2 
+  libev              conda-forge/linux-64::libev-4.33-hd590300_2 
+  libevent           conda-forge/linux-64::libevent-2.1.12-hf998b51_1 
+  libfreetype        conda-forge/linux-64::libfreetype-2.14.1-ha770c72_0 
+  libfreetype6       conda-forge/linux-64::libfreetype6-2.14.1-h73754d4_0 
+  libgfortran        conda-forge/linux-64::libgfortran-15.2.0-h69a702a_16 
+  libgfortran5       conda-forge/linux-64::libgfortran5-15.2.0-h68bc16d_16 
+  libgl              conda-forge/linux-64::libgl-1.7.0-ha4b6fd6_2 
+  libglib            conda-forge/linux-64::libglib-2.86.3-h6548e54_0 
+  libglvnd           conda-forge/linux-64::libglvnd-1.7.0-ha4b6fd6_2 
+  libglx             conda-forge/linux-64::libglx-1.7.0-ha4b6fd6_2 
+  libgoogle-cloud    conda-forge/linux-64::libgoogle-cloud-2.39.0-hdb79228_0 
+  libgoogle-cloud-s~ conda-forge/linux-64::libgoogle-cloud-storage-2.39.0-hdbdcf42_0 
+  libgrpc            conda-forge/linux-64::libgrpc-1.73.1-h3288cfb_1 
+  libiconv           conda-forge/linux-64::libiconv-1.18-h3b78370_2 
+  libjpeg-turbo      conda-forge/linux-64::libjpeg-turbo-3.1.2-hb03c661_0 
+  liblapack          conda-forge/linux-64::liblapack-3.11.0-5_h47877c9_openblas 
+  libllvm21          conda-forge/linux-64::libllvm21-21.1.8-hf7376ad_0 
+  libnetcdf          conda-forge/linux-64::libnetcdf-4.9.3-nompi_h11f7409_103 
+  libnghttp2         conda-forge/linux-64::libnghttp2-1.67.0-had1ee68_0 
+  libntlm            conda-forge/linux-64::libntlm-1.8-hb9d3cd8_0 
+  libopenblas        conda-forge/linux-64::libopenblas-0.3.30-pthreads_h94d23a6_4 
+  libopengl          conda-forge/linux-64::libopengl-1.7.0-ha4b6fd6_2 
+  libopentelemetry-~ conda-forge/linux-64::libopentelemetry-cpp-1.21.0-hb9b0907_1 
+  libopentelemetry-~ conda-forge/linux-64::libopentelemetry-cpp-headers-1.21.0-ha770c72_1 
+  libparquet         conda-forge/linux-64::libparquet-22.0.0-h7376487_6_cpu 
+  libpciaccess       conda-forge/linux-64::libpciaccess-0.18-hb9d3cd8_0 
+  libpng             conda-forge/linux-64::libpng-1.6.53-h421ea60_0 
+  libpq              conda-forge/linux-64::libpq-18.1-hb80d175_3 
+  libprotobuf        conda-forge/linux-64::libprotobuf-6.31.1-h49aed37_4 
+  libre2-11          conda-forge/linux-64::libre2-11-2025.11.05-h7b12aa8_0 
+  libssh2            conda-forge/linux-64::libssh2-1.11.1-hcf80075_0 
+  libstdcxx-ng       conda-forge/linux-64::libstdcxx-ng-15.2.0-hdf11a46_16 
+  libthrift          conda-forge/linux-64::libthrift-0.22.0-h454ac66_1 
+  libtiff            conda-forge/linux-64::libtiff-4.7.1-h9d88235_1 
+  libutf8proc        conda-forge/linux-64::libutf8proc-2.11.2-hfe17d71_0 
+  libvulkan-loader   conda-forge/linux-64::libvulkan-loader-1.4.328.1-h5279c79_0 
+  libwebp-base       conda-forge/linux-64::libwebp-base-1.6.0-hd42ef1d_0 
+  libxcb             conda-forge/linux-64::libxcb-1.17.0-h8a09558_0 
+  libxkbcommon       conda-forge/linux-64::libxkbcommon-1.13.1-hca5e8e5_0 
+  libxml2            conda-forge/linux-64::libxml2-2.15.1-he237659_1 
+  libxml2-16         conda-forge/linux-64::libxml2-16-2.15.1-hca6bf5a_1 
+  libxslt            conda-forge/linux-64::libxslt-1.1.43-h711ed8c_1 
+  libzip             conda-forge/linux-64::libzip-1.11.2-h6991a6a_0 
+  linkify-it-py      conda-forge/noarch::linkify-it-py-2.0.3-pyhd8ed1ab_1 
+  llvmlite           conda-forge/linux-64::llvmlite-0.46.0-py311h41a00d4_0 
+  locket             conda-forge/noarch::locket-1.0.0-pyhd8ed1ab_0 
+  lz4                conda-forge/linux-64::lz4-4.4.5-py311h1c460e0_1 
+  lz4-c              conda-forge/linux-64::lz4-c-1.10.0-h5888daf_1 
+  markdown           conda-forge/noarch::markdown-3.10-pyhcf101f3_1 
+  markdown-it-py     conda-forge/noarch::markdown-it-py-4.0.0-pyhd8ed1ab_0 
+  markupsafe         conda-forge/linux-64::markupsafe-3.0.3-py311h3778330_0 
+  matplotlib         conda-forge/linux-64::matplotlib-3.10.8-py311h38be061_0 
+  matplotlib-base    conda-forge/linux-64::matplotlib-base-3.10.8-py311h0f3be63_0 
+  matplotlib-inline  conda-forge/noarch::matplotlib-inline-0.2.1-pyhd8ed1ab_0 
+  mdit-py-plugins    conda-forge/noarch::mdit-py-plugins-0.5.0-pyhd8ed1ab_0 
+  mdurl              conda-forge/noarch::mdurl-0.1.2-pyhd8ed1ab_1 
+  mpi                conda-forge/linux-64::mpi-1.0-impi 
+  mpi4py             conda-forge/linux-64::mpi4py-4.1.1-py311h1496390_102 
+  msgpack-python     conda-forge/linux-64::msgpack-python-1.1.2-py311hdf67eae_1 
+  multipledispatch   conda-forge/noarch::multipledispatch-0.6.0-pyhd8ed1ab_1 
+  munkres            conda-forge/noarch::munkres-1.1.4-pyhd8ed1ab_1 
+  narwhals           conda-forge/noarch::narwhals-2.14.0-pyhcf101f3_0 
+  netcdf4            conda-forge/linux-64::netcdf4-1.7.3-nompi_py311h6623971_100 
+  nlohmann_json      conda-forge/linux-64::nlohmann_json-3.12.0-h54a6638_1 
+  numba              conda-forge/linux-64::numba-0.63.1-py311h3c884d5_0 
+  numpy              conda-forge/linux-64::numpy-2.3.5-py311h2e04523_1 
+  openjpeg           conda-forge/linux-64::openjpeg-2.5.4-h55fea9a_0 
+  openldap           conda-forge/linux-64::openldap-2.6.10-he970967_0 
+  orc                conda-forge/linux-64::orc-2.2.1-hd747db4_0 
+  packaging          conda-forge/noarch::packaging-25.0-pyh29332c3_1 
+  pandas             conda-forge/linux-64::pandas-2.3.3-py311hed34c8f_2 
+  panel              conda-forge/noarch::panel-1.8.5-pyhd8ed1ab_0 
+  param              conda-forge/noarch::param-2.3.1-pyhc455866_0 
+  partd              conda-forge/noarch::partd-1.4.2-pyhd8ed1ab_0 
+  pcre2              conda-forge/linux-64::pcre2-10.47-haa7fec5_0 
+  pillow             conda-forge/linux-64::pillow-12.1.0-py311hf88fc01_0 
+  pixman             conda-forge/linux-64::pixman-0.46.4-h54a6638_1 
+  polars             conda-forge/noarch::polars-1.36.1-pyh6a1acc5_0 
+  polars-runtime-32  conda-forge/linux-64::polars-runtime-32-1.36.1-py310hffdcd12_0 
+  proj               conda-forge/linux-64::proj-9.7.1-h99ae125_0 
+  prometheus-cpp     conda-forge/linux-64::prometheus-cpp-1.3.0-ha5d0236_0 
+  psutil             conda-forge/linux-64::psutil-7.2.1-py311haee01d2_0 
+  pthread-stubs      conda-forge/linux-64::pthread-stubs-0.4-hb9d3cd8_1002 
+  pyarrow            conda-forge/linux-64::pyarrow-22.0.0-py311h38be061_0 
+  pyarrow-core       conda-forge/linux-64::pyarrow-core-22.0.0-py311h342b5a4_0_cpu 
+  pyct               conda-forge/noarch::pyct-0.6.0-pyhd8ed1ab_0 
+  pyparsing          conda-forge/noarch::pyparsing-3.3.1-pyhcf101f3_0 
+  pyproj             conda-forge/linux-64::pyproj-3.7.2-py311h4e6619b_2 
+  pyshp              conda-forge/noarch::pyshp-3.0.3-pyhd8ed1ab_0 
+  pyside6            conda-forge/linux-64::pyside6-6.10.1-py311he4c1a5a_0 
+  pysocks            conda-forge/noarch::pysocks-1.7.1-pyha55dd90_7 
+  python-dateutil    conda-forge/noarch::python-dateutil-2.9.0.post0-pyhe01879c_2 
+  python-gil         conda-forge/noarch::python-gil-3.11.14-hd8ed1ab_2 
+  python-tzdata      conda-forge/noarch::python-tzdata-2025.3-pyhd8ed1ab_0 
+  python_abi         conda-forge/noarch::python_abi-3.11-8_cp311 
+  pytz               conda-forge/noarch::pytz-2025.2-pyhd8ed1ab_0 
+  pyviz_comms        conda-forge/noarch::pyviz_comms-3.0.6-pyhd8ed1ab_0 
+  pyyaml             conda-forge/linux-64::pyyaml-6.0.3-py311h3778330_0 
+  qhull              conda-forge/linux-64::qhull-2020.2-h434a139_5 
+  qt6-main           conda-forge/linux-64::qt6-main-6.10.1-hb82b983_4 
+  re2                conda-forge/linux-64::re2-2025.11.05-h5301d42_0 
+  requests           conda-forge/noarch::requests-2.32.5-pyhcf101f3_1 
+  retrying           conda-forge/noarch::retrying-1.4.2-pyhe01879c_0 
+  s2n                conda-forge/linux-64::s2n-1.6.2-he8a4886_1 
+  scikit-learn       conda-forge/linux-64::scikit-learn-1.8.0-np2py311ha15b03d_1 
+  scipy              conda-forge/linux-64::scipy-1.16.3-py311hbe70eeb_2 
+  shapely            conda-forge/linux-64::shapely-2.1.2-py311h8a92878_2 
+  six                conda-forge/noarch::six-1.17.0-pyhe01879c_1 
+  snappy             conda-forge/linux-64::snappy-1.2.2-h03e3b7b_1 
+  sortedcontainers   conda-forge/noarch::sortedcontainers-2.4.0-pyhd8ed1ab_1 
+  spatialpandas      conda-forge/noarch::spatialpandas-0.5.0-pyhd8ed1ab_0 
+  sqlite             conda-forge/linux-64::sqlite-3.51.1-h04a0ce9_1 
+  tblib              conda-forge/noarch::tblib-3.2.2-pyhcf101f3_0 
+  threadpoolctl      conda-forge/noarch::threadpoolctl-3.6.0-pyhecae5ae_0 
+  toolz              conda-forge/noarch::toolz-1.1.0-pyhd8ed1ab_1 
+  tornado            conda-forge/linux-64::tornado-6.5.4-py311h41d9c34_0 
+  tqdm               conda-forge/noarch::tqdm-4.67.1-pyhd8ed1ab_1 
+  traitlets          conda-forge/noarch::traitlets-5.14.3-pyhd8ed1ab_1 
+  typing_extensions  conda-forge/noarch::typing_extensions-4.15.0-pyhcf101f3_0 
+  uc-micro-py        conda-forge/noarch::uc-micro-py-1.0.3-pyhd8ed1ab_1 
+  unicodedata2       conda-forge/linux-64::unicodedata2-17.0.0-py311h49ec1c0_1 
+  urllib3            conda-forge/noarch::urllib3-2.6.2-pyhd8ed1ab_0 
+  uxarray            conda-forge/noarch::uxarray-2025.05.2-pyhd8ed1ab_0 
+  wayland            conda-forge/linux-64::wayland-1.24.0-hd6090a7_1 
+  webencodings       conda-forge/noarch::webencodings-0.5.1-pyhd8ed1ab_3 
+  xarray             conda-forge/noarch::xarray-2025.12.0-pyhcf101f3_0 
+  xcb-util           conda-forge/linux-64::xcb-util-0.4.1-h4f16b4b_2 
+  xcb-util-cursor    conda-forge/linux-64::xcb-util-cursor-0.1.6-hb03c661_0 
+  xcb-util-image     conda-forge/linux-64::xcb-util-image-0.4.0-hb711507_2 
+  xcb-util-keysyms   conda-forge/linux-64::xcb-util-keysyms-0.4.1-hb711507_0 
+  xcb-util-renderut~ conda-forge/linux-64::xcb-util-renderutil-0.3.10-hb711507_0 
+  xcb-util-wm        conda-forge/linux-64::xcb-util-wm-0.4.2-hb711507_0 
+  xkeyboard-config   conda-forge/linux-64::xkeyboard-config-2.46-hb03c661_0 
+  xorg-libice        conda-forge/linux-64::xorg-libice-1.1.2-hb9d3cd8_0 
+  xorg-libsm         conda-forge/linux-64::xorg-libsm-1.2.6-he73a12e_0 
+  xorg-libx11        conda-forge/linux-64::xorg-libx11-1.8.12-h4f16b4b_0 
+  xorg-libxau        conda-forge/linux-64::xorg-libxau-1.0.12-hb03c661_1 
+  xorg-libxcomposite conda-forge/linux-64::xorg-libxcomposite-0.4.6-hb9d3cd8_2 
+  xorg-libxcursor    conda-forge/linux-64::xorg-libxcursor-1.2.3-hb9d3cd8_0 
+  xorg-libxdamage    conda-forge/linux-64::xorg-libxdamage-1.1.6-hb9d3cd8_0 
+  xorg-libxdmcp      conda-forge/linux-64::xorg-libxdmcp-1.1.5-hb03c661_1 
+  xorg-libxext       conda-forge/linux-64::xorg-libxext-1.3.6-hb9d3cd8_0 
+  xorg-libxfixes     conda-forge/linux-64::xorg-libxfixes-6.0.2-hb03c661_0 
+  xorg-libxi         conda-forge/linux-64::xorg-libxi-1.8.2-hb9d3cd8_0 
+  xorg-libxrandr     conda-forge/linux-64::xorg-libxrandr-1.5.4-hb9d3cd8_0 
+  xorg-libxrender    conda-forge/linux-64::xorg-libxrender-0.9.12-hb9d3cd8_0 
+  xorg-libxtst       conda-forge/linux-64::xorg-libxtst-1.2.5-hb9d3cd8_3 
+  xorg-libxxf86vm    conda-forge/linux-64::xorg-libxxf86vm-1.1.6-hb9d3cd8_0 
+  xyzservices        conda-forge/noarch::xyzservices-2025.11.0-pyhd8ed1ab_0 
+  yaml               conda-forge/linux-64::yaml-0.2.5-h280c20c_3 
+  zict               conda-forge/noarch::zict-3.0.0-pyhd8ed1ab_1 
+  zipp               conda-forge/noarch::zipp-3.23.0-pyhcf101f3_1 
+  zlib               conda-forge/linux-64::zlib-1.3.1-hb9d3cd8_2 
+  zlib-ng            conda-forge/linux-64::zlib-ng-2.3.2-hceb46e0_1 
+
+
+
+Downloading and Extracting Packages: ...working...qt6-main-6.10.1      | 54.6 MB   |            |   0% 
+libllvm21-21.1.8     | 42.3 MB   |            |   0% [A
+
+impi_rt-2021.13.1    | 41.7 MB   |            |   0% [A[A
+
+
+polars-runtime-32-1. | 33.6 MB   |            |   0% [A[A[A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   |            |   0% [A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   |            |   0% [A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   |            |   0% [A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   |            |   0% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   |            |   0% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   |            |   0% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   |            |   0% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   |            |   0% [A[A[Aqt6-main-6.10.1      | 54.6 MB   |            |   0% 
+
+impi_rt-2021.13.1    | 41.7 MB   |            |   0% [A[A
+libllvm21-21.1.8     | 42.3 MB   |            |   0% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   |            |   0% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | #5         |  15% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | 7          |   7% 
+
+impi_rt-2021.13.1    | 41.7 MB   | 9          |  10% [A[A
+libllvm21-21.1.8     | 42.3 MB   | 9          |   9% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | 6          |   7% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ##6        |  27% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | #4         |  14% 
+
+impi_rt-2021.13.1    | 41.7 MB   | #8         |  19% [A[A
+libllvm21-21.1.8     | 42.3 MB   | #8         |  19% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | #9         |  19% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ###8       |  38% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | ##1        |  22% 
+
+impi_rt-2021.13.1    | 41.7 MB   | ##9        |  29% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ##7        |  28% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | ###2       |  32% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ####9      |  50% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | ##9        |  29% 
+
+impi_rt-2021.13.1    | 41.7 MB   | ###8       |  39% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ###7       |  37% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | ####4      |  45% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ######1    |  61% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | ###6       |  36% 
+
+impi_rt-2021.13.1    | 41.7 MB   | ####8      |  49% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ####6      |  46% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | #####7     |  58% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | #######2   |  73% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | ####3      |  44% 
+
+impi_rt-2021.13.1    | 41.7 MB   | #####8     |  58% [A[A
+libllvm21-21.1.8     | 42.3 MB   | #####6     |  56% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | #######    |  70% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ########4  |  84% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | #####1     |  51% 
+
+impi_rt-2021.13.1    | 41.7 MB   | ######7    |  68% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ######5    |  66% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | ########2  |  83% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | #########6 |  96% [A[A[Aqt6-main-6.10.1      | 54.6 MB   | #####8     |  59% 
+
+impi_rt-2021.13.1    | 41.7 MB   | #######7   |  78% [A[A
+libllvm21-21.1.8     | 42.3 MB   | #######5   |  75% [A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | #########6 |  96% [A[A[A[Aqt6-main-6.10.1      | 54.6 MB   | ######7    |  67% 
+
+impi_rt-2021.13.1    | 41.7 MB   | ########8  |  89% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ########6  |  86% [Aqt6-main-6.10.1      | 54.6 MB   | #######6   |  77% 
+libllvm21-21.1.8     | 42.3 MB   | #########8 |  98% [Aqt6-main-6.10.1      | 54.6 MB   | #########1 |  92% 
+
+
+polars-runtime-32-1. | 33.6 MB   | ########## | 100% [A[A[A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | ########## | 100% [A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   |            |   0% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   |            |   0% [A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | #9         |  19% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | #8         |  18% [A[A[A[A[A
+
+impi_rt-2021.13.1    | 41.7 MB   | ########## | 100% [A[A
+
+impi_rt-2021.13.1    | 41.7 MB   | ########## | 100% [A[A
+libllvm21-21.1.8     | 42.3 MB   | ########## | 100% [A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   |            |   0% [A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | ###7       |  37% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | ###6       |  36% [A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   |            |   0% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | #9         |  20% [A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | #####4     |  54% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | #####      |  51% [A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | #9         |  19% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | ####       |  40% [A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | ######9    |  70% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | ######4    |  65% [A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | ###9       |  40% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | #####9     |  60% [A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | ########6  |  86% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | #######8   |  79% [A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | #####9     |  59% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | ########1  |  82% [A[A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | #########3 |  93% [A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | #######8   |  79% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | ########## | 100% [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | ########## | 100% [A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | ########## | 100% [A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   |            |   0% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   |            |   0% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[Aqt6-main-6.10.1      | 54.6 MB   | ########## | 100% 
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | ##5        |  25% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | ##         |  21% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    | ###        |  31% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    | ##7        |  27% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    | ##9        |  29% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | ####7      |  47% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | ###9       |  39% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    | #####9     |  59% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    | #####7     |  58% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    | ######1    |  62% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | #######4   |  74% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | #####8     |  58% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    | #########  |  91% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    | #########  |  90% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    | #########5 |  96% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | ########2  |  83% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | ########## | 100% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    |            |   0% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    | ####5      |  45% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    | ###5       |  35% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    | ####8      |  49% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    | #####      |  51% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    | #####8     |  58% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    | ########3  |  83% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    | #######5   |  75% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    | #########8 |  99% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+impi_rt-2021.13.1    | 41.7 MB   | ########## | 100% [A[A
+
+
+
+llvmlite-0.46.0      | 32.5 MB   | ########## | 100% [A[A[A[A
+
+
+polars-runtime-32-1. | 33.6 MB   | ########## | 100% [A[A[A
+
+
+
+
+
+
+datashader-0.18.2    | 16.4 MB   | ########## | 100% [A[A[A[A[A[A[A
+
+
+
+
+
+libclang-cpp21.1-21. | 20.1 MB   | ########## | 100% [A[A[A[A[A[A
+libllvm21-21.1.8     | 42.3 MB   | ########## | 100% [A
+
+
+
+
+
+
+
+scipy-1.16.3         | 16.2 MB   | ########## | 100% [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+pyside6-6.10.1       | 9.9 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+panel-1.8.5          | 22.0 MB   | ########## | 100% [A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+numpy-2.3.5          | 9.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+libclang13-21.1.7    | 11.8 MB   | ########## | 100% [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+scikit-learn-1.8.0   | 9.5 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pyarrow-core-22.0.0  | 5.6 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libopenblas-0.3.30   | 5.7 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+libarrow-22.0.0      | 6.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+libgrpc-1.73.1       | 8.0 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+pandas-2.3.3         | 14.5 MB   | ########## | 100% [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+matplotlib-base-3.10 | 7.9 MB    | ########## | 100% [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ ... (more hidden) ...[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[Aqt6-main-6.10.1      | 54.6 MB   | ########## | 100% 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A                                                     
+                                                     [A
+
+                                                     [A[A
+
+
+                                                     [A[A[A
+
+
+
+                                                     [A[A[A[A
+
+
+
+
+                                                     [A[A[A[A[A
+
+
+
+
+
+                                                     [A[A[A[A[A[A
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                     [A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+[A
+
+[A[A
+
+
+[A[A[A
+
+
+
+[A[A[A[A
+
+
+
+
+[A[A[A[A[A
+
+
+
+
+
+[A[A[A[A[A[A
+
+
+
+
+
+
+[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A[A done
+Preparing transaction: / - \ | / - \ | done
+Verifying transaction: - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ done
+Executing transaction: / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / - \ | / done
