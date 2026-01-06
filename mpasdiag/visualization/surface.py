@@ -267,10 +267,14 @@ class MPASSurfacePlotter(MPASVisualizer):
         print(f"DEBUG: filter_lon_min_data={filter_lon_min_data:.4f}, filter_lon_max_data={filter_lon_max_data:.4f}")
         print(f"DEBUG: lon range in data: [{np.min(lon):.4f}, {np.max(lon):.4f}]")
         
-        valid_mask = (np.isfinite(data) & 
-                     np.isfinite(lon) & np.isfinite(lat) &
-                     (lon >= filter_lon_min_data) & (lon <= filter_lon_max_data) &
-                     (lat >= filter_lat_min_data) & (lat <= filter_lat_max_data))
+        if plot_type == 'scatter':
+            valid_mask = (np.isfinite(data) & 
+                         np.isfinite(lon) & np.isfinite(lat) &
+                         (lon >= filter_lon_min_data) & (lon <= filter_lon_max_data) &
+                         (lat >= filter_lat_min_data) & (lat <= filter_lat_max_data))
+        else:  # contour, contourf, or both
+            valid_mask = (np.isfinite(data) & 
+                         np.isfinite(lon) & np.isfinite(lat))
 
         try:
             if hasattr(valid_mask, 'compute'):

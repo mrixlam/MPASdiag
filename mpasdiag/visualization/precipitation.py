@@ -217,17 +217,26 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         lon_flat = lon_flat[:min_length]
         lat_flat = lat_flat[:min_length]
         
-        valid_mask = (np.isfinite(precip_data_flat) & 
-                     (precip_data_flat >= 0) & 
-                     (precip_data_flat < 1e5) &
-                     (lon_flat >= lon_min) & (lon_flat <= lon_max) &
-                     (lat_flat >= lat_min) & (lat_flat <= lat_max))
-        
-        if np.any(valid_mask):
+        if plot_type == 'scatter':
+            valid_mask = (np.isfinite(precip_data_flat) & 
+                         (precip_data_flat >= 0) & 
+                         (precip_data_flat < 1e5) &
+                         (lon_flat >= lon_min) & (lon_flat <= lon_max) &
+                         (lat_flat >= lat_min) & (lat_flat <= lat_max))
+            
             lon_valid = lon_flat[valid_mask]
             lat_valid = lat_flat[valid_mask]
             precip_valid = precip_data_flat[valid_mask]
+        else:  # contourf and other plot types
+            valid_mask = (np.isfinite(precip_data_flat) & 
+                         (precip_data_flat >= 0) & 
+                         (precip_data_flat < 1e5))
             
+            lon_valid = lon_flat[valid_mask]
+            lat_valid = lat_flat[valid_mask]
+            precip_valid = precip_data_flat[valid_mask]
+        
+        if np.any(valid_mask):
             mappable = None
             
             if plot_type == 'scatter':

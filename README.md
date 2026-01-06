@@ -14,6 +14,8 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 
 - Python 3.8 or higher
 - NetCDF4-compatible system libraries
+- HDF5 libraries (for h5netcdf)
+- MPI libraries (OpenMPI or MPICH for parallel processing)
 
 ### From GitHub Repository (Recommended)
 
@@ -26,14 +28,23 @@ cd MPASdiag
 conda create -n mpasdiag python=3.9
 conda activate mpasdiag
 
-# Install dependencies
-conda install -c conda-forge numpy pandas xarray matplotlib cartopy netcdf4 dask pyyaml psutil
+# Install required scientific python libraries
+conda install -y -c conda-forge numpy pandas scipy xarray dask numba
+
+# Install additional dependencies
+conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil 
+
+# Install testing suite dependencies
+conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet
+
+# Install matplotlib and cartopy for plotting support
+conda install -y -c conda-forge matplotlib cartopy
 
 # Install UXarray (for unstructured grid support)
-conda install -c conda-forge uxarray
+conda install -y -c conda-forge uxarray
 
 # Install MPI support for parallel processing
-conda install -c conda-forge mpi4py
+conda install -y -c conda-forge mpi4py
 
 # Install the package
 pip install -e .
@@ -47,8 +58,8 @@ git clone https://github.com/mrixlam/MPASdiag.git
 cd MPASdiag
 
 # Create virtual environment
-python -m venv mpas-analysis-env
-source mpas-analysis-env/bin/activate  # On Windows: mpas-analysis-env\Scripts\activate
+python -m venv mpasdiag-env
+source mpasdiag-env/bin/activate  # On Windows: mpasdiag-env\Scripts\activate
 
 # Install the package
 pip install -r requirements.txt
@@ -430,13 +441,26 @@ mpasdiag.diagnostics
 
 ## Testing
 
-Run the test suite:
+MPASdiag features a comprehensive, modernized test suite with **200+ tests** achieving **48%+ code coverage**. This is made possible through modular design, dependency injection, and extensive use of mocking for MPAS data. MPASdiag uses `pytest` as the testing framework along with `pytest-cov` for coverage reporting. These tests cover all major components including data processing, diagnostics, visualization, and parallel execution. 
+
+Here are the available test modules:
+- **`conftest.py`**: Centralized fixtures with mock MPAS data
+- **`test_module_imports.py`**: Import and initialization tests
+- **`test_data_processing.py`**: Data loading and processing tests
+- **`test_remapping.py`**: Grid remapping tests
+- **`test_parallel_wrappers.py`**: Parallel processing wrapper tests
+- **`test_diagnostics.py`**: Diagnostic computation tests
+- **`test_visualization.py`**: Plotting and visualization tests
+- **`test_cross_section.py`**: Cross-section processing tests
+
+To run the entire test suite or a specific test module, use the following commands:
+
 ```bash
 # Run all tests
 python -m pytest tests/
 
 # Run with coverage
-python -m pytest tests/ --cov=mpas_analysis --cov-report=html
+python -m pytest tests -v --cov=mpasdiag --cov-report=term-missing
 
 # Run specific test module
 python -m pytest tests/test_data_processing.py -v
@@ -549,9 +573,6 @@ cd MPASdiag
 conda env create -f environment.yml
 conda activate mpas-analysis-dev
 pip install -e .[dev]
-
-# Run tests to verify installation
-pytest tests/
 ```
 
 ## License
@@ -563,8 +584,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 If you use this package in your research, please cite:
 
 ```bibtex
-@software{islam2025mpas,
-  title={MPASdiag: Python Package for MPAS Model Output Analysis and Visualization from Unstructured Grids},
+@software{islam2026mpasdiag,
+  title={MPASdiag: Data Processing, Visualization and Analysis Toolkit for MPAS from Native Unstructured Mesh},
   author={Islam, Rubaiat},
   year={2026},
   institution={Mesoscale \& Microscale Meteorology Laboratory, NCAR},

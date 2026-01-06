@@ -36,15 +36,19 @@ keywords = [
 ]
 dependencies = [
     "numpy>=1.20.0",
-    "pandas>=1.3.0",
+    "scipy>=1.7.0",
     "xarray>=0.19.0",
-    "uxarray>=2024.01.0",
+    "pandas>=1.3.0",
     "matplotlib>=3.5.0",
     "cartopy>=0.20.0",
     "netCDF4>=1.5.0",
-    "scipy>=1.7.0",
-    "PyYAML>=5.4.0",
+    "h5netcdf>=1.0.0",
     "dask>=2021.6.0",
+    "numba>=0.55.0",
+    "llvmlite>=0.38.0",
+    "mpi4py>=3.1.0",
+    "uxarray>=2024.01.0",
+    "PyYAML>=5.4.0",
     "psutil>=5.8.0",
 ]
 
@@ -52,7 +56,11 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.10",
+    "pytest-xdist>=2.5.0",
     "pytest-mock>=3.6.0",
+    "pluggy>=1.0.0",
+    "coverage>=6.0",
+    "execnet>=1.9.0",
     "black>=21.0",
     "flake8>=3.8",
     "mypy>=0.800",
@@ -60,7 +68,6 @@ dev = [
     "sphinx-rtd-theme>=0.5",
 ]
 performance = [
-    "numba>=0.55.0",
     "bottleneck>=1.3.0",
 ]
 plotting = [
@@ -118,7 +125,7 @@ known_first_party = ["mpasdiag"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -vv --strict-markers"
+addopts = "-ra -vv --strict-markers --ignore-glob=*_old*.py"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
