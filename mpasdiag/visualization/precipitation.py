@@ -36,7 +36,7 @@ from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
 from ..processing.utils_unit import UnitConverter
 from ..processing.utils_metadata import MPASFileMetadata
-from ..processing.remapping import remap_mpas_to_latlon
+from ..processing.remapping import remap_mpas_to_latlon_with_masking
 from ..diagnostics.precipitation import PrecipitationDiagnostics
 
 warnings.filterwarnings('ignore', category=UserWarning, module='cartopy')
@@ -97,10 +97,11 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         time_start: Optional[datetime] = None,
         data_array: Optional[xr.DataArray] = None,
         var_name: str = 'precipitation',
-        grid_resolution: Optional[float] = None
+        grid_resolution: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> Tuple[Figure, Axes]:
         """
-        Create a professional cartographic precipitation map from MPAS unstructured mesh data with precipitation-specific color schemes and geographic context. This method implements the complete precipitation visualization workflow including unit conversion via UnitConverter, map projection setup with Cartopy, precipitation-specific colormap selection based on accumulation period, flexible rendering with either scatter plot (direct MPAS cell values) or contourf (interpolated smooth fields via MPASRemapper), discrete colorbar with meteorological contour levels, and geographic feature overlays (coastlines, borders, ocean, land). The method validates geographic extents, handles optional custom colormaps and contour levels, applies color limit clipping when specified, and adds time period annotations for accumulation context. When plot_type='contourf', the method uses MPASRemapper's hybrid KDTree-xESMF approach for high-quality bilinear interpolation to regular grids.
+        Create a professional cartographic precipitation map from MPAS unstructured mesh data with precipitation-specific color schemes and geographic context. This method implements the complete precipitation visualization workflow including unit conversion via UnitConverter, map projection setup with Cartopy, precipitation-specific colormap selection based on accumulation period, flexible rendering with either scatter plot (direct MPAS cell values) or contourf (interpolated smooth fields via MPASRemapper), discrete colorbar with meteorological contour levels, and geographic feature overlays (coastlines, borders, ocean, land). The method validates geographic extents, handles optional custom colormaps and contour levels, applies color limit clipping when specified, and adds time period annotations for accumulation context. When plot_type='contourf', the method uses remap_mpas_to_latlon_with_masking for high-quality interpolation to regular grids with automatic masking.
 
         Parameters:
             lon (np.ndarray): 1D array of longitude coordinates in degrees [-180, 180] for MPAS mesh cell centers.
@@ -123,6 +124,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             data_array (Optional[xr.DataArray]): Source xarray DataArray for metadata extraction (units, long_name attributes) (default: None).
             var_name (str): Variable name for metadata lookup and unit conversion (default: 'precipitation').
             grid_resolution (Optional[float]): Target grid resolution in degrees for contourf interpolation (default: None uses adaptive).
+            dataset (Optional[xr.Dataset]): MPAS dataset with coordinate information, auto-created from lon/lat if not provided (default: None).
 
         Returns:
             Tuple[Figure, Axes]: Two-element tuple containing (matplotlib_figure, cartopy_geoaxes) with rendered precipitation map.
@@ -265,18 +267,27 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     grid_resolution = max(0.1, min(grid_resolution, 1.0))  
                     print(f"Auto-selected grid resolution: {grid_resolution:.3f}°")
                 
+                if dataset is None:
+                    lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
+                    lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+                    dataset = xr.Dataset({
+                        'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                        'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+                    })
+                
                 data_xr = xr.DataArray(precip_valid, dims=['nCells'])
 
-                remapped_precip = remap_mpas_to_latlon(
+                remapped_precip = remap_mpas_to_latlon_with_masking(
                     data=data_xr,
-                    lon=lon_valid,
-                    lat=lat_valid,
+                    dataset=dataset,
                     lon_min=lon_min,
                     lon_max=lon_max,
                     lat_min=lat_min,
                     lat_max=lat_max,
                     resolution=grid_resolution,
-                    method='linear'
+                    method='linear',
+                    apply_mask=True,
+                    lon_convention='auto'
                 )
                 
                 lon_grid = remapped_precip.lon.values

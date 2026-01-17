@@ -599,9 +599,13 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
     
     print(f"  Original MPAS data statistics:")
-    print(f"    Min: {float(np.nanmin(data_values)):.4f}, Max: {float(np.nanmax(data_values)):.4f}")
-    print(f"    Mean: {float(np.nanmean(data_values)):.4f}, Median: {float(np.nanmedian(data_values)):.4f}")
-    print(f"    Std: {float(np.nanstd(data_values)):.4f}, Sum: {float(np.nansum(data_values)):.4f}")
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
+        warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
+        warnings.filterwarnings('ignore', 'Degrees of freedom', RuntimeWarning)
+        print(f"    Min: {float(np.nanmin(data_values)):.4f}, Max: {float(np.nanmax(data_values)):.4f}")
+        print(f"    Mean: {float(np.nanmean(data_values)):.4f}, Median: {float(np.nanmedian(data_values)):.4f}")
+        print(f"    Std: {float(np.nanstd(data_values)):.4f}, Sum: {float(np.nansum(data_values)):.4f}")
     
     target_lons = np.arange(lon_min, lon_max + resolution/2, resolution)
     target_lats = np.arange(lat_min, lat_max + resolution/2, resolution)
@@ -617,8 +621,40 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     lon_2d, lat_2d = np.meshgrid(target_lons, target_lats)
     
+    lon_range = lon_max - lon_min
+    is_global = lon_range > 180
+    
     if method == 'nearest':
         source_points = np.column_stack([lon_deg, lat_deg])
+        
+        if is_global and lon_min >= 0 and lon_max > 180:
+            wrap_threshold = 10.0
+            
+            original_data = data_values
+            
+            near_high = lon_deg > (lon_max - wrap_threshold)
+            near_low = lon_deg < (lon_min + wrap_threshold)
+            
+            if np.any(near_high):
+                wrapped_lon_high = lon_deg[near_high] - 360.0
+                wrapped_lat_high = lat_deg[near_high]
+                wrapped_data_high = original_data[near_high]
+                
+                source_points = np.vstack([source_points, 
+                                          np.column_stack([wrapped_lon_high, wrapped_lat_high])])
+                data_values = np.concatenate([data_values, wrapped_data_high])
+            
+            if np.any(near_low):
+                wrapped_lon_low = lon_deg[near_low] + 360.0
+                wrapped_lat_low = lat_deg[near_low]
+                wrapped_data_low = original_data[near_low]
+                
+                source_points = np.vstack([source_points,
+                                          np.column_stack([wrapped_lon_low, wrapped_lat_low])])
+                data_values = np.concatenate([data_values, wrapped_data_low])
+            
+            print(f"  Added {np.sum(near_high) + np.sum(near_low)} wrapped boundary points for global continuity")
+        
         tree = KDTree(source_points)
         
         target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
@@ -650,7 +686,9 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
         print("\n[ERROR] Input data for remapping is empty, all zeros, or all NaNs. Cannot compute remapping ratio.\n")
         print("  Please check your input data source and variable selection.")
         print(f"  Data shape: {data_values.shape}, dtype: {data_values.dtype}")
-        print(f"  Data min: {np.nanmin(data_values)}, max: {np.nanmax(data_values)}")
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
+            print(f"  Data min: {np.nanmin(data_values)}, max: {np.nanmax(data_values)}")
         print(f"  Data contains only NaNs: {np.isnan(data_values).all()}")
         print(f"  Data contains only zeros: {np.count_nonzero(data_values)==0}")
         print("  Remapping aborted. Returning empty result array.")
@@ -670,6 +708,197 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     print(f"✓ Remapping completed successfully using {method} interpolation")
 
     return result
+
+
+def build_remapped_valid_mask(
+    lon_vals: np.ndarray,
+    lat_vals: np.ndarray,
+    lon_min: float,
+    lon_max: float,
+    lat_min: float,
+    lat_max: float,
+    resolution: float,
+    remapped_data: Union[xr.DataArray, np.ndarray],
+    threshold: float = 0.5
+) -> Optional[np.ndarray]:
+    """
+    Construct a boolean mask indicating valid grid points after remapping.
+
+    The function computes the convex hull of the MPAS cell center points and marks grid 
+    points inside the hull as valid. This is useful to avoid treating points outside the 
+    native MPAS domain as valid when remapping to a regular lat-lon grid.
+    
+    NOTE: Convex hull masking is DISABLED for global data (lon_range > 180) because it 
+    creates artifacts at the prime meridian due to longitude wraparound.
+
+    Parameters:
+        lon_vals (np.ndarray): 1D array of MPAS cell longitudes in degrees.
+        lat_vals (np.ndarray): 1D array of MPAS cell latitudes in degrees.
+        lon_min (float): Minimum longitude of the target grid.
+        lon_max (float): Maximum longitude of the target grid.
+        lat_min (float): Minimum latitude of the target grid.
+        lat_max (float): Maximum latitude of the target grid.
+        resolution (float): Grid spacing in degrees for target grid.
+        remapped_data (Union[xr.DataArray, np.ndarray]): Result of remapping operation (2D array-like).
+        threshold (float): Value threshold used to decide validity when applicable (default 0.5).
+
+    Returns:
+        Optional[np.ndarray]: 2D boolean mask array with shape (nlat, nlon), or None for global data or on failure.
+    """
+    lon_range = lon_max - lon_min
+
+    if lon_range > 180:
+        print(f"  Skipping convex hull masking for global data (lon_range={lon_range:.1f}°)")
+        return None
+    
+    pts = np.column_stack((lon_vals, lat_vals))
+    try:
+        from scipy.spatial import ConvexHull
+        from matplotlib.path import Path
+        
+        hull = ConvexHull(pts)
+        hull_pts = pts[hull.vertices]
+        
+        if isinstance(remapped_data, xr.DataArray):
+            vals = remapped_data.values
+        else:
+            vals = np.array(remapped_data)
+            
+        if vals.ndim == 2:
+            nlat, nlon = vals.shape
+            lat_coord = np.linspace(lat_min, lat_max, nlat)
+            lon_coord = np.linspace(lon_min, lon_max, nlon)
+            Lon, Lat = np.meshgrid(lon_coord, lat_coord)
+            grid_points = np.column_stack((Lon.ravel(), Lat.ravel()))
+            hull_path = Path(hull_pts)
+            inside = hull_path.contains_points(grid_points)
+            mask_bool = inside.reshape((nlat, nlon))
+            return mask_bool
+    except ImportError:
+        print("  Warning: scipy or matplotlib required for convex hull masking")
+        return None
+    except Exception as e:
+        print(f"  Warning: Convex hull masking failed: {e}")
+        return None
+
+
+def remap_mpas_to_latlon_with_masking(
+    data: Union[xr.DataArray, np.ndarray],
+    dataset: xr.Dataset,
+    lon_min: Optional[float] = None,
+    lon_max: Optional[float] = None,
+    lat_min: Optional[float] = None,
+    lat_max: Optional[float] = None,
+    resolution: float = 0.1,
+    method: str = 'nearest',
+    apply_mask: bool = True,
+    lon_convention: str = 'auto'
+) -> xr.DataArray:
+    """
+    Remap MPAS data with automatic coordinate extraction, bounds detection, and optional masking.
+    
+    This is a higher-level wrapper around remap_mpas_to_latlon that:
+    - Extracts coordinates from MPAS dataset (lonCell/latCell or lon/lat)
+    - Auto-detects data bounds if not provided
+    - Handles longitude convention detection for global vs regional data
+    - Applies convex hull masking for regional data (disabled for global)
+    
+    Parameters:
+        data (Union[xr.DataArray, np.ndarray]): MPAS data on unstructured mesh.
+        dataset (xr.Dataset): MPAS dataset containing coordinate information.
+        lon_min (Optional[float]): Western boundary, auto-detected if None.
+        lon_max (Optional[float]): Eastern boundary, auto-detected if None.
+        lat_min (Optional[float]): Southern boundary, auto-detected if None.
+        lat_max (Optional[float]): Northern boundary, auto-detected if None.
+        resolution (float): Grid spacing in degrees (default: 0.1).
+        method (str): Interpolation method - 'nearest' or 'linear' (default: 'nearest').
+        apply_mask (bool): Apply convex hull masking for regional data (default: True).
+        lon_convention (str): Longitude convention - 'auto', '[-180,180]', or '[0,360]' (default: 'auto').
+    
+    Returns:
+        xr.DataArray: Remapped data with coordinates and optional masking applied.
+    """
+    if 'lonCell' in dataset:
+        lon_coords = dataset['lonCell']
+        lat_coords = dataset['latCell']
+        if lon_coords.max() <= 2 * np.pi:
+            lon_coords = lon_coords * 180.0 / np.pi
+            lat_coords = lat_coords * 180.0 / np.pi
+    elif 'lon' in dataset and 'lat' in dataset:
+        lon_coords = dataset['lon']
+        lat_coords = dataset['lat']
+    else:
+        raise ValueError("Could not find cell coordinates (lonCell/latCell or lon/lat) in dataset")
+    
+    if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
+        from mpasdiag.processing.utils_geog import MPASGeographicUtils
+        lon_np, lat_np = MPASGeographicUtils.extract_spatial_coordinates(dataset, normalize=False)
+        auto_lon_min, auto_lon_max, auto_lat_min, auto_lat_max = \
+            MPASGeographicUtils.get_extent_from_coordinates(lon_np, lat_np, buffer=0.0)
+        
+        if lon_min is None:
+            lon_min = auto_lon_min
+        if lon_max is None:
+            lon_max = auto_lon_max
+        if lat_min is None:
+            lat_min = auto_lat_min
+        if lat_max is None:
+            lat_max = auto_lat_max
+    
+    lon_data_range = float(lon_coords.max() - lon_coords.min())
+    
+    if lon_convention == 'auto':
+        if lon_data_range > 180 or (lon_min >= 0 and lon_max > 180):
+            print(f"  Detected global/wide-span data (range={lon_data_range:.1f}°), preserving original longitude convention")
+        else:
+            if lon_max <= 180 and lon_min >= -180:
+                lon_convention = '[-180,180]'
+            else:
+                lon_convention = '[0,360]'
+    
+    if lon_convention == '[-180,180]' and lon_data_range <= 180:
+        lon_coords = xr.where(lon_coords > 180, lon_coords - 360, lon_coords)
+    elif lon_convention == '[0,360]' and lon_data_range <= 180:
+        lon_coords = xr.where(lon_coords < 0, lon_coords + 360, lon_coords)
+    
+    if isinstance(data, xr.DataArray):
+        data_attrs = data.attrs
+        data_values = data.values
+    else:
+        data_attrs = {}
+        data_values = data
+    
+    remapped_data = remap_mpas_to_latlon(
+        data=data_values,
+        lon=lon_coords.values,
+        lat=lat_coords.values,
+        lon_min=lon_min,
+        lon_max=lon_max,
+        lat_min=lat_min,
+        lat_max=lat_max,
+        resolution=resolution,
+        method=method
+    )
+    
+    if apply_mask:
+        mask_bool = build_remapped_valid_mask(
+            lon_coords.values, lat_coords.values,
+            lon_min, lon_max, lat_min, lat_max,
+            resolution, remapped_data
+        )
+        
+        if mask_bool is not None:
+            masked_vals = np.where(mask_bool, remapped_data.values, np.nan)
+            remapped_data = xr.DataArray(
+                masked_vals,
+                coords=remapped_data.coords,
+                dims=remapped_data.dims,
+                attrs=remapped_data.attrs
+            )
+    
+    remapped_data.attrs.update(data_attrs)
+    
+    return remapped_data
 
 
 def create_target_grid(lon_min: float = -180.0,

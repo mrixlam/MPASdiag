@@ -69,113 +69,145 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
     """
-    time_idx, kwargs = args
-    processor = kwargs['processor']
-    cache = kwargs.get('cache', None)
-    output_dir = kwargs['output_dir']
-    lon_min = kwargs['lon_min']
-    lon_max = kwargs['lon_max']
-    lat_min = kwargs['lat_min']
-    lat_max = kwargs['lat_max']
-    var_name = kwargs['var_name']
-    accum_period = kwargs['accum_period']
-    plot_type = kwargs.get('plot_type', 'scatter')
-    grid_resolution = kwargs.get('grid_resolution', None)
-    file_prefix = kwargs['file_prefix']
-    formats = kwargs['formats']
-    custom_title_template = kwargs.get('custom_title_template')
-    colormap = kwargs.get('colormap')
-    levels = kwargs.get('levels')
-    
-    start_time = time.time()
-    timings = {}
-    cache_hits = {'coordinates': False, 'data': False}
-    
-    data_start = time.time()
-    
-    if cache is not None:
-        try:
-            lon, lat = cache.get_coordinates(var_name)
-            cache_hits['coordinates'] = True
-        except KeyError:
-            lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
+    try:
+        time_idx, kwargs = args
+        
+        if 'grid_file' in kwargs and 'data_dir' in kwargs:
+            from mpasdiag.processing.processors_2d import MPAS2DProcessor
+            processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
+            processor = processor.load_2d_data(kwargs['data_dir'])
+            cache = None  # Each rank uses its own local coordinates
+        else:
+            processor = kwargs['processor']
+            cache = kwargs.get('cache', None)
+
+        output_dir = kwargs['output_dir']
+        lon_min = kwargs['lon_min']
+        lon_max = kwargs['lon_max']
+        lat_min = kwargs['lat_min']
+        lat_max = kwargs['lat_max']
+        var_name = kwargs['var_name']
+        accum_period = kwargs['accum_period']
+        plot_type = kwargs.get('plot_type', 'scatter')
+        grid_resolution = kwargs.get('grid_resolution', None)
+        file_prefix = kwargs['file_prefix']
+        formats = kwargs['formats']
+        custom_title_template = kwargs.get('custom_title_template')
+        colormap = kwargs.get('colormap')
+        levels = kwargs.get('levels')
+        
+        start_time = time.time()
+        timings = {}
+        cache_hits = {'coordinates': False, 'data': False}
+        
+        data_start = time.time()
+        
+        if cache is not None:
             try:
-                cache.load_coordinates_from_dataset(processor.dataset, var_name)
-            except:
-                pass
-    else:
-        lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
-    
-    precip_diag = PrecipitationDiagnostics(verbose=False)
-    precip_data = precip_diag.compute_precipitation_difference(
-        processor.dataset, 
-        time_idx, 
-        var_name, 
-        accum_period,
-        data_type=processor.data_type or 'UXarray'
-    )
-    
-    time_end = None
-    if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
-        time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
-        time_str = time_end.strftime('%Y%m%dT%H')
-    else:
-        time_str = f"t{time_idx:03d}"
-    
-    timings['data_processing'] = time.time() - data_start
-    
-    plotter = MPASPrecipitationPlotter(figsize=(10, 14))
-    
-    if custom_title_template:
-        title = custom_title_template.format(
-            var_name=var_name.upper(),
-            time_str=time_str,
-            accum_period=accum_period
+                lon, lat = cache.get_coordinates(var_name)
+                cache_hits['coordinates'] = True
+            except KeyError:
+                lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
+                try:
+                    cache.load_coordinates_from_dataset(processor.dataset, var_name)
+                except:
+                    pass
+        else:
+            lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
+        
+        precip_diag = PrecipitationDiagnostics(verbose=False)
+
+        precip_data = precip_diag.compute_precipitation_difference(
+            processor.dataset, 
+            time_idx, 
+            var_name, 
+            accum_period,
+            data_type=processor.data_type or 'UXarray'
         )
-    else:
-        title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
+        
+        time_end = None
+
+        if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
+            time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
+            time_str = time_end.strftime('%Y%m%dT%H')
+        else:
+            time_str = f"t{time_idx:03d}"
+        
+        timings['data_processing'] = time.time() - data_start
+        
+        plotter = MPASPrecipitationPlotter(figsize=(10, 14))
+        
+        if custom_title_template:
+            title = custom_title_template.format(
+                var_name=var_name.upper(),
+                time_str=time_str,
+                accum_period=accum_period
+            )
+        else:
+            title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
+        
+        plot_start = time.time()
+
+        fig, ax = plotter.create_precipitation_map(
+            lon, lat, precip_data.values,
+            lon_min, lon_max, lat_min, lat_max,
+            title=title,
+            accum_period=accum_period,
+            plot_type=plot_type,
+            grid_resolution=grid_resolution,
+            colormap=colormap,
+            levels=levels,
+            data_array=precip_data,
+            time_end=time_end,
+            var_name=var_name
+        )
+
+        timings['plotting'] = time.time() - plot_start        
+        save_start = time.time()
+
+        output_path = os.path.join(
+            output_dir,
+            f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}"
+        )
+        
+        plotter.save_plot(output_path, formats=formats)
+        plotter.close_plot()
+        
+        output_files = [f"{output_path}.{fmt}" for fmt in formats]
+
+        timings['saving'] = time.time() - save_start        
+        timings['total'] = time.time() - start_time
+        
+        result = {
+            'files': output_files,
+            'timings': timings,
+            'time_str': time_str,
+            'cache_hits': cache_hits
+        }
+        
+        if cache is not None:
+            result['cache_info'] = cache.get_cache_info()
+        
+        return result
     
-    plot_start = time.time()
-    fig, ax = plotter.create_precipitation_map(
-        lon, lat, precip_data.values,
-        lon_min, lon_max, lat_min, lat_max,
-        title=title,
-        accum_period=accum_period,
-        plot_type=plot_type,
-        grid_resolution=grid_resolution,
-        colormap=colormap,
-        levels=levels,
-        data_array=precip_data,
-        time_end=time_end,
-        var_name=var_name
-    )
-    timings['plotting'] = time.time() - plot_start
-    
-    save_start = time.time()
-    output_path = os.path.join(
-        output_dir,
-        f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}"
-    )
-    
-    plotter.save_plot(output_path, formats=formats)
-    plotter.close_plot()
-    
-    output_files = [f"{output_path}.{fmt}" for fmt in formats]
-    timings['saving'] = time.time() - save_start
-    
-    timings['total'] = time.time() - start_time
-    
-    result = {
-        'files': output_files,
-        'timings': timings,
-        'time_str': time_str,
-        'cache_hits': cache_hits
-    }
-    
-    if cache is not None:
-        result['cache_info'] = cache.get_cache_info()
-    
-    return result
+    except Exception as e:
+        import traceback
+        time_idx = args[0] if args else 'unknown'
+        error_msg = f"Error processing time index {time_idx}: {str(e)}"
+        error_trace = traceback.format_exc()
+        print(f"\n{'='*60}\nWORKER ERROR\n{'='*60}")
+        print(error_msg)
+        print(error_trace)
+        print('='*60)
+        return {
+            'error': error_msg,
+            'traceback': error_trace,
+            'time_idx': time_idx,
+            'files': [],
+            'timings': {},
+            'time_str': f't{time_idx:03d}' if isinstance(time_idx, int) else 'unknown',
+            'cache_hits': {}
+        }
     
 
 def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
@@ -189,8 +221,16 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         Dict[str, Any]: Result dictionary with 'files' (list of str paths), 'timings' (dict with phase durations), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
     """
     time_idx, kwargs = args
-    processor = kwargs['processor']
-    cache = kwargs.get('cache', None)
+    
+    if 'grid_file' in kwargs and 'data_dir' in kwargs:
+        from mpasdiag.processing.processors_2d import MPAS2DProcessor
+        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
+        processor = processor.load_2d_data(kwargs['data_dir'])
+        cache = None
+    else:
+        processor = kwargs['processor']
+        cache = kwargs.get('cache', None)
+
     output_dir = kwargs['output_dir']
     lon_min = kwargs['lon_min']
     lon_max = kwargs['lon_max']
@@ -288,8 +328,16 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
     """
     time_idx, kwargs = args
-    processor = kwargs['processor']
-    cache = kwargs.get('cache', None)
+    
+    if 'grid_file' in kwargs and 'data_dir' in kwargs:
+        from mpasdiag.processing.processors_2d import MPAS2DProcessor
+        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
+        processor = processor.load_2d_data(kwargs['data_dir'])
+        cache = None
+    else:
+        processor = kwargs['processor']
+        cache = kwargs.get('cache', None)
+
     output_dir = kwargs['output_dir']
     lon_min = kwargs['lon_min']
     lon_max = kwargs['lon_max']
@@ -392,7 +440,14 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         Dict[str, Any]: Result dictionary with 'files' (list of output paths), 'timings' (dict mapping phases to durations), and 'time_str' (str timestamp).
     """
     time_idx, kwargs = args
-    processor_3d = kwargs['processor']  
+    
+    if 'grid_file' in kwargs and 'data_dir' in kwargs:
+        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        processor_3d = MPAS3DProcessor(kwargs['grid_file'], verbose=False)
+        processor_3d = processor_3d.load_3d_data(kwargs['data_dir'])
+    else:
+        processor_3d = kwargs['processor']  
+
     output_dir = kwargs['output_dir']
     start_lat = kwargs['start_lat']
     start_lon = kwargs['start_lon']
@@ -624,42 +679,70 @@ class ParallelPrecipitationProcessor:
             print(f"Warning: No valid time indices for accumulation period {accum_period}")
             return []
         
-        cache = MPASDataCache(max_variables=5)
-        
-        print("Pre-loading coordinates into cache...")
-
-        try:
-            cache.load_coordinates_from_dataset(processor.dataset, var_name)
-            print(f"Coordinates cached for variable: {var_name}")
-        except Exception as e:
-            print(f"Warning: Could not pre-load coordinates into cache: {e}")
-            print("Workers will extract coordinates individually")
-        
-        worker_kwargs = {
-            'processor': processor,
-            'cache': cache,
-            'output_dir': output_dir,
-            'lon_min': lon_min,
-            'lon_max': lon_max,
-            'lat_min': lat_min,
-            'lat_max': lat_max,
-            'var_name': var_name,
-            'accum_period': accum_period,
-            'plot_type': plot_type,
-            'grid_resolution': grid_resolution,
-            'file_prefix': file_prefix,
-            'formats': formats,
-            'custom_title_template': custom_title_template,
-            'colormap': colormap,
-            'levels': levels
-        }
-        
         manager = MPASParallelManager(
             load_balance_strategy=load_balance_strategy,
             verbose=True,
             n_workers=n_processes
         )
         manager.set_error_policy('collect')
+        
+        is_mpi_mode = manager.backend == 'mpi'
+        
+        if is_mpi_mode:
+            if not hasattr(processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_2d.py to store data_dir in load_2d_data() method, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            
+            worker_kwargs = {
+                'grid_file': processor.grid_file,
+                'data_dir': processor.data_dir,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'var_name': var_name,
+                'accum_period': accum_period,
+                'plot_type': plot_type,
+                'grid_resolution': grid_resolution,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title_template': custom_title_template,
+                'colormap': colormap,
+                'levels': levels
+            }
+        else:
+            cache = MPASDataCache(max_variables=5)
+            
+            print("Pre-loading coordinates into cache...")
+            try:
+                cache.load_coordinates_from_dataset(processor.dataset, var_name)
+                print(f"Coordinates cached for variable: {var_name}")
+            except Exception as e:
+                print(f"Warning: Could not pre-load coordinates into cache: {e}")
+                print("Workers will extract coordinates individually")
+            
+            worker_kwargs = {
+                'processor': processor,
+                'cache': cache,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'var_name': var_name,
+                'accum_period': accum_period,
+                'plot_type': plot_type,
+                'grid_resolution': grid_resolution,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title_template': custom_title_template,
+                'colormap': colormap,
+                'levels': levels
+            }
         
         os.makedirs(output_dir, exist_ok=True)
         
@@ -739,42 +822,68 @@ class ParallelSurfaceProcessor:
         if time_indices is None:
             time_indices = list(range(total_times))
         
-        cache = MPASDataCache(max_variables=5)
-        
-        print("Pre-loading coordinates into cache...")
-
-        try:
-            cache.load_coordinates_from_dataset(processor.dataset, var_name)
-            print(f"Coordinates cached for variable: {var_name}")
-        except Exception as e:
-            print(f"Warning: Could not pre-load coordinates into cache: {e}")
-            print("Workers will extract coordinates individually")
-        
-        worker_kwargs = {
-            'processor': processor,
-            'cache': cache,
-            'output_dir': output_dir,
-            'lon_min': lon_min,
-            'lon_max': lon_max,
-            'lat_min': lat_min,
-            'lat_max': lat_max,
-            'var_name': var_name,
-            'plot_type': plot_type,
-            'file_prefix': file_prefix,
-            'formats': formats,
-            'custom_title': None,
-            'colormap': None,
-            'levels': None
-        }
-        
-        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
-        
         manager = MPASParallelManager(
             load_balance_strategy=load_balance_strategy,
             verbose=True,
             n_workers=n_processes
         )
         manager.set_error_policy('collect')
+        
+        is_mpi_mode = manager.backend == 'mpi'
+        
+        if is_mpi_mode:
+            if not hasattr(processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            
+            worker_kwargs = {
+                'grid_file': processor.grid_file,
+                'data_dir': processor.data_dir,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'var_name': var_name,
+                'plot_type': plot_type,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title': None,
+                'colormap': None,
+                'levels': None
+            }
+        else:
+            cache = MPASDataCache(max_variables=5)
+            
+            print("Pre-loading coordinates into cache...")
+            try:
+                cache.load_coordinates_from_dataset(processor.dataset, var_name)
+                print(f"Coordinates cached for variable: {var_name}")
+            except Exception as e:
+                print(f"Warning: Could not pre-load coordinates into cache: {e}")
+                print("Workers will extract coordinates individually")
+            
+            worker_kwargs = {
+                'processor': processor,
+                'cache': cache,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'var_name': var_name,
+                'plot_type': plot_type,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title': None,
+                'colormap': None,
+                'levels': None
+            }
+        
+        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
         os.makedirs(output_dir, exist_ok=True)
         
@@ -855,45 +964,74 @@ class ParallelWindProcessor:
         if time_indices is None:
             time_indices = list(range(total_times))
         
-        cache = MPASDataCache(max_variables=5)
-        
-        print("Pre-loading coordinates into cache...")
-
-        try:
-            cache.load_coordinates_from_dataset(processor.dataset, u_variable)
-            print(f"Coordinates cached for variable: {u_variable}")
-        except Exception as e:
-            print(f"Warning: Could not pre-load coordinates into cache: {e}")
-            print("Workers will extract coordinates individually")
-        
-        worker_kwargs = {
-            'processor': processor,
-            'cache': cache,
-            'output_dir': output_dir,
-            'lon_min': lon_min,
-            'lon_max': lon_max,
-            'lat_min': lat_min,
-            'lat_max': lat_max,
-            'u_variable': u_variable,
-            'v_variable': v_variable,
-            'plot_type': plot_type,
-            'subsample': subsample,
-            'scale': scale,
-            'show_background': show_background,
-            'grid_resolution': grid_resolution,
-            'regrid_method': regrid_method,
-            'file_prefix': 'mpas_wind',
-            'formats': formats
-        }
-        
-        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
-        
         manager = MPASParallelManager(
             load_balance_strategy=load_balance_strategy,
             verbose=True,
             n_workers=n_processes
         )
         manager.set_error_policy('collect')
+        
+        is_mpi_mode = manager.backend == 'mpi'
+        
+        if is_mpi_mode:
+            if not hasattr(processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            
+            worker_kwargs = {
+                'grid_file': processor.grid_file,
+                'data_dir': processor.data_dir,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'u_variable': u_variable,
+                'v_variable': v_variable,
+                'plot_type': plot_type,
+                'subsample': subsample,
+                'scale': scale,
+                'show_background': show_background,
+                'grid_resolution': grid_resolution,
+                'regrid_method': regrid_method,
+                'file_prefix': 'mpas_wind',
+                'formats': formats
+            }
+        else:
+            cache = MPASDataCache(max_variables=5)
+            
+            print("Pre-loading coordinates into cache...")
+            try:
+                cache.load_coordinates_from_dataset(processor.dataset, u_variable)
+                print(f"Coordinates cached for variable: {u_variable}")
+            except Exception as e:
+                print(f"Warning: Could not pre-load coordinates into cache: {e}")
+                print("Workers will extract coordinates individually")
+            
+            worker_kwargs = {
+                'processor': processor,
+                'cache': cache,
+                'output_dir': output_dir,
+                'lon_min': lon_min,
+                'lon_max': lon_max,
+                'lat_min': lat_min,
+                'lat_max': lat_max,
+                'u_variable': u_variable,
+                'v_variable': v_variable,
+                'plot_type': plot_type,
+                'subsample': subsample,
+                'scale': scale,
+                'show_background': show_background,
+                'grid_resolution': grid_resolution,
+                'regrid_method': regrid_method,
+                'file_prefix': 'mpas_wind',
+                'formats': formats
+            }
+        
+        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
         os.makedirs(output_dir, exist_ok=True)
         
@@ -974,31 +1112,59 @@ class ParallelCrossSectionProcessor:
         if time_indices is None:
             time_indices = list(range(total_times))
         
-        worker_kwargs = {
-            'processor': mpas_3d_processor,
-            'output_dir': output_dir,
-            'start_lat': start_point[1],
-            'start_lon': start_point[0],
-            'end_lat': end_point[1],
-            'end_lon': end_point[0],
-            'var_name': var_name,
-            'file_prefix': file_prefix,
-            'formats': formats,
-            'custom_title': None,
-            'colormap': colormap,
-            'levels': levels,
-            'vertical_coord': vertical_coord,
-            'num_points': num_points
-        }
-        
-        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
-        
         manager = MPASParallelManager(
             load_balance_strategy=load_balance_strategy,
             verbose=True,
             n_workers=n_processes
         )
         manager.set_error_policy('collect')
+        
+        is_mpi_mode = manager.backend == 'mpi'
+        
+        if is_mpi_mode:
+            if not hasattr(mpas_3d_processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_3d.py on your HPC system, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            
+            worker_kwargs = {
+                'grid_file': mpas_3d_processor.grid_file,
+                'data_dir': mpas_3d_processor.data_dir,
+                'output_dir': output_dir,
+                'start_lat': start_point[1],
+                'start_lon': start_point[0],
+                'end_lat': end_point[1],
+                'end_lon': end_point[0],
+                'var_name': var_name,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title': None,
+                'colormap': colormap,
+                'levels': levels,
+                'vertical_coord': vertical_coord,
+                'num_points': num_points
+            }
+        else:
+            worker_kwargs = {
+                'processor': mpas_3d_processor,
+                'output_dir': output_dir,
+                'start_lat': start_point[1],
+                'start_lon': start_point[0],
+                'end_lat': end_point[1],
+                'end_lon': end_point[0],
+                'var_name': var_name,
+                'file_prefix': file_prefix,
+                'formats': formats,
+                'custom_title': None,
+                'colormap': colormap,
+                'levels': levels,
+                'vertical_coord': vertical_coord,
+                'num_points': num_points
+            }
+        
+        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
         os.makedirs(output_dir, exist_ok=True)
         

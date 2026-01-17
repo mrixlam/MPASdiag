@@ -35,7 +35,7 @@ from matplotlib.ticker import FuncFormatter
 from typing import Tuple, Optional, List, Union, Any, cast, Dict
 
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
+from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon_with_masking
 from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.wind import MPASWindPlotter
@@ -70,7 +70,8 @@ class MPASSurfacePlotter(MPASVisualizer):
         wind_overlay: Optional[dict] = None,
         surface_overlay: Optional[dict] = None,
         level_index: Optional[int] = None,
-        level_value: Optional[float] = None
+        level_value: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> Tuple[Figure, Axes]:
         """
         Create professional cartographic map visualizations for MPAS surface variables with flexible rendering options and automatic metadata handling. This comprehensive method serves as the main entry point for surface variable plotting, supporting both scatter (direct cell rendering) and contour (interpolated) plot types for 2-meter temperature, surface pressure, humidity, wind speed, and other MPAS surface diagnostics. The method performs automatic unit conversion via UnitConverter, retrieves variable-specific colormaps and contour levels from MPASFileMetadata, handles geographic extent validation and map projection setup, and optionally overlays wind vectors or additional surface features. Grid interpolation for contour plots uses adaptive or user-specified resolution, with MPASRemapper's hybrid two-step approach (KDTree for unstructured-to-structured conversion followed by xESMF bilinear interpolation) transforming MPAS unstructured mesh data to regular grids for smooth contoured fields.
@@ -300,17 +301,17 @@ class MPASSurfacePlotter(MPASVisualizer):
             self._create_contour_plot(lon_valid, lat_valid, data_valid, 
                                     filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
                                     cmap_obj, norm, levels, data_crs,
-                                    grid_resolution, grid_resolution_deg)
+                                    grid_resolution, grid_resolution_deg, dataset)
         elif plot_type == 'contourf':
             self._create_contourf_plot(lon_valid, lat_valid, data_valid, 
                                      filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
                                      cmap_obj, norm, levels, data_crs,
-                                     grid_resolution, grid_resolution_deg)
+                                     grid_resolution, grid_resolution_deg, dataset)
         elif plot_type == 'both':
             self._create_contour_plot(lon_valid, lat_valid, data_valid, 
                                     filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
                                     cmap_obj, norm, levels, data_crs,
-                                    grid_resolution, grid_resolution_deg)
+                                    grid_resolution, grid_resolution_deg, dataset)
             self._create_scatter_plot(lon_valid, lat_valid, data_valid, cmap_obj, norm, data_crs)
         
         time_in_title = False
@@ -384,7 +385,8 @@ class MPASSurfacePlotter(MPASVisualizer):
         lat_min: float,
         lat_max: float,
         grid_resolution: Optional[int] = None,
-        grid_resolution_deg: Optional[float] = None
+        grid_resolution_deg: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Interpolate scattered MPAS data points onto a regular latitude-longitude grid using MPASRemapper's hybrid two-stage approach combining KDTree and xESMF bilinear interpolation. This internal helper method transforms unstructured mesh data into structured grid format for smooth contour visualization, eliminating code duplication between _create_contour_plot and _create_contourf_plot methods. The function supports both fixed-resolution (grid_resolution) and degree-based (grid_resolution_deg) grid specifications with automatic adaptive resolution selection when neither parameter is provided. Adaptive resolution scales with data density, ranging from 25 to 200 grid points per axis to balance visualization quality with computational performance. The method returns 2D meshgrid coordinates and interpolated data values ready for matplotlib contour functions.
@@ -425,17 +427,27 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         print(f"Interpolating {len(data)} points using MPASRemapper (KDTree→xESMF bilinear)...")
         
+        if dataset is None:
+            lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
+            lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+            dataset = xr.Dataset({
+                'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+            })
+        
         data_xr = xr.DataArray(data, dims=['nCells'])
 
-        remapped_result = remap_mpas_to_latlon(
+        remapped_result = remap_mpas_to_latlon_with_masking(
             data=data_xr,
-            lon=lon,
-            lat=lat,
+            dataset=dataset,
             lon_min=lon_min,
             lon_max=lon_max,
             lat_min=lat_min,
             lat_max=lat_max,
-            resolution=resolution
+            resolution=resolution,
+            method='nearest',
+            apply_mask=True,
+            lon_convention='auto'
         )
         
         lon_coords = remapped_result.lon.values
@@ -544,7 +556,8 @@ class MPASSurfacePlotter(MPASVisualizer):
         levels: Optional[List[float]],
         data_crs: ccrs.CRS,
         grid_resolution: Optional[int] = None,
-        grid_resolution_deg: Optional[float] = None
+        grid_resolution_deg: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> None:
         """
         Interpolates scattered point data to a regular grid using MPASRemapper and renders line contours (matplotlib.contour) on the cartographic axes. This internal method supports fixed-resolution and degree-based grids, applies adaptive resolution when parameters are omitted, and performs bilinear interpolation using MPASRemapper's hybrid approach. Unlike the filled-contour helper, this method draws contour lines and optionally labels them when contour levels are provided.
@@ -572,7 +585,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, grid_resolution_deg
+            grid_resolution, grid_resolution_deg, dataset
         )
 
         try:
@@ -611,7 +624,8 @@ class MPASSurfacePlotter(MPASVisualizer):
         levels: Optional[List[float]],
         data_crs: ccrs.CRS,
         grid_resolution: Optional[int] = None,
-        grid_resolution_deg: Optional[float] = None
+        grid_resolution_deg: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> None:
         """
         Interpolates scattered data to a regular grid and renders filled contours using matplotlib's contourf on the cartographic axes. This internal method parallels _create_contour_plot functionality but uses contourf specifically for filled contour rendering, supports both fixed-resolution and degree-based grid generation with adaptive resolution selection, and produces a horizontal colorbar with metadata-driven labels extracted from the instance's current variable metadata.
@@ -639,7 +653,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, grid_resolution_deg
+            grid_resolution, grid_resolution_deg, dataset
         )
 
         if levels is not None:
@@ -705,17 +719,27 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         resolution = max(lon_range / grid_resolution, lat_range / grid_resolution)
         print(f"Interpolating overlay using MPASRemapper (resolution: {resolution:.4f}°)")
+        
+        lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
+        lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+        overlay_dataset = xr.Dataset({
+            'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+            'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+        })
+        
         data_xr = xr.DataArray(data_valid, dims=['nCells'])
 
-        remapped_overlay = remap_mpas_to_latlon(
+        remapped_overlay = remap_mpas_to_latlon_with_masking(
             data=data_xr,
-            lon=lon_valid,
-            lat=lat_valid,
+            dataset=overlay_dataset,
             lon_min=float(lon.min()),
             lon_max=float(lon.max()),
             lat_min=float(lat.min()),
             lat_max=float(lat.max()),
-            resolution=resolution
+            resolution=resolution,
+            method='nearest',
+            apply_mask=True,
+            lon_convention='auto'
         )
         
         lon_coords = remapped_overlay.lon.values

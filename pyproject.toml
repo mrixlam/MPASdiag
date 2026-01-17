@@ -131,7 +131,16 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 filterwarnings = [
-    "ignore:numpy.ndarray size changed.*:RuntimeWarning"
+    "ignore::RuntimeWarning:.*importlib.*",
+    "ignore:numpy.ndarray size changed.*:RuntimeWarning",
+    "ignore:.*numpy.ndarray.*:RuntimeWarning",
+    "ignore:Mean of empty slice:RuntimeWarning",
+    "ignore:All-NaN slice encountered:RuntimeWarning",
+    "ignore:Degrees of freedom <= 0:RuntimeWarning",
+    "ignore:This process.*is multi-threaded.*:DeprecationWarning",
+    "ignore:facecolor will have no effect.*:UserWarning",
+    "ignore:Using dimensions.*from data variable.*:UserWarning",
+    "ignore:Behaviour of argmin/argmax.*:DeprecationWarning",
 ]
 
 [tool.mypy]

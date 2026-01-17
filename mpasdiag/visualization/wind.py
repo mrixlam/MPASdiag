@@ -32,7 +32,7 @@ from mpasdiag.processing.utils_geog import MPASGeographicUtils
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.processing.utils_unit import UnitConverter
-from mpasdiag.processing.remapping import remap_mpas_to_latlon
+from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
 
 
 class MPASWindPlotter(MPASVisualizer):
@@ -258,6 +258,7 @@ class MPASWindPlotter(MPASVisualizer):
         lat: Union[np.ndarray, xr.DataArray],
         u_data: Union[np.ndarray, xr.DataArray],
         v_data: Union[np.ndarray, xr.DataArray],
+        dataset: xr.Dataset,
         lon_min: float,
         lon_max: float,
         lat_min: float,
@@ -266,13 +267,14 @@ class MPASWindPlotter(MPASVisualizer):
         regrid_method: str = 'linear'
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Regrid irregular MPAS wind components onto a regular latitude-longitude grid using spatial interpolation. This internal helper method transforms unstructured mesh data into structured grid format, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function processes U and V components independently through the remap_mpas_to_latlon utility, supporting both linear interpolation for smooth fields and nearest-neighbor for value preservation. Linear interpolation uses scipy's griddata with triangulation to create continuous wind fields suitable for contour visualization, while nearest-neighbor uses KDTree for computational efficiency. The method converts input data to xarray DataArray format when needed, performs remapping, creates 2D meshgrid coordinates, and flattens all arrays for vector plotting compatibility.
+        Regrid irregular MPAS wind components onto a regular latitude-longitude grid using spatial interpolation. This internal helper method transforms unstructured mesh data into structured grid format, eliminating code duplication between create_wind_plot and add_wind_overlay methods. The function processes U and V components independently through the remap_mpas_to_latlon_with_masking utility, supporting both linear interpolation for smooth fields and nearest-neighbor for value preservation. Linear interpolation uses scipy's griddata with triangulation to create continuous wind fields suitable for contour visualization, while nearest-neighbor uses KDTree for computational efficiency. The method converts input data to xarray DataArray format when needed, performs remapping with automatic coordinate extraction from dataset, creates 2D meshgrid coordinates, and flattens all arrays for vector plotting compatibility.
 
         Parameters:
             lon (np.ndarray): Original 1D longitude coordinate array in degrees east from the irregular MPAS mesh.
             lat (np.ndarray): Original 1D latitude coordinate array in degrees north from the irregular MPAS mesh.
             u_data (np.ndarray): U-component (eastward) wind data array in m/s on the irregular MPAS mesh.
             v_data (np.ndarray): V-component (northward) wind data array in m/s on the irregular MPAS mesh.
+            dataset (xr.Dataset): MPAS dataset containing coordinate information for automatic extraction.
             lon_min (float): Western longitude boundary in degrees east for the target regular grid extent.
             lon_max (float): Eastern longitude boundary in degrees east for the target regular grid extent.
             lat_min (float): Southern latitude boundary in degrees north for the target regular grid extent.
@@ -288,28 +290,30 @@ class MPASWindPlotter(MPASVisualizer):
         u_xr = xr.DataArray(u_data, dims=['nCells']) if not isinstance(u_data, xr.DataArray) else u_data
         v_xr = xr.DataArray(v_data, dims=['nCells']) if not isinstance(v_data, xr.DataArray) else v_data
         
-        u_regridded = remap_mpas_to_latlon(
+        u_regridded = remap_mpas_to_latlon_with_masking(
             data=u_xr,
-            lon=lon,
-            lat=lat,
+            dataset=dataset,
             lon_min=lon_min,
             lon_max=lon_max,
             lat_min=lat_min,
             lat_max=lat_max,
             resolution=grid_resolution,
-            method=regrid_method
+            method=regrid_method,
+            apply_mask=True,
+            lon_convention='auto'
         )
         
-        v_regridded = remap_mpas_to_latlon(
+        v_regridded = remap_mpas_to_latlon_with_masking(
             data=v_xr,
-            lon=lon,
-            lat=lat,
+            dataset=dataset,
             lon_min=lon_min,
             lon_max=lon_max,
             lat_min=lat_min,
             lat_max=lat_max,
             resolution=grid_resolution,
-            method=regrid_method
+            method=regrid_method,
+            apply_mask=True,
+            lon_convention='auto'
         )
         
         lon_grid = u_regridded.lon.values
@@ -344,7 +348,8 @@ class MPASWindPlotter(MPASVisualizer):
         projection: str = 'PlateCarree',
         level_info: Optional[str] = None,
         grid_resolution: Optional[float] = None,
-        regrid_method: str = 'linear'
+        regrid_method: str = 'linear',
+        dataset: Optional[xr.Dataset] = None
     ) -> Tuple[Figure, Axes]:
         """
         Creates a cartographic wind plot displaying wind vectors as barbs, arrows, or streamlines with geographic features and automatic statistics. This method generates a complete wind visualization with coastlines, borders, land/ocean features, regional map elements, and gridlines, supports data subsampling for performance optimization, filters invalid values, and computes wind speed statistics for the title. Optionally regrids wind components to a regular lat-lon grid using linear interpolation for smooth fields. When subsample is set to -1, the method automatically calculates optimal subsampling to prevent visual clutter. Streamlines require regridded data and will automatically enable regridding if not already specified. It returns a fully configured figure and axes for display or saving.
@@ -370,6 +375,7 @@ class MPASWindPlotter(MPASVisualizer):
             level_info (Optional[str]): Additional level descriptor for title (default: None).
             grid_resolution (Optional[float]): Grid resolution in degrees for regridding wind components (default: None for no regridding).
             regrid_method (str): Interpolation method for regridding - 'linear' for smooth fields or 'nearest' for preserving values (default: 'linear').
+            dataset (Optional[xr.Dataset]): MPAS dataset with coordinate information, auto-created from lon/lat if not provided (default: None).
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib figure and GeoAxes containing the wind plot.
@@ -385,8 +391,16 @@ class MPASWindPlotter(MPASVisualizer):
             print(f"Streamlines require gridded data. Auto-enabling regridding with resolution: {grid_resolution}°")
         
         if grid_resolution is not None:
+            if dataset is None:
+                lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
+                lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+                dataset = xr.Dataset({
+                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+                })
+            
             lon, lat, u_data, v_data = self._regrid_wind_components(
-                lon, lat, u_data, v_data,
+                lon, lat, u_data, v_data, dataset,
                 lon_min, lon_max, lat_min, lat_max,
                 grid_resolution, regrid_method
             )
@@ -496,7 +510,8 @@ class MPASWindPlotter(MPASVisualizer):
         lon_min: Optional[float] = None,
         lon_max: Optional[float] = None,
         lat_min: Optional[float] = None,
-        lat_max: Optional[float] = None
+        lat_max: Optional[float] = None,
+        dataset: Optional[xr.Dataset] = None
     ) -> None:
         """
         Adds wind vectors as an overlay onto an existing map axes using a configuration dictionary for flexible styling and data selection. This method extracts U/V wind components from the configuration, handles 3D data by selecting a specific vertical level, optionally regrids wind components to a regular lat-lon grid using linear interpolation, applies subsampling for performance (with automatic calculation if subsample=-1), filters invalid values, and renders wind barbs or arrows using the specified plot type and styling parameters without creating a new figure.
@@ -510,6 +525,7 @@ class MPASWindPlotter(MPASVisualizer):
             lon_max (Optional[float]): Eastern longitude bound for regridding (required if grid_resolution specified).
             lat_min (Optional[float]): Southern latitude bound for regridding (required if grid_resolution specified).
             lat_max (Optional[float]): Northern latitude bound for regridding (required if grid_resolution specified).
+            dataset (Optional[xr.Dataset]): MPAS dataset with coordinate information, auto-created from lon/lat if not provided (default: None).
 
         Returns:
             None: Draws wind overlay directly onto provided axes without returning objects.
@@ -540,8 +556,16 @@ class MPASWindPlotter(MPASVisualizer):
             if lon_min is None or lon_max is None or lat_min is None or lat_max is None:
                 raise ValueError("lon_min, lon_max, lat_min, lat_max must be provided when grid_resolution is specified")
             
+            if dataset is None:
+                lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
+                lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+                dataset = xr.Dataset({
+                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+                })
+            
             lon, lat, u_data, v_data = self._regrid_wind_components(
-                lon, lat, u_data, v_data,
+                lon, lat, u_data, v_data, dataset,
                 lon_min, lon_max, lat_min, lat_max,
                 grid_resolution, regrid_method
             )

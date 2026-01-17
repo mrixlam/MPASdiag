@@ -1,0 +1,66 @@
+name: mpasdiag
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python
+  - python>=3.8
+  
+  # Scientific computing core
+  - numpy>=1.20.0
+  - scipy>=1.7.0
+  - pandas>=1.3.0
+  
+  # Data handling and I/O
+  - xarray>=0.19.0
+  - netcdf4>=1.5.0
+  - h5netcdf>=1.0.0
+  - dask>=2021.6.0
+  
+  # Visualization
+  - matplotlib>=3.5.0
+  - cartopy>=0.20.0
+  
+  # High-performance computing
+  - numba>=0.55.0
+  - llvmlite>=0.38.0
+  
+  # Parallel processing
+  - mpi4py>=3.1.0
+  
+  # Unstructured mesh support
+  - uxarray>=2024.01.0
+  
+  # Configuration and utilities
+  - pyyaml>=5.4.0
+  - psutil>=5.8.0
+  
+  # Development and testing (optional, can be moved to separate env)
+  - pytest>=6.0
+  - pytest-cov>=2.10
+  - pytest-xdist>=2.5.0
+  - pytest-mock>=3.6.0
+  - pluggy>=1.0.0
+  - coverage>=6.0
+  - execnet>=1.9.0
+  
+  # Code quality tools (optional)
+  - black>=21.0
+  - flake8>=3.8
+  - mypy>=0.800
+  
+  # Documentation (optional)
+  - sphinx>=4.0
+  - sphinx-rtd-theme>=0.5
+  
+  # Optional performance enhancements
+  - bottleneck>=1.3.0
+  
+  # Optional plotting enhancements
+  - seaborn>=0.11.0
+  - plotly>=5.0.0
+  
+  # Install package in development mode
+  - pip
+  - pip:
+    - -e .

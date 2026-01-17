@@ -23,7 +23,7 @@ from typing import List, Tuple, Any, Optional, cast
 
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
-from .constants import DIAG_GLOB
+from .constants import DIAG_GLOB, MPASOUT_GLOB
 
 
 class MPAS2DProcessor(MPASBaseProcessor):
@@ -78,6 +78,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
         Returns:
             MPAS2DProcessor: Self reference for method chaining operations.
         """
+        self.data_dir = data_dir
+        
         chunks_2d = {'Time': 1, 'nCells': 100000}
         
         dataset, data_type = self._load_data(
@@ -99,16 +101,16 @@ class MPAS2DProcessor(MPASBaseProcessor):
 
     def find_diagnostic_files(self, data_dir: str) -> List[str]:
         """
-        Locate and validate MPAS diagnostic files in the specified directory by pattern matching. This method searches for files matching the diagnostic naming convention (diag*.nc) and returns a sorted list of valid file paths. It performs validation to ensure sufficient files exist for temporal analysis and raises appropriate exceptions if the directory is empty or contains too few files. The method delegates to the base class pattern-matching utility with diagnostic-specific parameters. Sorted output ensures consistent temporal ordering for time series operations.
+        Locate and validate MPAS diagnostic or mpasout files in the specified directory by pattern matching with fallback. This method searches for files matching the diagnostic naming convention (diag*.nc) first, then falls back to MPAS output files (mpasout*.nc) if diag files are not available. This enables precipitation analysis from either diagnostic streams or standard model output files that contain rainc and rainnc variables. It performs validation to ensure sufficient files exist for temporal analysis and raises appropriate exceptions if neither file type is found. The method delegates to the base class pattern-matching utility with diagnostic-specific parameters. Sorted output ensures consistent temporal ordering for time series operations.
 
         Parameters:
-            data_dir (str): Directory path to search for MPAS diagnostic files.
+            data_dir (str): Directory path to search for MPAS diagnostic or output files.
 
         Returns:
-            list of str: Sorted list of diagnostic file paths found in the directory.
+            list of str: Sorted list of diagnostic or output file paths found in the directory.
 
         Raises:
-            FileNotFoundError: If no diagnostic files matching the pattern are found in the directory.
+            FileNotFoundError: If no diagnostic or output files matching the patterns are found in the directory.
             ValueError: If insufficient files are present for meaningful temporal analysis.
         """
         try:
@@ -119,15 +121,31 @@ class MPAS2DProcessor(MPASBaseProcessor):
                 return self._find_files_by_pattern(diag_sub, DIAG_GLOB, "diagnostic files")
             except FileNotFoundError:
                 files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", DIAG_GLOB), recursive=True))]
-                if not files:
-                    raise FileNotFoundError(f"No diagnostic files found under: {data_dir}")
-                if len(files) < 2:
-                    raise ValueError(f"Insufficient diagnostic files for temporal analysis. Found {len(files)}, need at least 2.")
+                if files and len(files) >= 2:
+                    if self.verbose:
+                        print(f"\nFound {len(files)} diagnostic files (recursive search):")
+                        for i, f in enumerate(files[:5]):
+                            print(f"  {i+1}: {os.path.basename(f)}")
+                    return files
+                
                 if self.verbose:
-                    print(f"\nFound {len(files)} diagnostic files (recursive search):")
-                    for i, f in enumerate(files[:5]):
-                        print(f"  {i+1}: {os.path.basename(f)}")
-                return files
+                    print(f"\nNo diagnostic files found, searching for mpasout files...")
+                try:
+                    return self._find_files_by_pattern(data_dir, MPASOUT_GLOB, "MPAS output files (mpasout)")
+                except FileNotFoundError:
+                    mpasout_files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True))]
+                    if not mpasout_files:
+                        raise FileNotFoundError(
+                            f"No diagnostic files (diag*.nc) or MPAS output files (mpasout*.nc) found under: {data_dir}\n"
+                            f"For precipitation analysis, ensure files contain rainc and rainnc variables."
+                        )
+                    if len(mpasout_files) < 2:
+                        raise ValueError(f"Insufficient MPAS output files for temporal analysis. Found {len(mpasout_files)}, need at least 2.")
+                    if self.verbose:
+                        print(f"\nFound {len(mpasout_files)} MPAS output files (recursive search):")
+                        for i, f in enumerate(mpasout_files[:5]):
+                            print(f"  {i+1}: {os.path.basename(f)}")
+                    return mpasout_files
 
     def extract_2d_coordinates_for_variable(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """

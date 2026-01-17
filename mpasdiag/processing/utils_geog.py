@@ -29,15 +29,16 @@ class MPASGeographicUtils:
     """
     
     @staticmethod
-    def extract_spatial_coordinates(dataset: xr.Dataset) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_spatial_coordinates(dataset: xr.Dataset, normalize: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Extract longitude and latitude coordinate arrays from MPAS unstructured mesh datasets with automatic unit conversion and normalization. This method searches for coordinate variables using common MPAS naming conventions ('lonCell', 'latCell', 'longitude', 'latitude', 'lon', 'lat'), handles both radian and degree units by detecting value ranges and converting radians to degrees when necessary, and flattens multi-dimensional coordinate arrays to 1D for consistency. The method normalizes longitude values to the standard [-180, 180] range to ensure proper handling of dateline-crossing regions and global domains. This coordinate extraction is fundamental for all spatial operations including plotting, subsetting, and geographic analysis of MPAS model output on irregular Voronoi meshes.
+        Extract longitude and latitude coordinate arrays from MPAS unstructured mesh datasets with automatic unit conversion and optional normalization. This method searches for coordinate variables using common MPAS naming conventions ('lonCell', 'latCell', 'longitude', 'latitude', 'lon', 'lat'), handles both radian and degree units by detecting value ranges and converting radians to degrees when necessary, and flattens multi-dimensional coordinate arrays to 1D for consistency. The method can optionally normalize longitude values to the standard [-180, 180] range or preserve the original range for global data. This coordinate extraction is fundamental for all spatial operations including plotting, subsetting, and geographic analysis of MPAS model output on irregular Voronoi meshes.
 
         Parameters:
             dataset (xr.Dataset): MPAS xarray Dataset containing coordinate information in variables or coordinates.
+            normalize (bool): Whether to normalize longitude to [-180, 180] range. Set to False for global data spanning 0-360. Default: True.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Two-element tuple containing (longitude_array, latitude_array) as flattened 1D numpy arrays in degrees with longitude normalized to [-180, 180] range.
+            Tuple[np.ndarray, np.ndarray]: Two-element tuple containing (longitude_array, latitude_array) as flattened 1D numpy arrays in degrees.
             
         Raises:
             ValueError: If dataset is None or if no recognizable spatial coordinates are found in the dataset.
@@ -71,7 +72,8 @@ class MPASGeographicUtils:
         lon_coords = lon_coords.ravel()
         lat_coords = lat_coords.ravel()
         
-        lon_coords = MPASGeographicUtils.normalize_longitude(lon_coords)
+        if normalize:
+            lon_coords = MPASGeographicUtils.normalize_longitude(lon_coords)
         
         return lon_coords, lat_coords
 
@@ -165,8 +167,6 @@ class MPASGeographicUtils:
         lat_min = float(np.min(valid_lat)) - buffer
         lat_max = float(np.max(valid_lat)) + buffer
         
-        lon_min = max(lon_min, -180.0)
-        lon_max = min(lon_max, 180.0)
         lat_min = max(lat_min, -90.0)
         lat_max = min(lat_max, 90.0)
         

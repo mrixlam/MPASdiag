@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import uxarray as ux
+import warnings
 from typing import List, Tuple, Any, Optional, Union, cast
 
 from .base import MPASBaseProcessor
@@ -173,6 +174,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             MPAS3DProcessor: Self reference for method chaining operations.
         """
+        self.data_dir = data_dir
+        
         chunks_3d = {'Time': 1, 'nCells': 50000, 'nVertLevels': 66}
         
         dataset, data_type = self._load_data(
@@ -461,7 +464,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
                 fzp = self.dataset['fzp'].isel({time_dim: validated_time_index}).values
                 sp = self.dataset['surface_pressure'].isel({time_dim: validated_time_index}).values
-                mean_sp = np.nanmean(sp)
+
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
+                    mean_sp = np.nanmean(sp)
 
                 mean_pressure_levels = (np.asarray(fzp, dtype=float) * mean_sp)
                 mean_pressure_levels = np.asarray(mean_pressure_levels, dtype=float).ravel()

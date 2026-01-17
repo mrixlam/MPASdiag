@@ -29,12 +29,20 @@ from .utils_monitor import PerformanceMonitor
 from .utils_parser import ArgumentParser
 
 try:
-    from .remapping import MPASRemapper, remap_mpas_to_latlon, create_target_grid
+    from .remapping import (
+        MPASRemapper, 
+        remap_mpas_to_latlon, 
+        remap_mpas_to_latlon_with_masking,
+        build_remapped_valid_mask,
+        create_target_grid
+    )
     _REMAPPING_AVAILABLE = True
 except ImportError:
     _REMAPPING_AVAILABLE = False
     MPASRemapper = None
     remap_mpas_to_latlon = None
+    remap_mpas_to_latlon_with_masking = None
+    build_remapped_valid_mask = None
     create_target_grid = None
 
 __all__ = [
@@ -53,5 +61,7 @@ __all__ = [
     'ArgumentParser',
     'MPASRemapper',
     'remap_mpas_to_latlon',
+    'remap_mpas_to_latlon_with_masking',
+    'build_remapped_valid_mask',
     'create_target_grid'
 ]
