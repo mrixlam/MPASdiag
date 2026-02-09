@@ -329,7 +329,7 @@ class MPASUnifiedCLI:
               mpasdiag surface --grid-file grid.nc --data-dir ./data --variable mslp --plot-type contour
               
               # Custom grid resolution
-              mpasdiag surface --grid-file grid.nc --data-dir ./data --variable t2m --plot-type contour --grid-resolution-deg 0.1
+              mpasdiag surface --grid-file grid.nc --data-dir ./data --variable t2m --plot-type contour --grid-resolution 0.1
             """)
         )
         
@@ -341,9 +341,7 @@ class MPASUnifiedCLI:
         surf_group.add_argument('--plot-type', type=str, default='scatter',
                               choices=['scatter', 'contour', 'filled_contour', 'pcolormesh'],
                               help='Plot type (default: scatter)')
-        surf_group.add_argument('--grid-resolution', type=int,
-                              help='Grid resolution (number of points per axis) for interpolation')
-        surf_group.add_argument('--grid-resolution-deg', type=float,
+        surf_group.add_argument('--grid-resolution', type=float,
                               help='Grid resolution in degrees (e.g., 0.1 for 0.1° grid)')
         surf_group.add_argument('--interpolation', type=str, default='linear',
                               choices=['linear', 'cubic', 'nearest'],
@@ -640,7 +638,6 @@ class MPASUnifiedCLI:
             'variable': 'variable',
             'plot_type': 'plot_type',
             'grid_resolution': 'grid_resolution',
-            'grid_resolution_deg': 'grid_resolution_deg',
             'interpolation': 'interpolation_method',
             'contour_levels': 'contour_levels'
         }
@@ -1038,7 +1035,6 @@ class MPASUnifiedCLI:
                         plot_type=config.plot_type,
                         formats=config.output_formats or ['png'],
                         grid_resolution=getattr(config, 'grid_resolution', None),
-                        grid_resolution_deg=getattr(config, 'grid_resolution_deg', None),
                         n_processes=config.workers
                     )
                 else:
@@ -1049,8 +1045,7 @@ class MPASUnifiedCLI:
                         var_name=config.variable,
                         plot_type=config.plot_type,
                         formats=config.output_formats or ['png'],
-                        grid_resolution=getattr(config, 'grid_resolution', None),
-                        grid_resolution_deg=getattr(config, 'grid_resolution_deg', None)
+                        grid_resolution=getattr(config, 'grid_resolution', None)
                     )
                 
                 if self.logger and created_files:

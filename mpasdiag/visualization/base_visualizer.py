@@ -515,3 +515,30 @@ class MPASVisualizer:
                           pad=0.05, shrink=0.8)
         cbar.set_label('Wind Speed [m s$^{-1}$]', fontsize=11)
         cbar.ax.tick_params(labelsize=10)
+    
+    @staticmethod
+    def convert_to_numpy(x: Any) -> np.ndarray:
+        """
+        Convert xarray DataArray or dask-backed arrays to a standard NumPy ndarray for downstream numeric operations. This static helper method provides a unified conversion pathway for heterogeneous array types commonly encountered in MPAS data processing workflows. The function safely unwraps xarray DataArray objects to their underlying values attribute, computes any dask-backed lazy arrays to materialize them in memory for immediate use, and coerces the final result into a NumPy ndarray using np.asarray. This conversion is essential for operations requiring boolean indexing, masking, or direct array manipulation that do not support lazy evaluation or xarray's coordinate-aware structures. The method handles exceptions gracefully to ensure robust conversion across different input types.
+
+        Parameters:
+            x (Any): Input array-like object which may be an xarray.DataArray with coordinates and attributes, a dask-backed array supporting lazy evaluation, a NumPy ndarray, or any array-like object with array protocol support.
+
+        Returns:
+            np.ndarray: Standard NumPy ndarray with computed values materialized in memory, suitable for indexing, masking, plotting, and mathematical operations requiring immediate data access.
+        """
+        try:
+            if isinstance(x, xr.DataArray):
+                arr = x.values
+            else:
+                arr = x
+        except Exception:
+            arr = x
+
+        try:
+            if hasattr(arr, 'compute'):
+                arr = cast(Any, arr).compute()
+        except Exception:
+            pass
+
+        return np.asarray(arr)

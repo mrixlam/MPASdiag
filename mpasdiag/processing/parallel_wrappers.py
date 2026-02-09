@@ -783,8 +783,7 @@ class ParallelSurfaceProcessor:
         plot_type: str = 'scatter',
         file_prefix: str = 'mpas_surface',
         formats: List[str] = ['png'],
-        grid_resolution: Optional[int] = None,
-        grid_resolution_deg: Optional[float] = None,
+        grid_resolution: Optional[float] = None,
         clim_min: Optional[float] = None,
         clim_max: Optional[float] = None,
         time_indices: Optional[List[int]] = None,
@@ -805,8 +804,7 @@ class ParallelSurfaceProcessor:
             plot_type (str): Visualization type - 'scatter' for point plots or 'contour' for filled contours (default: 'scatter').
             file_prefix (str): Prefix string for output filenames (default: 'mpas_surface').
             formats (List[str]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
-            grid_resolution (Optional[int]): Grid resolution in number of points for interpolation (default: None).
-            grid_resolution_deg (Optional[float]): Grid resolution in degrees for interpolation grid (default: None).
+            grid_resolution (Optional[float]): Grid spacing in degrees for interpolation (default: None for adaptive).
             clim_min (Optional[float]): Minimum value for color scale limits (default: None for automatic).
             clim_max (Optional[float]): Maximum value for color scale limits (default: None for automatic).
             time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).

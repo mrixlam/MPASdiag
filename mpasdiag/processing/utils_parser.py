@@ -288,7 +288,6 @@ Examples:
             'clim_min': 'clim_min',
             'clim_max': 'clim_max',
             'grid_resolution': 'grid_resolution',
-            'grid_resolution_deg': 'grid_resolution_deg',
             'output': 'output',
             'dpi': 'dpi',
             'formats': 'output_formats',

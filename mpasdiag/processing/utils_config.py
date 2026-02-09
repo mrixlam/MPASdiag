@@ -82,8 +82,7 @@ class MPASConfig:
     clim_max: Optional[float] = None
     output: Optional[str] = None
     figure_size: Tuple[float, float] = (12.0, 10.0)
-    grid_resolution: Optional[int] = None
-    grid_resolution_deg: Optional[float] = None
+    grid_resolution: Optional[float] = None
     regrid_method: str = "linear"
 
     u_variable: str = "u10"

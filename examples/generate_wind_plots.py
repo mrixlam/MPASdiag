@@ -352,7 +352,7 @@ def example_4_complex_wind_plot(
         var_name='wind_speed',
         title="MPAS 10-m Wind Analysis - Wind Speed with Direction Barbs",
         plot_type='contourf',
-        grid_resolution=100,
+        grid_resolution=0.5,  # Grid spacing in degrees
         colormap='YlOrRd',
         time_stamp=data['time_stamp'],
         projection='PlateCarree',
