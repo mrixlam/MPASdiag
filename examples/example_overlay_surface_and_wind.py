@@ -16,14 +16,14 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+# Load standard libraries
+import os
 
 # Load relevant MPASdiag modules 
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
-
-import os
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u120k/diag/'
@@ -33,20 +33,21 @@ gridPath = '../data/grids/x1.40962.init.nc'
 processor = MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
-# Initialize Surface Plotter
+# Initialize Surface and Wind Plotter
 plotter = MPASSurfacePlotter(verbose=True, figsize=(14, 11), dpi=300)
 wind_plotter = MPASWindPlotter(figsize=(14, 11), dpi=300)
 
-# Directly extract 2-m temperature at time index 0 and flatten for plotting
+# Define variable names for 2-m temperature, mean sea level pressure, and 10-m wind components
 t_var = 't2m'
 pres_var = 'mslp'
 uwnd_var = 'u10'
 vwnd_var = 'v10'
 
-
+# Extract 2D coordinates and variable data for the surface plot
 surface_var = processor.dataset[t_var].isel(Time=0)
 lon, lat = processor.extract_2d_coordinates_for_variable(t_var, surface_var)
 
+# Extract variable data for the surface plot and overlays (flattening for contour and wind plotting)
 temp = processor.dataset[t_var].isel(Time=0).values.flatten()
 pres = processor.dataset[pres_var].isel(Time=0).values.flatten()
 uwnd = processor.dataset[uwnd_var].isel(Time=0).values.flatten()
@@ -84,6 +85,7 @@ print("="*60)
 
 # -------------- Overlay: MSLP contours at 0.1° resolution --------------
 
+# Define overlay configuration for MSLP contours
 mslp_config = {
     'data': pres,
     'var_name': pres_var,
@@ -95,12 +97,14 @@ mslp_config = {
     'add_labels': True
 }
 
+# Add MSLP contours as an overlay on the existing surface map
 plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max)
 
 # -------------- Overlay: 10-m wind vectors at 0.1° resolution --------------
 
+# Define overlay configuration for 10-m wind vectors
 wind_config = {
     'u_data': uwnd,
     'v_data': vwnd,
@@ -110,12 +114,16 @@ wind_config = {
     'grid_resolution': 0.1
 }
 
+# Add 10-m wind vectors as an overlay on the existing surface map
 wind_plotter.add_wind_overlay(ax, lon, lat, wind_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max)
 
+# Create output directory if it doesn't exist
 os.makedirs('./output', exist_ok=True)
+
+# Save the final plot with the filled contour, contour overlay, and wind vector overlay
 plotter.save_plot('./output/overlay_surface_and_wind', formats=['png'])
 plotter.close_plot()
 
-print("\n✓ Test completed! Check ./output/overlay_surface_and_wind.png")
+print("Plot saved to ./output/overlay_surface_and_wind.png")

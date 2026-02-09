@@ -61,7 +61,7 @@ class MPASFileMetadata:
             'th2m': {'units': KELVIN, 'long_name': '2-meter Potential Temperature'}, 
             'u10': {'units': M_PER_S, 'long_name': '10-meter U-wind'},
             'v10': {'units': M_PER_S, 'long_name': '10-meter V-wind'}, 
-            'q2': {'units': G_PER_KG, 'long_name': '2-meter Specific Humidity'}, 
+            'q2': {'units': KG_PER_KG, 'long_name': '2-meter Specific Humidity'}, 
             'mslp': {'units': PA, 'long_name': 'Mean Sea Level Pressure'},
             
             'relhum_50hpa': {'units': PERCENT, 'long_name': 'Relative Humidity at 50 hPa'},

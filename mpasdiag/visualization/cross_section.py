@@ -155,6 +155,20 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             print(f"Warning: Unit conversion failed for {var_name}: {e}")
             metadata = {'units': '', 'long_name': var_name}
         
+        # Specify the list of moisture-related variable names to check for physical constraints (e.g., non-negative values)
+        moisture_vars = ['q2', 'qv', 'qc', 'qr', 'qi', 'qs', 'qg', 'qv2m', 'humidity', 'mixing_ratio']
+
+        # For moisture variables, check for negative values and clip to 0 if found, since negative moisture is physically invalid. 
+        if any(mv in var_name.lower() for mv in moisture_vars):
+            # Count the number of negative values in the data array to log a warning if any are found
+            n_negative = np.sum(data_values < 0)
+
+            # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
+            if n_negative > 0:
+                print(f"Warning: Found {n_negative:,} negative {var_name} values (min: {np.nanmin(data_values):.4f}). Clipping to 0 (physically invalid).")
+                data_values = np.clip(data_values, 0, None)
+        
+        # Specify the desired vertical coordinate for display based on user input or automatic behavior. 
         desired_display = display_vertical if display_vertical is not None else vertical_coord_type
 
         if desired_display == 'height':

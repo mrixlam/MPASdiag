@@ -129,6 +129,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         else:
             precip_data = np.asarray(converted_data)
         
+        # Check for negative precipitation values which are physically invalid and likely indicate data issues
+        n_negative = np.sum(precip_data < 0)
+
+        # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to ensure physical validity for precipitation fields
+        if n_negative > 0:
+            print(f"Warning: Found {n_negative:,} negative precipitation values (min: {np.nanmin(precip_data):.4f}). Clipping to 0 (physically invalid).")
+            precip_data = np.clip(precip_data, 0, None)
+        
         # Extract unit label for colorbar annotation, defaulting to 'mm' if not available
         unit_label = metadata.get('units', 'mm')
 
@@ -843,6 +851,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 except ValueError as e:
                     # If conversion fails, log a warning and proceed with original data
                     print(f"Warning: Could not convert overlay {var_name} from {original_units} to {display_units}: {e}")
+        
+        # Check for negative precipitation values which are physically invalid and likely indicate data issues
+        n_negative = np.sum(precip_data < 0)
+
+        # If negative values are found, log a warning with the count and minimum value, then clip to 0 to ensure physically valid precipitation values for plotting
+        if n_negative > 0:
+            print(f"Warning: Found {n_negative:,} negative precipitation values (min: {np.nanmin(precip_data):.4f}). Clipping to 0 (physically invalid).")
+            precip_data = np.clip(precip_data, 0, None)
         
         # Flatten arrays for processing and ensure they are 1D
         precip_data_flat = precip_data.flatten()

@@ -166,6 +166,20 @@ class MPASSurfacePlotter(MPASVisualizer):
             except ValueError as e:
                 print(f"Warning: Could not convert {var_name} from {original_unit} to {display_unit}: {e}")
         
+        # Specify the list of moisture-related variable names to check for physical constraints (e.g., non-negative values)
+        moisture_vars = ['q2', 'qv', 'qc', 'qr', 'qi', 'qs', 'qg', 'qv2m', 'humidity', 'mixing_ratio']
+
+        # For moisture variables, check for negative values and clip to 0 if found, since negative moisture is physically invalid. 
+        if any(mv in var_name.lower() for mv in moisture_vars):
+            # Count the number of negative values in the data array to log a warning if any are found
+            n_negative = np.sum(data < 0)
+
+            # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
+            if n_negative > 0:
+                print(f"Warning: Found {n_negative:,} negative {var_name} values (min: {np.min(data):.4f}). Clipping to 0 (physically invalid).")
+                data = np.clip(data, 0, None)
+        
+        # Return the converted data as a numpy array along with the variable metadata
         return data, var_metadata
     
     def _prepare_colormap_and_levels(
