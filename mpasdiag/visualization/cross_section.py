@@ -244,16 +244,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             raise ValueError(f"Unknown plot_type: {plot_type}. Use 'filled_contour', 'contour', or 'pcolormesh'")
             
         if plot_type in ['filled_contour', 'pcolormesh']:
-            cbar = plt.colorbar(cs, ax=self.ax, orientation='vertical', pad=0.05, shrink=0.8)
-            
-            try:
-                units = metadata.get('units', '')
-                long_name = metadata.get('long_name', var_name)
-                cbar_label = f"{long_name} [{units}]" if units else long_name
-            except Exception:
-                cbar_label = var_name
-                
-            cbar.set_label(cbar_label, fontsize=12)
+            cbar = MPASVisualizationStyle.add_colorbar(
+                self.fig, self.ax, cs,
+                label=f"{metadata.get('long_name', var_name)} [{metadata.get('units', '')}]" if metadata.get('units','') else metadata.get('long_name', var_name),
+                orientation='vertical', fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=4, label_pos='right', tick_labelsize=10
+            )
             
         self._format_cross_section_axes(longitudes, vertical_display, vertical_coord_display, 
                                       start_point, end_point, max_height)

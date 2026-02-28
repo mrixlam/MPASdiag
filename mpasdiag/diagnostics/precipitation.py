@@ -22,10 +22,7 @@ from typing import Any, Optional, Union, cast
 
 class PrecipitationDiagnostics:
     """
-    Specialized diagnostics for precipitation calculations from MPAS data.
-    
-    This class provides methods for precipitation accumulation calculations,
-    temporal differencing, and precipitation analysis from MPAS diagnostic files.
+    This class provides methods for precipitation accumulation calculations, temporal differencing, and precipitation analysis from MPAS diagnostic files.
     """
     
     def __init__(self, verbose: bool = True) -> None:
@@ -44,7 +41,7 @@ class PrecipitationDiagnostics:
                                        var_name: str = 'rainnc', accum_period: str = 'a01h',
                                        data_type: str = 'xarray') -> xr.DataArray:
         """
-        Compute precipitation accumulation from cumulative precipitation data for specified accumulation period. This method calculates precipitation by computing the temporal difference between current and previous cumulative values based on the specified accumulation period. The method handles multiple precipitation variable types including convective (rainc), non-convective (rainnc), and total precipitation with automatic unit conversion and data validation. Special handling is provided for the first time step and insufficient lookback periods with appropriate zero-field generation. The computation includes comprehensive diagnostic output when verbose mode is enabled, showing time slice information and data range validation. The method supports both xarray and uxarray dataset types with flexible time dimension detection.
+        The function computes temporal differences between current and prior cumulative fields according to the requested accumulation interval and supports convective (`rainc`), non-convective (`rainnc`) and combined (`total`) variables. Special-case handling is provided for the first time step or when there is insufficient lookback by returning actual file data or a zero-filled field. Diagnostic output is produced when `verbose` is enabled to aid troubleshooting.
 
         Parameters:
             dataset (xr.Dataset): MPAS dataset containing precipitation variables.
@@ -75,55 +72,26 @@ class PrecipitationDiagnostics:
             print(f"Computing {accum_hours}-hour accumulation for period: {accum_period}")
             self._print_time_slice_info(dataset, time_index, var_name, time_step_diff)
         
+        # Compute accumulation based on variable type
+        previous_index = time_index - time_step_diff
+
         if var_name == 'total':
-            if data_type == 'uxarray':
-                current_rainc = dataset['rainc'][time_index]
-                current_rainnc = dataset['rainnc'][time_index]
-                previous_rainc = dataset['rainc'][time_index - time_step_diff]
-                previous_rainnc = dataset['rainnc'][time_index - time_step_diff]
-            else:
-                current_rainc = dataset['rainc'].isel({time_dim: time_index})
-                current_rainnc = dataset['rainnc'].isel({time_dim: time_index})
-                previous_rainc = dataset['rainc'].isel({time_dim: time_index - time_step_diff})
-                previous_rainnc = dataset['rainnc'].isel({time_dim: time_index - time_step_diff})
-            
-            if hasattr(current_rainc, 'compute'):
-                current_rainc = cast(Any, current_rainc).compute()
-                current_rainnc = cast(Any, current_rainnc).compute()
-                previous_rainc = cast(Any, previous_rainc).compute()
-                previous_rainnc = cast(Any, previous_rainnc).compute()
-            
-            current_total = current_rainc + current_rainnc
-            previous_total = previous_rainc + previous_rainnc
-            
-            if self.verbose:
-                self._analyze_precipitation_diagnostics(current_total, previous_total, var_context=var_name)
-            
-            accum_precip = current_total - previous_total
-            
+            accum_precip = self._compute_total_precipitation_accumulation(
+                dataset, time_index, previous_index, time_dim, data_type
+            )
         else:
-            if data_type == 'uxarray':
-                current_data = dataset[var_name][time_index]
-                previous_data = dataset[var_name][time_index - time_step_diff]
-            else:
-                current_data = dataset[var_name].isel({time_dim: time_index})
-                previous_data = dataset[var_name].isel({time_dim: time_index - time_step_diff})
-            
-            if hasattr(current_data, 'compute'):
-                current_data = cast(Any, current_data).compute()
-                previous_data = cast(Any, previous_data).compute()
-            
-            if self.verbose:
-                self._analyze_precipitation_diagnostics(current_data, previous_data, var_context=var_name)
-            
-            accum_precip = current_data - previous_data
+            accum_precip = self._compute_single_variable_accumulation(
+                dataset, var_name, time_index, previous_index, time_dim, data_type
+            )
         
+        # Apply filters and set attributes
         accum_precip = self._apply_precipitation_filters_and_attributes(accum_precip, var_name)
         
-        if hasattr(accum_precip, 'attrs'):
-            accum_precip.attrs['long_name'] = f'{accum_hours}-hour accumulated precipitation from {var_name}'
-            accum_precip.attrs['accumulation_period'] = accum_period
-            accum_precip.attrs['accumulation_hours'] = accum_hours
+        accum_precip.attrs.update({
+            'long_name': f'{accum_hours}-hour accumulated precipitation from {var_name}',
+            'accumulation_period': accum_period,
+            'accumulation_hours': accum_hours
+        })
         
         if self.verbose:
             print(f"Computed {accum_hours}-hour accumulated precipitation for period: {accum_period}")
@@ -143,7 +111,230 @@ class PrecipitationDiagnostics:
         """
         accum_hours_map = {'a01h': 1, 'a03h': 3, 'a06h': 6, 'a12h': 12, 'a24h': 24}
         return accum_hours_map.get(accum_period, 24)
+
+    def _extract_variable_at_time(self, dataset: xr.Dataset, var_name: str, 
+                                  time_index: int, time_dim: str, 
+                                  data_type: str) -> xr.DataArray:
+        """
+        This helper centralizes access to variables for both 'xarray' and 'uxarray' access patterns and ensures that any lazy-backed objects are computed before being returned. It preserves DataArray metadata and returns a concrete xarray.DataArray ready for arithmetic and inspection.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            var_name (str): Name of the variable to extract.
+            time_index (int): Time index to select.
+            time_dim (str): Name of the time dimension in `dataset`.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: DataArray corresponding to the requested variable and time index.
+        """
+        if data_type == 'uxarray':
+            data = dataset[var_name][time_index]
+        else:
+            data = dataset[var_name].isel({time_dim: time_index})
+        
+        if hasattr(data, 'compute'):
+            data = cast(Any, data).compute()
+        
+        return data
+
+    def _extract_precipitation_pair(self, dataset: xr.Dataset, var_name: str,
+                                   current_index: int, previous_index: int,
+                                   time_dim: str, data_type: str) -> tuple[xr.DataArray, xr.DataArray]:
+        """
+        This helper calls `_extract_variable_at_time` for both indices and returns the pair as a tuple in the order (current, previous). It is designed to simplify accumulation differencing code by centralizing pair extraction and ensuring consistent compute behavior for lazy-backed arrays.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            var_name (str): Name of the precipitation variable.
+            current_index (int): Index of the current time slice.
+            previous_index (int): Index of the previous time slice used for differencing.
+            time_dim (str): Name of the time dimension.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            tuple[xr.DataArray, xr.DataArray]: (current_data, previous_data) DataArrays.
+        """
+        current_data = self._extract_variable_at_time(dataset, var_name, current_index, time_dim, data_type)
+        previous_data = self._extract_variable_at_time(dataset, var_name, previous_index, time_dim, data_type)
+        return current_data, previous_data
+
+    def _compute_total_precipitation_accumulation(self, dataset: xr.Dataset, 
+                                                 current_index: int, previous_index: int,
+                                                 time_dim: str, data_type: str) -> xr.DataArray:
+        """
+        The routine extracts `rainc` and `rainnc` at the supplied current and previous indices, forms total fields for each time slice, and returns the temporal difference (current_total - previous_total). When verbose mode is enabled diagnostic comparisons are printed to help identify data issues.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            current_index (int): Index of the current time slice.
+            previous_index (int): Index of the previous time slice used for differencing.
+            time_dim (str): Name of the time dimension.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: Accumulated total precipitation (current - previous) as a DataArray.
+        """
+        current_rainc, previous_rainc = self._extract_precipitation_pair(
+            dataset, 'rainc', current_index, previous_index, time_dim, data_type
+        )
+        current_rainnc, previous_rainnc = self._extract_precipitation_pair(
+            dataset, 'rainnc', current_index, previous_index, time_dim, data_type
+        )
+        
+        current_total = current_rainc + current_rainnc
+        previous_total = previous_rainc + previous_rainnc
+        
+        if self.verbose:
+            self._analyze_precipitation_diagnostics(current_total, previous_total, var_context='total')
+        
+        return current_total - previous_total
+
+    def _compute_single_variable_accumulation(self, dataset: xr.Dataset, var_name: str,
+                                             current_index: int, previous_index: int,
+                                             time_dim: str, data_type: str) -> xr.DataArray:
+        """
+        The function extracts the current and previous time slices for `var_name` and returns their difference. When verbose mode is enabled it will print diagnostic comparisons between the two slices to assist debugging.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            var_name (str): Precipitation variable name to process.
+            current_index (int): Index of the current time slice.
+            previous_index (int): Index of the previous time slice used for differencing.
+            time_dim (str): Name of the time dimension.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: Accumulated precipitation as DataArray (current - previous).
+        """
+        current_data, previous_data = self._extract_precipitation_pair(
+            dataset, var_name, current_index, previous_index, time_dim, data_type
+        )
+        
+        if self.verbose:
+            self._analyze_precipitation_diagnostics(current_data, previous_data, var_context=var_name)
+        
+        return current_data - previous_data
     
+    def _extract_sample_data_for_variable(self, dataset: xr.Dataset, var_name: str,
+                                         time_index: int, time_dim: str, 
+                                         data_type: str) -> xr.DataArray:
+        """
+        This helper is used when the accumulation lookback is insufficient (e.g., first time step). For `var_name == 'total'` it composes `rainc + rainnc`, otherwise it simply returns the variable at `time_index`.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            var_name (str): Variable name or 'total' for combined precipitation.
+            time_index (int): Time index to extract sample from.
+            time_dim (str): Name of the time dimension.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: Sample DataArray used for first-step or insufficient lookback handling.
+        """
+        if var_name == 'total':
+            rainc = self._extract_variable_at_time(dataset, 'rainc', time_index, time_dim, data_type)
+            rainnc = self._extract_variable_at_time(dataset, 'rainnc', time_index, time_dim, data_type)
+            return rainc + rainnc
+        else:
+            return self._extract_variable_at_time(dataset, var_name, time_index, time_dim, data_type)
+
+    def _create_precipitation_field_with_attributes(self, data: xr.DataArray, var_name: str,
+                                                   accum_period: str, accum_hours: int,
+                                                   is_insufficient_data: bool = False) -> xr.DataArray:
+        """
+        Negative values are set to zero and extreme sentinel values are removed. The returned DataArray is annotated with `units`, `standard_name`, `long_name`, `accumulation_period`, and `accumulation_hours`. When `is_insufficient_data` is True an explanatory `note` attribute is added.
+
+        Parameters:
+            data (xr.DataArray): Raw precipitation data to filter and annotate.
+            var_name (str): Variable context used to build descriptive long_name.
+            accum_period (str): Accumulation period identifier (e.g., 'a01h').
+            accum_hours (int): Number of accumulation hours.
+            is_insufficient_data (bool): Flag indicating insufficient lookback (default: False).
+
+        Returns:
+            xr.DataArray: Filtered and metadata-annotated precipitation DataArray.
+        """
+        # Apply quality filters
+        filtered_data = data.where(data >= 0, 0)
+        filtered_data = filtered_data.where(filtered_data < 1e5, 0)
+        
+        # Build long name based on data availability
+        if is_insufficient_data:
+            long_name = f'{accum_hours}-hour accumulated precipitation from {var_name} (insufficient data)'
+        else:
+            long_name = f'{accum_hours}-hour accumulated precipitation from {var_name}'
+        
+        # Set CF-compliant attributes
+        filtered_data.attrs.update({
+            'units': 'mm',
+            'standard_name': 'precipitation',
+            'long_name': long_name,
+            'accumulation_period': accum_period,
+            'accumulation_hours': accum_hours,
+        })
+        
+        # Add note for insufficient data case
+        if is_insufficient_data:
+            filtered_data.attrs['note'] = f'Insufficient historical data for {accum_hours}-hour accumulation'
+        
+        return filtered_data
+
+    def _handle_time_index_zero(self, dataset: xr.Dataset, time_dim: str, 
+                               var_name: str, accum_period: str, 
+                               accum_hours: int, data_type: str) -> xr.DataArray:
+        """
+        For time index zero the function returns the actual file data (not a differenced field) with filters and attributes applied. This preserves observed behavior at model start times while maintaining consistent metadata for downstream users.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            time_dim (str): Name of the time dimension.
+            var_name (str): Precipitation variable to extract.
+            accum_period (str): Accumulation period identifier.
+            accum_hours (int): Number of hours for the accumulation period.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: DataArray representing the precipitation at time index 0 with attributes.
+        """
+        if self.verbose:
+            print(f"Time index 0 requested - using actual data from file, variable: {var_name}")
+        
+        sample_data = self._extract_sample_data_for_variable(dataset, var_name, 0, time_dim, data_type)
+        return self._create_precipitation_field_with_attributes(
+            sample_data, var_name, accum_period, accum_hours, is_insufficient_data=False
+        )
+
+    def _handle_insufficient_lookback(self, dataset: xr.Dataset, time_dim: str,
+                                     time_index: int, var_name: str, 
+                                     accum_period: str, accum_hours: int,
+                                     data_type: str) -> xr.DataArray:
+        """
+        The routine constructs a zero field matching the requested variable shape and annotates it to indicate insufficient lookback, which helps downstream code differentiate real zero precipitation from missing historical information.
+
+        Parameters:
+            dataset (xr.Dataset): Source MPAS dataset.
+            time_dim (str): Name of the time dimension.
+            time_index (int): Current time index being processed.
+            var_name (str): Precipitation variable name.
+            accum_period (str): Accumulation period identifier.
+            accum_hours (int): Number of hours for the accumulation period.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: Zero-filled precipitation DataArray with metadata indicating insufficient data.
+        """
+        if self.verbose:
+            print(f"Warning: Time index {time_index} < required {accum_hours}-hour lookback")
+            print("Creating zero precipitation field for insufficient data")
+        
+        sample_data = self._extract_sample_data_for_variable(dataset, var_name, time_index, time_dim, data_type)
+        zero_precip = sample_data * 0.0
+        
+        return self._create_precipitation_field_with_attributes(
+            zero_precip, var_name, accum_period, accum_hours, is_insufficient_data=True
+        )
+
     def _handle_first_time_step(self, dataset: xr.Dataset, time_dim: str, time_index: int,
                                var_name: str, accum_period: str, accum_hours: int, 
                                data_type: str) -> xr.DataArray:
@@ -163,56 +354,14 @@ class PrecipitationDiagnostics:
             xr.DataArray: Precipitation data array at the specified time index with appropriate filtering and metadata, or zero precipitation field with explanatory note attribute if insufficient data is available.
         """
         try:
-            if var_name == 'total':
-                if data_type == 'uxarray':
-                    rainc_data = dataset['rainc'][time_index]
-                    rainnc_data = dataset['rainnc'][time_index]
-                else:
-                    rainc_data = dataset['rainc'].isel({time_dim: time_index})
-                    rainnc_data = dataset['rainnc'].isel({time_dim: time_index})
-                sample_data = rainc_data + rainnc_data
-            else:
-                if data_type == 'uxarray':
-                    sample_data = dataset[var_name][time_index]
-                else:
-                    sample_data = dataset[var_name].isel({time_dim: time_index})
-            
-            if hasattr(sample_data, 'compute'):
-                sample_data = cast(Any, sample_data).compute()
-            
             if time_index == 0:
-                if self.verbose:
-                    print(f"Time index 0 requested - using actual data from file, variable: {var_name}")
-                
-                hourly_precip_at_time = sample_data.where(sample_data >= 0, 0)
-                hourly_precip_at_time = hourly_precip_at_time.where(hourly_precip_at_time < 1e5, 0)
-                
-                long_name = f'{accum_hours}-hour accumulated precipitation from {var_name}'
-                hourly_precip_at_time.attrs.update({
-                    'units': 'mm',
-                    'standard_name': 'precipitation',
-                    'long_name': long_name,
-                    'accumulation_period': accum_period,
-                    'accumulation_hours': accum_hours,
-                })
-                
-                return hourly_precip_at_time
+                return self._handle_time_index_zero(
+                    dataset, time_dim, var_name, accum_period, accum_hours, data_type
+                )
             else:
-                if self.verbose:
-                    print(f"Warning: Time index {time_index} < required {accum_hours}-hour lookback")
-                    print("Creating zero precipitation field for insufficient data")
-                
-                zero_precip = sample_data * 0.0  
-                zero_precip.attrs.update({
-                    'units': 'mm',
-                    'standard_name': 'precipitation',
-                    'long_name': f'{accum_hours}-hour accumulated precipitation from {var_name} (insufficient data)',
-                    'accumulation_period': accum_period,
-                    'accumulation_hours': accum_hours,
-                    'note': f'Insufficient historical data for {accum_hours}-hour accumulation at time index {time_index}'
-                })
-                return zero_precip
-                
+                return self._handle_insufficient_lookback(
+                    dataset, time_dim, time_index, var_name, accum_period, accum_hours, data_type
+                )
         except Exception as e:
             if self.verbose:
                 print(f"Error handling first time step: {e}")
@@ -242,6 +391,102 @@ class PrecipitationDiagnostics:
         
         return data
     
+    def _extract_min_max_from_data(self, data: Any) -> tuple[float, float]:
+        """
+        The helper attempts to convert the provided object into numeric min/max floats suitable for printing. It centralizes error handling for cases where the input may not expose typical numpy-like min/max semantics.
+
+        Parameters:
+            data (Any): Array-like object (xarray.DataArray or numpy array) supporting min()/max().
+
+        Returns:
+            tuple[float, float]: (minimum_value, maximum_value) as Python floats.
+        """
+        return float(data.min()), float(data.max())
+
+    def _print_current_previous_comparison(self, current_data: Any, previous_data: Any, 
+                                          var_context: str) -> None:
+        """
+        The function extracts min/max for both inputs and prints ranges with a warning if the current maximum is less than the previous maximum which can indicate data loading or differencing issues. It is a diagnostic convenience invoked when verbose mode is enabled.
+
+        Parameters:
+            current_data (Any): Current time slice data array.
+            previous_data (Any): Previous time slice data array.
+            var_context (str): Context label used in printed messages.
+
+        Returns:
+            None: Only prints messages; does not modify data.
+        """
+        try:
+            curr_min, curr_max = self._extract_min_max_from_data(current_data)
+            prev_min, prev_max = self._extract_min_max_from_data(previous_data)
+            
+            var_label = var_context if var_context else "precipitation"
+            print(f"Current {var_label} range: {curr_min:.2f} to {curr_max:.2f} mm")
+            print(f"Previous {var_label} range: {prev_min:.2f} to {prev_max:.2f} mm")
+            
+            if curr_max < prev_max:
+                print(f"WARNING: Current max ({curr_max:.2f}) < Previous max ({prev_max:.2f}) - possible data loading issue!")
+        except Exception as e:
+            print(f"Could not analyze current/previous data: {e}")
+
+    def _compute_result_statistics(self, result_data: Any) -> Optional[dict[str, Any]]:
+        """
+        The routine extracts finite values, computes min/max/mean, counts points exceeding a small threshold, and returns these statistics in a dictionary suitable for printing or programmatic consumption. If no finite values are present the function returns None.
+
+        Parameters:
+            result_data (Any): Result DataArray or array-like object to analyze.
+
+        Returns:
+            Optional[dict[str, Any]]: Dictionary with keys 'min', 'max', 'mean', 'nonzero_count', 'total_count', 'nonzero_percentage', or None if no finite values available.
+        """
+        try:
+            data_values = result_data.values.flatten()
+            finite_values = data_values[np.isfinite(data_values)]
+            
+            if len(finite_values) == 0:
+                return None
+            
+            data_min = np.nanmin(finite_values)
+            data_max = np.nanmax(finite_values)
+            data_mean = np.nanmean(finite_values)
+            nonzero_count = np.sum(finite_values > 0.01)
+            total_count = len(finite_values)
+            nonzero_percentage = 100 * nonzero_count / total_count
+            
+            return {
+                'min': data_min,
+                'max': data_max,
+                'mean': data_mean,
+                'nonzero_count': nonzero_count,
+                'total_count': total_count,
+                'nonzero_percentage': nonzero_percentage
+            }
+        except Exception as e:
+            print(f"Could not compute result statistics: {e}")
+            return None
+
+    def _print_result_data_analysis(self, result_data: Any, var_context: str) -> None:
+        """
+        This function formats the output from `_compute_result_statistics` and prints range, mean, and spatial coverage of non-zero precipitation points with percentages. It is intended for diagnostic logging when verbose mode is enabled.
+
+        Parameters:
+            result_data (Any): Result DataArray or array-like object to analyze.
+            var_context (str): Context label used in printed messages.
+
+        Returns:
+            None: Only prints messages; does not modify data.
+        """
+        stats = self._compute_result_statistics(result_data)
+        
+        if stats is None:
+            print("Warning: No finite values found in result data")
+            return
+        
+        var_label = var_context if var_context else "precipitation"
+        print(f"Result {var_label} range: {stats['min']:.3f} to {stats['max']:.3f} mm")
+        print(f"Result {var_label} mean: {stats['mean']:.3f} mm")
+        print(f"Points with precipitation > 0.01 mm: {stats['nonzero_count']:,}/{stats['total_count']:,} ({stats['nonzero_percentage']:.1f}%)")
+
     def _analyze_precipitation_diagnostics(self, current_data: Any = None, previous_data: Any = None, 
                                          result_data: Any = None, var_context: str = "") -> None:
         """
@@ -260,39 +505,10 @@ class PrecipitationDiagnostics:
             return
         
         if current_data is not None and previous_data is not None:
-            try:
-                curr_min, curr_max = float(current_data.min()), float(current_data.max())
-                prev_min, prev_max = float(previous_data.min()), float(previous_data.max())
-                
-                var_label = var_context if var_context else "precipitation"
-                print(f"Current {var_label} range: {curr_min:.2f} to {curr_max:.2f} mm")
-                print(f"Previous {var_label} range: {prev_min:.2f} to {prev_max:.2f} mm")
-                
-                if curr_max < prev_max:
-                    print(f"WARNING: Current max ({curr_max:.2f}) < Previous max ({prev_max:.2f}) - possible data loading issue!")
-                    
-            except Exception as e:
-                print(f"Could not analyze current/previous data: {e}")
+            self._print_current_previous_comparison(current_data, previous_data, var_context)
         
         if result_data is not None:
-            try:
-                data_values = result_data.values.flatten()
-                finite_values = data_values[np.isfinite(data_values)]
-                
-                if len(finite_values) > 0:
-                    data_min, data_max = np.nanmin(finite_values), np.nanmax(finite_values)
-                    data_mean = np.nanmean(finite_values)
-                    nonzero_count = np.sum(finite_values > 0.01) 
-                    
-                    var_label = var_context if var_context else "precipitation"
-                    print(f"Result {var_label} range: {data_min:.3f} to {data_max:.3f} mm")
-                    print(f"Result {var_label} mean: {data_mean:.3f} mm")
-                    print(f"Points with precipitation > 0.01 mm: {nonzero_count:,}/{len(finite_values):,} ({100*nonzero_count/len(finite_values):.1f}%)")
-                else:
-                    print("Warning: No finite values found in result data")
-                    
-            except Exception as e:
-                print(f"Could not analyze result data: {e}")
+            self._print_result_data_analysis(result_data, var_context)
     
     def _print_time_slice_info(self, dataset: xr.Dataset, time_index: int, 
                               var_context: str = "", time_step_diff: int = 1) -> None:

@@ -34,6 +34,7 @@ from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+from mpasdiag.visualization.styling import MPASVisualizationStyle
 
 
 class MPASWindPlotter(MPASVisualizer):
@@ -253,12 +254,11 @@ class MPASWindPlotter(MPASVisualizer):
             )
             
             # Add a colorbar for streamlines to indicate wind speed values corresponding to streamline colors
-            from matplotlib import pyplot as plt
-            cbar = plt.colorbar(strm.lines, ax=ax, orientation='horizontal', 
-                               pad=0.05, shrink=0.8, aspect=40)
-            
-            # Set colorbar label with appropriate units and styling for clarity in interpreting wind speed from streamline colors
-            cbar.set_label('Wind Speed [m s$^{-1}$]', fontsize=12, fontweight='bold', labelpad=10)
+            cbar = MPASVisualizationStyle.add_colorbar(
+                plt.gcf(), ax, strm.lines,
+                label='Wind Speed [m s$^{-1}$]', orientation='horizontal',
+                fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=10, label_pos='top', tick_labelsize=10
+            )
         else:
             # Raise an error for unsupported plot types to ensure users are aware of valid options and prevent silent failures
             raise ValueError(f"plot_type must be 'barbs', 'arrows', or 'streamlines', got '{plot_type}'")

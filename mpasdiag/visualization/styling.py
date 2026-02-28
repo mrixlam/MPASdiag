@@ -20,11 +20,17 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from matplotlib.colorbar import Colorbar
+from matplotlib.cm import ScalarMappable
+from matplotlib.contour import QuadContourSet
+from matplotlib.collections import PathCollection, QuadMesh, LineCollection
+from matplotlib.image import AxesImage
 import cartopy.crs as ccrs
 import os
 import re
 from datetime import datetime
-from typing import Optional, Union, Tuple, List, Dict, Any
+from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
 
 from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.utils_unit import UnitConverter
@@ -487,17 +493,82 @@ class MPASVisualizationStyle:
         Returns:
             None: Modifies the figure in-place by adding text annotation.
         """
-        if fig is not None:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
-            
+        if fig is None:
+            return
+
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
+
+        try:
+            from .. import __version__
+            version_str = f"v{__version__}"
+        except ImportError:
+            version_str = "v1.1.2"
+
+        branding_text = f'Generated with MPASdiag {version_str} on: {timestamp}'
+
+        # Create or reuse a footer Axes so branding is placed in its own reserved area
+        try:
+            # Use a slightly larger footer to improve readability
+            footer_ax = MPASVisualizationStyle._create_footer_axes(fig, height=0.7, pad=0.02)
+            print("MPASVisualizationStyle: using footer axes for branding", flush=True)
+            footer_ax.text(0.001, -0.2, branding_text, va='center', ha='left', fontsize=9, alpha=0.85, transform=footer_ax.transAxes)
+        except Exception as e:
+            # Fallback to simple fig.text if anything goes wrong
+            print(f"MPASVisualizationStyle: footer failed ({e}), falling back to fig.text", flush=True)
+            fig.text(0.02, 0.02, branding_text, fontsize=8, alpha=0.7, transform=fig.transFigure)
+
+    @staticmethod
+    def _create_footer_axes(fig: Figure, height: float = 0.07, pad: float = 0.02) -> Axes:
+        """
+        Create a footer Axes reserved for branding/timestamp that is independent of tight_layout.
+
+        Parameters:
+            fig (Figure): Figure to attach footer to.
+            height (float): Height of the footer in figure-relative coordinates.
+            pad (float): Small bottom padding in figure-relative coordinates.
+
+        Returns:
+            Axes: The created or existing footer Axes.
+        """
+        # Reuse existing footer if present (identified by gid)
+        for ax in fig.axes:
             try:
-                from .. import __version__
-                version_str = f"v{__version__}"
-            except ImportError:
-                version_str = "v1.1.2"  
-            
-            fig.text(0.02, 0.02, f'Generated with MPASdiag {version_str} on: {timestamp}', 
-                         fontsize=8, alpha=0.7, transform=fig.transFigure)
+                if getattr(ax, 'get_gid', lambda: None)() == 'mpasdiag_footer':
+                    print('MPASVisualizationStyle: reusing existing footer axes', flush=True)
+                    return ax
+            except Exception:
+                continue
+
+        # Compute footer position: full-width with small left/right margins
+        left = 0.02
+        width = 0.96
+
+        # Detect horizontal colorbars near the bottom and place footer above them
+        colorbar_tops: List[float] = []
+        try:
+            for ax in fig.axes:
+                pos = ax.get_position()
+                # Heuristic for horizontal colorbar: wide, short height, located low in figure
+                if pos.width > 0.35 and pos.height < 0.12 and pos.y0 < 0.35:
+                    colorbar_tops.append(pos.y1)
+        except Exception:
+            colorbar_tops = []
+
+        gap = 0.03
+
+        if colorbar_tops:
+            # Place footer just above the highest colorbar top, with sensible cap
+            bottom = min(max(colorbar_tops) + gap, 0.18)
+            print(f"MPASVisualizationStyle: detected colorbar tops={colorbar_tops}, placing footer bottom={bottom}", flush=True)
+        else:
+            bottom = pad + 0.05
+            print(f"MPASVisualizationStyle: no colorbar detected, using pad bottom={bottom}", flush=True)
+
+        footer_ax = fig.add_axes((left, bottom, width, height), frameon=False, zorder=105)
+        footer_ax.set_gid('mpasdiag_footer')
+        footer_ax.set_axis_off()
+        print(f"MPASVisualizationStyle: created footer axes at {(left, bottom, width, height)}", flush=True)
+        return footer_ax
     
     @staticmethod
     def save_plot(fig: Figure, 
@@ -507,7 +578,7 @@ class MPASVisualizationStyle:
                   pad_inches: float = 0.1,
                   dpi: int = 100) -> None:
         """
-        Saves matplotlib figure to file(s) in multiple output formats with optimized compression settings for performance and quality balance. This method creates output directory if necessary, iterates through requested formats to save separate files with format-specific extensions, applies fast PNG compression (level 1 instead of default 6-9) for 5-10x faster file I/O with only 10-20% larger file sizes, uses tight bounding box mode to minimize whitespace around plots, and prints confirmation messages with full file paths. The method supports all matplotlib-savefig formats (png, pdf, svg, eps, jpg) and is designed for high-throughput diagnostic plotting where I/O performance matters more than maximum compression ratio.
+        Saves matplotlib figure to file(s) in multiple output formats with optimized compression settings for performance and quality balance. This method creates output directory if necessary, iterates through requested formats to save separate files with format-specific extensions, applies fast PNG compression (level 1 instead of default 6-9) for 5-10x faster file I/O with only 10-20% larger file sizes, uses tight bounding box mode to minimize whitespace around plots, and prints confirmation messages with full file paths. The method supports all matplotlib-savefig formats (png, pdf, svg, eps, jpg) and is designed for high-throughput diagnostic plotting where I/O performance matters more tha: n maximum compression ratio.
 
         Parameters:
             fig (Figure): Matplotlib Figure object to save to disk.
@@ -559,6 +630,128 @@ class MPASVisualizationStyle:
             "3D variable support not yet implemented. "
             "This function is a placeholder for future development."
         )
+
+    @staticmethod
+    def add_colorbar(fig: Figure,
+                     ax: Optional[Axes],
+                     mappable: Union[ScalarMappable, QuadContourSet, PathCollection, QuadMesh, LineCollection, AxesImage, Any],
+                     label: Optional[str] = None,
+                     orientation: str = 'horizontal',
+                     fraction: float = 0.03,
+                     pad: float = 0.12,
+                     shrink: float = 0.7,
+                     fmt: Union[str, None] = '%d',
+                     labelpad: float = 6.0,
+                     label_pos: Union[Literal['top', 'bottom'], Literal['left', 'right']] = 'top',
+                     tick_labelsize: int = 8) -> Optional[Colorbar]:
+        """
+        This method adds a colorbar to the provided figure and axes with flexible configuration options for label, orientation, size, padding, and tick formatting. It accepts a ScalarMappable object (e.g., QuadMesh, ContourSet) for which the colorbar is being created, along with optional parameters to customize the colorbar's appearance and layout. The method handles both horizontal and vertical orientations, allowing the label to be positioned appropriately based on orientation. It also supports custom tick label formatting through a format string or formatter object. The colorbar is added in-place to the provided figure and axes, and the method returns the created Colorbar object for further customization if needed.
+
+        Parameters:
+            fig (Figure): Matplotlib Figure to which the colorbar will be attached.
+            ax (Axes): Axes the colorbar is associated with.
+            mappable: The ScalarMappable (e.g., QuadMesh, ContourSet) for which the colorbar is being created.
+            label (str): Optional label string for the colorbar.
+            orientation (str): Colorbar orientation ('horizontal' or 'vertical').
+            fraction (float): Fraction of original axes to use for colorbar (default: 0.03).
+            pad (float): Padding between axes and colorbar (default: 0.12).
+            shrink (float): Fraction of original axes to shrink colorbar (default: 0.7).
+            fmt (str): Format string for colorbar tick labels (e.g., '%.2f' for 2 decimal places) or None to use default formatting.
+            labelpad (float): Padding between colorbar and its label (default: 6.0).
+            label_pos: Position of the colorbar label relative to the colorbar. For horizontal colorbars, valid options are 'top' or 'bottom'. For vertical colorbars, valid options are 'left' or 'right'. Default is 'top' for horizontal and 'right' for vertical.
+            tick_labelsize (int): Font size for colorbar tick labels (default: 8).
+
+        Returns:
+            None. Mutates the provided figure/axes in-place.
+        """
+        import matplotlib.ticker as mticker
+
+        if fig is None or ax is None or mappable is None:
+            return
+
+        cbar = fig.colorbar(mappable, ax=ax, orientation=orientation,
+                            fraction=fraction, pad=pad, shrink=shrink)
+
+        # Set label and its position based on orientation
+        if orientation.lower().startswith('h'):
+            try:
+                pos = cast(Literal['top', 'bottom'], label_pos)
+                cbar.ax.xaxis.set_label_position(pos)
+                ticks_pos = 'bottom' if pos == 'top' else 'top'
+                cbar.ax.xaxis.set_ticks_position(ticks_pos)
+            except Exception:
+                pass
+            if label is not None:
+                try:
+                    cbar.set_label(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
+                except Exception:
+                    cbar.ax.set_xlabel(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
+        else:
+            try:
+                pos = cast(Literal['left', 'right'], label_pos)
+                cbar.ax.yaxis.set_label_position(pos)
+                ticks_pos = 'left' if pos == 'right' else 'right'
+                cbar.ax.yaxis.set_ticks_position(ticks_pos)
+            except Exception:
+                pass
+            if label is not None:
+                try:
+                    cbar.set_label(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
+                except Exception:
+                    cbar.ax.set_ylabel(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
+
+        cbar.ax.tick_params(labelsize=tick_labelsize)
+
+        # Apply formatter if provided
+        if fmt is not None:
+            try:
+                if isinstance(fmt, str):
+                    cbar.formatter = mticker.FormatStrFormatter(fmt)
+                else:
+                    cbar.formatter = fmt
+                cbar.update_ticks()
+            except Exception:
+                # If formatting fails, leave default ticks
+                pass
+
+        return cbar
+
+    @staticmethod
+    def build_colorbar_label(var_metadata: Optional[Dict[str, Any]] = None,
+                             default_long_name: Optional[str] = None,
+                             default_units: Optional[str] = None) -> Optional[str]:
+        """
+        This method constructs a colorbar label string by intelligently combining variable metadata (long name and units) with fallback defaults. It checks for the presence of 'long_name' and 'units' in the provided metadata dictionary, applies fallbacks if metadata is missing, and formats the label in the form "Long Name [units]" while avoiding redundant unit annotations if the long name already includes units. If neither long name nor units are available, it returns None to indicate that no label should be displayed.
+
+        Parameters:
+            var_metadata (str): Optional metadata dict with keys 'long_name' and 'units'.
+            default_long_name (str): Fallback long name if metadata is None.
+            default_units (str): Fallback units if metadata is None.
+
+        Returns:
+            Optional[str]: Formatted label like 'Long Name [units]' or None if
+            neither long name nor units are available.
+        """
+        long_name = None
+        units = None
+        if isinstance(var_metadata, dict):
+            long_name = var_metadata.get('long_name') or var_metadata.get('longName')
+            units = var_metadata.get('units') or var_metadata.get('unit')
+
+        if long_name is None and default_long_name is not None:
+            long_name = default_long_name
+        if units is None and default_units is not None:
+            units = default_units
+
+        if long_name:
+            if units and f'[{units}]' in long_name:
+                return long_name
+            return f"{long_name} [{units}]" if units else long_name
+
+        if units:
+            return f"[{units}]"
+
+        return None
     
     @staticmethod
     def format_latitude(value: float, _) -> str:

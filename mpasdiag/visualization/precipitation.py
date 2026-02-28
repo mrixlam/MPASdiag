@@ -780,28 +780,24 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             unit_label (str): Unit label for colorbar.
             color_levels (List[float]): Contour levels for tick labels.
         """
-        # Ensure figure exists before adding colorbar
+        # Ensure figure exists
         assert self.fig is not None, "Figure must exist before adding colorbar"
-        
-        # Add horizontal colorbar below the plot with specified padding and aspect ratio
-        cbar = self.fig.colorbar(
-            mappable, ax=self.ax, orientation='horizontal',
-            extend='both', pad=0.06, shrink=0.8, aspect=30
+
+        # Use centralized styling helper
+        cbar = MPASVisualizationStyle.add_colorbar(
+            self.fig, self.ax, mappable,
+            label=f'Precipitation [{unit_label}]',
+            orientation='horizontal', fraction=0.03, pad=0.06, shrink=0.8,
+            fmt=None, labelpad=-50, label_pos='top', tick_labelsize=8
         )
 
-        # Set colorbar label with units and styling
-        cbar.set_label(
-            f'Precipitation [{unit_label}]',
-            fontsize=12, fontweight='bold', labelpad=-50
-        )
-
-        # Adjust tick label size for readability
-        cbar.ax.tick_params(labelsize=8)
-        
-        # Set colorbar ticks to contour levels if not too many levels for readability
-        if len(color_levels) <= 15:
-            cbar.set_ticks(color_levels)
-            cbar.set_ticklabels(self._format_ticks_dynamic(color_levels))
+        # If contour levels are reasonable in number, set ticks to match levels
+        if cbar is not None and len(color_levels) <= 15:
+            try:
+                cbar.set_ticks(color_levels)
+                cbar.set_ticklabels(self._format_ticks_dynamic(color_levels))
+            except Exception:
+                pass
     
     def _prepare_overlay_data(
         self,
@@ -1812,20 +1808,20 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Ensure at least one subplot has valid data for the colorbar
         assert scatter is not None, "At least one subplot must have valid data for colorbar"
 
-        # Position colorbar below the two panels, centered, with appropriate padding and aspect ratio
-        cbar = self.fig.colorbar(scatter, ax=axes, orientation='horizontal', extend='both',
-                               pad=0.08, shrink=0.6, aspect=30)
-        
-        # Set colorbar label and tick parameters for readability
-        cbar.set_label('Precipitation [mm]', fontsize=12, fontweight='bold')
-        cbar.ax.tick_params(labelsize=8)
-        
-        if len(color_levels_sorted) <= 15:
-            # Set colorbar ticks to match contour levels for direct interpretation
-            cbar.set_ticks(color_levels_sorted)
+        # Position colorbar below the two panels, centered, with consistent styling
+        cbar = MPASVisualizationStyle.add_colorbar(
+            self.fig, self.ax, scatter,
+            label='Precipitation [mm]', orientation='horizontal',
+            fraction=0.03, pad=0.08, shrink=0.6, fmt=None, labelpad=0,
+            label_pos='top', tick_labelsize=8
+        )
 
-            # Format tick labels dynamically based on value range and magnitude for better readability
-            cbar.set_ticklabels(self._format_ticks_dynamic(color_levels_sorted))
+        if cbar is not None and len(color_levels_sorted) <= 15:
+            try:
+                cbar.set_ticks(color_levels_sorted)
+                cbar.set_ticklabels(self._format_ticks_dynamic(color_levels_sorted))
+            except Exception:
+                pass
         
         # Add timestamp and branding to the figure
         self.add_timestamp_and_branding()

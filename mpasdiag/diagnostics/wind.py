@@ -17,36 +17,31 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import Tuple, Union, Optional, Any, cast
+from typing import Tuple, Union, Optional, Any, cast, Dict
 
 WIND_SPEED_UNITS = 'm s^{-1}'
 
 
 class WindDiagnostics:
     """
-    Specialized diagnostics for wind calculations from MPAS data.
-    
-    This class provides methods for wind component analysis, wind speed calculations,
-    and wind direction computations from MPAS model output.
+    This class provides methods for wind component analysis, wind speed calculations, and wind direction computations from MPAS model output.
     """
     
     def __init__(self, verbose: bool = True) -> None:
         """
-        Initialize the WindDiagnostics class for analyzing wind data from MPAS model output.
-        
-        This constructor sets up the wind diagnostics instance with configurable verbosity for controlling console output during wind calculations. The verbose parameter allows users to enable or disable detailed diagnostic messages during wind component extraction, speed calculations, and direction computations. This initialization prepares the instance for subsequent wind analysis operations on MPAS datasets.
-        
+        This constructor configures the diagnostics object with verbosity controls used across wind processing methods. Verbose mode enables runtime diagnostic printing useful during debugging and interactive use. The instance is lightweight and stateless aside from the `verbose` attribute.
+
         Parameters:
             verbose (bool): Enable verbose output messages during wind calculations (default: True).
-        
+
         Returns:
-            None
+            None: This constructor does not return a value.
         """
         self.verbose = verbose
     
     def compute_wind_speed(self, u_component: xr.DataArray, v_component: xr.DataArray) -> xr.DataArray:
         """
-        Compute horizontal wind speed magnitude from U and V wind components using vector magnitude calculation. This method calculates the Euclidean norm of the horizontal wind vector by taking the square root of the sum of squared U and V components. The computation preserves xarray metadata and attributes while applying numpy's efficient mathematical operations. The resulting wind speed data array includes proper units, standard name, and long name attributes following CF conventions. If verbose mode is enabled, the method prints diagnostic information about the input component ranges and output speed statistics.
+        This function computes the Euclidean magnitude of the horizontal wind vector (sqrt(u^2 + v^2)) and preserves xarray attributes on the result. It sets CF-like metadata including `units`, `standard_name`, and `long_name`. When verbose is enabled the method prints summary statistics for inputs and the resulting speed.
 
         Parameters:
             u_component (xr.DataArray): U (zonal) wind component in meters per second.
@@ -82,7 +77,7 @@ class WindDiagnostics:
     def compute_wind_direction(self, u_component: xr.DataArray, v_component: xr.DataArray, 
                              degrees: bool = True) -> xr.DataArray:
         """
-        Compute meteorological wind direction from U and V components following standard conventions. This method calculates the direction from which the wind is blowing using arctan2 to determine the angle from the wind vector components. The result follows the meteorological convention where 0 degrees represents wind from the north, 90 degrees from the east, 180 degrees from the south, and 270 degrees from the west. The calculation preserves xarray metadata and can return results in either degrees or radians based on the degrees parameter. If verbose mode is enabled, the method prints diagnostic information about the computed direction range and mean values.
+        The function computes the angle from the wind vector using arctan2 and converts it to the meteorological convention (direction the wind is coming from). Results may be returned in degrees (default) or radians depending on the `degrees` flag. Xarray attributes are preserved and a descriptive `note` attribute is added. If verbose is enabled, summary statistics are printed.
 
         Parameters:
             u_component (xr.DataArray): U (zonal) wind component in meters per second.
@@ -90,7 +85,7 @@ class WindDiagnostics:
             degrees (bool): Return direction in degrees if True, radians if False (default: True).
 
         Returns:
-            xr.DataArray: Wind direction following meteorological convention where direction indicates where wind is coming from, with 0=North, 90=East, 180=South, 270=West for degrees or 0=North, π/2=East, π=South, 3π/2=West for radians.
+            xr.DataArray: Wind direction with CF-like metadata. In degrees: 0=North, 90=East, 180=South, 270=West; in radians: 0=North, π/2=East, π=South, 3π/2=West.
         """
         direction_rad = xr.apply_ufunc(
             np.arctan2,
@@ -141,9 +136,9 @@ class WindDiagnostics:
             return direction_rad
     
     def analyze_wind_components(self, u_component: xr.DataArray, v_component: xr.DataArray, 
-                               w_component: Optional[xr.DataArray] = None) -> dict:
+                               w_component: Optional[xr.DataArray] = None) -> Dict[str, Any]:
         """
-        Perform comprehensive statistical analysis of wind components and compute derived quantities. This method extracts minimum, maximum, mean, and standard deviation values for each wind component and calculates derived quantities including horizontal wind speed and wind direction. If a vertical wind component is provided, the method also computes full 3D wind speed statistics. The results are organized in a dictionary structure with separate entries for each component and derived field. If verbose mode is enabled, the method prints a formatted summary of all computed statistics to the console.
+        This routine computes min, max, mean, and standard deviation for U and V components and derives horizontal wind speed and meteorological direction. If a vertical component `w_component` is supplied, full 3D speed statistics are computed and included in the result. The output is a dictionary keyed by variable name containing numeric summaries and units.
 
         Parameters:
             u_component (xr.DataArray): U (zonal) wind component in meters per second.
@@ -151,7 +146,7 @@ class WindDiagnostics:
             w_component (Optional[xr.DataArray]): W (vertical) wind component in meters per second (default: None).
 
         Returns:
-            dict: Dictionary containing comprehensive wind analysis results with keys 'u_component', 'v_component', 'horizontal_speed', 'direction', and optionally 'w_component' and 'total_speed' if vertical component is provided, each containing min, max, mean, std, and units.
+            Dict[str, Any]: Dictionary of analysis results. Keys include 'u_component', 'v_component', 'horizontal_speed', 'direction', and optionally 'w_component' and 'total_speed'. Each entry contains summary statistics (`min`, `max`, `mean`, `std`) and `units`.
         """
         analysis = {}
         
@@ -223,7 +218,7 @@ class WindDiagnostics:
     def compute_wind_shear(self, u_upper: xr.DataArray, v_upper: xr.DataArray,
                           u_lower: xr.DataArray, v_lower: xr.DataArray) -> Tuple[xr.DataArray, xr.DataArray]:
         """
-        Compute wind shear magnitude and direction between two vertical levels. This method calculates the vector difference between upper and lower level wind components and derives the shear magnitude using Euclidean distance. The shear direction is computed following meteorological conventions to indicate the direction toward which the shear vector points. The computation preserves xarray metadata and adds appropriate CF-compliant attributes to the output data arrays. If verbose mode is enabled, the method prints diagnostic information about the computed shear magnitude range and mean values.
+        The method computes the vector difference (upper - lower) for U and V components, derives the Euclidean shear magnitude, and computes the meteorological shear direction in degrees. Both outputs preserve xarray metadata and include CF-like attributes for units and descriptive names.
 
         Parameters:
             u_upper (xr.DataArray): U component at upper level in meters per second.
@@ -232,7 +227,7 @@ class WindDiagnostics:
             v_lower (xr.DataArray): V component at lower level in meters per second.
 
         Returns:
-            Tuple[xr.DataArray, xr.DataArray]: Two-element tuple containing (shear_magnitude, shear_direction) where magnitude is in meters per second and direction follows meteorological convention in degrees.
+            Tuple[xr.DataArray, xr.DataArray]: (shear_magnitude, shear_direction) where magnitude is in meters per second and direction is in degrees using meteorological convention.
         """
         du = u_upper - u_lower
         dv = v_upper - v_lower
@@ -259,6 +254,240 @@ class WindDiagnostics:
         
         return shear_magnitude, shear_direction
 
+    def _validate_3d_variable(self, dataset: xr.Dataset, var_name: str) -> None:
+        """
+        Checks that the variable name is present in `dataset.data_vars` and that it contains a recognized vertical dimension ('nVertLevels' or 'nVertLevelsP1'). If either check fails, a ValueError is raised. 
+
+        Parameters:
+            dataset (xr.Dataset): Input xarray dataset containing variables.
+            var_name (str): Variable name to validate.
+
+        Returns:
+            None: Raises ValueError if validation fails.
+        """
+        if var_name not in dataset.data_vars:
+            raise ValueError(f"Variable '{var_name}' not found in dataset")
+        
+        var_dims = dataset[var_name].dims
+
+        if 'nVertLevels' not in var_dims and 'nVertLevelsP1' not in var_dims:
+            raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
+
+    def _get_vertical_dimension(self, dataset: xr.Dataset, var_name: str) -> str:
+        """
+        The function inspects the variable dimensions and returns 'nVertLevels' when present, otherwise 'nVertLevelsP1'.
+
+        Parameters:
+            dataset (xr.Dataset): Input dataset containing the variable.
+            var_name (str): Variable name to inspect.
+
+        Returns:
+            str: The vertical dimension name ('nVertLevels' or 'nVertLevelsP1').
+        """
+        var_dims = dataset[var_name].dims
+        return 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
+
+    def _compute_level_index_from_pressure(self, dataset: xr.Dataset, pressure_level: float, 
+                                          time_dim: str, time_index: int) -> int:
+        """
+        This helper reads `pressure_p` and `pressure_base` from the dataset, forms the full pressure profile, computes the mean pressure over cells, and finds the vertical index whose mean pressure is closest to the requested value. If verbose is enabled, it prints the requested pressure and the actual pressure at the selected level. 
+
+        Parameters:
+            dataset (xr.Dataset): Dataset containing pressure diagnostics.
+            pressure_level (float): Requested pressure level in Pascals.
+            time_dim (str): Time dimension name in the dataset.
+            time_index (int): Time index to select.
+
+        Returns:
+            int: Vertical level index corresponding to the nearest pressure level.
+        """
+        if 'pressure_p' not in dataset or 'pressure_base' not in dataset:
+            raise ValueError("Cannot find pressure level - pressure data not available")
+        
+        pressure_p = dataset['pressure_p'].isel({time_dim: time_index})
+        pressure_base = dataset['pressure_base'].isel({time_dim: time_index})
+        total_pressure = pressure_p + pressure_base
+        
+        mean_pressure = total_pressure.mean(dim='nCells')
+        pressure_diff = np.abs(mean_pressure - pressure_level)
+        level_idx = int(pressure_diff.argmin())
+        
+        if self.verbose:
+            target_p = mean_pressure.isel(nVertLevels=level_idx).values
+            print(f"Requested pressure: {pressure_level:.1f} Pa, using level {level_idx}: {target_p:.1f} Pa")
+        
+        return level_idx
+
+    def _compute_level_index(self, dataset: xr.Dataset, var_name: str, 
+                            level_spec: Union[str, int, float],
+                            time_dim: str, time_index: int) -> int:
+        """
+        Accepted `level_spec` formats are integer model levels, float pressure values (in Pa) which are resolved via pressure diagnostics, or string identifiers 'surface' and 'top'. Validation against available levels is performed and a ValueError is raised for invalid specifications.
+
+        Parameters:
+            dataset (xr.Dataset): Dataset containing the variable and vertical dims.
+            var_name (str): Variable name used to determine vertical dimension.
+            level_spec (Union[str, int, float]): Level specifier (index, pressure in Pa, or 'surface'/'top').
+            time_dim (str): Time dimension name.
+            time_index (int): Time index to use for pressure-based lookup.
+
+        Returns:
+            int: Resolved model vertical level index.
+        """
+        vertical_dim = self._get_vertical_dimension(dataset, var_name)
+        
+        if isinstance(level_spec, int):
+            level_idx = level_spec
+            max_levels = dataset.sizes.get(vertical_dim, 0)
+            if level_idx >= max_levels:
+                raise ValueError(f"Model level {level_idx} exceeds available levels {max_levels}")
+            return level_idx
+            
+        elif isinstance(level_spec, float):
+            return self._compute_level_index_from_pressure(dataset, level_spec, time_dim, time_index)
+            
+        elif isinstance(level_spec, str):
+            if level_spec.lower() == 'surface':
+                return 0
+            elif level_spec.lower() == 'top':
+                return dataset.sizes.get(vertical_dim, 1) - 1
+            else:
+                raise ValueError(f"Unknown level specification: {level_spec}")
+        else:
+            raise ValueError(f"Invalid level specification: {level_spec}")
+
+    def _extract_variable_slice(self, dataset: xr.Dataset, var_name: str, 
+                               time_dim: str, time_index: int, 
+                               vertical_dim: str, level_idx: int,
+                               data_type: str) -> xr.DataArray:
+        """
+        Supports both 'xarray' and 'uxarray' style access patterns and calls `.compute()` when the returned object exposes that method. The returned DataArray preserves attributes and is annotated with selected level info by the calling functions.
+
+        Parameters:
+            dataset (xr.Dataset): Source dataset containing the variable.
+            var_name (str): Name of the variable to extract.
+            time_dim (str): Name of the time dimension.
+            time_index (int): Time index to select.
+            vertical_dim (str): Name of the vertical dimension.
+            level_idx (int): Vertical level index to select.
+            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+
+        Returns:
+            xr.DataArray: Extracted DataArray for the requested time and level.
+        """
+        if data_type == 'uxarray' and hasattr(dataset, '__getitem__'):
+            var_data = dataset[var_name][time_index].isel({vertical_dim: level_idx})
+        else:
+            var_data = dataset[var_name].isel({time_dim: time_index, vertical_dim: level_idx})
+        
+        if hasattr(var_data, 'compute'):
+            var_data = cast(Any, var_data).compute()
+        
+        return var_data
+
+    def get_3d_variable_at_level(self, dataset: xr.Dataset, var_name: str, 
+                                level: Union[str, int, float], 
+                                time_index: int, data_type: str = 'xarray') -> xr.DataArray:
+        """
+        The function accepts integer model levels, float pressure values (Pa), or string identifiers ('surface', 'top') for `level`. It validates that the target variable is 3D, resolves the correct vertical index, and returns a CF-compliant xarray DataArray annotated with `selected_level` and `level_index` attributes.
+
+        Parameters:
+            dataset (xr.Dataset): MPAS 3D dataset containing the variable.
+            var_name (str): Name of the variable to extract.
+            level (Union[str, int, float]): Vertical level (index, pressure Pa, or 'surface'/'top').
+            time_index (int): Time index to extract from dataset.
+            data_type (str): Dataset type specification, either 'xarray' or 'uxarray' (default: 'xarray').
+
+        Returns:
+            xr.DataArray: Extracted variable data at the specified level and time with metadata attributes `selected_level` and `level_index`.
+
+        Raises:
+            ValueError: If the variable is not found or is not 3D.
+        """
+        from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
+        
+        self._validate_3d_variable(dataset, var_name)
+        
+        time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(
+            dataset, time_index, self.verbose
+        )
+        
+        level_idx = self._compute_level_index(dataset, var_name, level, time_dim, validated_time_index)
+        vertical_dim = self._get_vertical_dimension(dataset, var_name)
+        
+        var_data = self._extract_variable_slice(
+            dataset, var_name, time_dim, validated_time_index, 
+            vertical_dim, level_idx, data_type
+        )
+        
+        var_data.attrs['selected_level'] = level
+        var_data.attrs['level_index'] = level_idx
+        
+        return var_data
+
+    def _extract_w_component_with_fallback(self, dataset: xr.Dataset, w_variable: str,
+                                          level: Union[str, int, float], time_index: int,
+                                          data_type: str, u_data: xr.DataArray) -> xr.DataArray:
+        """
+        If extraction of `w_variable` fails (missing variable or index errors), the function returns a zero-filled DataArray matching `u_data` shape and assigns descriptive metadata explaining the fallback.
+
+        Parameters:
+            dataset (xr.Dataset): Source dataset to extract from.
+            w_variable (str): Name of the vertical velocity variable.
+            level (Union[str, int, float]): Vertical level specification.
+            time_index (int): Time index to extract.
+            data_type (str): Dataset access style ('xarray' or 'uxarray').
+            u_data (xr.DataArray): Reference DataArray used to shape the fallback zeros.
+
+        Returns:
+            xr.DataArray: Extracted W component or zero-filled fallback with metadata.
+        """
+        try:
+            return self.get_3d_variable_at_level(dataset, w_variable, level, time_index, data_type)
+        except (ValueError, IndexError) as e:
+            if self.verbose:
+                print(f"Warning: Could not extract {w_variable} at level {level}: {e}")
+                print("Setting W component to zero...")
+            w_data = xr.zeros_like(u_data)
+            w_data.attrs['units'] = WIND_SPEED_UNITS
+            w_data.attrs['long_name'] = f'Zero vertical velocity (could not extract {w_variable})'
+            return w_data
+
+    def _print_wind_component_diagnostics(self, u_data: xr.DataArray, v_data: xr.DataArray,
+                                         w_data: xr.DataArray, u_variable: str, 
+                                         v_variable: str, w_variable: str) -> None:
+        """
+        Displays min/max ranges for U, V, and W components and horizontal wind speed summary. Also prints the units attribute extracted from `u_data`.
+
+        Parameters:
+            u_data (xr.DataArray): Extracted U-component DataArray.
+            v_data (xr.DataArray): Extracted V-component DataArray.
+            w_data (xr.DataArray): Extracted W-component DataArray.
+            u_variable (str): Name of the U variable used for messaging.
+            v_variable (str): Name of the V variable used for messaging.
+            w_variable (str): Name of the W variable used for messaging.
+
+        Returns:
+            None: Diagnostic printing only.
+        """
+        if not self.verbose:
+            return
+        
+        wind_speed = np.sqrt(u_data**2 + v_data**2)
+        
+        u_min, u_max = float(u_data.min()), float(u_data.max())
+        v_min, v_max = float(v_data.min()), float(v_data.max())
+        w_min, w_max = float(w_data.min()), float(w_data.max())
+        wind_min, wind_max = float(wind_speed.min()), float(wind_speed.max())
+        
+        print(f"Wind component {u_variable} range: {u_min:.2f} to {u_max:.2f} m/s")
+        print(f"Wind component {v_variable} range: {v_min:.2f} to {v_max:.2f} m/s") 
+        print(f"Wind component {w_variable} range: {w_min:.2f} to {w_max:.2f} m/s")
+        print(f"Horizontal wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
+        
+        u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
+        print(f"Units: {u_units}")
+
     def get_3d_wind_components(self, dataset: xr.Dataset, u_variable: str, v_variable: str, 
                                w_variable: str = 'w', level: Union[str, int, float] = 0, 
                                time_index: int = 0, data_type: str = 'xarray') -> Tuple[xr.DataArray, xr.DataArray, xr.DataArray]:
@@ -280,114 +509,22 @@ class WindDiagnostics:
         Raises:
             ValueError: If wind variables are not found in dataset or if level specification is invalid.
         """
-        from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
-        
         if self.verbose:
             print(f"Extracting 3D wind components {u_variable}, {v_variable}, {w_variable} at level {level}, time index {time_index}")
         
-        def get_3d_variable_at_level(var_name: str, level_spec: Union[str, int, float], 
-                                     time_idx: int) -> xr.DataArray:
-            """Extract 3D variable data at specific level and time."""
-            if var_name not in dataset.data_vars:
-                raise ValueError(f"Variable '{var_name}' not found in dataset")
-            
-            var_dims = dataset[var_name].dims
-            if 'nVertLevels' not in var_dims and 'nVertLevelsP1' not in var_dims:
-                raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
-            
-            time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(dataset, time_idx, self.verbose)
-            
-            if isinstance(level_spec, int):
-                level_idx = level_spec
-                vertical_dim = 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
-                max_levels = dataset.sizes.get(vertical_dim, 0)
-                if level_idx >= max_levels:
-                    raise ValueError(f"Model level {level_idx} exceeds available levels {max_levels}")
-                    
-            elif isinstance(level_spec, float):
-                if 'pressure_p' in dataset and 'pressure_base' in dataset:
-                    pressure_p = dataset['pressure_p'].isel({time_dim: validated_time_index})
-                    pressure_base = dataset['pressure_base'].isel({time_dim: validated_time_index})
-                    total_pressure = pressure_p + pressure_base
-                    
-                    mean_pressure = total_pressure.mean(dim='nCells')
-                    pressure_diff = np.abs(mean_pressure - level_spec)
-                    level_idx = int(pressure_diff.argmin())
-                    
-                    if self.verbose:
-                        target_p = mean_pressure.isel(nVertLevels=level_idx).values
-                        print(f"Requested pressure: {level_spec:.1f} Pa, using level {level_idx}: {target_p:.1f} Pa")
-                else:
-                    raise ValueError("Cannot find pressure level - pressure data not available")
-                    
-            elif isinstance(level_spec, str):
-                if level_spec.lower() == 'surface':
-                    level_idx = 0
-                elif level_spec.lower() == 'top':
-                    vertical_dim = 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
-                    level_idx = dataset.sizes.get(vertical_dim, 1) - 1
-                else:
-                    raise ValueError(f"Unknown level specification: {level_spec}")
-            else:
-                raise ValueError(f"Invalid level specification: {level_spec}")
-            
-            vertical_dim = 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
-            
-            if data_type == 'uxarray' and hasattr(dataset, '__getitem__'):
-                var_data = dataset[var_name][validated_time_index].isel({vertical_dim: level_idx})
-            else:
-                var_data = dataset[var_name].isel({time_dim: validated_time_index, vertical_dim: level_idx})
-            
-            if hasattr(var_data, 'compute'):
-                var_data = cast(Any, var_data).compute()
-            
-            if hasattr(var_data, 'attrs'):
-                var_data.attrs['selected_level'] = level_spec
-                var_data.attrs['level_index'] = level_idx
-            
-            return var_data
-        
         try:
-            u_data = get_3d_variable_at_level(u_variable, level, time_index)
-            v_data = get_3d_variable_at_level(v_variable, level, time_index)
+            u_data = self.get_3d_variable_at_level(dataset, u_variable, level, time_index, data_type)
+            v_data = self.get_3d_variable_at_level(dataset, v_variable, level, time_index, data_type)
+            w_data = self._extract_w_component_with_fallback(dataset, w_variable, level, time_index, data_type, u_data)
             
-            try:
-                w_data = get_3d_variable_at_level(w_variable, level, time_index)
-            except (ValueError, IndexError) as e:
-                if self.verbose:
-                    print(f"Warning: Could not extract {w_variable} at level {level}: {e}")
-                    print("Setting W component to zero...")
-                w_data = xr.zeros_like(u_data)
-                w_data.attrs['units'] = WIND_SPEED_UNITS
-                w_data.attrs['long_name'] = f'Zero vertical velocity (could not extract {w_variable})'
-            
-            wind_speed = np.sqrt(u_data**2 + v_data**2)
-            
-            u_min, u_max = float(u_data.min()), float(u_data.max())
-            v_min, v_max = float(v_data.min()), float(v_data.max())
-            w_min, w_max = float(w_data.min()), float(w_data.max())
-            wind_min, wind_max = float(wind_speed.min()), float(wind_speed.max())
-            
-            if self.verbose:
-                print(f"Wind component {u_variable} range: {u_min:.2f} to {u_max:.2f} m/s")
-                print(f"Wind component {v_variable} range: {v_min:.2f} to {v_max:.2f} m/s") 
-                print(f"Wind component {w_variable} range: {w_min:.2f} to {w_max:.2f} m/s")
-                print(f"Horizontal wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
-                
-                u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
-                print(f"Units: {u_units}")
+            self._print_wind_component_diagnostics(u_data, v_data, w_data, u_variable, v_variable, w_variable)
             
             return u_data, v_data, w_data
             
         except ValueError as e:
             available_vars = list(dataset.data_vars.keys())
-            missing_vars = []
-            if u_variable not in available_vars:
-                missing_vars.append(u_variable)
-            if v_variable not in available_vars:
-                missing_vars.append(v_variable)
-            if w_variable not in available_vars:
-                missing_vars.append(w_variable)
+            missing_vars = [var for var in [u_variable, v_variable, w_variable] 
+                           if var not in available_vars]
             
             if missing_vars:
                 raise ValueError(f"3D wind variables {missing_vars} not found in dataset. Available variables: {available_vars[:20]}...")

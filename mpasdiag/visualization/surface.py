@@ -40,6 +40,7 @@ from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon_with_masking
+from .styling import MPASVisualizationStyle
 
 
 class MPASSurfacePlotter(MPASVisualizer):
@@ -866,41 +867,6 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the longitude mesh, latitude mesh, and interpolated data array for use in contour plotting.
         return lon_mesh, lat_mesh, data_interp
 
-    def _add_colorbar_with_metadata(self, mappable: Any) -> None:
-        """
-        The helper constructs a descriptive label from `_current_var_metadata` (combining long name and units) and applies dynamic tick formatting for consistent presentation. The colorbar is added to `self.fig` below the axes and configured with standardized padding and sizing. It ensures that the colorbar is informative and visually integrated with the overall figure layout. The method includes debug print statements to confirm that the colorbar has been added and to display the constructed label, which can assist in troubleshooting and verifying that the colorbar is configured correctly with the appropriate metadata information.
-
-        Parameters:
-            mappable (Any): A matplotlib ScalarMappable (e.g., the result of scatter or contourf).
-
-        Returns:
-            None: Modifies `self.fig`/`self.ax` in-place by adding a colorbar.
-        """
-        # Ensure that the figure is initialized before attempting to add a colorbar
-        assert self.fig is not None, "Figure must be created before adding colorbar"
-        
-        # Add a horizontal colorbar below the axes with specified padding and shrinkage to ensure it fits well with the overall figure layout. 
-        cbar = self.fig.colorbar(mappable, ax=self.ax, orientation='horizontal', extend='both',
-                               pad=0.06, shrink=0.8, aspect=30)
-        
-        # If variable metadata is available, we construct a colorbar label that combines the long name and units in a clear format.
-        if hasattr(self, '_current_var_metadata') and self._current_var_metadata:
-            var_units = self._current_var_metadata.get('units', '')
-            var_long_name = self._current_var_metadata.get('long_name', 'Value')
-            if var_units and f'[{var_units}]' in var_long_name:
-                cbar_label = var_long_name
-            else:
-                cbar_label = f"{var_long_name} [{var_units}]" if var_units else var_long_name
-            cbar.set_label(cbar_label, fontsize=12, fontweight='bold', labelpad=-60)
-        
-        # Apply dynamic tick formatting to the colorbar to ensure that tick labels are presented in a consistent and readable format 
-        try:
-            ticks = cbar.get_ticks().tolist()
-            cbar.set_ticks(ticks)
-            cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-            cbar.ax.tick_params(labelsize=8)
-        except Exception:
-            pass
 
     def _create_scatter_plot(
         self,
@@ -961,8 +927,28 @@ class MPASSurfacePlotter(MPASVisualizer):
                                cmap=cmap_obj, norm=norm, s=marker_size, alpha=alpha_val,
                                transform=data_crs, edgecolors='none')
         
-        # After creating the scatter plot, we add a colorbar to the figure that is linked to the scatter plot's colormap and normalization
-        self._add_colorbar_with_metadata(scatter)
+        # After creating the scatter plot, add a colorbar using the centralized helper
+        try:
+            from mpasdiag.visualization.styling import MPASVisualizationStyle
+            cbar_label = MPASVisualizationStyle.build_colorbar_label(getattr(self, '_current_var_metadata', None))
+
+            # Add a horizontal colorbar below the plot with the appropriate label and formatting
+            cbar = MPASVisualizationStyle.add_colorbar(
+                self.fig, self.ax, scatter,
+                label=cbar_label,
+                orientation='horizontal',
+                fraction=0.03, pad=0.06, shrink=0.8,
+                fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
+            )
+
+            # If the colorbar was successfully created, adjust the ticks to use dynamic formatting 
+            if cbar is not None:
+                ticks = cbar.get_ticks().tolist()
+                cbar.set_ticks(ticks)
+                cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
+                cbar.ax.tick_params(labelsize=8)
+        except Exception:
+            pass
     
     def _create_contour_plot(
         self,
@@ -1093,8 +1079,29 @@ class MPASSurfacePlotter(MPASVisualizer):
             cs = self.ax.contourf(lon_mesh, lat_mesh, data_interp,
                                 cmap=cmap_obj, norm=norm, transform=data_crs, extend='both')
 
-        # After creating the filled contour plot, we add a colorbar to the figure that is linked to the contourf's colormap and normalization
-        self._add_colorbar_with_metadata(cs)
+        # After creating the filled contour plot, add a colorbar using the centralized helper
+        try:
+            from mpasdiag.visualization.styling import MPASVisualizationStyle
+            cbar_label = MPASVisualizationStyle.build_colorbar_label(getattr(self, '_current_var_metadata', None))
+
+            # Generate a horizontal colorbar with the specified label and formatting options 
+            cbar = MPASVisualizationStyle.add_colorbar(
+                self.fig, self.ax, cs,
+                label=cbar_label,
+                orientation='horizontal',
+                fraction=0.03, pad=0.06, shrink=0.8,
+                fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
+            )
+
+            # If a colorbar was successfully created, format the tick labels dynamically
+            if cbar is not None:
+                ticks = cbar.get_ticks().tolist()
+                cbar.set_ticks(ticks)
+                cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
+                cbar.ax.tick_params(labelsize=8)
+        except Exception:
+            # If there was an issue adding the colorbar, catch the exception and continue 
+            pass
 
     def add_surface_overlay(
         self,
@@ -1697,9 +1704,21 @@ class MPASSurfacePlotter(MPASVisualizer):
         scatter = self.ax.scatter(lon_valid, lat_valid, c=data_valid, 
                                 cmap=colormap, s=point_size, alpha=0.8)
         
-        # Add a colorbar to the plot to indicate the mapping of data values to colors, and set the label for the colorbar 
-        cbar = self.fig.colorbar(scatter, ax=self.ax)
-        cbar.set_label(colorbar_label, fontsize=12)
+        # Add a colorbar using the centralized styling helper
+        cbar = MPASVisualizationStyle.add_colorbar(
+            self.fig, self.ax, scatter,
+            label=colorbar_label, orientation='horizontal', fraction=0.03,
+            pad=0.04, shrink=0.8, fmt=None, labelpad=4, label_pos='top', tick_labelsize=10
+        )
+
+        # Specify the tick label size for the colorbar 
+        if cbar is not None:
+            try:
+                # Set the tick label size for the colorbar to ensure that the labels are legible and appropriately sized for the plot
+                cbar.ax.tick_params(labelsize=10)
+            except Exception:
+                # If any issues occur while setting the tick label size, catch the exception and pass without raising an error
+                pass
         
         # Set the x and y labels for the axes, the title for the plot, and add a grid for better readability. 
         self.ax.set_xlabel('Longitude', fontsize=12)

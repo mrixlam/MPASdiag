@@ -511,10 +511,14 @@ class MPASVisualizer:
                            alpha=0.6, s=marker_size, edgecolors='none',
                            transform=data_crs)
         
-        cbar = plt.colorbar(sc, ax=self.ax, orientation='vertical', 
-                          pad=0.05, shrink=0.8)
-        cbar.set_label('Wind Speed [m s$^{-1}$]', fontsize=11)
-        cbar.ax.tick_params(labelsize=10)
+        from mpasdiag.visualization.styling import MPASVisualizationStyle
+        cbar = MPASVisualizationStyle.add_colorbar(
+            plt.gcf(), self.ax, sc,
+            label=MPASVisualizationStyle.build_colorbar_label({'long_name': 'Wind Speed', 'units': 'm s$^{-1}$'}),
+            orientation='vertical', fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=4, label_pos='right', tick_labelsize=10
+        )
+        if cbar is not None:
+            cbar.ax.tick_params(labelsize=10)
     
     @staticmethod
     def convert_to_numpy(x: Any) -> np.ndarray:

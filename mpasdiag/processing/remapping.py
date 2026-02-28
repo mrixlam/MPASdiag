@@ -598,7 +598,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
     
-    print(f"  Original MPAS data statistics:")
+    print(f"  Original MPAS data statistics [Global Statistics]:")
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
         warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
@@ -696,7 +696,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
 
     sum_ratio = float(result.sum()) / data_sum
 
-    print(f"  Remapped data statistics:")
+    print(f"  Remapped data statistics [Statistics over Target Grid]:")
     print(f"    Min: {float(result.min()):.4f}, Max: {float(result.max()):.4f}")
     print(f"    Mean: {float(result.mean()):.4f}, Median: {float(result.median()):.4f}")
     print(f"    Std: {float(result.std()):.4f}, Sum: {float(result.sum()):.4f}")
