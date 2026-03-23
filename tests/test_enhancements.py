@@ -1,94 +1,44 @@
 #!/usr/bin/env python3
+
 """
-MPAS Analysis Enhancements Test Suite
+MPASdiag Test Suite: Enhancements and Refactoring Validation
 
-This module provides comprehensive unit tests for recent enhancements to the MPAS
-Analysis package, including metadata management, conditional time display in plots,
-timestamp-based filename generation, and placeholder 3D functions. These tests validate
-new functionality while ensuring backward compatibility with existing features. Tests
-use synthetic data and mocking to isolate enhancement logic from rendering dependencies.
-
-Tests Performed:
-    TestRefactoredFunctions:
-        - test_get_2d_variable_metadata: Validates 2D variable metadata retrieval with units and colormap
-        - test_3d_placeholder_functions: Verifies NotImplementedError for future 3D functionality
-    
-    TestConditionalTimeDisplay:
-        - test_default_title_with_time: Tests default title generation with time stamp integration
-        - test_custom_title_without_time: Validates corner text display when custom title excludes time
-        - test_custom_title_with_time: Tests time detection in custom titles to avoid duplication
-        - test_no_timestamp: Verifies proper handling when no timestamp is provided
-
-Test Coverage:
-    - MPASFileMetadata class: metadata management, variable metadata extraction
-    - 2D variable metadata: units, long_name, colormap, original_units retrieval
-    - 3D placeholder functions: NotImplementedError for get_3d_variable_metadata, get_3d_colormap_and_levels, plot_3d_variable_slice
-    - Conditional time display: automatic title/corner text placement logic
-    - MPASSurfacePlotter: surface map creation with time stamp handling
-    - Title generation: default titles with embedded time, custom titles with time detection
-    - Corner text display: conditional display based on title content, timestamp presence
-    - Time formatting: datetime conversion to YYYYMMDDTHH format
-    - Unit conversion integration: metadata system compatibility
-    - Backward compatibility: existing functionality preservation with new features
-
-Testing Approach:
-    Unit tests using unittest framework with synthetic NumPy arrays and datetime objects.
-    Mocking isolates Matplotlib figure/axes and Cartopy GeoAxes to avoid rendering overhead.
-    Tests capture method calls (set_title, text) to verify conditional time display logic.
-    Cartopy availability check with conditional test skipping. Tests validate both positive
-    cases (expected behavior) and negative cases (no duplicate time display).
-
-Expected Results:
-    - MPASFileMetadata.get_2d_variable_metadata returns complete metadata dictionaries
-    - Metadata includes units, long_name, colormap, and original_units fields
-    - Unit conversion properly reflected (K to °C for temperature variables)
-    - 3D placeholder functions raise NotImplementedError with descriptive messages
-    - Default titles automatically include "Valid Time: YYYYMMDDTHH" when timestamp provided
-    - Custom titles without time trigger corner text display with timestamp
-    - Custom titles with embedded time suppress duplicate corner text
-    - No time display appears when timestamp is None
-    - All tests pass with proper mocking and synthetic data
+This test suite focuses on validating the recent enhancements and refactoring efforts in the MPASdiag package, specifically targeting the processing of 2D and 3D variables, as well as the conditional display of valid time information in surface plots. The tests are designed to ensure that new functionalities are correctly implemented, that backward compatibility is maintained for existing features, and that the user experience is improved with intelligent time display logic. By using a combination of real MPAS data and mock objects, these tests provide comprehensive coverage of the new code paths while ensuring that existing functionality continues to operate as expected.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
 Email: mrislam@ucar.edu
-Date: November 2025
+Date: February 2026
 Version: 1.0.0
 """
-
-import unittest
-import tempfile
-import os
-import warnings
-from datetime import datetime
-from unittest.mock import patch, MagicMock, mock_open
-import numpy as np
+# Load necessary libraries
+import math
+import pytest
 import matplotlib
 matplotlib.use('Agg')  
+from datetime import datetime
 import matplotlib.pyplot as plt
-import math
+from cartopy.mpl.geoaxes import GeoAxes
+from typing import Generator, Tuple, List
+from unittest.mock import patch, MagicMock
 
-from mpasdiag.processing.utils_metadata import MPASFileMetadata
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-
-try:
-    from cartopy.mpl.geoaxes import GeoAxes
+if GeoAxes is not None:
     CARTOPY_AVAILABLE = True
-except ImportError:
-    GeoAxes = None
+else:
     CARTOPY_AVAILABLE = False
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
+
+# Import MPASdiag modules for testing
+from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_metadata import MPASFileMetadata
+from tests.test_data_helpers import load_mpas_coords_from_processor
 
 
-class TestRefactoredFunctions(unittest.TestCase):
-    """
-    Test 2D/3D function refactoring and backward compatibility.
-    """
+class TestRefactoredFunctions:
+    """ Test refactored functions for 2D variable metadata retrieval and 3D variable processing placeholders. This class validates the new MPASFileMetadata methods for extracting 2D variable metadata with automatic unit conversions, ensuring that temperature variables are correctly converted from Kelvin to Celsius and that appropriate metadata fields are populated. Additionally, it tests that placeholder functions for future 3D variable support raise NotImplementedError with informative messages, confirming that users receive clear feedback when attempting to use unimplemented features. These tests ensure the integrity of the refactored code while maintaining backward compatibility and providing a clear path for future enhancements. """
     
-    def test_get_2d_variable_metadata(self) -> None:
+    def test_get_2d_variable_metadata(self: "TestRefactoredFunctions") -> None:
         """
-        Verify accurate retrieval of 2D variable metadata including units, names, and colormap specifications. This test validates the MPASFileMetadata system correctly extracts and formats metadata for two-dimensional meteorological variables with automatic unit conversions. Temperature variable (t2m) metadata extraction is tested to ensure proper unit conversion from Kelvin to Celsius and appropriate long_name updates. Assertions confirm the metadata dictionary contains required fields (units, long_name, colormap, original_units) with correctly converted values. This functionality ensures plotting routines receive complete variable information for proper visualization labeling and colormap selection.
+        This test validates the functionality of the `get_2d_variable_metadata` method in the `MPASFileMetadata` class. It checks that the method correctly retrieves metadata for a 2D variable (in this case, 't2m' for 2-meter temperature) and performs the necessary unit conversion from Kelvin to Celsius. The test asserts that the returned metadata is a dictionary containing the expected keys ('units', 'long_name', 'colormap') and that the values are correctly set, including the conversion of units and the appropriate long name without redundant unit information. This ensures that the refactored method provides accurate and user-friendly metadata for 2D variables, supporting improved visualization and analysis workflows.
 
         Parameters:
             None
@@ -98,18 +48,17 @@ class TestRefactoredFunctions(unittest.TestCase):
         """
         metadata = MPASFileMetadata.get_2d_variable_metadata('t2m')
         
-        self.assertIsInstance(metadata, dict)
-        self.assertIn('units', metadata)
-        self.assertIn('long_name', metadata)
-        self.assertIn('colormap', metadata)
-        self.assertEqual(metadata['units'], '°C')
-        self.assertEqual(metadata['original_units'], 'K')
-        # Unit is no longer appended to long_name to avoid duplicate units in colorbar labels
-        self.assertEqual(metadata['long_name'], '2-meter Temperature')  
+        assert isinstance(metadata, dict)
+        assert 'units' in metadata
+        assert 'long_name' in metadata
+        assert 'colormap' in metadata
+        assert metadata['units'] == '°C'
+        assert metadata['original_units'] == 'K'
+        assert metadata['long_name'] == '2-meter Temperature'  
     
-    def test_3d_placeholder_functions(self) -> None:
+    def test_3d_placeholder_functions(self: "TestRefactoredFunctions") -> None:
         """
-        Verify proper NotImplementedError exceptions for placeholder 3D variable processing functions. This test validates that future 3D functionality methods raise appropriate errors with descriptive messages when called prematurely. Three placeholder functions (get_3d_variable_metadata, get_3d_colormap_and_levels, plot_3d_variable_slice) are tested with synthetic data to confirm NotImplementedError responses. Assertions verify each function raises the expected exception with informative "3D variable support not yet implemented" messages. This ensures users receive clear feedback when attempting to use unimplemented 3D features, preventing silent failures or undefined behavior.
+        This test verifies that the placeholder functions for 3D variable support in the `MPASFileMetadata` class correctly raise `NotImplementedError` with informative messages. It attempts to call the `get_3d_variable_metadata`, `get_3d_colormap_and_levels`, and `plot_3d_variable_slice` methods with example parameters and asserts that each call raises the expected exception with a message indicating that 3D variable support is not yet implemented. This ensures that users receive clear feedback when trying to access unimplemented features, guiding them towards the current capabilities of the package while setting expectations for future enhancements.
 
         Parameters:
             None
@@ -117,63 +66,57 @@ class TestRefactoredFunctions(unittest.TestCase):
         Returns:
             None
         """
-        with self.assertRaises(NotImplementedError) as cm:
+        with pytest.raises(NotImplementedError) as cm:
             MPASFileMetadata.get_3d_variable_metadata('temperature', level=500)
-        self.assertIn("3D variable support not yet implemented", str(cm.exception))
+
+        assert "3D variable support not yet implemented" in str(cm.value)
         
-        with self.assertRaises(NotImplementedError) as cm:
+        with pytest.raises(NotImplementedError) as cm:
             MPASFileMetadata.get_3d_colormap_and_levels('temperature', level=500)
-        self.assertIn("3D variable support not yet implemented", str(cm.exception))
+
+        assert "3D variable support not yet implemented" in str(cm.value)
         
-        with self.assertRaises(NotImplementedError) as cm:
+        with pytest.raises(NotImplementedError) as cm:
             import xarray as xr
-            dummy_data = xr.DataArray(np.random.rand(10, 10))
-            dummy_lon = np.random.rand(10)
-            dummy_lat = np.random.rand(10)
-            MPASFileMetadata.plot_3d_variable_slice(dummy_data, dummy_lon, dummy_lat, 500, 'temperature')
-        self.assertIn("3D variable support not yet implemented", str(cm.exception))
+            lon, lat, u, v = load_mpas_coords_from_processor(n=10)
+            dummy_data = xr.DataArray(u.reshape(10, 1))
+            MPASFileMetadata.plot_3d_variable_slice(dummy_data, lon, lat, 500, 'temperature')
+
+        assert "3D variable support not yet implemented" in str(cm.value)
 
 
-class TestConditionalTimeDisplay(unittest.TestCase):
-    """
-    Test conditional valid time display functionality.
-    """
+class TestConditionalTimeDisplay:
+    """ This test class validates the conditional display of valid time information in surface plots based on the presence of time references in plot titles. It ensures that when users provide custom titles without temporal keywords, the plotting system automatically adds corner text with the valid time. Conversely, if the title already contains time information, no duplicate corner text should be displayed. The tests use mock objects to capture title and text method calls, verifying that timestamps are correctly integrated into titles or corner text as appropriate. This intelligent display logic enhances user experience by providing clear temporal context without visual clutter from duplicate timestamps. """
     
-    def setUp(self) -> None:
+    @pytest.fixture(autouse=True)
+    def setup_method(self: "TestConditionalTimeDisplay", mpas_surface_temp_data) -> Generator[None, None, None]:
         """
-        Initialize test fixtures for conditional time display validation with synthetic meteorological data. This method sets up the surface plotting system, test datetime, and random geographical coordinates representing a Southeast Asian domain. Synthetic temperature data (280-310K range, 100 cells) with coordinates spanning 91-113°E and -10 to 12°N simulates realistic tropical region data for time display testing. All test methods in this class use these common fixtures to ensure consistent validation of timestamp integration logic. Cartopy availability is checked with automatic test skipping if the library is unavailable.
+        This fixture sets up the necessary environment for testing conditional time display in surface plots. It initializes an instance of `MPASSurfacePlotter`, loads a sample MPAS surface temperature dataset, and prepares longitude and latitude coordinates for plotting. The fixture also defines a test time to be used for validating timestamp display logic. After the tests are executed, it ensures that any created figures are closed to prevent resource leaks.
 
         Parameters:
-            None
+            mpas_surface_temp_data: Real MPAS surface temperature from session-scoped fixture
 
         Returns:
-            None
+            Generator[None, None, None]
         """
         if not CARTOPY_AVAILABLE:
-            self.skipTest("Cartopy not available")
+            pytest.skip("Cartopy not available")
             
         self.surface_plotter = MPASSurfacePlotter(figsize=(10, 8), dpi=150)
         self.test_time = datetime(2024, 9, 17, 3, 0, 0)
-        self.lon = np.random.uniform(91, 113, 100)
-        self.lat = np.random.uniform(-10, 12, 100) 
-        self.data = np.random.uniform(280, 310, 100)  
+        lon, lat, _, _ = load_mpas_coords_from_processor(n=100)
+        self.lon = lon
+        self.lat = lat
+        self.data = mpas_surface_temp_data[:100]
     
-    def tearDown(self) -> None:
-        """
-        Clean up matplotlib figure resources after conditional time display tests. This method closes the surface plotter figure object created during test execution to prevent memory leaks and resource exhaustion in the test suite. Proper cleanup is essential when running multiple visualization tests that create matplotlib figure objects. Called automatically by the unittest framework after each test method completes. This ensures each test starts with a clean matplotlib state and prevents test interactions through shared figure references.
+        yield
 
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
         if hasattr(self.surface_plotter, 'fig') and self.surface_plotter.fig:
             plt.close(self.surface_plotter.fig)
     
-    def _setup_mocks(self):
+    def _setup_mocks(self: "TestConditionalTimeDisplay") -> Tuple[MagicMock, MagicMock, List[Tuple[Tuple, dict]]]:
         """
-        Configure matplotlib and Cartopy mocks for time display testing. This helper method creates mock figure and axes objects with text capture functionality to eliminate duplicate setup code across multiple test methods. Returns a tuple containing the mock figure, mock axes, and text_calls list for validation. The mock axes has GeoAxes specification and transAxes transform attribute. Text capture function intercepts ax.text calls to verify timestamp placement logic.
+        This helper method sets up mock objects for matplotlib figure and axes to capture title and text method calls during testing. It creates a mock figure and a mock GeoAxes object, configuring the text method to capture calls in a list for later assertions. This allows the tests to verify that timestamps are correctly integrated into titles or corner text without relying on actual rendering, enabling precise validation of the conditional time display logic.
 
         Parameters:
             None
@@ -186,15 +129,17 @@ class TestConditionalTimeDisplay(unittest.TestCase):
         mock_ax.transAxes = MagicMock()
         
         text_calls = []
+
         def capture_text(*args, **kwargs):
             text_calls.append((args, kwargs))
+
         mock_ax.text = capture_text
         
         return mock_fig, mock_ax, text_calls
     
-    def test_default_title_with_time(self) -> None:
+    def test_default_title_with_time(self: "TestConditionalTimeDisplay") -> None:
         """
-        Verify automatic time stamp integration in default plot titles without corner text duplication. This test validates that surface plots with default titles (title=None) automatically embed the valid time in the title text using "Valid Time: YYYYMMDDTHH" format. Mock matplotlib and Cartopy objects capture set_title and text method calls to verify timestamp placement. Assertions confirm the title contains the formatted timestamp (20240917T03) and no duplicate corner text is displayed. This ensures default plots display temporal information prominently in titles, supporting operational workflows where time identification is critical for forecast verification and model output analysis.
+        This test verifies that when no custom title is provided, the valid time is automatically included in the plot title and that no corner text is added. It uses mock objects to capture calls to the set_title method and the text method of the axes. The test asserts that the title contains the expected "Valid Time: 20240917T03" string and that no corner text calls are made with coordinates (0.98, 0.02). This ensures that the default behavior correctly integrates time information into the title without redundant corner text, providing a clean and informative plot presentation.
 
         Parameters:
             None
@@ -207,7 +152,7 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
             
-            fig, ax = self.surface_plotter.create_surface_map(
+            _, _ = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
                 var_name='t2m',
                 lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
@@ -216,17 +161,19 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             )
         
         title_calls = [call for call in mock_ax.set_title.call_args_list]
-        self.assertTrue(len(title_calls) > 0)
         title_text = title_calls[0][0][0]  
-        self.assertIn("Valid Time: 20240917T03", title_text)
+
+        assert len(title_calls) > 0
+        assert "Valid Time: 20240917T03" in title_text
         
         corner_text_calls = [call for call in text_calls 
                    if len(call[0]) >= 3 and math.isclose(call[0][1], 0.98, abs_tol=1e-6) and math.isclose(call[0][2], 0.02, abs_tol=1e-6)]
-        self.assertEqual(len(corner_text_calls), 0, "Corner text should not be displayed when time is in title")
+
+        assert len(corner_text_calls) == 0, "Corner text should not be displayed when time is in title"
     
-    def test_custom_title_without_time(self) -> None:
+    def test_custom_title_without_time(self: "TestConditionalTimeDisplay") -> None:
         """
-        Verify corner text timestamp display when custom titles omit temporal information. This test validates the plotting system automatically adds corner text with timestamp when users provide custom titles lacking time references. A custom title "Custom Temperature Analysis" without temporal keywords triggers corner text display with "Valid: 20240917T03" format. Mock objects capture text method calls to verify corner placement at plot coordinates (0.98, 0.02). Assertions confirm corner text appears when titles lack time information. This conditional logic ensures temporal context is always available while respecting custom title preferences, supporting publication-quality plots with flexible title content.
+        This test verifies that when a custom title is provided without any temporal keywords, the valid time is displayed as corner text instead of being included in the title. It uses mock objects to capture calls to the set_title method and the text method of the axes. The test asserts that the title does not contain any time references and that corner text calls are made with the expected timestamp "Valid: 20240917T03" at coordinates (0.98, 0.02). This ensures that the conditional display logic correctly identifies when to add time information as corner text, enhancing plot readability without cluttering the title.
 
         Parameters:
             None
@@ -249,11 +196,12 @@ class TestConditionalTimeDisplay(unittest.TestCase):
         
         corner_text_calls = [call for call in text_calls 
                            if len(call[0]) >= 3 and 'Valid: 20240917T03' in str(call[0])]
-        self.assertTrue(len(corner_text_calls) > 0, "Corner text should be displayed when time is not in title")
+        
+        assert len(corner_text_calls) > 0, "Corner text should be displayed when time is not in title"
     
-    def test_custom_title_with_time(self) -> None:
+    def test_custom_title_with_time(self: "TestConditionalTimeDisplay") -> None:
         """
-        Verify suppression of duplicate corner text when custom titles already contain timestamp information. This test validates the plotting system detects temporal keywords in custom titles and avoids redundant corner text display. A custom title "Temperature Analysis - Valid: 20240917T03" containing the timestamp prevents corner text addition through keyword detection logic. Mock objects capture text method calls to verify no corner text is added. Assertions confirm zero corner text calls when time information exists in the title. This intelligent detection prevents visual clutter from duplicate timestamps, supporting clean plot layouts when users manually include temporal information in custom titles.
+        This test verifies that when a custom title is provided that already contains temporal keywords, the valid time is not duplicated as corner text. It uses mock objects to capture calls to the set_title method and the text method of the axes. The test asserts that the title contains the expected "Valid: 20240917T03" string and that no corner text calls are made with the same timestamp. This ensures that the conditional display logic correctly prevents redundant time information, maintaining a clean and informative plot presentation.
 
         Parameters:
             None
@@ -276,11 +224,12 @@ class TestConditionalTimeDisplay(unittest.TestCase):
         
         corner_text_calls = [call for call in text_calls 
                            if len(call[0]) >= 3 and 'Valid: 20240917T03' in str(call[0])]
-        self.assertEqual(len(corner_text_calls), 0, "Corner text should not be displayed when time is already in title")
+        
+        assert len(corner_text_calls) == 0, "Corner text should not be displayed when time is already in title"
     
-    def test_no_timestamp(self) -> None:
+    def test_no_timestamp(self: "TestConditionalTimeDisplay") -> None:
         """
-        Verify complete absence of time display when timestamp parameter is None. This test validates the plotting system properly handles missing temporal information without attempting to display invalid or placeholder timestamps. When time_stamp=None is passed, neither title nor corner text should contain time references. Mock objects capture set_title and text method calls to verify no "Valid Time:" or "Valid:" strings appear in any display elements. Assertions confirm zero time-related text when timestamp is absent. This ensures plots for climatological fields or non-temporal analyses remain clean without confusing or erroneous time displays.
+        This test verifies the complete absence of time display when the timestamp parameter is None. It validates that the plotting system properly handles missing temporal information without attempting to display invalid or placeholder timestamps. When time_stamp=None is passed, neither the title nor corner text should contain time references. Mock objects capture set_title and text method calls to verify that no "Valid Time:" or "Valid:" strings appear in any display elements. Assertions confirm zero time-related text when the timestamp is absent, ensuring that plots for climatological fields or non-temporal analyses remain clean without confusing or erroneous time displays.
 
         Parameters:
             None
@@ -293,7 +242,7 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
             
-            fig, ax = self.surface_plotter.create_surface_map(
+            _, _ = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
                 var_name='t2m',
                 lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
@@ -302,14 +251,16 @@ class TestConditionalTimeDisplay(unittest.TestCase):
             )
             
             title_calls = [call for call in mock_ax.set_title.call_args_list]
-            self.assertTrue(len(title_calls) > 0)
             title_text = title_calls[0][0][0]
-            self.assertNotIn("Valid Time:", title_text)
+
+            assert len(title_calls) > 0
+            assert "Valid Time:" not in title_text
             
             corner_text_calls = [call for call in text_calls 
                                if len(call[0]) >= 3 and 'Valid:' in str(call[0])]
-        self.assertEqual(len(corner_text_calls), 0, "No time display should appear when timestamp is None")
+            
+        assert len(corner_text_calls) == 0, "No time display should appear when timestamp is None"
 
 
 if __name__ == '__main__':
-    unittest.main()
+    pytest.main([__file__, '-v'])
