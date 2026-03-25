@@ -459,8 +459,7 @@ class TestMainFunctionFallbackParsing:
             self (TestMainFunctionFallbackParsing): The test instance.
 
         Returns:
-            None: The test asserts that `main()` handles exceptions and
-            does not require an attached logger to manage errors.
+            None: The test asserts that `main()` handles exceptions and does not require an attached logger to manage errors.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         
@@ -550,7 +549,7 @@ class TestWorkersArgumentIntegration:
         import os
         
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "u120k", "mpasout")
-        grid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "grids", "x1.40962.init.nc")
+        grid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "grids", "x1.40962.static.nc")
         
         if not os.path.exists(data_dir) or not os.path.exists(grid_file):
             return None
@@ -708,7 +707,6 @@ class TestWorkersArgumentIntegration:
                 all_passed = False
         
         assert all_passed, "Some plot types failed"
-
 
 
 if __name__ == '__main__':

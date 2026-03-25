@@ -13,7 +13,6 @@ Version: 1.0.0
 # Load necessary libraries and modules
 import os
 import pytest
-from typing import Optional, Union, Literal
 from pathlib import Path
 
 class TestBatchAndParallelProcessing:
@@ -497,14 +496,14 @@ class TestBatchProcessingWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='precipitation',
             variable='rainnc',
@@ -533,14 +532,14 @@ class TestBatchProcessingWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='surface',
             variable='t2m',
@@ -569,14 +568,14 @@ class TestBatchProcessingWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='wind',
             u_variable='u10',
@@ -611,14 +610,14 @@ class TestCrossSectionBatchWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature',
@@ -650,14 +649,14 @@ class TestCrossSectionBatchWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature',
@@ -691,14 +690,14 @@ class TestCrossSectionBatchWithoutLogger:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = None  # No logger
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature',

@@ -34,7 +34,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag'
         )
         
@@ -57,7 +57,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='unknown_type', 
             verbose=True
@@ -82,7 +82,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='precipitation',
             variable='rainnc',
@@ -111,7 +111,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='precipitation',
             variable='rainnc',
@@ -141,7 +141,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='precipitation',
             variable='rainnc',
@@ -201,7 +201,7 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature'
@@ -245,8 +245,7 @@ class TestErrorHandlingAndExceptions:
             self (TestErrorHandlingAndExceptions): The test instance.
 
         Returns:
-            None: The test asserts `run_analysis` returns `False` and the
-            logger captured an error call.
+            None: The test asserts `run_analysis` returns `False` and the logger captured an error call.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -283,7 +282,7 @@ class TestImportErrors:
         with patch('builtins.__import__', side_effect=[ImportError, ImportError, ImportError, ImportError, ImportError, ImportError]):
             try:
                 pass
-            except:
+            except Exception:
                 pass  
     
     def test_import_fallback_to_third_import_block(self: "TestImportErrors") -> None:

@@ -26,12 +26,11 @@ class TestModuleLevelExecution:
             self (TestModuleLevelExecution): The test instance.
 
         Returns:
-            None: The test asserts the module-level `main()` was called and
-            its return value was forwarded.
+            None: The test asserts the module-level `main()` was called and its return value was forwarded.
         """
         from mpasdiag.processing import cli_unified
         
-        with patch.object(cli_unified, 'main', return_value=0) as mock_main:
+        with patch.object(cli_unified, 'main', return_value=0):
             with patch.object(cli_unified, '__name__', '__main__'):
                 result = cli_unified.main()
                 assert result == 0
@@ -83,13 +82,6 @@ class TestModuleExecution:
         Returns:
             None: The test asserts that `main` is callable.
         """        
-        test_script = """
-import sys
-sys.path.insert(0, '/Users/mrislam/Documents/NCAR/MPASdiag')
-from mpasdiag.processing.cli_unified import main
-sys.exit(main())
-"""
-        
         from mpasdiag.processing.cli_unified import main
         assert callable(main)
 

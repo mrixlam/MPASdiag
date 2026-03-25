@@ -501,7 +501,7 @@ class TestComputePrecipitationDifference:
         
         with pytest.raises(ValueError, match="Dataset not provided"):
             diag.compute_precipitation_difference(
-                None, time_index=5, var_name='rainnc', accum_period='a01h'
+                None, time_index=5, var_name='rainnc', accum_period='a01h' # type: ignore
             )
     
     def test_compute_difference_time_index_out_of_bounds(self: "TestComputePrecipitationDifference", sample_dataset: Any) -> None:

@@ -62,16 +62,19 @@ def grid_file(test_data_dir: Path) -> Optional[str]:
     Returns:
         Optional[str]: String path to the grid file when present; otherwise `None` when the sample data file is missing.
     """
-    grid_path = test_data_dir / "grids" / "x1.40962.init.nc"
+    grid_path = test_data_dir / "grids" / "x1.40962.static.nc"
     if grid_path.exists():
         return str(grid_path)
     return None
 
 
 @pytest.fixture(scope="session")
-def mpas_2d_processor_diag():
+def mpas_2d_processor_diag() -> Optional[Any]:
     """
     This session-scoped fixture loads the 2D diagnostic data from u120k/diag once per test session and shares the initialized processor across all tests. If the data or grid file is unavailable, None is returned and tests should check for None before using.
+
+    Parameters:
+        None
 
     Returns:
         Optional[MPAS2DProcessor]: Initialized processor with loaded diag data or None if data is unavailable.
@@ -86,9 +89,12 @@ def mpas_2d_processor_diag():
 
 
 @pytest.fixture(scope="session")
-def mpas_3d_processor():
+def mpas_3d_processor() -> Optional[Any]:
     """
     This session-scoped fixture loads the 3D data from u120k/mpasout once per test session and shares it across all tests. If the data or grid file is unavailable, None is returned.
+
+    Parameters:
+        None
 
     Returns:
         Optional[MPAS3DProcessor]: Initialized processor with loaded 3D data or None if data is unavailable.
@@ -112,9 +118,12 @@ def mpas_3d_processor():
 
 
 @pytest.fixture(scope="session")
-def mpas_coordinates():
+def mpas_coordinates() -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     This session-scoped fixture loads coordinates once per test session and shares them across all tests. Coordinates are in degrees with longitude normalized to [-180, 180].
+
+    Parameters:
+        None
 
     Returns:
         Optional[Tuple[np.ndarray, np.ndarray]]: Tuple of (lon, lat) 1D arrays or None if grid file is unavailable.
@@ -123,7 +132,7 @@ def mpas_coordinates():
         from tests.test_data_helpers import _grid_file_path
 
         grid_file = _grid_file_path()
-        grid_ds = xr.open_dataset(grid_file)
+        grid_ds = xr.open_dataset(grid_file, decode_times=False)
 
         lon = grid_ds['lonCell'].values
         lat = grid_ds['latCell'].values
@@ -145,9 +154,12 @@ def mpas_coordinates():
 
 
 @pytest.fixture(scope="session")
-def mpas_wind_data():
+def mpas_wind_data() -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     This session-scoped fixture loads wind data once per test session from the u120k/diag files. If data is unavailable, None is returned.
+
+    Parameters:
+        None
 
     Returns:
         Optional[Tuple[np.ndarray, np.ndarray]]: Tuple of (u, v) 1D arrays or None if data is unavailable.
@@ -162,10 +174,13 @@ def mpas_wind_data():
 
 
 @pytest.fixture(scope="session")
-def mpas_precip_data():
+def mpas_precip_data() -> Optional[np.ndarray]:
     """
     This session-scoped fixture loads precipitation once per test session. If data is unavailable, None is returned.
 
+    Parameters:
+        None
+        
     Returns:
         Optional[np.ndarray]: 1D array of precipitation values or None if data is unavailable.
     """
@@ -179,9 +194,12 @@ def mpas_precip_data():
 
 
 @pytest.fixture(scope="session")
-def mpas_surface_temp_data():
+def mpas_surface_temp_data() -> Optional[np.ndarray]:
     """
     This session-scoped fixture loads surface temperature once per test session. If data is unavailable, None is returned.
+
+    Parameters:
+        None
 
     Returns:
         Optional[np.ndarray]: 1D array of surface temperature values or None if data is unavailable.
@@ -196,9 +214,12 @@ def mpas_surface_temp_data():
 
 
 @pytest.fixture(scope="session")
-def mpas_qv_3d_data():
+def mpas_qv_3d_data() -> Optional[np.ndarray]:
     """
     This session-scoped fixture loads 3D humidity data once per test session. If data is unavailable, None is returned.
+
+    Parameters:
+        None
 
     Returns:
         Optional[np.ndarray]: 1D array of specific humidity values or None if data is unavailable.
@@ -217,6 +238,9 @@ def mpas_data_available() -> bool:
     """
     This fixture returns True if the required MPAS grid and data directories exist, allowing tests to conditionally skip when data is missing.
 
+    Parameters:
+        None
+        
     Returns:
         bool: True if MPAS data is available, False otherwise.
     """
@@ -259,7 +283,7 @@ def mock_mpas_mesh(grid_file) -> xr.Dataset:
         xr.Dataset: An xarray Dataset containing MPAS mesh variables like `latCell`, `lonCell`, `cellsOnCell`, and `areaCell`.
     """
     if grid_file is not None:
-        ds = xr.open_dataset(grid_file)
+        ds = xr.open_dataset(grid_file, decode_times=False)
         n_cells = min(100, len(ds['nCells']))
         ds_subset = ds.isel(nCells=slice(0, n_cells))
         return ds_subset
@@ -470,7 +494,7 @@ def mock_file_paths(temp_dir: Path) -> Dict[str, Path]:
         Dict[str, Path]: A mapping of logical file names to pathlib `Path` objects within the temporary directory (e.g., 'grid', 'mpasout_1').
     """
     paths = {
-        'grid': temp_dir / 'x1.40962.init.nc',
+        'grid': temp_dir / 'x1.40962.static.nc',
         'mpasout_1': temp_dir / 'mpasout.2024-01-01_00.00.00.nc',
         'mpasout_2': temp_dir / 'mpasout.2024-01-01_06.00.00.nc',
         'diag_1': temp_dir / 'diag.2024-01-01_00.00.00.nc',
@@ -522,7 +546,7 @@ def mock_config() -> Dict[str, Any]:
     """
     return {
         'input': {
-            'invariant_file': 'data/grids/x1.40962.init.nc',
+            'invariant_file': 'data/grids/x1.40962.static.nc',
             'data_dir': 'data/u120k/mpasout',
             'diag_dir': 'data/u120k/diag',
         },
@@ -557,7 +581,7 @@ def mock_cli_args() -> Any:
     """
     class Args:
         def __init__(self):
-            self.invariant_file = 'data/grids/x1.40962.init.nc'
+            self.invariant_file = 'data/grids/x1.40962.static.nc'
             self.data_dir = 'data/u120k/mpasout'
             self.output_dir = 'output/test'
             self.variable = 'temperature'
@@ -583,7 +607,7 @@ def mock_processor() -> Mock:
         Mock: A `unittest.mock.Mock` object configured with minimal mesh attributes and flags used by tests.
     """
     processor = Mock()
-    processor.invariant_file = 'data/grids/x1.40962.init.nc'
+    processor.invariant_file = 'data/grids/x1.40962.static.nc'
     processor.mesh_data = Mock()
     processor.mesh_data.latCell = Mock()
     processor.mesh_data.lonCell = Mock()

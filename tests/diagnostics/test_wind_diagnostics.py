@@ -1502,7 +1502,7 @@ class TestGet2DWindComponents:
         
         with pytest.raises(RuntimeError, match="No dataset provided"):
             diag.get_2d_wind_components(
-                None, u_variable='u10', v_variable='v10', time_index=0
+                None, u_variable='u10', v_variable='v10', time_index=0  # type: ignore
             )
     
     def test_get_2d_wind_components_missing_variable(self: "TestGet2DWindComponents", sample_2d_dataset: xr.Dataset) -> None:

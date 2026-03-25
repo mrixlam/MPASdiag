@@ -16,7 +16,7 @@ import pytest
 
 
 class TestRunAnalysisNoLogger:
-    """Test run_analysis without logger."""
+    """ Test run_analysis without logger. """
     
     def test_run_analysis_no_analysis_type_no_logger(self: "TestRunAnalysisNoLogger") -> None:
         """
@@ -35,7 +35,7 @@ class TestRunAnalysisNoLogger:
         cli.logger = None  
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag'
         )
         
@@ -44,7 +44,7 @@ class TestRunAnalysisNoLogger:
 
 
 class TestWindAnalysisTimeFormatting:
-    """Test wind analysis time string formatting."""
+    """ Test wind analysis time string formatting. """
     
     def test_wind_single_time_with_time_dimension(self: "TestWindAnalysisTimeFormatting") -> None:
         """
@@ -59,13 +59,13 @@ class TestWindAnalysisTimeFormatting:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='wind',
             u_variable='u10',
@@ -83,7 +83,7 @@ class TestWindAnalysisTimeFormatting:
 
 
 class TestCrossSectionSingleTimeWithLogger:
-    """Test cross-section single time analysis with logger."""
+    """ Test cross-section single time analysis with logger. """
     
     def test_cross_section_single_time_with_logger(self: "TestCrossSectionSingleTimeWithLogger") -> None:
         """
@@ -99,14 +99,14 @@ class TestCrossSectionSingleTimeWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature',
@@ -125,7 +125,7 @@ class TestCrossSectionSingleTimeWithLogger:
 
 
 class TestCrossSectionSingleTimePlotting:
-    """Test cross-section single time plotting with logger."""
+    """ Test cross-section single time plotting with logger. """
     
     def test_cross_section_single_time_plot_saved(self: "TestCrossSectionSingleTimePlotting") -> None:
         """
@@ -141,14 +141,14 @@ class TestCrossSectionSingleTimePlotting:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/mpasout',
             analysis_type='cross',
             variable='temperature',
@@ -164,7 +164,6 @@ class TestCrossSectionSingleTimePlotting:
         
         result = cli.run_analysis(config)
         assert isinstance(result, bool)
-
 
 
 if __name__ == '__main__':

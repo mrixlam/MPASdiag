@@ -244,7 +244,9 @@ class MPASBaseProcessor:
             ux.UxDataset: UXarray dataset wrapping the xarray dataset with grid metadata.
         """
         # Open the grid file using UXarray to extract the unstructured grid information
-        grid_ds = ux.open_dataset(self.grid_file, data_files[0])
+        # Pass decode_times=False because MPAS grid files may use 'seconds since 0000-01-01'
+        # which is out of range for numpy, but the time variable is not needed for grid topology.
+        grid_ds = ux.open_dataset(self.grid_file, data_files[0], grid_kwargs={'decode_times': False})
 
         # Extract the unstructured grid information from the opened grid dataset
         grid_info = grid_ds.uxgrid
@@ -472,7 +474,7 @@ class MPASBaseProcessor:
             ux.UxDataset: UXarray dataset containing grid metadata.
         """
         # Return a UXarray dataset by opening the specified file path with the grid file 
-        return ux.open_dataset(self.grid_file, file_path)
+        return ux.open_dataset(self.grid_file, file_path, grid_kwargs={'decode_times': False})
 
     def _load_single_file_xarray(self, file_path: str) -> xr.Dataset:
         """
@@ -666,7 +668,7 @@ class MPASBaseProcessor:
         Returns:
             xr.Dataset: xarray Dataset loaded from `self.grid_file` containing grid variables.
         """
-        grid_file_ds = xr.open_dataset(self.grid_file)
+        grid_file_ds = xr.open_dataset(self.grid_file, decode_times=False)
         
         if self.verbose:
             print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")

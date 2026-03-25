@@ -14,7 +14,6 @@ Version: 1.0.0
 import sys
 import pytest
 from pathlib import Path
-from unittest.mock import patch
 
 
 class TestCLIIntegration:
@@ -33,7 +32,6 @@ class TestCLIIntegration:
         from mpasdiag.processing.cli_unified import main
         assert callable(main)
 
-    @patch.object(sys, 'argv', ['mpasdiag', '--help'])
     def test_help_exits_cleanly(self: "TestCLIIntegration") -> None:
         """
         This test checks that invoking the CLI with the `--help` flag results in a clean exit with a zero exit code. It uses `unittest.mock.patch` to temporarily set `sys.argv` to simulate a command-line invocation of the help flag. The test then asserts that a `SystemExit` exception is raised and that the exit code is zero, which indicates that the help message was displayed successfully without errors.
@@ -180,8 +178,7 @@ class TestIntegrationWithRealData:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts successful completion and does not return a
-            value.
+            None: The test asserts successful completion and does not return a value.
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -218,8 +215,7 @@ class TestIntegrationWithRealData:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts successful completion and does not return
-            a value.
+            None: The test asserts successful completion and does not return a value.
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -260,11 +256,9 @@ class TestIntegrationWithRealData:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: This test asserts the return code and does not return a
-            value.
+            None: This test asserts the return code and does not return a value.
         """
         import pytest
-        import sys
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         
         if grid_file is None:
@@ -305,7 +299,6 @@ class TestIntegrationWithRealData:
             None: The test uses assertions and does not return a value.
         """
         import pytest
-        import sys
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         
         if grid_file is None:
@@ -347,7 +340,6 @@ class TestIntegrationWithRealData:
             None: The test asserts behavior and does not return a value.
         """
         import pytest
-        import sys
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         
         if grid_file is None:

@@ -138,19 +138,18 @@ class TestOverlayTypePaths:
             self (TestOverlayTypePaths): The test instance.
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when
-            the overlay fallback path completes successfully.
+            None: The test asserts that `run_analysis` returns True when the overlay fallback path completes successfully.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='overlay',
             overlay_type='custom_type', 
@@ -174,21 +173,20 @@ class TestOverlayWithLogger:
             self (TestOverlayWithLogger): The test instance.
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when
-            the overlay workflow executes successfully with data present.
+            None: The test asserts that `run_analysis` returns True when the overlay workflow executes successfully with data present.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='overlay',
             overlay_type='precip_wind',
@@ -208,21 +206,20 @@ class TestOverlayWithLogger:
             self (TestOverlayWithLogger): The test instance.
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when
-            data exist and the overlay completes successfully.
+            None: The test asserts that `run_analysis` returns True when data exist and the overlay completes successfully.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='overlay',
             overlay_type='temp_pressure',
@@ -242,21 +239,20 @@ class TestOverlayWithLogger:
             self (TestOverlayWithLogger): The test instance.
 
         Returns:
-            None: The test asserts that `run_analysis` returns True for
-            custom overlay types when sample data are available.
+            None: The test asserts that `run_analysis` returns True for custom overlay types when sample data are available.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.init.nc'):
+        if not os.path.exists('data/grids/x1.40962.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.init.nc',
+            grid_file='data/grids/x1.40962.static.nc',
             data_dir='data/u120k/diag',
             analysis_type='overlay',
             overlay_type='custom_overlay', 

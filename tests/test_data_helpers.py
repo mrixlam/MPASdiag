@@ -36,7 +36,7 @@ def load_mpas_mesh(nx: int = 10, ny: int = 10) -> Tuple[np.ndarray, np.ndarray, 
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: A four-element tuple containing `(lon2d, lat2d, u2d, v2d)` where `lon2d` and `lat2d` are 2D coordinate arrays of shape `(ny, nx)` and `u2d`, `v2d` are the corresponding deterministic wind component fields.
     """
     grid_file = _grid_file_path()
-    ds = xr.open_dataset(grid_file)
+    ds = xr.open_dataset(grid_file, decode_times=False)
 
     lon_all = ds['lonCell'].values
     lat_all = ds['latCell'].values
@@ -85,11 +85,14 @@ def _grid_file_path() -> str:
     """
     This helper locates the canonical MPAS grid file used by tests in the repository `data/grids` directory. If the file cannot be found the calling test is skipped to keep the test-suite robust when sample data is absent.
 
+    Parameters:
+        None
+
     Returns:
         str: Absolute path to the MPAS grid file as a string (suitable for passing to xarray or processor constructors).
     """
     data_dir = Path(__file__).parent.parent / "data"
-    grid_file = data_dir / "grids" / "x1.40962.init.nc"
+    grid_file = data_dir / "grids" / "x1.40962.static.nc"
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
@@ -114,7 +117,7 @@ def _find_and_load_2d_processor(data_subdir: str) -> MPAS2DProcessor:
 
     grid_file = _grid_file_path()
     proc = MPAS2DProcessor(grid_file, verbose=False)
-    proc.load_2d_data(str(data_dir))
+    proc.load_2d_data(str(data_dir), use_pure_xarray=True)
 
     return proc
 
@@ -148,7 +151,7 @@ def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarra
 
         lon = ((lon + 180.0) % 360.0) - 180.0
     else:
-        grid_ds = xr.open_dataset(grid_file)
+        grid_ds = xr.open_dataset(grid_file, decode_times=False)
 
         lon_all = grid_ds['lonCell'].values
         lat_all = grid_ds['latCell'].values
@@ -298,6 +301,9 @@ def get_mpas_data_paths() -> dict:
     """
     This helper centralizes path resolution for all MPAS test data, making it easy for tests to locate grid files, diagnostic data, and mpasout files without duplicating path logic. Tests should use this function to get consistent paths across the test suite.
 
+    Parameters:
+        None
+
     Returns:
         dict: Dictionary with keys 'grid_file', 'diag_dir', 'mpasout_dir',
             'data_root'. Values are Path objects or None if unavailable.
@@ -307,7 +313,7 @@ def get_mpas_data_paths() -> dict:
     paths = {
         'data_root': data_root if data_root.exists() else None,
         'grid_dir': data_root / "grids" if (data_root / "grids").exists() else None,
-        'grid_file': data_root / "grids" / "x1.40962.init.nc" if (data_root / "grids" / "x1.40962.init.nc").exists() else None,
+        'grid_file': data_root / "grids" / "x1.40962.static.nc" if (data_root / "grids" / "x1.40962.static.nc").exists() else None,
         'u120k_dir': data_root / "u120k" if (data_root / "u120k").exists() else None,
         'diag_dir': data_root / "u120k" / "diag" if (data_root / "u120k" / "diag").exists() else None,
         'mpasout_dir': data_root / "u120k" / "mpasout" if (data_root / "u120k" / "mpasout").exists() else None,
@@ -319,6 +325,9 @@ def get_mpas_data_paths() -> dict:
 def check_mpas_data_available() -> bool:
     """
     Tests can call this function to determine whether to use real MPAS data or fall back to mock data. Returns True only if both grid file and at least one data directory are present.
+
+    Parameters:
+        None
 
     Returns:
         bool: True if MPAS grid and data files are available, False otherwise.
@@ -384,7 +393,7 @@ def load_mpas_3d_processor(data_subdir: str = "u120k/mpasout", verbose: bool = F
     
     grid_file = _grid_file_path()
     proc = MPAS3DProcessor(grid_file, verbose=verbose)
-    proc.load_3d_data(str(data_dir))
+    proc.load_3d_data(str(data_dir), use_pure_xarray=True)
 
     return proc
 
@@ -404,7 +413,7 @@ def get_real_mpas_coordinates(n: Union[int, None] = None) -> Tuple[np.ndarray, n
         pytest.skip.Exception: If called during pytest and grid is unavailable.
     """
     grid_file = _grid_file_path()
-    grid_ds = xr.open_dataset(grid_file)
+    grid_ds = xr.open_dataset(grid_file, decode_times=False)
     
     lon = grid_ds['lonCell'].values
     lat = grid_ds['latCell'].values

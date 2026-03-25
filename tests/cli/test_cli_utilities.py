@@ -151,8 +151,7 @@ class TestUtilityFunctions:
             self (TestUtilityFunctions): The test instance.
 
         Returns:
-            None: The test asserts the method runs without error and
-            filters out None fields.
+            None: The test asserts the method runs without error and filters out None fields.
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -169,7 +168,6 @@ class TestUtilityFunctions:
         )
         
         cli._print_config_summary()
-
 
 
 if __name__ == '__main__':

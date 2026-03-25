@@ -69,7 +69,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             raise ValueError(DATASET_NOT_LOADED_3D_MSG)
             
         try:
-            with xr.open_dataset(self.grid_file) as grid_ds:
+            with xr.open_dataset(self.grid_file, decode_times=False) as grid_ds:
                 spatial_dim = 'nCells' 
                 
                 if data_array is not None:
@@ -275,14 +275,17 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 pressure_base = self.dataset['pressure_base'].isel({time_dim: validated_time_index})
                 total_pressure = pressure_p + pressure_base
 
-                mean_pressure = total_pressure.mean(dim='nCells')
-                mean_p_vals = mean_pressure.values
+                # Average over all horizontal dims (handles nCells in xarray and n_face in uxarray)
+                vert_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
+                horiz_dims = [d for d in total_pressure.dims if d != vert_dim]
+                mean_pressure = total_pressure.mean(dim=horiz_dims) if horiz_dims else total_pressure
+                mean_p_vals = np.asarray(mean_pressure.values).ravel()
 
-                if level >= mean_p_vals.max():
+                if level >= float(mean_p_vals.max()):
                     level_idx = 0
                     if self.verbose:
                         print(f"Requested pressure {level:.1f} Pa above surface mean; using surface level 0")
-                elif level <= mean_p_vals.min():
+                elif level <= float(mean_p_vals.min()):
                     level_idx = len(mean_p_vals) - 1
                     if self.verbose:
                         print(f"Requested pressure {level:.1f} Pa below top mean; using top level {level_idx}")
@@ -292,8 +295,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
                         level_idx = lower_idx
                     else:
                         upper_idx = lower_idx + 1
-                        p_lower = mean_p_vals[lower_idx]
-                        p_upper = mean_p_vals[upper_idx]
+                        p_lower = float(mean_p_vals[lower_idx])
+                        p_upper = float(mean_p_vals[upper_idx])
 
                         if p_lower == p_upper:
                             w = 0.0
