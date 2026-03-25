@@ -6,6 +6,7 @@
 /*.nc.gz
 /*.h5
 /*.hdf5
+/.coverage.*
 
 # Patterns for local directories
 # output/

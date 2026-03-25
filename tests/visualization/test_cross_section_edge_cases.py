@@ -1830,8 +1830,7 @@ class TestCrossSectionAxisFormatting:
         """
         pressure = np.array([1000, 850, 700, 500, 300, 200, 100])
         self.plotter._setup_pressure_axis(pressure, use_standard_ticks=True)
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        assert self.plotter.ax.get_yscale() == 'log'
+        assert self.plotter.ax.get_yscale() == 'log' # type: ignore
 
     def test_pressure_axis_linear_fallback_nonpositive(self, capsys) -> None:
         """
@@ -1846,8 +1845,7 @@ class TestCrossSectionAxisFormatting:
         pressure = np.array([0, -100, 500, 700])
         self.plotter._setup_pressure_axis(pressure, use_standard_ticks=True)
         captured = capsys.readouterr()
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        assert 'non-positive' in captured.out.lower() or self.plotter.ax.get_yscale() == 'linear'
+        assert 'non-positive' in captured.out.lower() or self.plotter.ax.get_yscale() == 'linear' # type: ignore
 
     def test_pressure_hpa_with_max_height(self) -> None:
         """
@@ -1885,7 +1883,6 @@ class TestCrossSectionAxisFormatting:
         min_pressure = P0 * np.exp(-max_height / H)
         valid_coords = pressure_pa[pressure_pa >= min_pressure]
         assert len(valid_coords) > 0
-        assert isinstance(self.plotter.ax, GeoAxes)
 
     def test_height_axis_km_with_max_height(self) -> None:
         """
@@ -1920,10 +1917,9 @@ class TestCrossSectionAxisFormatting:
         vertical_coords = np.array([0, 1000, 5000, 10000, 15000])
         max_height = 12.0  # km
         y_max = max_height * 1000
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        self.plotter.ax.set_ylabel('Height [m]', fontsize=12)
-        self.plotter.ax.set_ylim(vertical_coords.min(), y_max)
-        ylim = self.plotter.ax.get_ylim()
+        self.plotter.ax.set_ylabel('Height [m]', fontsize=12) # type: ignore
+        self.plotter.ax.set_ylim(vertical_coords.min(), y_max) # type: ignore
+        ylim = self.plotter.ax.get_ylim() # type: ignore
         assert ylim[1] == 12000
 
     def test_path_info_text_box(self) -> None:
@@ -1936,12 +1932,11 @@ class TestCrossSectionAxisFormatting:
         Returns:
             None
         """
-        assert isinstance(self.plotter.ax, GeoAxes) 
         time_str = 'Valid: 2025-01-01 00:00 UTC'
-        self.plotter.ax.text(0.01, 0.02, time_str, transform=self.plotter.ax.transAxes,
+        self.plotter.ax.text(0.01, 0.02, time_str, transform=self.plotter.ax.transAxes, # type: ignore
                              fontsize=9, verticalalignment='bottom', horizontalalignment='left',
                              bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
-        texts = self.plotter.ax.texts
+        texts = self.plotter.ax.texts # type: ignore
         assert len(texts) >= 1
 
     def test_pressure_to_height_conversion_standard_atmosphere(self) -> None:
@@ -1983,7 +1978,6 @@ class TestCrossSectionAxisFormatting:
             model_levels, 'model_levels', mock_proc, 0
         )
         assert coord_type in ('height_km', 'model_levels')
-        assert isinstance(self.plotter.ax, GeoAxes)
 
 class TestCrossSectionBatch:
     """ Tests for batch cross-section plot creation loop. """

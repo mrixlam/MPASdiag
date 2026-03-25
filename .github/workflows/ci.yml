@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
-        lfs: true
+        lfs: false  # Don't fail checkout if LFS quota is exceeded;
     
     - name: Setup logging directory and variables
       shell: bash
@@ -62,7 +62,11 @@ jobs:
       run: |
         echo "Using log file: ${LOG_FILE}"
         echo "=== Checking out LFS objects ===" | tee -a "${LOG_FILE}"
-        git lfs pull 2>&1 | tee -a "${LOG_FILE}" || { echo "WARNING: git lfs pull failed (possibly allocation exceeded). Continuing anyway."; true; }
+        git lfs pull 2>&1 | tee -a "${LOG_FILE}"
+        LFS_EXIT=${PIPESTATUS[0]}
+        if [ ${LFS_EXIT} -ne 0 ]; then
+          echo "WARNING: git lfs pull failed (exit ${LFS_EXIT}, possibly allocation exceeded). Tests requiring LFS data will be skipped." | tee -a "${LOG_FILE}"
+        fi
         echo "" | tee -a "${LOG_FILE}"
     
     - name: Set up Conda

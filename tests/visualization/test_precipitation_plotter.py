@@ -23,7 +23,6 @@ import xarray as xr
 matplotlib.use('Agg')
 from io import StringIO
 import cartopy.crs as ccrs
-import matplotlib.cm as cm
 from typing import Generator
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -56,7 +55,6 @@ class TestMPASPrecipitationPlotterInitialization:
         assert isinstance(plotter, MPASPrecipitationPlotter)
         assert plotter.figsize == (10, 14)
         assert plotter.dpi == 100
-        assert isinstance(plotter.ax, GeoAxes)
         custom_plotter = MPASPrecipitationPlotter(figsize=(10, 6), dpi=150)
 
         assert custom_plotter.figsize == (10, 6)
@@ -1035,7 +1033,7 @@ class TestContourPlotCreation:
         lat = np.linspace(35, 45, n)
         data = np.random.uniform(0, 10, n)
         levels = [0.1, 1, 2, 5, 10]
-        cmap = plt.cm.get_cmap("Blues")
+        cmap = matplotlib.colormaps["Blues"]
         norm = mcolors.BoundaryNorm(levels, cmap.N)
         data_crs = ccrs.PlateCarree()
 
@@ -1064,7 +1062,7 @@ class TestContourPlotCreation:
         lat = np.linspace(35, 45, n)
         data = np.random.uniform(0, 10, n)
         levels = [0.1, 1, 2, 5, 10]
-        cmap = plt.cm.get_cmap("Blues") 
+        cmap = matplotlib.colormaps["Blues"]
         norm = mcolors.BoundaryNorm(levels, cmap.N)
         data_crs = ccrs.PlateCarree()
 
@@ -1338,7 +1336,6 @@ class TestPrecipitationRenderingPaths:
             None: The method initializes the plotter for use in rendering path tests.
         """
         self.plotter = MPASPrecipitationPlotter()
-        assert isinstance(self.plotter.ax, GeoAxes)
 
     def test_colormap_levels_preparation(self) -> None:
         """

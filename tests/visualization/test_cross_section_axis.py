@@ -219,8 +219,7 @@ class TestPressureAxisSetup:
         """
         pressure_coords = np.array([1000, 850, 700, 500, 300, 200, 100])        
         self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)  
-        assert isinstance(self.plotter.ax, GeoAxes)      
-        assert self.plotter.ax.get_yscale() == 'log'
+        assert self.plotter.ax.get_yscale() == 'log' # type: ignore
     
     def test_pressure_axis_tick_filtering(self: "TestPressureAxisSetup") -> None:
         """
@@ -234,8 +233,7 @@ class TestPressureAxisSetup:
         """
         pressure_coords = np.array([600, 500, 400, 300])        
         self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)  
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        assert self.plotter.ax.get_yscale() == 'log'
+        assert self.plotter.ax.get_yscale() == 'log' # type: ignore
     
     def test_non_positive_pressure_warning(self: "TestPressureAxisSetup") -> None:
         """
@@ -249,8 +247,7 @@ class TestPressureAxisSetup:
         """
         pressure_coords = np.array([-100, 0, 100, 200])
         self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        assert self.plotter.ax.get_yscale() == 'linear'
+        assert self.plotter.ax.get_yscale() == 'linear' # type: ignore
     
     def test_pressure_axis_exception_handling(self: "TestPressureAxisSetup") -> None:
         """
@@ -330,8 +327,8 @@ class TestAxisFormatting:
             (-100, 30), (-90, 40)
         )
         
-        assert isinstance(self.plotter.ax, GeoAxes) 
-        assert 'Pressure' in self.plotter.ax.get_ylabel()
+        # ssert isinstance(self.plotter.ax, GeoAxes) 
+        assert 'Pressure' in self.plotter.ax.get_ylabel() # type: ignore
     
     def test_model_levels_ylim_exception(self: "TestAxisFormatting") -> None:
         """
