@@ -59,11 +59,11 @@ jobs:
     
     - name: Checkout LFS objects
       shell: bash
-      run: |
-        echo "Using log file: ${LOG_FILE}"
-        echo "=== Checking out LFS objects ===" | tee -a "${LOG_FILE}"
-        git lfs pull 2>&1 | tee -a "${LOG_FILE}"
-        echo "" | tee -a "${LOG_FILE}"
+    run: |
+      echo "Using log file: ${LOG_FILE}"
+      echo "=== Checking out LFS objects ===" | tee -a "${LOG_FILE}"
+      git lfs pull 2>&1 | tee -a "${LOG_FILE}" || { echo "WARNING: git lfs pull failed (possibly allocation exceeded). Continuing anyway."; true; }
+      echo "" | tee -a "${LOG_FILE}"
     
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@d2e6a045a86077fb6cad6f5adf368e9076ddaa8d # v3.1.0

@@ -257,7 +257,7 @@ class TestFileDiscoveryAndValidation:
             
                 assert "not readable" in str(ctx.value)
             finally:
-                os.chmod(test_file, 0o644)
+                os.chmod(test_file, 0o600)
 
 
 class TestSpatialCoordinatesAndFiltering:
