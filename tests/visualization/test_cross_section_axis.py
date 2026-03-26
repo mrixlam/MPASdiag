@@ -327,7 +327,6 @@ class TestAxisFormatting:
             (-100, 30), (-90, 40)
         )
         
-        # ssert isinstance(self.plotter.ax, GeoAxes) 
         assert 'Pressure' in self.plotter.ax.get_ylabel() # type: ignore
     
     def test_model_levels_ylim_exception(self: "TestAxisFormatting") -> None:
