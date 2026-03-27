@@ -356,26 +356,52 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         
         print(f"Interpolating {var_name} data along cross-section...")
         
+        # Convert UxDataset to plain xr.Dataset for reliable isel operations.
+        # UxDataset subclasses xr.Dataset but its UxDataArray.isel() silently
+        # fails to reduce dimensions. xr.Dataset() strips the wrapper.
+        ds = mpas_3d_processor.dataset
+
+        if type(ds) is not xr.Dataset:
+            ds = xr.Dataset(ds)
+        
+        var_da = ds[var_name]
+        
+        time_dim = 'Time' if 'Time' in var_da.sizes else ('time' if 'time' in var_da.sizes else None)
+        
+        if 'nVertLevels' in var_da.sizes:
+            vert_dim = 'nVertLevels'
+        elif 'nVertLevelsP1' in var_da.sizes:
+            vert_dim = 'nVertLevelsP1'
+        else:
+            vert_dim = None
+        
         for level_idx, level in enumerate(vertical_levels):
             try:
-                if hasattr(mpas_3d_processor, 'get_3d_variable_data'):
-                    level_data = mpas_3d_processor.get_3d_variable_data(var_name, level_idx, time_index)
+                isel_dict = {}
+
+                if time_dim is not None:
+                    isel_dict[time_dim] = time_index
+
+                if vert_dim is not None:
+                    isel_dict[vert_dim] = level_idx
                 else:
-                    var_data = mpas_3d_processor.dataset[var_name]
-                    if 'Time' in var_data.sizes:
-                        var_data = var_data.isel(Time=time_index)
-                    
-                    if 'nVertLevels' in var_data.sizes:
-                        level_data = var_data.isel(nVertLevels=level_idx)
-                    elif 'nVertLevelsP1' in var_data.sizes:
-                        level_data = var_data.isel(nVertLevelsP1=level_idx)
-                    else:
-                        continue
+                    continue
+                
+                level_data = var_da.isel(isel_dict)
+                
+                if hasattr(level_data, 'compute'):
+                    level_data = level_data.compute()
                 
                 if hasattr(level_data, 'values'):
                     data_values = level_data.values
                 else:
-                    data_values = level_data
+                    data_values = np.asarray(level_data)
+                
+                if data_values.ndim != 1 or data_values.shape[0] != lon_coords.shape[0]:
+                    raise ValueError(
+                        f"Level extraction produced shape {data_values.shape}, "
+                        f"expected ({lon_coords.shape[0]},)"
+                    )
                 
                 interpolated_values = self._interpolate_along_path(
                     lon_coords, lat_coords, data_values,

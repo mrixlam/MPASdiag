@@ -51,6 +51,20 @@ class MPAS3DProcessor(MPASBaseProcessor):
         """
         super().__init__(grid_file, verbose)
     
+    def _get_plain_dataset(self) -> xr.Dataset:
+        """
+        This internal helper method ensures that the underlying xarray Dataset is returned regardless of whether the main dataset is wrapped in a UXarray grid object or is a plain xarray Dataset. It checks the type of self.dataset and extracts the xr.Dataset if it's a UXarray grid, otherwise it returns self.dataset directly. This allows other methods to work with a consistent xarray Dataset interface for data manipulation and coordinate extraction, while still supporting the use of UXarray for unstructured mesh operations when needed.
+
+        Parameters:
+            None
+
+        Returns:
+            xr.Dataset: The underlying xarray Dataset for data access and manipulation.
+        """
+        if type(self.dataset) is not xr.Dataset:
+            return xr.Dataset(self.dataset)
+        return self.dataset
+    
     def extract_2d_coordinates_for_variable(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract horizontal coordinate arrays for 3D variables based on their spatial dimension topology. This method determines the appropriate mesh location (cells, vertices, or edges) where the variable is defined and returns corresponding longitude and latitude arrays from the grid file. It inspects the variable's dimensions or provided data array to identify the spatial dimension, then loads the matching coordinate pair from the grid dataset. The method supports cell-centered (nCells), vertex-based (nVertices), and edge-based (nEdges) variables common in MPAS atmospheric output. These horizontal coordinates are essential for cross-section path definition and geographic plotting of 3D fields. Note that this only extracts horizontal coordinates; vertical coordinate handling requires separate methods.
@@ -271,11 +285,11 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 
         elif isinstance(level, float):
             if 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
-                pressure_p = self.dataset['pressure_p'].isel({time_dim: validated_time_index})
-                pressure_base = self.dataset['pressure_base'].isel({time_dim: validated_time_index})
+                ds_raw = self._get_plain_dataset()
+                pressure_p = ds_raw['pressure_p'].isel({time_dim: validated_time_index})
+                pressure_base = ds_raw['pressure_base'].isel({time_dim: validated_time_index})
                 total_pressure = pressure_p + pressure_base
 
-                # Average over all horizontal dims (handles nCells in xarray and n_face in uxarray)
                 vert_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
                 horiz_dims = [d for d in total_pressure.dims if d != vert_dim]
                 mean_pressure = total_pressure.mean(dim=horiz_dims) if horiz_dims else total_pressure
@@ -308,12 +322,9 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
                         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
-                        if self.data_type == 'uxarray':
-                            var_lower = self.dataset[var_name][validated_time_index].isel({vertical_dim: lower_idx})
-                            var_upper = self.dataset[var_name][validated_time_index].isel({vertical_dim: upper_idx})
-                        else:
-                            var_lower = self.dataset[var_name].isel({time_dim: validated_time_index, vertical_dim: lower_idx})
-                            var_upper = self.dataset[var_name].isel({time_dim: validated_time_index, vertical_dim: upper_idx})
+                        ds_raw = self._get_plain_dataset()
+                        var_lower = ds_raw[var_name].isel({time_dim: validated_time_index, vertical_dim: lower_idx})
+                        var_upper = ds_raw[var_name].isel({time_dim: validated_time_index, vertical_dim: upper_idx})
 
                         try:
                             interp_field = (1.0 - w) * var_lower + w * var_upper
@@ -350,21 +361,25 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
         
-        if self.data_type == 'uxarray':
-            var_data = self.dataset[var_name][validated_time_index].isel({vertical_dim: level_idx})
-        else:
-            var_data = self.dataset[var_name].isel({time_dim: validated_time_index, vertical_dim: level_idx})
+        ds = self._get_plain_dataset()
+        var_data = ds[var_name].isel({time_dim: validated_time_index, vertical_dim: level_idx})
         
         if hasattr(var_data, 'compute'):
             var_data = cast(Any, var_data).compute()
+        
+        if hasattr(var_data, 'ndim') and var_data.ndim > 1:
+            raise ValueError(
+                f"Level extraction for {var_name} at level {level} produced {var_data.ndim}D data "
+                f"with shape {var_data.shape}, expected 1D"
+            )
         
         if hasattr(var_data, 'attrs'):
             var_data.attrs['selected_level'] = level
             var_data.attrs['level_index'] = level_idx
             
             if isinstance(level, float) and 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
-                pressure_p = self.dataset['pressure_p'].isel({time_dim: validated_time_index, vertical_dim: level_idx})
-                pressure_base = self.dataset['pressure_base'].isel({time_dim: validated_time_index, vertical_dim: level_idx})
+                pressure_p = ds['pressure_p'].isel({time_dim: validated_time_index, vertical_dim: level_idx})
+                pressure_base = ds['pressure_base'].isel({time_dim: validated_time_index, vertical_dim: level_idx})
                 actual_pressure = (pressure_p + pressure_base).mean().values
                 var_data.attrs['actual_pressure_level'] = f"{actual_pressure:.1f} Pa"
         
@@ -418,10 +433,11 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         if return_pressure and 'pressure' in self.dataset:
             time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
+            ds_raw = self._get_plain_dataset()
             try:
-                pressure_da = self.dataset['pressure'].isel({time_dim: validated_time_index})
+                pressure_da = ds_raw['pressure'].isel({time_dim: validated_time_index})
             except Exception:
-                pressure_da = self.dataset['pressure']
+                pressure_da = ds_raw['pressure']
 
             mean_pressure_levels = pressure_da.mean(dim='nCells').values
             mean_pressure_levels = np.asarray(mean_pressure_levels, dtype=float).ravel()
@@ -436,16 +452,17 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
                 if self.verbose:
                     print(f"Pressure levels for {var_name} ({num_levels} levels) from 'pressure' variable:")
-                    print(f"  Surface: {mean_pressure_levels[0]:.1f} Pa")
-                    print(f"  Top: {mean_pressure_levels[-1]:.1f} Pa")
+                    print(f"  Surface: {float(mean_pressure_levels[0]):.1f} Pa")
+                    print(f"  Top: {float(mean_pressure_levels[-1]):.1f} Pa")
 
                 return mean_pressure_levels.tolist()
 
         if return_pressure and 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
             time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
 
-            pressure_p = self.dataset['pressure_p'].isel({time_dim: validated_time_index})
-            pressure_base = self.dataset['pressure_base'].isel({time_dim: validated_time_index})
+            ds_raw = self._get_plain_dataset()
+            pressure_p = ds_raw['pressure_p'].isel({time_dim: validated_time_index})
+            pressure_base = ds_raw['pressure_base'].isel({time_dim: validated_time_index})
             total_pressure = pressure_p + pressure_base
 
             mean_pressure_levels = total_pressure.mean(dim='nCells').values
@@ -456,17 +473,18 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
             if self.verbose:
                 print(f"Pressure levels for {var_name} ({num_levels} levels):")
-                print(f"  Surface: {mean_pressure_levels[0]:.1f} Pa")
-                print(f"  Top: {mean_pressure_levels[-1]:.1f} Pa")
-                print(f"  Range: {mean_pressure_levels.min():.1f} to {mean_pressure_levels.max():.1f} Pa")
+                print(f"  Surface: {float(mean_pressure_levels[0]):.1f} Pa")
+                print(f"  Top: {float(mean_pressure_levels[-1]):.1f} Pa")
+                print(f"  Range: {float(mean_pressure_levels.min()):.1f} to {float(mean_pressure_levels.max()):.1f} Pa")
 
             return mean_pressure_levels.tolist()
 
         if return_pressure and 'fzp' in self.dataset and 'surface_pressure' in self.dataset:
             try:
                 time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
-                fzp = self.dataset['fzp'].isel({time_dim: validated_time_index}).values
-                sp = self.dataset['surface_pressure'].isel({time_dim: validated_time_index}).values
+                ds_raw = self._get_plain_dataset()
+                fzp = ds_raw['fzp'].isel({time_dim: validated_time_index}).values
+                sp = ds_raw['surface_pressure'].isel({time_dim: validated_time_index}).values
 
                 with warnings.catch_warnings():
                     warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
@@ -493,8 +511,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
                 if self.verbose:
                     print(f"Reconstructed pressure levels from hybrid coefficients for {var_name} ({num_levels} levels):")
-                    print(f"  Surface (mean): {mean_sp:.1f} Pa")
-                    print(f"  Top: {mean_pressure_levels[-1]:.1f} Pa")
+                    print(f"  Surface (mean): {float(mean_sp):.1f} Pa")
+                    print(f"  Top: {float(mean_pressure_levels[-1]):.1f} Pa")
 
                 return mean_pressure_levels.tolist()
             except Exception as e:
