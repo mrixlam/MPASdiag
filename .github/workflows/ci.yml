@@ -118,7 +118,7 @@ jobs:
       run: |
         echo "=== Installing Dependencies ===" | tee -a "${LOG_FILE}"
         echo "Installing conda packages..." | tee -a "${LOG_FILE}"
-        conda install -y -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray 2>&1 | tee -a "${LOG_FILE}"
+        conda install -y -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray metpy xesmf 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing test dependencies..." | tee -a "${LOG_FILE}"
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
@@ -140,6 +140,10 @@ jobs:
         python -c "import uxarray; print('uxarray imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
         echo "Testing mpi4py import..." | tee -a "${LOG_FILE}"
         python -c "import mpi4py; print('mpi4py imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
+        echo "Testing metpy import..." | tee -a "${LOG_FILE}"
+        python -c "import metpy; print('metpy imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
+        echo "Testing xesmf import..." | tee -a "${LOG_FILE}"
+        python -c "import xesmf; print('xesmf imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
     
     - name: Run tests with pytest
