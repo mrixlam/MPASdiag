@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS File Management Utilities
+MPASdiag Core Processing Module: File Management Utilities
 
-This module provides comprehensive file and directory management functionality for MPAS data analysis workflows including file discovery, path validation, directory operations, and cleanup utilities. It implements the FileManager class with static methods for locating MPAS output files using glob pattern matching, validating input file paths and directories with existence checks, creating output directory structures with proper permissions, formatting file sizes for human-readable display, and performing age-based cleanup of temporary and output files. The utilities support common file operations needed across MPASdiag processing and visualization modules including recursive directory creation, file pattern matching with wildcards, metadata inspection for file size and modification time, and safe file deletion with validation checks. Core capabilities include automatic handling of file system errors with informative error messages, support for both absolute and relative paths with path normalization, integration with MPASConfig for consistent path management, and stateless design enabling usage without class instantiation suitable for both interactive scripts and automated batch processing pipelines.
-
-Classes:
-    FileManager: Centralized utility class providing static methods for file and directory operations in MPAS analysis workflows.
+This module provides a set of utility functions for handling file and directory operations in the context of MPAS diagnostic processing. It includes methods for ensuring output directories exist, finding files based on glob patterns, retrieving file metadata, cleaning up old files, formatting file sizes, checking available memory, printing system information, creating standardized output filenames, loading configuration files, and validating input files. These utilities are designed to support the core processing workflows of MPAS diagnostics by providing robust and reusable functions for common file management tasks. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -26,39 +23,35 @@ from .constants import DIAG_GLOB
 
 
 class FileManager:
-    """
-    Centralized file and directory management utilities for MPAS data analysis workflows. This class provides stateless helper methods for discovering files on disk, validating input locations, formatting file sizes, and performing cleanup operations. All methods are implemented as static methods allowing usage without class instantiation. The utilities support common file operations including directory creation, file pattern matching, metadata inspection, and age-based cleanup. Methods that modify the filesystem document their side effects explicitly to ensure safe usage in production environments.
-    """
+    """ Utility class for handling file and directory operations in MPAS diagnostic processing. """
     
     @staticmethod
     def ensure_directory(directory: str) -> None:
         """
-        Create directory if it does not already exist using idempotent filesystem operations. This safe helper wraps pathlib.Path.mkdir with parents=True and exist_ok=True to enable multiple calls without errors. The method creates all intermediate parent directories as needed when the full path does not exist. This is essential for setting up output directory structures before saving analysis results. Any filesystem errors such as permission issues will propagate as OSError exceptions from the underlying pathlib operations.
+        This method ensures that the specified directory exists by creating it if it does not already exist. It uses pathlib.Path.mkdir with parents=True to create any necessary parent directories and exist_ok=True to avoid raising an error if the directory already exists. This utility is commonly used to prepare output directories for saving diagnostic results, ensuring that the processing workflow can write files without encountering "directory not found" errors. By centralizing this functionality, it promotes code reuse and simplifies directory management across different parts of the MPAS diagnostic processing codebase. 
 
-        Parameters:
-            directory (str): Filesystem path to ensure exists, may be absolute or relative path string.
+        Parameters: 
+            directory (str): Path to the directory to ensure exists, can be absolute or relative. 
 
         Returns:
             None
-
-        Raises:
-            OSError: If the directory cannot be created due to permissions or other filesystem errors.
         """
         Path(directory).mkdir(parents=True, exist_ok=True)
     
     @staticmethod
-    def find_files(directory: str, pattern: str = "*.nc",
+    def find_files(directory: str, 
+                   pattern: str = "*.nc",
                    recursive: bool = False) -> List[str]:
         """
-        Return sorted list of file paths matching glob pattern under specified directory. This helper searches for files using pathlib glob operations and returns paths as strings for easy consumption. The method supports both immediate directory search (glob) and recursive subdirectory search (rglob) controlled by the recursive parameter. If the directory does not exist, an empty list is returned to enable graceful handling. The returned list is always sorted for consistent ordering across multiple calls and platforms.
+        This method searches for files in the specified directory that match a given glob pattern, with an option to perform a recursive search through subdirectories. It uses pathlib.Path.glob for non-recursive searches and pathlib.Path.rglob for recursive searches. The method returns a sorted list of matching file paths as strings. If the specified directory does not exist, it returns an empty list. This utility is essential for locating input diagnostic files based on common naming patterns, allowing the processing workflow to easily gather the necessary files for analysis. By providing both non-recursive and recursive search options, it offers flexibility in how users organize their input data directories. 
 
         Parameters:
-            directory (str): Directory to search for files, if directory does not exist returns empty list.
-            pattern (str): Glob pattern to match files such as "*.nc" or "diag*.nc" (default: "*.nc").
-            recursive (bool): If True performs recursive search through subdirectories, if False only searches immediate directory (default: False).
+            directory (str): Path to the directory to search for files, can be absolute or relative.
+            pattern (str): Glob pattern to match files such as "*.nc" or "diag_*.nc" (default: "*.nc").
+            recursive (bool): If True, search subdirectories recursively; if False, search only the specified directory (default: False). 
 
         Returns:
-            List[str]: Sorted list of matching file paths as strings, empty list if no matches found.
+            List[str]: Sorted list of file paths matching the pattern, or an empty list if the directory does not exist or no files match. 
         """
         path = Path(directory)
 
@@ -72,13 +65,13 @@ class FileManager:
     @staticmethod
     def get_file_info(filepath: str) -> Dict[str, Any]:
         """
-        Return dictionary containing basic metadata and statistics for specified file path. The returned dictionary always contains an exists key indicating file presence, with additional metadata included when the file exists. This method wraps pathlib.Path.stat to provide convenient access to file size in bytes and megabytes, modification timestamp, and creation timestamp. The metadata reflects underlying filesystem state and is useful for diagnostic logging and file validation. All timestamp values are returned as Python datetime objects for easy manipulation and formatting.
+        This method retrieves metadata information about a specified file, including its existence, size in bytes and megabytes, and timestamps for last modification and creation. It uses pathlib.Path to access file properties and returns a dictionary containing this information. If the file does not exist, it returns a dictionary indicating that the file does not exist. This utility is useful for inspecting input files before processing, allowing users to verify that files are present and to understand their characteristics such as size and modification times. This information can assist with troubleshooting issues related to missing or unexpectedly large files in MPAS diagnostic workflows. 
 
-        Parameters:
-            filepath (str): Path to the file to inspect for metadata extraction.
+        Parameters: 
+            filepath (str): Path to the file to retrieve information about, can be absolute or relative. 
 
         Returns:
-            Dict[str, Any]: Dictionary containing file metadata with keys: exists (bool), size (int bytes), size_mb (float megabytes), modified (datetime), created (datetime).
+            Dict[str, Any]: Dictionary containing file metadata including existence, size in bytes and megabytes, and modification/creation timestamps. If the file does not exist, returns {"exists": False}. 
         """
         path = Path(filepath)
 
@@ -96,18 +89,19 @@ class FileManager:
         }
     
     @staticmethod
-    def cleanup_files(directory: str, pattern: str = "*.tmp",
+    def cleanup_files(directory: str, 
+                      pattern: str = "*.tmp",
                       older_than_days: int = 7) -> int:
         """
-        Remove files matching glob pattern that are older than specified age threshold based on modification time. This method performs age-based cleanup by comparing file modification timestamps against the cutoff date calculated from current time minus older_than_days. The method attempts to delete matching files and returns a count of successfully removed files for reporting. Filesystem exceptions from pathlib.Path.unlink such as permission errors will propagate to the caller for explicit handling. This utility is designed for periodic cleanup of temporary or intermediate analysis files to manage disk usage.
+        This method deletes files in the specified directory that match a given glob pattern and have a modification time older than a specified number of days. It calculates a cutoff time based on the current time minus the older_than_days parameter and iterates through matching files to check their modification times. If a file's modification time is older than the cutoff, it is deleted using pathlib.Path.unlink. The method keeps a count of how many files were successfully deleted and returns this count at the end. This utility is useful for cleaning up temporary or backup files that may accumulate over time during MPAS diagnostic processing, helping to manage disk space and maintain an organized file system. By allowing users to specify both the pattern and age threshold, it provides flexibility in how cleanup operations are performed. 
 
         Parameters:
-            directory (str): Directory to search for files to delete.
-            pattern (str): Glob pattern to match files for potential deletion such as "*.tmp" or "*.bak" (default: "*.tmp").
-            older_than_days (int): Files with modification time older than this many days will be deleted (default: 7).
+            directory (str): Path to the directory to clean up, can be absolute or relative.
+            pattern (str): Glob pattern to match files for deletion such as "*.tmp" or "backup_*.nc" (default: "*.tmp").
+            older_than_days (int): Number of days to use as a threshold for deleting files based on their modification time (default: 7). 
 
         Returns:
-            int: Number of files successfully deleted from the directory.
+            int: Count of files that were deleted based on the specified criteria. 
         """
         path = Path(directory)
         cutoff_time = datetime.now() - timedelta(days=older_than_days)
@@ -123,13 +117,13 @@ class FileManager:
     @staticmethod
     def format_file_size(size_bytes: int) -> str:
         """
-        Convert byte count to human-readable size string with appropriate unit suffix. This formatting utility automatically selects the most appropriate unit (B, KB, MB, GB, TB, PB) by iteratively dividing by 1024 until the value is less than 1024. The method returns a formatted string with one decimal place precision followed by the unit abbreviation for easy reading. This is commonly used for displaying file sizes, memory usage, and data transfer amounts in user-friendly formats. The conversion follows binary units (1024 bytes per kilobyte) consistent with filesystem reporting conventions.
+        This method converts a file size in bytes into a human-readable string format with appropriate units (B, KB, MB, GB, TB). It iteratively divides the size by 1024 to determine the correct unit and formats the resulting size with one decimal place. If the size exceeds the largest unit (TB), it defaults to PB. This utility is helpful for displaying file sizes in a more understandable format when reporting on input files or output products in MPAS diagnostic processing workflows, allowing users to quickly grasp the scale of file sizes without needing to interpret large byte values. 
 
         Parameters:
-            size_bytes (int): Size in bytes to format for human-readable display.
+            size_bytes (int): File size in bytes to be formatted into a human-readable string. 
 
         Returns:
-            str: Human-readable size string with one decimal place and unit suffix (e.g., "1.2 MB", "345.6 GB").
+            str: Formatted file size string with appropriate units (e.g., "1.5 MB", "200 KB"). 
         """
         size_float = float(size_bytes)
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -141,10 +135,13 @@ class FileManager:
     @staticmethod
     def get_available_memory() -> float:
         """
-        Return available system memory in gigabytes using psutil library when available. This utility provides a cross-platform way to query system memory statistics for capacity planning and resource monitoring. When psutil is not installed or cannot be imported, the function returns 0.0 to indicate the metric is unavailable rather than raising an exception. The memory value represents currently available RAM that can be allocated to new processes without swapping. This information is useful for determining appropriate chunk sizes and parallelization strategies for large dataset processing.
+        This method retrieves the available system memory in gigabytes using the psutil library. It attempts to import psutil and access the virtual_memory().available attribute to get the available memory in bytes, which it then converts to gigabytes by dividing by 1024^3. If psutil is not installed or if there is an error accessing memory information, it catches the ImportError and returns 0.0 to indicate that available memory cannot be determined. This utility is useful for assessing system resources before running MPAS diagnostic processing workflows, allowing users to understand how much memory is available for processing large datasets and potentially adjust their workflow or input data accordingly. 
+
+        Parameters:
+            None
 
         Returns:
-            float: Available system memory in gigabytes, or 0.0 if psutil is not installed or memory information cannot be determined.
+            float: Available system memory in gigabytes, or 0.0 if memory information cannot be retrieved. 
         """
         try:
             import psutil
@@ -156,7 +153,10 @@ class FileManager:
     @staticmethod
     def print_system_info() -> None:
         """
-        Print concise summary of current system environment to stdout for quick diagnostics. This method outputs Python version, platform identifier, current working directory, and available memory statistics in a formatted block. The output is intended for interactive debugging and log files rather than machine parsing. Callers requiring programmatic access to individual metrics should use get_available_memory and other specific helper methods directly. The information helps diagnose environment-specific issues and verify runtime conditions before executing analysis workflows.
+        This method prints basic system information to the console, including the Python version, platform, current working directory, and available memory. It uses the sys and os modules to retrieve this information and the get_available_memory method to report on available system memory. This utility is helpful for providing context about the environment in which MPAS diagnostic processing is being run, allowing users to verify that they are using the expected Python version and platform, and to understand the resources available for processing. By centralizing this information in a single method, it promotes consistency in how system information is reported across different parts of the MPAS diagnostic codebase. 
+
+        Parameters:
+            None
 
         Returns:
             None
@@ -169,33 +169,36 @@ class FileManager:
         print("=" * 30)
     
     @staticmethod
-    def create_output_filename(base_name: str, time_str: str, var_name: str,
-                               accum_period: str, extension: str = "png") -> str:
+    def create_output_filename(base_name: str, 
+                               time_str: str, 
+                               var_name: str,
+                               accum_period: str, 
+                               extension: str = "png") -> str:
         """
-        Create standardized output filename following consistent naming convention used throughout analysis examples. The naming pattern incorporates base name, variable identifier, accumulation period, validation time, and file extension in a structured format. This convention mirrors existing output naming used in repository examples to maintain consistency across analysis products. The format enables systematic organization and discovery of output files while encoding essential metadata in the filename. The standardized names support automated post-processing and archival workflows that rely on predictable filename patterns.
+        This method generates a standardized output filename based on a specified pattern that includes the base name, variable type, accumulation type, valid time, and file extension. The filename follows the format "base_vartype_var_acctype_accum_valid_time_point.ext", where each component is filled in with the corresponding parameters provided to the method. This utility is useful for creating consistent and descriptive filenames for output products generated during MPAS diagnostic processing, making it easier to identify the contents and context of each file based on its name. By centralizing the filename formatting logic in this method, it promotes consistency across different parts of the codebase and simplifies the process of generating output filenames. 
 
         Parameters:
-            base_name (str): Base name for the file, typically the analysis or experiment name.
-            time_str (str): Time stamp string to include such as "20240917T13" in compact format.
-            var_name (str): Variable name or identifier such as "t2m", "rain", or "wind".
-            accum_period (str): Accumulation or aggregation period identifier for temporal context.
-            extension (str): File extension without dot such as "png", "pdf", or "nc" (default: "png").
+            base_name (str): Base name to include in the filename, typically representing the model or experiment.
+            time_str (str): Valid time string to include in the filename, formatted as "YYYYMMDD_HHMMSS" or similar.
+            var_name (str): Variable name to include in the filename, representing the type of data (e.g., "temperature", "precipitation").
+            accum_period (str): Accumulation period to include in the filename, indicating the time period over which data is accumulated (e.g., "24hr", "6hr").
+            extension (str): File extension to use for the output file (default: "png").
 
         Returns:
-            str: Formatted filename string following pattern "base_vartype_var_acctype_accum_valid_time_point.ext".
+            str: Generated output filename following the specified pattern. 
         """
         return f"{base_name}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_point.{extension}"
     
     @staticmethod
     def load_config_file(config_file: str) -> MPASConfig:
         """
-        Load MPASConfig object from YAML configuration file with graceful error handling and default fallback. This method attempts to read and parse the specified configuration file, returning a fully initialized MPASConfig instance with user-specified parameters. If the file cannot be found, read, or parsed for any reason, the function prints an informative error message and returns a default MPASConfig instance to allow workflows to continue. This fallback behavior enables robust operation even when configuration files are missing or malformed. The error handling prevents workflow failures while clearly communicating configuration issues to users through console output.
+        This method loads a YAML configuration file and parses it into an MPASConfig object. It checks if the specified configuration file exists and attempts to load it using the MPASConfig.load_from_file method. If the file does not exist or if there is an error during loading, it catches the exception, prints an error message to the console, and returns a default MPASConfig instance instead. This utility is essential for initializing the configuration parameters for MPAS diagnostic processing workflows, allowing users to specify their settings in a YAML file while providing a fallback to default settings if the file cannot be loaded. By centralizing the configuration loading logic in this method, it promotes consistency and error handling when working with configuration files across different parts of the codebase. 
 
         Parameters:
-            config_file (str): Path to YAML configuration file containing MPASConfig parameters.
+            config_file (str): Path to the YAML configuration file to load, can be absolute or relative. 
 
         Returns:
-            MPASConfig: Parsed configuration object from file, or default configuration instance if loading fails.
+            MPASConfig: An instance of MPASConfig containing the loaded configuration parameters. If the file cannot be loaded, returns a default MPASConfig instance. 
         """
         try:
             if not os.path.exists(config_file):
@@ -211,13 +214,13 @@ class FileManager:
     @staticmethod
     def validate_input_files(config: MPASConfig) -> bool:
         """
-        Validate that required input files and directories referenced by configuration exist and are accessible. This method performs comprehensive validation of grid file path, data directory path, and diagnostic file presence to catch configuration errors early. The function checks that the grid file exists, data directory is a valid directory (not a file), and at least one diagnostic file matching the pattern is present. When validation fails, the method prints a concise list of all detected problems to help users correct configuration issues. The boolean return value enables conditional workflow execution based on input availability.
+        This method performs validation checks on the input files specified in the configuration object. It verifies that the grid file exists, that the data directory exists and is a directory, and that the data directory contains diagnostic files matching the expected glob pattern. If any of these checks fail, it collects error messages and prints them to the console, returning False to indicate that validation failed. If all checks pass, it returns True to indicate that the input files are valid and ready for processing. This utility is crucial for ensuring that the necessary input files are present and correctly specified before running MPAS diagnostic processing workflows, helping to prevent errors later in the processing due to missing or misconfigured input files. By centralizing the validation logic in this method, it promotes consistency in how input files are checked across different parts of the codebase. 
 
         Parameters:
-            config (MPASConfig): Configuration object containing paths to grid file, data directory, and other input specifications.
+            config (MPASConfig): Configuration object containing the parameters to validate, including grid_file and data_dir attributes. 
 
         Returns:
-            bool: True if all validation checks pass (grid file exists, data directory exists and contains diagnostic files), False if any validation errors detected.
+            bool: True if all input files are valid, False if any validation checks fail. 
         """
         errors: List[str] = []
 

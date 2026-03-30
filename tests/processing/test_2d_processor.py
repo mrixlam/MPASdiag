@@ -21,6 +21,7 @@ from typing import Any, Dict
 from unittest.mock import patch
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
+from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 from tests.test_data_helpers import get_mpas_data_paths, check_mpas_data_available
 
 
@@ -419,7 +420,23 @@ class TestGet2DVariableData:
         if isinstance(data, xr.DataArray):
             data = data.values
         
-        assert np.any(np.isfinite(data))
+        data_arr = np.asarray(data)
+
+        if not np.issubdtype(data_arr.dtype, np.number):
+            for vn in list(self.processor.dataset.data_vars)[1:]:
+                data = self.processor.get_2d_variable_data(vn)
+
+                if isinstance(data, xr.DataArray):
+                    data = data.values
+                
+                data_arr = np.asarray(data)
+                
+                if np.issubdtype(data_arr.dtype, np.number):
+                    break
+            else:
+                pytest.skip("No numeric 2D variables found in dataset")
+        
+        assert np.any(np.isfinite(data_arr))
 
     def test_get_variable_not_loaded(self: "TestGet2DVariableData") -> None:
         """
@@ -502,6 +519,7 @@ class TestGetAccumulationHours:
             pytest.skip("MPAS test data not available")
         
         cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=False)        
+        cls.precip_diag = PrecipitationDiagnostics(verbose=False)
         cls.diag_files = sorted(Path(cls.paths['diag_dir']).glob('diag.*.nc'))
 
         assert len(cls.diag_files) > 0, "No diagnostic files found for accumulation parsing tests"
@@ -516,7 +534,7 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        hours = self.processor.get_accumulation_hours('a01h')
+        hours = self.precip_diag.get_accumulation_hours('a01h')
         assert isinstance(hours, (int, float))
         assert hours == 1
 
@@ -530,7 +548,7 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        hours = self.processor.get_accumulation_hours('a03h')
+        hours = self.precip_diag.get_accumulation_hours('a03h')
         assert isinstance(hours, (int, float))
         assert hours == 3
 
@@ -544,7 +562,7 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        hours = self.processor.get_accumulation_hours('a06h')
+        hours = self.precip_diag.get_accumulation_hours('a06h')
         assert isinstance(hours, (int, float))
         assert hours == 6
 
@@ -558,7 +576,7 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        hours = self.processor.get_accumulation_hours('a12h')
+        hours = self.precip_diag.get_accumulation_hours('a12h')
         assert isinstance(hours, (int, float))
         assert hours == 12
 
@@ -572,7 +590,7 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        hours = self.processor.get_accumulation_hours('a24h')
+        hours = self.precip_diag.get_accumulation_hours('a24h')
         assert isinstance(hours, (int, float))
         assert hours == 24
 
@@ -587,7 +605,7 @@ class TestGetAccumulationHours:
             None
         """
         try:
-            hours = self.processor.get_accumulation_hours(None) # type: ignore
+            hours = self.precip_diag.get_accumulation_hours(None) # type: ignore
             assert isinstance(hours, (int, float, type(None)))
         except (TypeError, ValueError):
             pass  # Expected
@@ -603,7 +621,7 @@ class TestGetAccumulationHours:
             None
         """
         try:
-            hours = self.processor.get_accumulation_hours("")
+            hours = self.precip_diag.get_accumulation_hours("")
             assert isinstance(hours, (int, float, type(None)))
         except (ValueError, KeyError):
             pass  # Expected
@@ -619,7 +637,7 @@ class TestGetAccumulationHours:
             None
         """
         try:
-            hours = self.processor.get_accumulation_hours("unknown")
+            hours = self.precip_diag.get_accumulation_hours("unknown")
             assert isinstance(hours, (int, float, type(None)))
         except (ValueError, KeyError):
             pass  # Expected

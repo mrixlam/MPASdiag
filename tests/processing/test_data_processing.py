@@ -24,6 +24,7 @@ from unittest.mock import patch, MagicMock
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.processing.base import MPASBaseProcessor
+from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
 package_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(package_dir))
@@ -96,15 +97,14 @@ class TestUtilityFunctions:
         Returns:
             None
         """
-        processor = MPAS2DProcessor(self.stub_grid, verbose=False)
+        precip_diag = PrecipitationDiagnostics(verbose=False)
 
-        assert processor.get_accumulation_hours('a01h') == 1
-        assert processor.get_accumulation_hours('a03h') == 3
-        assert processor.get_accumulation_hours('a06h') == 6
-        assert processor.get_accumulation_hours('a12h') == 12
-        assert processor.get_accumulation_hours('a24h') == 24
-        assert processor.get_accumulation_hours('invalid') == 24  
-
+        assert precip_diag.get_accumulation_hours('a01h') == 1
+        assert precip_diag.get_accumulation_hours('a03h') == 3
+        assert precip_diag.get_accumulation_hours('a06h') == 6
+        assert precip_diag.get_accumulation_hours('a12h') == 12
+        assert precip_diag.get_accumulation_hours('a24h') == 24
+        assert precip_diag.get_accumulation_hours('invalid') == 24  
 
 class TestMPAS2DProcessor:
     """ Tests for MPAS2DProcessor class. """

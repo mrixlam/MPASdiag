@@ -1,19 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Parallel Processing Wrappers for MPAS Visualization
+MPASdiag Core Processing Module: Parallel Processing Wrappers
 
-This module provides parallel-enabled wrapper classes and functions for MPAS batch visualization workflows allowing seamless integration of MPI-based parallelization without modifying core visualization classes. It implements specialized parallel wrappers (ParallelPrecipitationProcessor, ParallelSurfaceProcessor, ParallelWindProcessor, ParallelCrossSectionProcessor) that coordinate distributed processing of time series plots across multiple MPI ranks, handle data caching to minimize redundant I/O operations, manage matplotlib backend configuration for fork-safe execution on macOS systems, and provide automatic load balancing with dynamic work distribution. The parallel wrappers maintain the same interface as their serial counterparts, enabling drop-in replacement in existing workflows while dramatically improving performance for multi-timestep batch processing through spatial or temporal domain decomposition. Core capabilities include MPI rank coordination for distributing time steps across workers, shared data caching for grid and coordinate information, comprehensive error handling with graceful degradation to serial mode, progress monitoring and performance statistics, and compatibility with both interactive and batch processing environments suitable for operational weather analysis and climate model diagnostics.
-
-Classes:
-    ParallelPrecipitationProcessor: Parallel wrapper for batch precipitation map generation with MPI coordination.
-    ParallelSurfaceProcessor: Parallel wrapper for batch surface variable visualization with distributed processing.
-    ParallelWindProcessor: Parallel wrapper for batch wind vector visualization with distributed processing.
-    ParallelCrossSectionProcessor: Parallel wrapper for batch vertical cross-section plots with work distribution.
-    
-Functions:
-    auto_batch_processor: Automatically selects and configures appropriate parallel or serial processor based on system capabilities.
-    setup_parallel_environment: Configures matplotlib backend and MPI environment for parallel execution.
+This module provides worker functions and parallel processing management for executing MPAS diagnostic computations and visualizations in parallel across multiple time steps. It includes worker functions for precipitation maps, surface variable maps, wind vector plots, and vertical cross-sections, each designed to be picklable for use with multiprocessing or MPI-based parallel execution. The module also contains a helper function to aggregate results from parallel workers and generate performance reports summarizing the outcomes of the parallel processing operations. 
     
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -61,13 +51,13 @@ except ImportError:
 
 def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Execute precipitation processing and plotting for a single timestep with comprehensive timing metrics. This worker function serves as a picklable entry point for parallel processing of precipitation data across multiple timesteps using a shared data cache. It computes precipitation differences using diagnostic modules, generates plots with the precipitation plotter, and saves outputs in specified formats. The function measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis.
+    This worker function executes precipitation diagnostic processing and plotting for a single timestep with comprehensive timing metrics. It serves as a picklable entry point for parallel processing of precipitation diagnostics across multiple timesteps using a shared data cache. The function extracts spatial coordinates, computes precipitation differences, generates visualizations with the MPASPrecipitationPlotter, and saves outputs in specified formats. It measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis. 
 
     Parameters:
-        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds, variable settings, and plotting options.
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple with (time_idx, kwargs) where time_idx is the timestep index and kwargs contains processor instance, cache object, spatial bounds, variable name, accumulation period, plot type, and formatting options. 
 
     Returns:
-        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
+        Dict[str, Any]: Result dictionary with 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and optionally 'cache_info' (dict with cache statistics). 
     """
     try:
         time_idx, kwargs = args
@@ -212,13 +202,13 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
 def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Execute surface variable processing and plotting for a single timestep with performance tracking. This worker function processes 2D surface fields such as temperature, pressure, or moisture variables across MPAS unstructured grids using cached coordinates. It retrieves the surface variable data, generates contour or filled contour plots using the surface plotter, and saves outputs in requested formats. The function measures timing for data extraction, plotting operations, and file writing while tracking cache hit statistics for analysis.
+    This worker function executes surface variable processing and plotting for a single timestep with comprehensive timing metrics. It serves as a picklable entry point for parallel processing of surface diagnostics across multiple timesteps using a shared data cache. The function extracts spatial coordinates, retrieves variable data, generates visualizations with the MPASSurfacePlotter, and saves outputs in specified formats. It measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis. 
 
     Parameters:
-        args (Tuple[int, Dict[str, Any]]): Two-element tuple with (time_idx, kwargs) where time_idx is the timestep index and kwargs contains processor instance, cache object, spatial bounds, variable name, plot type, and formatting options.
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds, variable name, plot type, and formatting options. 
 
     Returns:
-        Dict[str, Any]: Result dictionary with 'files' (list of str paths), 'timings' (dict with phase durations), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
+        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and optionally 'cache_info' (dict with cache statistics). 
     """
     time_idx, kwargs = args
     
@@ -319,13 +309,13 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
 def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Execute wind vector processing and plotting for a single timestep with comprehensive timing metrics. This worker function serves as a picklable entry point for parallel processing of wind vector data across multiple timesteps using a shared data cache. It extracts U and V wind components, generates wind vector visualizations with barbs or arrows, and saves outputs in specified formats. The function measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis.
+    This worker function executes wind vector processing and plotting for a single timestep with comprehensive timing metrics. It serves as a picklable entry point for parallel processing of wind diagnostics across multiple timesteps using a shared data cache. The function extracts spatial coordinates, retrieves 2D variable data for the specified U and V wind components, generates visualizations with the MPASWindPlotter, and saves outputs in specified formats. It measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis. 
 
     Parameters:
-        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds, wind variables, and plotting options.
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds, variable names for U and V components, plot type, subsampling factor, scaling options, and formatting settings. 
 
     Returns:
-        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and 'cache_info' (dict with cache statistics).
+        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and optionally 'cache_info' (dict with cache statistics). 
     """
     time_idx, kwargs = args
     
@@ -431,13 +421,13 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
 def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Execute vertical cross-section extraction and visualization for a single timestep with timing analysis. This worker function computes vertical slices through 3D atmospheric fields along specified great circle paths between start and end coordinates. It processes variables on height, pressure, or model levels using the 3D processor and generates cross-section plots with the vertical plotter. The function tracks execution time for data extraction, interpolation, plotting, and I/O operations to provide performance insights.
+    This worker function executes vertical cross-section processing and plotting for a single timestep with comprehensive timing metrics. It serves as a picklable entry point for parallel processing of vertical cross-section diagnostics across multiple timesteps using a shared data cache. The function extracts spatial coordinates, retrieves 3D variable data, generates visualizations with the MPASVerticalCrossSectionPlotter, and saves outputs in specified formats. It measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis. 
 
     Parameters:
-        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the timestep index and kwargs includes processor instance, cross-section endpoints, variable name, vertical coordinate type, and visualization settings.
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple containing (time_idx, kwargs) where time_idx is the integer timestep index and kwargs is a dictionary with processor instance, cache object, spatial bounds for start and end points, variable name, vertical coordinate type, number of points along the cross-section, plot type, and formatting options. 
 
     Returns:
-        Dict[str, Any]: Result dictionary with 'files' (list of output paths), 'timings' (dict mapping phases to durations), and 'time_str' (str timestamp).
+        Dict[str, Any]: Result dictionary with keys 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), 'cache_hits' (dict), and optionally 'cache_info' (dict with cache statistics). 
     """
     time_idx, kwargs = args
     
@@ -512,27 +502,25 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _process_parallel_results(
-    results: List[Any],
-    time_indices: List[int],
-    output_dir: str,
-    manager: MPASParallelManager,
-    processing_type: str,
-    var_info: Optional[str] = None
-) -> List[str]:
+def _process_parallel_results(results: List[Any], 
+                              time_indices: List[int], 
+                              output_dir: str, 
+                              manager: MPASParallelManager, 
+                              processing_type: str, 
+                              var_info: Optional[str] = None) -> List[str]:
     """
-    Aggregate and report results from distributed parallel batch processing operations with detailed timing analysis and performance metrics. This helper function collects results from all parallel workers, extracts timing information for each processing phase, computes comprehensive statistics across all timesteps, and generates formatted performance reports with status summaries. It processes both successful and failed tasks, accumulates timing data across data extraction, plotting, and saving phases, and calculates minimum, maximum, mean, and total execution times for each phase. The function outputs formatted console reports showing task completion status, detailed timing breakdowns per processing stage, and overall parallel execution metrics including speedup potential and load imbalance factors.
+    This helper function processes the results returned by parallel worker functions, aggregates timing metrics, counts successes and failures, and generates a comprehensive report summarizing the outcomes of the parallel processing operation. It collects successfully generated file paths, computes timing statistics for data processing, plotting, and saving phases, and retrieves overall parallel execution statistics from the manager to provide insights into performance and efficiency. The function prints a detailed report to the console with status counts, timing breakdowns, and potential speedup information based on the collected results. 
 
     Parameters:
-        results (List[Any]): List of result objects from parallel_map calls containing success status flags, generated output file paths, and timing dictionaries for each completed task.
-        time_indices (List[int]): List of integer timestep indices that were distributed across parallel workers for processing.
-        output_dir (str): Absolute or relative directory path where all output visualization files were saved during processing.
-        manager (MPASParallelManager): Active parallel manager instance providing access to execution statistics, load balancing metrics, and worker performance data.
-        processing_type (str): Processing operation type identifier string displayed in report headers, typically 'PRECIPITATION', 'SURFACE', or 'CROSS-SECTION'.
-        var_info (Optional[str]): Optional additional variable-specific information string to display in report header for context (default: None).
+        results (List[Any]): List of results returned by parallel worker functions, where each result is expected to be a dictionary containing 'files', 'timings', 'time_str', and optionally 'cache_hits' and 'cache_info'.
+        time_indices (List[int]): List of time indices that were processed in parallel, used for reporting purposes.
+        output_dir (str): Directory path where output files were saved, used for reporting the location of generated files.
+        manager (MPASParallelManager): Instance of the parallel manager used to execute the tasks, from which overall execution statistics can be retrieved.
+        processing_type (str): String indicating the type of processing performed (e.g., "Precipitation Maps", "Surface Maps", "Wind Plots", "Cross-Sections") for report header.
+        var_info (Optional[str]): Optional string with variable information to include in the report header for additional context. 
 
     Returns:
-        List[str]: List of successfully generated output file paths collected from all parallel workers.
+        List[str]: List of successfully created file paths aggregated from the results. 
     """
     created_files = []
     successful = 0
@@ -612,53 +600,49 @@ def _process_parallel_results(
 
 
 class ParallelPrecipitationProcessor:
-    """
-    Parallel wrapper for precipitation batch processing using MPI-based distributed computing. This class wraps MPASPrecipitationPlotter batch methods to enable efficient parallel processing of multiple timesteps across available MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
-    """
+    """ This class provides static methods for parallel processing of precipitation diagnostics and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_precipitation_maps_parallel(
-        processor: MPAS2DProcessor,
-        output_dir: str,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        var_name: str = 'rainnc',
-        accum_period: str = 'a01h',
-        plot_type: str = 'scatter',
-        grid_resolution: Optional[float] = None,
-        file_prefix: str = 'mpas_precipitation_map',
-        formats: List[str] = ['png'],
-        custom_title_template: Optional[str] = None,
-        colormap: Optional[str] = None,
-        levels: Optional[List[float]] = None,
-        time_indices: Optional[List[int]] = None,
-        n_processes: Optional[int] = None,
-        load_balance_strategy: str = "dynamic"
-    ) -> Optional[List[str]]:
+    def create_batch_precipitation_maps_parallel(processor: MPAS2DProcessor,
+                                                 output_dir: str, 
+                                                 lon_min: float, 
+                                                 lon_max: float, 
+                                                 lat_min: float, 
+                                                 lat_max: float, 
+                                                 var_name: str = 'rainnc', 
+                                                 accum_period: str = 'a01h', 
+                                                 plot_type: str = 'scatter', 
+                                                 grid_resolution: Optional[float] = None, 
+                                                 file_prefix: str = 'mpas_precipitation_map', 
+                                                 formats: List[str] = ['png'], 
+                                                 custom_title_template: Optional[str] = None, 
+                                                 colormap: Optional[str] = None, 
+                                                 levels: Optional[List[float]] = None, 
+                                                 time_indices: Optional[List[int]] = None, 
+                                                 n_processes: Optional[int] = None, 
+                                                 load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
-        Generate precipitation maps in parallel across multiple timesteps using MPI-based distributed processing. This static method distributes timesteps across available MPI processes using the specified load balancing strategy and creates individual precipitation maps for each timestep. It initializes a shared data cache to avoid redundant coordinate extraction, creates precipitation accumulation visualizations, and collects results on the master process. The method supports customizable output formats, color scales, and accumulation periods while automatically handling task distribution and result aggregation.
+        This method creates precipitation maps in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
 
         Parameters:
-            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded precipitation data and grid information.
+            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded data and grid information.
             output_dir (str): Directory path where precipitation map files will be saved.
             lon_min (float): Minimum longitude for map spatial extent in degrees.
             lon_max (float): Maximum longitude for map spatial extent in degrees.
             lat_min (float): Minimum latitude for map spatial extent in degrees.
             lat_max (float): Maximum latitude for map spatial extent in degrees.
-            var_name (str): Name of precipitation variable in dataset (default: 'rainnc').
-            accum_period (str): Accumulation period identifier like 'a01h' or 'a24h' (default: 'a01h').
-            plot_type (str): Rendering method - 'scatter' for direct cell display or 'contourf' for interpolated smooth fields (default: 'scatter').
-            grid_resolution (Optional[float]): Target grid resolution in degrees for contourf interpolation (default: None uses adaptive).
-            file_prefix (str): Prefix string for output filenames (default: 'mpas_precipitation_map').
-            formats (List[str]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
-            custom_title_template (Optional[str]): Custom template string for plot titles (default: None).
-            colormap (Optional[str]): Matplotlib colormap name for precipitation visualization (default: None).
-            levels (Optional[List[float]]): Specific contour levels for precipitation coloring (default: None).
-            time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all valid indices (default: None).
-            n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
-            load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
+            var_name (str): Name of the precipitation variable to process (e.g., 'rainnc').
+            accum_period (str): Accumulation period string (e.g., 'a01h' for 1 hour, 'a03h' for 3 hours).
+            plot_type (str): Type of plot to create ('scatter', 'contourf', etc.).
+            grid_resolution (Optional[float]): Desired grid resolution for plotting, if regridding is needed.
+            file_prefix (str): Prefix for output file names.
+            formats (List[str]): List of output formats to save (e.g., ['png', 'pdf']).
+            custom_title_template (Optional[str]): Custom title template string with placeholders {var_name}, {time_str}, {accum_period}.
+            colormap (Optional[str]): Colormap name to use for precipitation visualization.
+            levels (Optional[List[float]]): List of contour levels to use for plotting.
+            time_indices (Optional[List[int]]): List of time indices to process. If None, all valid time indices will be processed based on accumulation period.
+            n_processes (Optional[int]): Number of parallel processes to use. If None, it will default to the number of available CPU cores.
+            load_balance_strategy (str): Strategy for load balancing tasks across workers ('dynamic', 'static', etc.).
 
         Returns:
             Optional[List[str]]: List of generated file paths on master process, None on worker processes.
@@ -767,49 +751,45 @@ class ParallelPrecipitationProcessor:
 
 
 class ParallelSurfaceProcessor:
-    """
-    Parallel wrapper for surface variable batch processing using MPI-based distributed computing. This class wraps MPASSurfacePlotter batch methods to enable efficient parallel processing of 2D surface fields across multiple timesteps and MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
-    """
+    """ This class provides static methods for parallel processing of surface variable maps and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_surface_maps_parallel(
-        processor: MPAS2DProcessor,
-        output_dir: str,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        var_name: str = 't2m',
-        plot_type: str = 'scatter',
-        file_prefix: str = 'mpas_surface',
-        formats: List[str] = ['png'],
-        grid_resolution: Optional[float] = None,
-        clim_min: Optional[float] = None,
-        clim_max: Optional[float] = None,
-        time_indices: Optional[List[int]] = None,
-        n_processes: Optional[int] = None,
-        load_balance_strategy: str = "dynamic"
-    ) -> Optional[List[str]]:
+    def create_batch_surface_maps_parallel(processor: MPAS2DProcessor, 
+                                           output_dir: str, 
+                                           lon_min: float, 
+                                           lon_max: float, 
+                                           lat_min: float, 
+                                           lat_max: float, 
+                                           var_name: str = 't2m', 
+                                           plot_type: str = 'scatter', 
+                                           file_prefix: str = 'mpas_surface', 
+                                           formats: List[str] = ['png'], 
+                                           grid_resolution: Optional[float] = None, 
+                                           clim_min: Optional[float] = None, 
+                                           clim_max: Optional[float] = None, 
+                                           time_indices: Optional[List[int]] = None, 
+                                           n_processes: Optional[int] = None, 
+                                           load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
-        Generate surface variable maps in parallel across multiple timesteps using distributed MPI processing. This static method distributes timesteps across MPI processes using the specified load balancing strategy and creates scatter or contour plots for each timestep. It initializes a shared data cache to avoid redundant coordinate extraction, creates 2D surface field visualizations for variables like temperature and pressure, and collects results on the master process. The method supports customizable gridding resolutions, color limits, and multiple output formats while handling task distribution automatically.
+        This method creates surface variable maps in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
 
         Parameters:
-            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded surface data and grid information.
+            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded data and grid information.
             output_dir (str): Directory path where surface map files will be saved.
             lon_min (float): Minimum longitude for map spatial extent in degrees.
             lon_max (float): Maximum longitude for map spatial extent in degrees.
             lat_min (float): Minimum latitude for map spatial extent in degrees.
             lat_max (float): Maximum latitude for map spatial extent in degrees.
-            var_name (str): Name of surface variable in dataset like 't2m' or 'mslp' (default: 't2m').
-            plot_type (str): Visualization type - 'scatter' for point plots or 'contour' for filled contours (default: 'scatter').
-            file_prefix (str): Prefix string for output filenames (default: 'mpas_surface').
-            formats (List[str]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
-            grid_resolution (Optional[float]): Grid spacing in degrees for interpolation (default: None for adaptive).
-            clim_min (Optional[float]): Minimum value for color scale limits (default: None for automatic).
-            clim_max (Optional[float]): Maximum value for color scale limits (default: None for automatic).
-            time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).
-            n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
-            load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
+            var_name (str): Name of the surface variable to process (e.g., 't2m').
+            plot_type (str): Type of plot to create ('scatter', 'contourf', etc.).
+            file_prefix (str): Prefix for output file names.
+            formats (List[str]): List of output formats to save (e.g., ['png', 'pdf']).
+            grid_resolution (Optional[float]): Desired grid resolution for plotting, if regridding is needed.
+            clim_min (Optional[float]): Minimum value for color scale limits, if applicable.
+            clim_max (Optional[float]): Maximum value for color scale limits, if applicable.
+            time_indices (Optional[List[int]]): List of time indices to process. If None, all time indices in the dataset will be processed.
+            n_processes (Optional[int]): Number of parallel processes to use. If None, it will default to the number of available CPU cores.
+            load_balance_strategy (str): Strategy for load balancing tasks across workers ('dynamic', 'static', etc.). 
 
         Returns:
             Optional[List[str]]: List of generated file paths on master process, None on worker processes.
@@ -902,50 +882,46 @@ class ParallelSurfaceProcessor:
 
 
 class ParallelWindProcessor:
-    """
-    Parallel wrapper for wind vector batch processing using MPI-based distributed computing. This class wraps MPASWindPlotter batch methods to enable efficient parallel processing of wind vector fields across multiple timesteps and MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
-    """
+    """ This class provides static methods for parallel processing of wind vector plots and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_wind_plots_parallel(
-        processor: MPAS2DProcessor,
-        output_dir: str,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        u_variable: str = 'u',
-        v_variable: str = 'v',
-        plot_type: str = 'barbs',
-        formats: Optional[List[str]] = None,
-        subsample: int = 1,
-        scale: Optional[float] = None,
-        show_background: bool = False,
-        grid_resolution: Optional[float] = None,
-        regrid_method: str = 'linear',
-        time_indices: Optional[List[int]] = None,
-        n_processes: Optional[int] = None,
-        load_balance_strategy: str = "dynamic"
-    ) -> Optional[List[str]]:
+    def create_batch_wind_plots_parallel(processor: MPAS2DProcessor, 
+                                         output_dir: str, 
+                                         lon_min: float, 
+                                         lon_max: float, 
+                                         lat_min: float, 
+                                         lat_max: float, 
+                                         u_variable: str = 'u', 
+                                         v_variable: str = 'v', 
+                                         plot_type: str = 'barbs', 
+                                         formats: Optional[List[str]] = None, 
+                                         subsample: int = 1, 
+                                         scale: Optional[float] = None, 
+                                         show_background: bool = False, 
+                                         grid_resolution: Optional[float] = None, 
+                                         regrid_method: str = 'linear', 
+                                         time_indices: Optional[List[int]] = None, 
+                                         n_processes: Optional[int] = None, 
+                                         load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
-        Generate wind vector plots in parallel across multiple timesteps using distributed MPI processing. This static method distributes timesteps across MPI processes using the specified load balancing strategy and creates wind barb, arrow, or streamline plots for each timestep. It initializes a shared data cache to avoid redundant coordinate extraction, creates wind vector visualizations with optional background wind speed fields, and collects results on the master process. The method supports customizable vector density through subsampling, optional regridding for smoother fields, and multiple output formats while handling task distribution automatically.
+        This method creates wind vector plots in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
 
         Parameters:
             processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded wind data and grid information.
-            output_dir (str): Directory path where wind plot files will be saved.
-            lon_min (float): Minimum longitude for map spatial extent in degrees.
-            lon_max (float): Maximum longitude for map spatial extent in degrees.
-            lat_min (float): Minimum latitude for map spatial extent in degrees.
-            lat_max (float): Maximum latitude for map spatial extent in degrees.
-            u_variable (str): NetCDF variable name for U-component (eastward) wind (default: 'u').
-            v_variable (str): NetCDF variable name for V-component (northward) wind (default: 'v').
-            plot_type (str): Vector visualization style - 'barbs', 'arrows', or 'streamlines' (default: 'barbs').
-            formats (Optional[List[str]]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
-            subsample (int): Spatial subsampling stride factor to reduce vector density (default: 1).
-            scale (Optional[float]): Arrow length scaling factor for quiver plots (default: None for auto-scaling).
-            show_background (bool): Flag to enable wind speed magnitude as colored background field (default: False).
-            grid_resolution (Optional[float]): Target grid spacing in degrees for regridding (default: None disables regridding).
-            regrid_method (str): Spatial interpolation algorithm - 'linear' or 'nearest' (default: 'linear').
+            output_dir (str): Directory path where wind plot files will be saved.   
+            lon_min (float): Minimum longitude for plot spatial extent in degrees.
+            lon_max (float): Maximum longitude for plot spatial extent in degrees.
+            lat_min (float): Minimum latitude for plot spatial extent in degrees.
+            lat_max (float): Maximum latitude for plot spatial extent in degrees.
+            u_variable (str): Name of u-component wind variable in dataset (default: 'u').
+            v_variable (str): Name of v-component wind variable in dataset (default: 'v').
+            plot_type (str): Visualization type - 'barbs' for wind barbs or 'quiver' for arrows (default: 'barbs').
+            formats (Optional[List[str]]): List of output image formats such as ['png', 'pdf'] (default: None for ['png']).
+            subsample (int): Subsampling factor for wind vectors to reduce plot density (default: 1 for no subsampling).
+            scale (Optional[float]): Scaling factor for wind vector lengths, None for automatic scaling (default: None).
+            show_background (bool): Whether to include a background color field representing wind speed (default: False).
+            grid_resolution (Optional[float]): Grid spacing in degrees for interpolation of background field (default: None for adaptive).
+            regrid_method (str): Interpolation method for background field - 'nearest', 'linear', or 'cubic' (default: 'linear').
             time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).
             n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
             load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
@@ -1055,51 +1031,47 @@ class ParallelWindProcessor:
 
 
 class ParallelCrossSectionProcessor:
-    """
-    Parallel wrapper for vertical cross-section batch processing using MPI-based distributed computing. This class wraps MPASVerticalCrossSectionPlotter batch methods to enable efficient parallel processing of 3D atmospheric slices across multiple timesteps and MPI processes. It provides static methods that distribute work, collect results, and aggregate outputs from parallel execution. The wrapper handles task distribution, load balancing, and result collection transparently while preserving the same API as serial batch processing methods.
-    """
+    """ This class provides static methods for parallel processing of vertical cross-section plots and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_cross_section_plots_parallel(
-        mpas_3d_processor: MPAS3DProcessor,
-        var_name: str,
-        start_point: Tuple[float, float],
-        end_point: Tuple[float, float],
-        output_dir: str,
-        vertical_coord: str = 'height_agl',
-        num_points: int = 100,
-        levels: Optional[np.ndarray] = None,
-        colormap: str = 'viridis',
-        extend: str = 'both',
-        plot_type: str = 'contourf',
-        max_height: Optional[float] = None,
-        file_prefix: str = 'mpas_cross_section',
-        formats: List[str] = ['png'],
-        time_indices: Optional[List[int]] = None,
-        n_processes: Optional[int] = None,
-        load_balance_strategy: str = "dynamic"
-    ) -> Optional[List[str]]:
+    def create_batch_cross_section_plots_parallel(mpas_3d_processor: MPAS3DProcessor, 
+                                                  var_name: str, 
+                                                  start_point: Tuple[float, float], 
+                                                  end_point: Tuple[float, float], 
+                                                  output_dir: str, 
+                                                  vertical_coord: str = 'height_agl', 
+                                                  num_points: int = 100, 
+                                                  levels: Optional[np.ndarray] = None, 
+                                                  colormap: str = 'viridis', 
+                                                  extend: str = 'both', 
+                                                  plot_type: str = 'contourf', 
+                                                  max_height: Optional[float] = None, 
+                                                  file_prefix: str = 'mpas_cross_section', 
+                                                  formats: List[str] = ['png'], 
+                                                  time_indices: Optional[List[int]] = None, 
+                                                  n_processes: Optional[int] = None, 
+                                                  load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
-        Generate vertical cross-section plots in parallel across multiple timesteps using distributed MPI processing. This static method distributes timesteps across MPI processes using the specified load balancing strategy and creates vertical cross-sections through the atmosphere for each timestep. It processes 3D atmospheric variables along specified great circle paths, generates visualizations with customizable vertical coordinates and color schemes, and collects results on the master process. The method supports multiple vertical coordinate systems, customizable contour levels and colormaps, and various output formats while handling task distribution automatically.
+        This method creates vertical cross-section plots in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics for insights into efficiency. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): Initialized MPAS3DProcessor instance with loaded 3D atmospheric data and vertical structure.
-            var_name (str): Name of the 3D atmospheric variable to plot in cross-section like 'theta' or 'w'.
-            start_point (Tuple[float, float]): Starting coordinates as (longitude, latitude) for cross-section path in degrees.
-            end_point (Tuple[float, float]): Ending coordinates as (longitude, latitude) for cross-section path in degrees.
+            mpas_3d_processor (MPAS3DProcessor): Initialized MPAS3DProcessor instance with loaded 3D data and grid information.
+            var_name (str): Name of the variable to plot in the cross-section (e.g., 'temperature').
+            start_point (Tuple[float, float]): Starting point of the cross-section line as (longitude, latitude) in degrees.
+            end_point (Tuple[float, float]): Ending point of the cross-section line as (longitude, latitude) in degrees.
             output_dir (str): Directory path where cross-section plot files will be saved.
-            vertical_coord (str): Vertical coordinate system - 'height_agl', 'pressure', or 'model_levels' (default: 'height_agl').
-            num_points (int): Number of interpolation points along the horizontal cross-section path (default: 100).
-            levels (Optional[np.ndarray]): Specific contour levels for variable visualization (default: None for automatic).
-            colormap (str): Matplotlib colormap name for cross-section coloring (default: 'viridis').
-            extend (str): Colorbar extension mode - 'neither', 'both', 'min', or 'max' (default: 'both').
-            plot_type (str): Visualization type - 'contourf' for filled contours or 'contour' for line contours (default: 'contourf').
-            max_height (Optional[float]): Maximum height in kilometers for vertical axis limit (default: None for automatic).
-            file_prefix (str): Prefix string for output filenames (default: 'mpas_cross_section').
-            formats (List[str]): List of output image formats such as ['png', 'pdf'] (default: ['png']).
-            time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).
-            n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
-            load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
+            vertical_coord (str): Vertical coordinate to use for the cross-section ('height_agl', 'pressure', etc.).
+            num_points (int): Number of points along the cross-section line to sample for plotting.
+            levels (Optional[np.ndarray]): Array of contour levels to use for plotting, if applicable.
+            colormap (str): Colormap name to use for the variable visualization.
+            extend (str): Extend option for contour plots - 'neither', 'both', 'min', or 'max'.
+            plot_type (str): Type of plot to create ('contourf', 'pcolormesh', etc.).
+            max_height (Optional[float]): Maximum height in kilometers to include in the cross-section, if applicable.
+            file_prefix (str): Prefix for output file names.
+            formats (List[str]): List of output formats to save (e.g., ['png', 'pdf']).
+            time_indices (Optional[List[int]]): List of time indices to process. If None, all time indices in the dataset will be processed.
+            n_processes (Optional[int]): Number of parallel processes to use. If None, it will default to the number of available CPU cores.
+            load_balance_strategy (str): Strategy for load balancing tasks across workers ('dynamic', 'static', etc.).
 
         Returns:
             Optional[List[str]]: List of generated file paths on master process, None on worker processes.
@@ -1198,19 +1170,16 @@ class ParallelCrossSectionProcessor:
         return None
 
 
-def auto_batch_processor(
-    use_parallel: Optional[bool] = None,
-    **kwargs: Any
-) -> bool:
+def auto_batch_processor(use_parallel: Optional[bool] = None, 
+                         **kwargs: Any) -> bool:
     """
-    Automatically detect and select optimal batch processing mode by analyzing runtime environment and MPI availability. This utility function intelligently chooses between parallel MPI-based execution and serial single-process execution based on detected system capabilities and configuration. When use_parallel is None, the function attempts to import mpi4py and queries MPI.COMM_WORLD to check if multiple processes are available for distributed computation. If MPI is unavailable or only a single process is detected, the function defaults to serial processing mode. Users can explicitly override auto-detection by providing True for forced parallel mode or False for forced serial mode.
+    This function automatically determines whether to use parallel processing based on the presence of an MPI environment and the specified `use_parallel` flag. It checks for the availability of the `mpi4py` library and the number of MPI processes to decide if parallel execution is feasible. The function provides a flexible interface for selecting processing mode, allowing users to explicitly override the decision or rely on automatic detection. 
 
     Parameters:
-        use_parallel (Optional[bool]): Explicit processing mode override - True forces parallel MPI execution, False forces serial single-process execution, None enables automatic detection based on MPI environment (default: None).
-        **kwargs (Any): Additional keyword arguments reserved for future extensibility, currently unused but available for passing extra configuration to batch processors.
+        use_parallel (Optional[bool]): Optional boolean flag to explicitly select processing mode. If None, the function will attempt to auto-detect MPI environment and decide based on the number of processes. If True, it will force parallel processing; if False, it will force serial execution. 
 
     Returns:
-        bool: Boolean flag indicating selected processing mode - True for parallel MPI-based distributed processing, False for serial single-process execution.
+        bool: True if parallel processing should be used, False for serial execution. 
     """
     if use_parallel is None:
         try:

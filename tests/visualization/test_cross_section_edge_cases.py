@@ -23,8 +23,7 @@ import xarray as xr
 import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from cartopy.mpl.geoaxes import GeoAxes
-from typing import cast, Any, Generator
+from typing import cast, Any, Generator, Union
 from unittest.mock import Mock, MagicMock, patch
 from tests.test_data_helpers import load_mpas_mesh
 
@@ -36,6 +35,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.40962.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u120k', 'mpasout')
+
+
+def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
+    """
+    This helper function searches through the variables in the processor's dataset to find a variable that has a vertical dimension (either 'nVertLevels' or 'nVertLevelsP1'). It returns the name of the first variable that meets this criterion, which can be used for testing purposes when a specific 3D variable is needed. If no such variable is found, it returns None. This function is useful for dynamically identifying a suitable 3D variable in the dataset for testing the vertical cross-section plotting functionality.
+
+    Parameters:
+        processor: An instance of MPAS3DProcessor containing the dataset to search through.
+
+    Returns:
+        The name of the first variable with a vertical dimension, or None if no such variable is found.
+    """
+    for v in processor.dataset.data_vars:
+        if 'nVertLevels' in processor.dataset[v].sizes or 'nVertLevelsP1' in processor.dataset[v].sizes:
+            return str(v)
+    return None
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:
@@ -1253,8 +1268,11 @@ class TestAdditionalEdgeCases:
                 'vertical_coord_type': 'height'
             }
             
+            var = _find_3d_var(processor)
+            assert var is not None, "No 3D variable found in processor dataset"
+
             fig, ax = plotter.create_vertical_cross_section(
-                processor, 'pressure', (-100, 30), (-90, 40),
+                processor, var, (-100, 30), (-90, 40),
                 max_height=0.1,  
                 display_vertical='height'
             )
@@ -1286,8 +1304,11 @@ class TestAdditionalEdgeCases:
                 'vertical_coord_type': 'pressure'
             }
             
+            var = _find_3d_var(processor)
+            assert var is not None, "No 3D variable found in processor dataset"
+            
             fig, ax = plotter.create_vertical_cross_section(
-                processor, 'pressure', (-100, 30), (-90, 40),
+                processor, var, (-100, 30), (-90, 40),
                 display_vertical='pressure'
             )
 

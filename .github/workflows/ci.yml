@@ -61,11 +61,35 @@ jobs:
       shell: bash
       run: |
         echo "Using log file: ${LOG_FILE}"
-        echo "=== Checking out LFS objects ===" | tee -a "${LOG_FILE}"
-        git lfs pull 2>&1 | tee -a "${LOG_FILE}"
-        LFS_EXIT=${PIPESTATUS[0]}
-        if [ ${LFS_EXIT} -ne 0 ]; then
-          echo "WARNING: git lfs pull failed (exit ${LFS_EXIT}, possibly allocation exceeded). Tests requiring LFS data will be skipped." | tee -a "${LOG_FILE}"
+        echo "=== Checking Git LFS availability ===" | tee -a "${LOG_FILE}"
+
+        # Probe LFS with a single pointer to detect quota/bandwidth errors
+        # before attempting a full pull.
+        LFS_PROBE=$(git lfs fetch --recent 2>&1) || true
+        echo "${LFS_PROBE}" | tee -a "${LOG_FILE}"
+
+        # Match common GitHub LFS quota / bandwidth error signatures
+        if echo "${LFS_PROBE}" | grep -qiE 'bandwidth|quota|exceeded|rate limit|403 Forbidden|batch response|too many requests|payment required|402'; then
+          echo "" | tee -a "${LOG_FILE}"
+          echo "WARNING: Git LFS bandwidth or storage quota appears exceeded." | tee -a "${LOG_FILE}"
+          echo "Skipping LFS checkout. Tests requiring LFS data will be skipped." | tee -a "${LOG_FILE}"
+          echo "LFS_AVAILABLE=false" >> $GITHUB_ENV
+        else
+          echo "=== Pulling LFS objects ===" | tee -a "${LOG_FILE}"
+          LFS_EXIT=0
+          LFS_OUTPUT=$(git lfs pull 2>&1) || LFS_EXIT=$?
+          echo "${LFS_OUTPUT}" | tee -a "${LOG_FILE}"
+
+          if echo "${LFS_OUTPUT}" | grep -qiE 'bandwidth|quota|exceeded|rate limit|403 Forbidden|batch response|too many requests|payment required|402'; then
+            echo "WARNING: Git LFS pull hit quota/bandwidth limit." | tee -a "${LOG_FILE}"
+            echo "LFS_AVAILABLE=false" >> $GITHUB_ENV
+          elif [ ${LFS_EXIT} -ne 0 ]; then
+            echo "WARNING: git lfs pull failed (exit ${LFS_EXIT}). Tests requiring LFS data will be skipped." | tee -a "${LOG_FILE}"
+            echo "LFS_AVAILABLE=false" >> $GITHUB_ENV
+          else
+            echo "LFS objects checked out successfully." | tee -a "${LOG_FILE}"
+            echo "LFS_AVAILABLE=true" >> $GITHUB_ENV
+          fi
         fi
         echo "" | tee -a "${LOG_FILE}"
     
@@ -122,6 +146,9 @@ jobs:
       shell: bash -l {0}
       run: |
         echo "=== Running Tests ===" | tee -a "${LOG_FILE}"
+        if [ "${LFS_AVAILABLE}" = "false" ]; then
+          echo "NOTE: LFS data unavailable (quota/bandwidth exceeded). Tests requiring LFS data will be skipped." | tee -a "${LOG_FILE}"
+        fi
         pytest tests/ -v --cov=mpasdiag --cov-report=xml --cov-report=term-missing 2>&1 | tee -a "${LOG_FILE}"
         TEST_EXIT_CODE=${PIPESTATUS[0]}
         echo "" | tee -a "${LOG_FILE}"

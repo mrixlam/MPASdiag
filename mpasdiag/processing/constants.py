@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 
 """
-Shared constants for the mpasdiag.processing package.
+MPASdiag Core Processing Module: Shared Constants and Messages
 
-Place commonly reused literal messages and unit strings here to avoid
-duplication across modules.
+This module defines shared constants, configuration parameters, and standardized messages for use across all MPAS diagnostic processing modules. It serves as a centralized repository for values such as default file paths, variable names, geographic bounds, and common error messages to ensure consistency and maintainability throughout the MPASdiag codebase. By centralizing these constants, the module promotes code reuse and simplifies updates to key parameters without requiring changes in multiple locations. The constants defined here are intended to be used by various processing classes and functions to maintain uniformity in handling MPAS data and to provide clear, consistent messaging for users when issues arise during processing. This module is an essential component of the MPASdiag framework, enabling efficient management of shared values and improving the overall robustness of the diagnostic processing workflow. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Variable Metadata Management
+MPASdiag Core Processing Module: Variable Metadata Management
 
-This module provides comprehensive metadata management for MPAS atmospheric model variables including physical units, descriptive names, dimensional information, and optional visualization properties. It implements the MPASFileMetadata class as a centralized registry maintaining attribute information for MPAS model output variables including surface diagnostics (2-meter temperature, sea-level pressure, precipitation), upper-air fields (temperature, humidity, winds at pressure levels), microphysics variables (mixing ratios, reflectivity, cloud fractions), and derived quantities (CAPE, helicity, vorticity). The metadata system ensures consistent variable identification and unit handling across all MPASdiag processing and visualization modules, provides lookup methods that return standardized units and long names with fallback to xarray dataset attributes when available, supports integration with UnitConverter for automatic conversion between model output and display units, and optionally includes visualization-specific properties like colormaps and contour levels when needed for plotting workflows. Core capabilities include extensible variable registry covering comprehensive MPAS diagnostic suites, robust fallback handling for unrecognized variables, integration with xarray metadata conventions, and centralized management ensuring consistency across the entire MPASdiag toolkit.
-
-Classes:
-    MPASFileMetadata: Centralized metadata management class providing variable attribute lookup and registry services for MPAS model output.
+This module defines the MPASFileMetadata class, which provides a centralized registry of metadata for MPAS variables, including units, long names, and visualization properties. The class includes methods to retrieve standardized metadata for given variable names, with optional inclusion of colormap and contour level information optimized for 2D surface variable visualization. The module is designed to ensure consistency in variable metadata across the MPASdiag processing pipeline and to facilitate integration with visualization components that require plotting-ready metadata. Future expansions will include support for 3D variable metadata and visualization properties. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -28,23 +25,22 @@ from .constants import (
 
 
 class MPASFileMetadata:
-    """
-    Metadata management class for MPAS variable attributes and data processing parameters with centralized registry of variable properties. This class provides lookup functionality for MPAS model output variables including physical units, descriptive long names, spatial dimension information, and optional visualization properties like colormaps and contour levels. The metadata registry covers surface diagnostics (temperature, pressure, precipitation), upper-air variables (temperature, humidity, winds at pressure levels), microphysics fields (mixing ratios, reflectivity), and derived quantities (CAPE, helicity, vorticity). The class is focused on data content attributes rather than purely visualization-specific properties, though it can optionally include plotting metadata when requested. This centralized approach ensures consistency across all analysis and visualization operations in the MPASdiag toolkit.
-    """
+    """ Metadata management class for MPAS variable attributes and data processing parameters with centralized registry of variable properties. """
     
     @staticmethod
-    def get_variable_metadata(var_name: str, data_array: Optional[xr.DataArray] = None, 
-                            include_visualization: bool = False) -> Dict[str, Any]:
+    def get_variable_metadata(var_name: str, 
+                              data_array: Optional[xr.DataArray] = None, 
+                              include_visualization: bool = False) -> Dict[str, Any]:
         """
-        Retrieve comprehensive metadata for MPAS variables including units, descriptive names, and optional visualization properties. This method looks up variable information from a centralized registry of MPAS model output variables, returning standardized units, human-readable long names, and spatial dimension information. When a data array is provided, it extracts additional attributes directly from the xarray object. The method supports optional inclusion of visualization-specific metadata like colormaps and contour levels for plotting workflows. This centralized metadata management ensures consistency across all analysis and visualization operations in the MPASdiag toolkit.
+        This method retrieves standardized metadata for a given MPAS variable name, including units, long names, and optionally visualization properties such as colormap and contour levels. The metadata is stored in a centralized registry within the method, allowing for consistent retrieval of variable attributes across the MPASdiag processing pipeline. The include_visualization flag enables the addition of plotting-specific metadata for 2D surface variables, facilitating integration with visualization components that require ready-to-use metadata for generating diagnostic plots. The method is designed to be extensible, allowing for future additions of new variables and their associated metadata as the MPASdiag toolkit evolves. 
 
         Parameters:
-            var_name (str): MPAS variable name to look up metadata for (e.g., 't2m', 'rainnc', 'mslp').
-            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing variable attributes to extract (default: None).
-            include_visualization (bool): If True, include visualization properties like colormap and contour levels in returned metadata (default: False).
+            var_name (str): Name of the MPAS variable to retrieve metadata for (e.g., 't2m', 'mslp', 'relhum_500hpa').
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the variable data, used for context-aware metadata retrieval if needed.
+            include_visualization (bool): Flag indicating whether to include visualization-specific metadata such as colormap and contour levels for 2D surface variables. 
 
         Returns:
-            dict: Metadata dictionary with keys 'units', 'long_name', 'spatial_dim', and optionally 'colormap' and 'levels' if include_visualization is True.
+            dict: A dictionary containing standardized metadata for the specified variable, including keys such as 'units', 'long_name', and optionally 'colormap' and 'levels' if include_visualization is True. The metadata values are designed to be directly usable in data processing and visualization workflows within MPASdiag. 
         """
         standard_metadata = {
             'olrtoa': {'units': W_PER_M2, 'long_name': 'Outgoing Longwave Radiation at TOA'},
@@ -797,16 +793,17 @@ class MPASFileMetadata:
         return metadata
 
     @staticmethod
-    def get_2d_variable_metadata(var_name: str, data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
+    def get_2d_variable_metadata(var_name: str, 
+                                 data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
         """
-        Retrieve comprehensive metadata for 2D MPAS surface variables including visualization properties optimized for plotting workflows. This method wraps `get_variable_metadata()` with `include_visualization=True` to return units, long names, colormaps, and contour levels specifically tailored for 2D surface field visualization. It automatically converts units to display-friendly formats using the UnitConverter utility and provides compatibility with visualization modules that require plotting-ready metadata. This method serves as the primary metadata interface for surface diagnostic plots including temperature, pressure, precipitation, and wind speed maps.
+        This method is designed to retrieve comprehensive metadata for 2D MPAS atmospheric variables, including visualization properties optimized for horizontal field analysis. It returns units, long names, colormaps, and contour levels suitable for visualizations of surface or near-surface atmospheric fields (e.g., temperature at 2m, mean sea level pressure, accumulated precipitation) on the MPAS unstructured mesh. The method integrates standard variable metadata with predefined visualization settings to facilitate consistent and scientifically appropriate plotting of 2D diagnostic fields across the MPASdiag toolkit. 
 
         Parameters:
-            var_name (str): Name of the 2D MPAS variable to retrieve metadata for (e.g., 't2m', 'mslp', 'rainnc').
-            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing variable attributes for extraction (default: None).
+            var_name (str): Name of the 2D MPAS variable (e.g., 't2m', 'mslp', 'precipw').
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray with variable attributes for metadata extraction (default: None). 
 
         Returns:
-            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims', 'original_units', and 'display_units' keys optimized for 2D visualization.
+            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 2D visualization. 
         """
         from mpasdiag.processing.utils_unit import UnitConverter
         metadata = MPASFileMetadata.get_variable_metadata(var_name, data_array, include_visualization=True)
@@ -820,69 +817,70 @@ class MPASFileMetadata:
         return metadata
     
     @staticmethod
-    def get_3d_variable_metadata(var_name: str, data_array: Optional[xr.DataArray] = None, level: Optional[Any] = None) -> Dict[str, Any]:
+    def get_3d_variable_metadata(var_name: str, 
+                                 data_array: Optional[xr.DataArray] = None, 
+                                 level: Optional[Any] = None) -> Dict[str, Any]:
         """
-        Retrieve comprehensive metadata for 3D MPAS atmospheric variables including visualization properties for volumetric field analysis. This method is designed to handle variables with vertical levels (e.g., temperature, humidity, wind components at pressure levels or model levels) and would return units, long names, colormaps, and contour levels suitable for cross-section or vertical profile visualizations. The level parameter allows specification of which vertical level to extract metadata for, enabling level-specific colormap and contour adjustments for optimal representation of atmospheric structure. Currently this functionality is not implemented and the method raises a NotImplementedError, indicating future expansion for 3D diagnostic capabilities in the MPASdiag toolkit.
+        This method is intended to retrieve comprehensive metadata for 3D MPAS atmospheric variables, including visualization properties optimized for volumetric field analysis at specified vertical levels. It returns units, long names, colormaps, and contour levels suitable for visualizations of upper-air atmospheric fields (e.g., temperature, humidity, vertical velocity) on the MPAS unstructured mesh. The method is designed to handle coordinate transformation from MPAS unstructured mesh to regular grids suitable for contouring, and to apply variable-specific visualization settings based on metadata. Currently this functionality is not implemented and the method raises a NotImplementedError, reserving this interface for future development of comprehensive 3D variable visualization capabilities in MPASdiag. 
 
         Parameters:
-            var_name (str): Name of the 3D MPAS variable (e.g., 'theta', 'qv', 'w', 'pressure_p').
-            data_array (Optional[xr.DataArray]): Optional xarray DataArray with variable attributes and vertical dimension (default: None).
-            level (Optional[Any]): Specific vertical level for metadata retrieval, can be pressure level, height, or model level index (default: None).
+            var_name (str): Name of the 3D MPAS variable (e.g., 'theta', 'qv', 'w').
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray with variable attributes for metadata extraction (default: None).
+            level (Optional[Any]): Specific vertical level to optimize metadata for, can be pressure level or model level (default: None). 
 
         Returns:
-            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 3D visualization.
-
-        Raises:
-            NotImplementedError: 3D variable support is not yet implemented in this release.
+            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 3D visualization. 
         """
         raise NotImplementedError("3D variable support not yet implemented")
     
     @staticmethod
-    def get_3d_colormap_and_levels(var_name: str, data_array: Optional[xr.DataArray] = None, level: Optional[Any] = None) -> Tuple[str, Optional[List[float]]]:
+    def get_3d_colormap_and_levels(var_name: str, 
+                                   data_array: Optional[xr.DataArray] = None, 
+                                   level: Optional[Any] = None) -> Tuple[str, Optional[List[float]]]:
         """
-        Extract colormap name and contour level specifications for 3D MPAS atmospheric variables optimized for cross-section and vertical profile visualizations. This method retrieves plotting-specific metadata including matplotlib colormap names (e.g., 'RdYlBu_r', 'viridis') and discrete contour level arrays tailored to the dynamic range of 3D atmospheric fields at specified vertical levels. The returned values are designed for direct use in matplotlib plotting functions to ensure consistent and scientifically appropriate color representations across different 3D diagnostic plots. Currently this functionality is not implemented and the method raises a NotImplementedError, reserving this interface for future 3D visualization expansion in MPASdiag.
+        This method is designed to retrieve appropriate colormap names and contour levels for visualizing 3D MPAS atmospheric variables at specified vertical levels. It takes into account the variable name, optional data attributes, and the vertical level of interest to determine scientifically meaningful visualization settings for upper-air fields (e.g., temperature, humidity, vertical velocity) on the MPAS unstructured mesh. The method is intended to handle coordinate transformation from MPAS unstructured mesh to regular grids suitable for contouring, and to apply variable-specific visualization settings based on metadata. Currently this functionality is not implemented and the method raises a NotImplementedError, reserving this interface for future development of comprehensive 3D variable visualization capabilities in MPASdiag. 
 
         Parameters:
-            var_name (str): Name of the 3D MPAS variable to retrieve colormap and levels for (e.g., 'theta', 'relhum', 'w').
-            data_array (Optional[xr.DataArray]): Optional xarray DataArray with variable data for dynamic level calculation (default: None).
-            level (Optional[Any]): Specific vertical level to optimize colormap/levels for, can be pressure level or model level (default: None).
+            var_name (str): Name of the 3D MPAS variable (e.g., 'theta', 'qv', 'w').
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray with variable attributes for metadata extraction (default: None).
+            level (Optional[Any]): Specific vertical level to optimize colormap and levels for, can be pressure level or model level (default: None).
 
         Returns:
-            tuple: Two-element tuple containing (colormap_name: str, contour_levels: Optional[List[float]]) where colormap_name is a valid matplotlib colormap identifier and contour_levels is a list of discrete values for contouring.
-
-        Raises:
-            NotImplementedError: 3D variable colormap/level support is not yet implemented in this release.
+            Tuple[str, Optional[List[float]]]: Tuple containing colormap name and list of contour levels for 3D variable visualization. 
         """
         raise NotImplementedError("3D variable support not yet implemented")
     
     @staticmethod
-    def plot_3d_variable_slice(data_array: xr.DataArray, lon: np.ndarray, lat: np.ndarray, 
-                              level: Union[int, float], var_name: str) -> Any:
+    def plot_3d_variable_slice(data_array: xr.DataArray, 
+                               lon: np.ndarray, 
+                               lat: np.ndarray, 
+                               level: Union[int, float], 
+                               var_name: str) -> Any:
         """
-        Generate a visualization of a 3D MPAS variable at a specified vertical level extracted from volumetric atmospheric data. This method creates 2D plots of atmospheric fields by slicing 3D data arrays at user-specified pressure levels, height levels, or model vertical indices, enabling visualization of horizontal structure at constant vertical levels. The plotting function handles coordinate transformation from MPAS unstructured mesh to regular grids suitable for contouring, applies appropriate colormaps and contour levels based on variable type, and produces publication-quality diagnostic plots of atmospheric state. Currently this functionality is not implemented and the method raises a NotImplementedError, indicating future development for comprehensive 3D cross-section and level-slice visualization capabilities.
+        This method is intended to create a visualization of a 3D MPAS atmospheric variable at a specified vertical level, using appropriate colormaps and contour levels based on variable metadata. It takes a 3D xarray DataArray containing the variable data, along with corresponding longitude and latitude coordinate arrays, and the vertical level of interest (which can be specified as a pressure value in hPa, height in meters, or model level index). The method is designed to handle the transformation from MPAS unstructured mesh to regular grids suitable for contouring, and to apply variable-specific visualization settings based on metadata. Currently this functionality is not implemented and the method raises a NotImplementedError, reserving this interface for future development of comprehensive 3D variable visualization capabilities in MPASdiag. 
 
         Parameters:
-            data_array (xr.DataArray): 3D xarray DataArray containing MPAS variable data with spatial and vertical dimensions.
-            lon (np.ndarray): Longitude coordinate array corresponding to horizontal MPAS mesh cells.
-            lat (np.ndarray): Latitude coordinate array corresponding to horizontal MPAS mesh cells.
-            level (Union[int, float]): Vertical level to extract and plot, can be pressure value (hPa), height (m), or model level index.
-            var_name (str): Name of the MPAS variable for metadata lookup and plot labeling (e.g., 'theta', 'qv', 'w').
+            data_array (xr.DataArray): 3D xarray DataArray containing the variable data to be visualized.
+            lon (np.ndarray): 1D or 2D array of longitude coordinates corresponding to the data array.
+            lat (np.ndarray): 1D or 2D array of latitude coordinates corresponding to the data array.
+            level (Union[int, float]): Specific vertical level to visualize, can be pressure value in hPa, height in meters, or model level index.
+            var_name (str): Name of the variable being visualized, used for metadata retrieval and visualization settings. 
 
         Returns:
-            Any: Matplotlib figure or axes object containing the plotted 3D variable slice at specified level.
-
-        Raises:
-            NotImplementedError: 3D variable slice plotting is not yet implemented in this release.
+            Any: Visualization object (e.g., matplotlib figure or axis) containing the plotted 3D variable slice. 
         """
         raise NotImplementedError("3D variable support not yet implemented")
     
     @staticmethod
     def get_available_variables() -> List[str]:
         """
-        Return the complete list of MPAS variable names supported by the metadata registry for validation and introspection. This method provides the canonical set of variable identifiers that have predefined metadata including units, long names, and visualization properties registered in the MPASFileMetadata class. The returned list includes both 2D surface variables (temperature, pressure, precipitation, winds) and 3D atmospheric variables (mixing ratios, reflectivity, vertical motion), spanning diagnostic, prognostic, and derived MPAS model output fields. This function is particularly useful for input validation in command-line interfaces, building user interface selection menus, auto-discovery of available diagnostic capabilities, and programmatic iteration over supported variables in batch processing workflows.
+        This method returns a comprehensive list of supported MPAS variable name strings that can be used for metadata retrieval and visualization within the MPASdiag toolkit. The list includes commonly used surface diagnostics (e.g., temperature at 2m, mean sea level pressure), upper-air variables at standard pressure levels (e.g., temperature, relative humidity, wind components), microphysics fields (e.g., cloud water content, rain water content), and derived quantities (e.g., CAPE, CIN, storm-relative helicity). This method serves as a reference for users to understand which variable names are recognized by the metadata retrieval functions and to ensure consistent usage of variable names across the MPASdiag toolkit. 
+
+        Parameters:
+            None
 
         Returns:
-            list: Complete list of supported MPAS variable name strings including surface diagnostics, upper-air variables, microphysics fields, and derived quantities.
+            List[str]: List of supported MPAS variable name strings for metadata retrieval and visualization. 
         """
         return [
             't2m', 'th2m', 'temperature', 'surface_temperature',

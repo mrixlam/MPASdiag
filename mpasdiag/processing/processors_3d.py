@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS 3D Atmospheric Data Processor
+MPASdiag Core Processing Module: 3D Atmospheric Data Processor
 
-This module provides specialized functionality for processing MPAS 3D atmospheric variables including temperature, winds, moisture, and geopotential height on model native levels and pressure surfaces. It implements the MPAS3DProcessor class that extends MPASBaseProcessor to handle vertical level extraction, 3D coordinate retrieval for unstructured mesh atmospheric columns, interpolation to pressure or height coordinates, and statistical diagnostics for atmospheric fields. The processor manages both history stream files with full 3D atmospheric state variables and diagnostic stream files with derived quantities, provides methods for extracting data at specific vertical levels (model levels, pressure levels, height levels) with proper time indexing, handles complex vertical coordinate systems including hybrid sigma-pressure and geometric height, and supports batch processing for creating vertical cross-sections and level-specific horizontal maps. Core capabilities include automatic vertical level detection and validation, pressure-to-height coordinate conversion using standard atmosphere approximations, spatial coordinate extraction for 3D variables with cell-center and edge geometries, integration with uxarray for unstructured mesh operations, and seamless data preparation for 3D visualization workflows suitable for atmospheric dynamics research and model evaluation.
-
-Classes:
-    MPAS3DProcessor: Specialized processor class for extracting and analyzing 3D atmospheric variables from MPAS model output with vertical coordinate handling.
+This module defines the MPAS3DProcessor class, which is a specialized processor for handling 3D atmospheric data from MPAS output files. It extends the base MPASBaseProcessor class to provide functionality specific to 3D fields, including methods for extracting horizontal coordinates, finding relevant MPAS output files, loading 3D datasets, identifying available 3D variables, and extracting data slices at specified vertical levels. The processor is designed to be flexible and robust, with support for various level specifications and error handling to guide users in working with complex 3D atmospheric datasets. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -14,7 +11,7 @@ Email: mrislam@ucar.edu
 Date: November 2025
 Version: 1.0.0
 """
-
+# Load standard libraries
 import os
 import sys
 import numpy as np
@@ -30,54 +27,35 @@ from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG
 
 
 class MPAS3DProcessor(MPASBaseProcessor):
-    """
-    Specialized processor for 3D MPAS atmospheric data.
+    """ Specialized processor for 3D MPAS atmospheric data. """
     
-    This class handles 3D atmospheric variables from MPAS models,
-    providing methods for vertical level analysis, atmospheric variables,
-    and MPAS output file processing.
-    """
-    
-    def __init__(self, grid_file: str, verbose: bool = True):
+    def __init__(self: 'MPAS3DProcessor', 
+                 grid_file: str, 
+                 verbose: bool = True) -> None:
         """
-        Initialize the 3D MPAS processor for atmospheric variable analysis on vertical levels. This constructor sets up the processor by loading the MPAS grid file to extract mesh coordinates and cell connectivity required for 3D field operations. It inherits base functionality from MPASBaseProcessor and configures verbose logging for operational visibility. The processor handles atmospheric variables distributed across vertical levels including temperature, winds, moisture, and other prognostic fields from MPAS model output. Vertical coordinate systems (pressure, height, model levels) are validated and prepared for cross-section extraction and vertical interpolation operations.
+        This constructor initializes the MPAS3DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the processor to handle 3D atmospheric data from MPAS output files, ensuring that the necessary grid information is available for subsequent processing operations. The constructor does not perform any data loading or processing itself, but prepares the processor for use in methods that will extract coordinates, find files, load datasets, and manipulate 3D variables. 
 
         Parameters:
-            grid_file (str): Path to the MPAS grid file containing mesh topology and spatial coordinates.
-            verbose (bool): If True, enable informational logging during processing operations (default: True).
+            grid_file (str): Path to the MPAS grid file containing spatial coordinate information.
+            verbose (bool): If True, enables verbose output for debugging and informational purposes (default: True). 
 
         Returns:
             None
         """
         super().__init__(grid_file, verbose)
     
-    def _get_plain_dataset(self) -> xr.Dataset:
+    def extract_2d_coordinates_for_variable(self: 'MPAS3DProcessor', 
+                                            var_name: str, 
+                                            data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
-        This internal helper method ensures that the underlying xarray Dataset is returned regardless of whether the main dataset is wrapped in a UXarray grid object or is a plain xarray Dataset. It checks the type of self.dataset and extracts the xr.Dataset if it's a UXarray grid, otherwise it returns self.dataset directly. This allows other methods to work with a consistent xarray Dataset interface for data manipulation and coordinate extraction, while still supporting the use of UXarray for unstructured mesh operations when needed.
+        This method extracts the 2D horizontal coordinates (longitude and latitude) for a specified 3D atmospheric variable from the grid file. It determines the appropriate spatial dimension (e.g., 'nCells', 'nVertices', 'nEdges') based on the variable's dimensions or the provided data array, then looks for corresponding longitude and latitude variables in the grid dataset. The method handles different naming conventions for coordinate variables and ensures that the extracted coordinates are in degrees if they are originally in radians. The resulting longitude and latitude arrays are flattened and adjusted to be within the range of -180 to 180 degrees for longitude. If the necessary coordinates cannot be found, it raises a ValueError with information about available variables in the grid file. 
 
         Parameters:
-            None
+            var_name (str): Name of the 3D atmospheric variable for which to extract coordinates.
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the variable data, used to determine spatial dimensions if provided. 
 
         Returns:
-            xr.Dataset: The underlying xarray Dataset for data access and manipulation.
-        """
-        if type(self.dataset) is not xr.Dataset:
-            return xr.Dataset(self.dataset)
-        return self.dataset
-    
-    def extract_2d_coordinates_for_variable(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Extract horizontal coordinate arrays for 3D variables based on their spatial dimension topology. This method determines the appropriate mesh location (cells, vertices, or edges) where the variable is defined and returns corresponding longitude and latitude arrays from the grid file. It inspects the variable's dimensions or provided data array to identify the spatial dimension, then loads the matching coordinate pair from the grid dataset. The method supports cell-centered (nCells), vertex-based (nVertices), and edge-based (nEdges) variables common in MPAS atmospheric output. These horizontal coordinates are essential for cross-section path definition and geographic plotting of 3D fields. Note that this only extracts horizontal coordinates; vertical coordinate handling requires separate methods.
-
-        Parameters:
-            var_name (str): Name of the 3D atmospheric variable to extract horizontal coordinates for.
-            data_array (Optional[xr.DataArray]): Optional data array to inspect for dimension information (default: None).
-
-        Returns:
-            tuple of (np.ndarray, np.ndarray): Longitude and latitude arrays matching the variable's spatial dimension.
-
-        Raises:
-            ValueError: If dataset is not loaded or spatial dimension cannot be determined.
+            Tuple[np.ndarray, np.ndarray]: Tuple containing longitude and latitude arrays for the specified variable. 
         """
         if self.dataset is None:
             raise ValueError(DATASET_NOT_LOADED_3D_MSG)
@@ -143,19 +121,16 @@ class MPAS3DProcessor(MPASBaseProcessor):
         except Exception as e:
             raise RuntimeError(f"Error loading coordinates from grid file {self.grid_file}: {e}")
     
-    def find_mpasout_files(self, data_dir: str) -> List[str]:
+    def find_mpasout_files(self: 'MPAS3DProcessor', 
+                           data_dir: str) -> List[str]:
         """
-        Locate and validate MPAS atmospheric output files in the specified directory. This method searches for files matching the MPAS output naming convention (mpasout*.nc) and returns a sorted list of valid file paths for temporal processing. It performs validation to ensure sufficient files exist for meaningful analysis and raises descriptive exceptions if the directory is empty or contains inadequate data. The method delegates to the base class pattern-matching utility with MPAS-specific parameters. File sorting ensures proper temporal sequencing for time series and ensemble operations across model output timesteps.
+        This method searches for MPAS output files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a common subdirectory named 'mpasout' if no files are found. If still no files are found, it performs a recursive search through all subdirectories. The method ensures that at least two MPAS output files are found to allow for temporal analysis, and it provides verbose output about the number of files found and their names. If no files are found after all search attempts, it raises a FileNotFoundError with information about the search path. 
 
         Parameters:
-            data_dir (str): Directory path to search for MPAS atmospheric output files.
+            data_dir (str): Directory path to search for MPAS output files. 
 
         Returns:
-            List[str]: Sorted list of MPAS output file paths found in the directory.
-
-        Raises:
-            FileNotFoundError: If no MPAS output files matching the pattern are found.
-            ValueError: If insufficient files are present for temporal analysis operations.
+            List[str]: List of file paths to the found MPAS output files. 
         """
         try:
             return self._find_files_by_pattern(data_dir, MPASOUT_GLOB, "MPAS output files")
@@ -175,18 +150,20 @@ class MPAS3DProcessor(MPASBaseProcessor):
                         print(f"  {i+1}: {os.path.basename(f)}")
                 return files
 
-    def load_3d_data(self, data_dir: str, use_pure_xarray: bool = False, 
+    def load_3d_data(self: 'MPAS3DProcessor', 
+                     data_dir: str, 
+                     use_pure_xarray: bool = False, 
                      reference_file: str = "") -> 'MPAS3DProcessor':
         """
-        Load and configure 3D atmospheric data from MPAS output files with optimized chunking for vertical levels. This method reads atmospheric model output from the specified directory using either UXarray or pure xarray backends, applies memory-efficient chunking strategies tailored for 3D fields with vertical structure, and enriches the dataset with spatial coordinates from the grid file. The method supports lazy loading to handle large datasets efficiently and automatically detects the appropriate data structure (regular dataset or UXarray grid object). After loading, it adds geographic coordinates and mesh connectivity required for vertical interpolation, cross-sections, and volume rendering. Returns self to enable method chaining in analysis workflows.
+        This method loads 3D atmospheric data from MPAS output files in the specified directory. It uses the find_mpasout_files method to locate the relevant files, then loads them into an xarray Dataset using either the pure xarray backend or UXarray based on the use_pure_xarray flag. The method applies appropriate chunking for efficient loading of 3D data and handles time coordinate ordering using an optional reference file. After loading, it adds spatial coordinates to the dataset using the add_spatial_coordinates method. The loaded dataset and its type are stored as attributes of the processor for use in subsequent processing steps. The method returns a self reference to allow for method chaining. 
 
         Parameters:
-            data_dir (str): Directory path containing MPAS atmospheric output files to load.
-            use_pure_xarray (bool): If True, use pure xarray backend instead of UXarray (default: False).
-            reference_file (str): Optional specific file to use for time coordinate ordering (default: "").
+            data_dir (str): Directory path containing MPAS output files to load.
+            use_pure_xarray (bool): If True, uses pure xarray for loading; if False, uses UXarray for potentially faster loading (default: False).
+            reference_file (str): Optional file path to use as a reference for time coordinate ordering (default: "").
 
         Returns:
-            MPAS3DProcessor: Self reference for method chaining operations.
+            MPAS3DProcessor: Returns self reference after loading the dataset and adding spatial coordinates. 
         """
         self.data_dir = data_dir
         
@@ -211,18 +188,15 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         return self
 
-    def get_available_3d_variables(self) -> List[str]:
+    def get_available_3d_variables(self: 'MPAS3DProcessor') -> List[str]:
         """
-        Identify and list all 3D atmospheric variables with vertical structure in the loaded dataset. This method scans the dataset's data variables and identifies those containing vertical dimension coordinates (nVertLevels or nVertLevelsP1), indicating true 3D atmospheric fields. It filters out 2D surface variables and coordinate arrays, returning only variables suitable for vertical analysis and cross-section operations. When verbose mode is enabled, the method prints detailed information including variable dimensions, shapes, and units for the first 10 variables. This inventory is essential for determining which fields support vertical interpolation and level extraction.
+        This method identifies and returns a list of all 3D atmospheric variables available in the loaded dataset. It checks each variable in the dataset for the presence of vertical dimensions such as 'nVertLevels' or 'nVertLevelsP1' to determine if it is a 3D variable. The method provides verbose output about the number of 3D variables found and details about the first few variables, including their dimensions and units. If the dataset is not loaded, it raises a ValueError prompting the user to load the data first. 
 
         Parameters:
             None
 
         Returns:
-            List[str]: Names of all 3D atmospheric variables found in the dataset.
-
-        Raises:
-            ValueError: If dataset is not loaded prior to calling this method.
+            List[str]: List of variable names that are identified as 3D atmospheric variables based on their dimensions. 
         """
         if self.dataset is None:
             raise ValueError("Dataset not loaded. Call load_3d_data() first.")
@@ -248,21 +222,20 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         return atmospheric_3d_vars
 
-    def get_3d_variable_data(self, var_name: str, level: Union[str, int, float], 
-                            time_index: int = 0) -> xr.DataArray:
+    def get_3d_variable_data(self: 'MPAS3DProcessor', 
+                             var_name: str, 
+                             level: Union[str, int, float], 
+                             time_index: int = 0) -> xr.DataArray:
         """
-        Extract 3D atmospheric variable data at a specified vertical level and timestep with flexible level specification. This method retrieves a 2D horizontal slice from a 3D field by selecting a single vertical level using either model level indices, pressure values, or named level strings. For integer levels, it directly indexes the vertical coordinate; for pressure levels, it interpolates to find the nearest model level by comparing against the pressure field. The method validates that the variable has vertical structure and handles both nVertLevels and nVertLevelsP1 dimensions. Returns a computed 2D DataArray ready for visualization or further analysis.
+        This method extracts a 2D horizontal slice of data for a specified 3D atmospheric variable at a given vertical level and time index. It supports various level specifications, including integer model level indices, float pressure levels in Pa, and special string identifiers like 'surface' or 'top'. The method validates the input parameters, checks for the presence of the variable and its vertical structure, and handles the extraction logic accordingly. If a pressure level is specified, it performs interpolation between mean pressure levels if necessary. The resulting 2D DataArray contains the variable data at the specified level and time, with appropriate attributes added for metadata. The method also provides verbose output about the extraction process and the range of values in the extracted data. If any issues arise during extraction, it raises descriptive exceptions to guide the user. 
 
         Parameters:
             var_name (str): Name of the 3D atmospheric variable to extract.
-            level (Union[str, int, float]): Vertical level specification - int for model level index (0-based), float for pressure level in Pa or hPa, or str for special names like 'surface' or 'top'.
-            time_index (int): Zero-based time index to extract data from (default: 0).
+            level (Union[str, int, float]): Vertical level specification, which can be an integer model level index, a float pressure level in Pa, or a string identifier like 'surface' or 'top'.
+            time_index (int): Time index to extract data from (default: 0). 
 
         Returns:
-            xr.DataArray: 2D horizontal slice of variable data at the specified level and time.
-
-        Raises:
-            ValueError: If dataset not loaded, variable not found, variable lacks vertical dimension, or level specification is invalid.
+            xr.DataArray: 2D DataArray containing the variable data at the specified vertical level and time index, with appropriate metadata attributes. 
         """
         if self.dataset is None:
             raise ValueError(DATASET_NOT_LOADED_3D_MSG)
@@ -285,7 +258,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 
         elif isinstance(level, float):
             if 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
-                ds_raw = self._get_plain_dataset()
+                ds_raw = self._get_plain_dataset(self.dataset)
                 pressure_p = ds_raw['pressure_p'].isel({time_dim: validated_time_index})
                 pressure_base = ds_raw['pressure_base'].isel({time_dim: validated_time_index})
                 total_pressure = pressure_p + pressure_base
@@ -322,7 +295,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
                         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
-                        ds_raw = self._get_plain_dataset()
+                        ds_raw = self._get_plain_dataset(self.dataset)
                         var_lower = ds_raw[var_name].isel({time_dim: validated_time_index, vertical_dim: lower_idx})
                         var_upper = ds_raw[var_name].isel({time_dim: validated_time_index, vertical_dim: upper_idx})
 
@@ -361,7 +334,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
         
-        ds = self._get_plain_dataset()
+        ds = self._get_plain_dataset(self.dataset)
         var_data = ds[var_name].isel({time_dim: validated_time_index, vertical_dim: level_idx})
         
         if hasattr(var_data, 'compute'):
@@ -398,21 +371,20 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         return var_data
 
-    def get_vertical_levels(self, var_name: str, return_pressure: bool = True, 
-                           time_index: int = 0) -> List[Union[int, float]]:
+    def get_vertical_levels(self: 'MPAS3DProcessor', 
+                            var_name: str, 
+                            return_pressure: bool = True, 
+                            time_index: int = 0) -> List[Union[int, float]]:
         """
-        Retrieve all available vertical levels for a 3D atmospheric variable with optional pressure conversion. This method determines the vertical dimension (nVertLevels or nVertLevelsP1) used by the specified variable and returns either model level indices or pressure values depending on the return_pressure flag. When pressure values are requested, the method computes total pressure by combining perturbation and base state pressure fields, then averages horizontally across all cells to obtain representative pressure levels. The method handles staggered vertical grids and provides verbose output showing pressure range and extrema. Returns a list suitable for level iteration in vertical analysis workflows.
+        This method retrieves the available vertical levels for a specified 3D atmospheric variable, either as zero-based model level indices or as pressure levels in Pa. It checks the dimensions of the variable to determine the vertical structure and then attempts to compute mean pressure levels using available pressure-related variables in the dataset. If return_pressure is True, it first tries to use the 'pressure' variable, then falls back to 'pressure_p' and 'pressure_base', and finally to 'fzp' and 'surface_pressure' if necessary. The method handles cases where pressure values may be non-finite or non-positive by providing warnings and attempting interpolation. If return_pressure is False, it simply returns the model level indices. The method provides verbose output about the identified vertical levels and their corresponding pressures if applicable. If any issues arise during the process, it raises descriptive exceptions to guide the user. 
 
         Parameters:
-            var_name (str): Name of the 3D atmospheric variable to query for vertical levels.
-            return_pressure (bool): If True, return pressure levels in Pa; if False, return zero-based model level indices (default: True).
-            time_index (int): Time index to use for pressure calculation when return_pressure is True (default: 0).
+            var_name (str): Name of the 3D atmospheric variable for which to retrieve vertical levels.
+            return_pressure (bool): If True, returns pressure levels in Pa; if False, returns model level indices (default: True).
+            time_index (int): Time index to use for pressure level calculations when return_pressure is True (default: 0). 
 
         Returns:
-            List[Union[int, float]]: Available vertical levels as either model indices (int) or pressure values (float in Pa).
-
-        Raises:
-            ValueError: If dataset not loaded, variable not found, or variable lacks vertical dimension structure.
+            List[Union[int, float]]: List of vertical levels, either as model level indices or pressure levels in Pa, depending on the return_pressure flag. 
         """
         if self.dataset is None:
             raise ValueError(DATASET_NOT_LOADED_3D_MSG)
@@ -433,7 +405,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         
         if return_pressure and 'pressure' in self.dataset:
             time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
-            ds_raw = self._get_plain_dataset()
+            ds_raw = self._get_plain_dataset(self.dataset)
             try:
                 pressure_da = ds_raw['pressure'].isel({time_dim: validated_time_index})
             except Exception:
@@ -460,7 +432,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if return_pressure and 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
             time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
 
-            ds_raw = self._get_plain_dataset()
+            ds_raw = self._get_plain_dataset(self.dataset)
             pressure_p = ds_raw['pressure_p'].isel({time_dim: validated_time_index})
             pressure_base = ds_raw['pressure_base'].isel({time_dim: validated_time_index})
             total_pressure = pressure_p + pressure_base
@@ -482,7 +454,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if return_pressure and 'fzp' in self.dataset and 'surface_pressure' in self.dataset:
             try:
                 time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
-                ds_raw = self._get_plain_dataset()
+                ds_raw = self._get_plain_dataset(self.dataset)
                 fzp = ds_raw['fzp'].isel({time_dim: validated_time_index}).values
                 sp = ds_raw['surface_pressure'].isel({time_dim: validated_time_index}).values
 
@@ -526,15 +498,16 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         return level_indices
 
-    def add_spatial_coordinates(self, combined_ds: xr.Dataset) -> xr.Dataset:
+    def add_spatial_coordinates(self: 'MPAS3DProcessor', 
+                                combined_ds: xr.Dataset) -> xr.Dataset:
         """
-        Enrich 3D atmospheric dataset with spatial coordinates and mesh connectivity from MPAS grid file. This method loads the grid file and extracts geographic coordinates for cell centers, vertices, and edges along with dimensional indices for proper dataset structure. It handles multiple spatial dimensions including nCells for cell-centered variables, nVertices for vertex-based fields, nEdges for edge-normal wind components, and vertical dimensions (nVertLevels, nVertLevelsP1, nSoilLevels) for atmospheric and subsurface levels. The method adds coordinate variables as metadata while preserving all existing data variables. Missing or incompatible coordinates are handled gracefully with warning messages when verbose mode is enabled. This coordinate enrichment is essential for subsequent spatial operations including vertical interpolation, cross-section extraction, and geographic visualization of 3D atmospheric fields.
+        This method adds spatial coordinate variables to the provided combined xarray dataset containing 3D atmospheric data from multiple timesteps. It identifies the necessary dimensions to add based on typical MPAS grid structures, such as 'nCells', 'nVertLevels', 'nVertLevelsP1', 'nEdges', 'nVertices', and 'nSoilLevels'. It also identifies the relevant spatial coordinate variables for latitude and longitude at different grid points (e.g., 'latCell', 'lonCell', 'latVertex', 'lonVertex') and adds them to the dataset. The method ensures that the added coordinates are consistent with the dimensions of the dataset and provides verbose output about the added coordinates and their shapes. The resulting enriched dataset is returned for use in subsequent processing steps, such as plotting or analysis of 3D atmospheric fields. 
 
         Parameters:
-            combined_ds (xr.Dataset): Combined xarray dataset containing 3D atmospheric data from multiple timesteps.
+            combined_ds (xr.Dataset): The combined xarray Dataset containing 3D atmospheric data from multiple timesteps, to which spatial coordinates will be added. 
 
         Returns:
-            xr.Dataset: Enriched dataset with added coordinate variables for all spatial dimensions and geographic coordinates for plotting.
+            xr.Dataset: The enriched xarray Dataset with added spatial coordinate variables for longitude and latitude, consistent with the dataset's dimensions. 
         """
         dimensions_to_add = [
             'nCells', 'nVertLevels', 'nVertLevelsP1', 
@@ -548,36 +521,23 @@ class MPAS3DProcessor(MPASBaseProcessor):
         )
 
     @staticmethod
-    def extract_2d_from_3d(data_3d: Union[np.ndarray, xr.DataArray],
-                          level_index: Optional[int] = None,
-                          level_value: Optional[float] = None,
-                          level_dim: str = 'nVertLevels',
-                          method: str = 'nearest') -> np.ndarray:
+    def extract_2d_from_3d(data_3d: Union[np.ndarray, xr.DataArray], 
+                           level_index: Optional[int] = None, 
+                           level_value: Optional[float] = None, 
+                           level_dim: str = 'nVertLevels', 
+                           method: str = 'nearest') -> np.ndarray:
         """
-        Extract a 2D horizontal slice from 3D atmospheric data at a specified vertical level for surface plotting. This static utility method enables visualization of 3D variables by selecting a single level using either direct indexing or value-based interpolation along vertical coordinates like pressure or height. It handles both xarray DataArrays with coordinate information and raw numpy arrays, supporting nearest-neighbor selection or linear interpolation methods. The method provides flexibility for plotting atmospheric fields at standard pressure levels (e.g., 850 hPa) or model levels, making analysis workflows data-type agnostic. Returns a 2D numpy array ready for contouring, mapping, or other horizontal visualization operations.
+        This static method extracts a 2D horizontal slice from a given 3D atmospheric data array at a specified vertical level. The vertical level can be specified either as a zero-based index (level_index) or as a coordinate value (level_value) along a specified vertical dimension (level_dim). When using level_value, the method supports both nearest-neighbor and linear interpolation methods to find the appropriate level. The method handles both numpy arrays and xarray DataArrays, ensuring that the correct dimensions are used for extraction. The resulting 2D array contains the horizontal slice of data at the specified vertical level, which can be used for surface plotting or further analysis. If the necessary parameters are not provided or if there are issues with the data structure, the method raises descriptive exceptions to guide the user. 
 
         Parameters:
-            data_3d (Union[np.ndarray, xr.DataArray]): 3D atmospheric data array with dimensions like (nCells, nVertLevels, Time) or similar structure.
-            level_index (Optional[int]): Zero-based index of vertical level to extract directly (default: None).
-            level_value (Optional[float]): Coordinate value to search for along vertical dimension, e.g., pressure in hPa (default: None).
-            level_dim (str): Name of the vertical dimension coordinate such as 'nVertLevels', 'pressure', or 'height' (default: 'nVertLevels').
-            method (str): Interpolation method when using level_value - 'nearest' for nearest-neighbor or 'linear' for interpolation (default: 'nearest').
+            data_3d (Union[np.ndarray, xr.DataArray]): The input 3D data array from which to extract the 2D slice.
+            level_index (Optional[int]): The zero-based index of the vertical level to extract (e.g., 0 for surface, -1 for top). Mutually exclusive with level_value.
+            level_value (Optional[float]): The coordinate value along the vertical dimension to extract (e.g., pressure in Pa). Mutually exclusive with level_index.
+            level_dim (str): The name of the vertical dimension in the data array (default: 'nVertLevels').
+            method (str): The interpolation method to use when extracting by level_value ('nearest' or 'linear', default: 'nearest'). 
 
         Returns:
-            np.ndarray: 2D horizontal slice extracted at the specified vertical level, ready for surface plotting.
-
-        Raises:
-            ValueError: If neither level_index nor level_value is provided, or if coordinate dimension is not found in xarray data.
-
-        Examples:
-            # Extract surface level by index
-            surface_temp = MPAS3DProcessor.extract_2d_from_3d(temp_3d, level_index=0)
-            
-            # Extract 850hPa level by pressure value
-            temp_850 = MPAS3DProcessor.extract_2d_from_3d(temp_3d, level_value=850, level_dim='pressure')
-            
-            # Use in surface plotting workflow
-            plotter.create_surface_map(lon, lat, temp_850, 'temperature_850hpa', ...)
+            np.ndarray: A 2D numpy array containing the extracted horizontal slice of data at the specified vertical level. 
         """
         if level_index is None and level_value is None:
             raise ValueError("Must provide either level_index or level_value")

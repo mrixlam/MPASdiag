@@ -503,7 +503,9 @@ class TestGet3DVariableDataAttributes:
         nan_data = MagicMock()
         nan_data.values = np.full((100,), np.nan)
         nan_data.attrs = {}
-        
+        nan_data.ndim = 1
+
+        nan_data.compute.return_value = nan_data        
         mock_var.isel.return_value = nan_data
         
         mock_ds.__getitem__.side_effect = make_getitem({}, default=mock_var)
@@ -2015,6 +2017,7 @@ class TestGet3DVariableData:
         mock_data = MagicMock()
         mock_data.values = np.random.randn(40962) + 300
         mock_data.attrs = {'units': 'K'}
+        mock_data.ndim = 1
         mock_data.compute.return_value = mock_data
         
         mock_var.isel.return_value = mock_data

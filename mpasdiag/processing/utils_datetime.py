@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS DateTime and Temporal Utilities
+MPASdiag Core Processing Module: DateTime and Temporal Utilities
 
-This module provides comprehensive datetime and temporal utilities for MPAS model data processing including filename datetime parsing, time coordinate extraction and validation, temporal range calculations, and time series handling. It implements the MPASDateTimeUtils class with static methods for extracting timestamps from MPAS output filenames using regex pattern matching, converting between various datetime formats (numpy.datetime64, pandas.Timestamp, Python datetime objects), validating time coordinates in xarray datasets with fallback strategies for missing or malformed time information, and computing temporal statistics like accumulation periods and time deltas. The utilities handle diverse MPAS filename conventions (diag files, history files, restart files) with flexible pattern matching, support both CF-compliant and non-standard time coordinate encodings, provide robust error handling for missing or invalid temporal metadata, and enable consistent time handling across all MPASdiag processing and visualization modules. Core capabilities include automatic time unit detection and conversion, time string formatting for plot labels and file naming, temporal subsetting and indexing operations, and integration with pandas for time series analysis suitable for operational weather diagnostics and climate model evaluation.
-
-Classes:
-    MPASDateTimeUtils: Utility class providing static methods for datetime operations on MPAS model output files and datasets.
+This module provides a collection of utility functions for handling date and time operations in the context of MPAS diagnostic processing. It includes methods for parsing datetime information from filenames, validating time indices against dataset temporal coverage, extracting and formatting time information for labeling and filenames, calculating temporal coverage and resolution, and handling time bounds. These utilities are designed to facilitate consistent and robust handling of temporal information across various stages of MPAS diagnostic workflows, ensuring that time-based operations are performed accurately and that users are informed about any issues related to temporal data. The module is implemented as a class with static methods to allow for easy integration and reuse across different processing scripts and functions within the MPASdiag framework. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -25,24 +22,20 @@ from .constants import DATASET_NOT_LOADED_MSG
 
 
 class MPASDateTimeUtils:
-    """
-    DateTime utilities class for MPAS temporal operations.
-    
-    This class provides functionality for handling datetime parsing from filenames,
-    time coordinate validation, and temporal data processing for MPAS datasets.
-    """
+    """ Utility class for handling date and time operations in MPAS diagnostic processing. """
     
     @staticmethod
-    def parse_file_datetimes(diag_files: List[str], verbose: bool = True) -> List[datetime]:
+    def parse_file_datetimes(diag_files: List[str], 
+                             verbose: bool = True) -> List[datetime]:
         """
-        Parse datetime information from MPAS diagnostic filenames using standardized naming pattern extraction. This method uses regular expressions to extract date and time components from MPAS output filenames following the standard YYYY-MM-DD_HH.MM.SS pattern commonly used in MPAS model output. The parsing handles malformed filenames gracefully by generating synthetic datetime values with hourly increments to maintain temporal ordering when actual datetime extraction fails. This robust fallback ensures that data loading operations can proceed even with inconsistently named files. If verbose mode is enabled, the method prints warning messages for unparseable filenames to alert users about potential filename issues. The extracted datetime objects are used for temporal coordinate assignment and sorting in multi-file dataset loading operations.
+        This method parses datetime information from a list of MPAS diagnostic file paths by extracting timestamps encoded in the filenames. It uses a regular expression pattern to identify and extract datetime components (year, month, day, hour, minute, second) from the filename. If a filename does not match the expected pattern or if the extracted components cannot be converted to a valid datetime object, the method generates a synthetic datetime based on a fixed start date (January 1, 2000) incremented by an hourly offset corresponding to the file's position in the input list. This approach ensures that all files receive a datetime value for consistent processing, while also providing verbose output to inform users about any issues encountered during parsing. The method returns a list of datetime objects corresponding to each input file in the same order as provided. 
 
         Parameters:
-            diag_files (List[str]): List of absolute or relative paths to MPAS diagnostic files with datetime information encoded in filenames.
-            verbose (bool): Enable verbose output for debugging and warning messages about unparseable filenames (default: True).
+            diag_files (List[str]): List of file paths to MPAS diagnostic files from which to parse datetime information.
+            verbose (bool): Enable verbose output for warnings about unparseable filenames and generated synthetic datetimes (default: True). 
 
         Returns:
-            List[datetime]: List of datetime objects parsed from filenames in same order as input, with synthetic datetimes for unparseable files.
+            List[datetime]: List of datetime objects corresponding to each input file, parsed from filenames or generated as synthetic values when parsing fails. 
         """
         file_datetimes = []
 
@@ -69,20 +62,19 @@ class MPASDateTimeUtils:
         return file_datetimes
 
     @staticmethod
-    def validate_time_parameters(dataset: Any, time_index: int, verbose: bool = False) -> Tuple[str, int, int]:
+    def validate_time_parameters(dataset: Any, 
+                                 time_index: int, 
+                                 verbose: bool = False) -> Tuple[str, int, int]:
         """
-        Validate time index parameter against dataset temporal dimensions with automatic bounds checking and normalization. This method performs comprehensive validation of time index requests by detecting the appropriate time dimension name used in the dataset and checking bounds against the actual time series length. The method handles both 'Time' and 'time' dimension name conventions used across different MPAS output formats. When the requested time index exceeds available time steps, the method automatically clamps to the last valid index and issues a warning if verbose mode is enabled. This automatic clamping prevents index errors while alerting users about out-of-bounds requests. The method returns all necessary information for subsequent time-based data extraction including validated indices and dimension metadata.
+        This method validates the provided time index against the temporal coverage of the dataset. It checks for the presence of a time dimension (either 'Time' or 'time') and retrieves its size to determine the total number of available time steps. If the provided time index exceeds the available range, it clamps the index to the last valid time step and optionally outputs a warning message if verbose mode is enabled. The method returns a tuple containing the name of the time dimension, the validated (and potentially clamped) time index, and the total number of time steps in the dataset. This utility ensures that subsequent processing steps that rely on valid time indices can proceed without errors due to out-of-range indices, while also providing informative feedback to users about any adjustments made to their input parameters. 
 
         Parameters:
-            dataset (Any): MPAS dataset object (xarray.Dataset or ux.UxDataset) containing time information for validation.
-            time_index (int): Zero-based time index to validate against dataset temporal extent.
-            verbose (bool): Enable verbose output for warnings about clamped or adjusted indices (default: False).
+            dataset (Any): MPAS dataset object containing time dimension information to validate against.
+            time_index (int): Zero-based index into the time dimension to validate.
+            verbose (bool): Enable verbose output for warnings about out-of-range time indices and adjustments made (default: False). 
 
         Returns:
-            Tuple[str, int, int]: Three-element tuple containing (time_dimension_name, validated_time_index, total_time_steps) where validated_time_index is clamped to valid range.
-            
-        Raises:
-            ValueError: If dataset is None with instruction to load dataset first.
+            Tuple[str, int, int]: A tuple containing (time_dim_name, validated_time_index, total_time_steps) where time_dim_name is the name of the time dimension ('Time' or 'time'), validated_time_index is the potentially clamped time index that is guaranteed to be within the dataset's temporal coverage, and total_time_steps is the total number of time steps available in the dataset for reference. 
         """
         if dataset is None:
             raise ValueError(DATASET_NOT_LOADED_MSG)
@@ -98,19 +90,21 @@ class MPASDateTimeUtils:
         return time_dim, time_index, time_size
 
     @staticmethod
-    def get_time_info(dataset: xr.Dataset, time_index: int, var_context: str = "", 
-                     verbose: bool = True) -> str:
+    def get_time_info(dataset: xr.Dataset, 
+                      time_index: int, 
+                      var_context: str = "", 
+                      verbose: bool = True) -> str:
         """
-        Retrieve formatted time coordinate information for diagnostic output and filename generation. This method extracts the time coordinate value at the specified index and formats it as a human-readable string suitable for plot titles, filenames, or diagnostic messages. The method handles multiple datetime formats and performs automatic conversion to pandas datetime objects when necessary. When time coordinates are unavailable or parsing fails, the method generates a fallback string using the time index to ensure robust behavior. Optional variable context can be included in verbose output to provide additional debugging information. The formatted time string follows the YYYYMMDDTHH convention for compact representation suitable for filenames while remaining human-readable.
+        This method retrieves and formats time information from the dataset for a specific time index to be used in labeling and filenames. It checks for the presence of a 'Time' coordinate and attempts to extract the corresponding time value at the specified index. If the time value can be successfully parsed as a datetime object, it formats it into a string representation (e.g., 'YYYYMMDDTHH') suitable for use in filenames and labels. If the time coordinate is not available or if parsing fails, it falls back to returning a string in the format 'time_{index}' to ensure that some form of time information is always provided. The method also provides verbose output to inform users about the extracted time information or any issues encountered during extraction and parsing, including the context of the variable being processed if provided. This utility helps maintain consistent and informative labeling of outputs based on temporal information, even in cases where time data may be missing or malformed. 
 
         Parameters:
-            dataset (xr.Dataset): MPAS dataset containing time coordinate information to extract and format.
-            time_index (int): Zero-based index into the time dimension for which to retrieve coordinate information.
-            var_context (str): Optional variable name or context string for customizing verbose diagnostic messages (default: "").
-            verbose (bool): Enable verbose output for debugging and diagnostic information about time extraction (default: True).
+            dataset (xr.Dataset): MPAS dataset containing time coordinate information for extraction.
+            time_index (int): Zero-based index into the time dimension to extract time information from.
+            var_context (str): Optional context string describing the variable or processing step for verbose output (default: "").
+            verbose (bool): Enable verbose output for extracted time information and any issues encountered during extraction and parsing (default: True). 
 
         Returns:
-            str: Formatted time string in YYYYMMDDTHH format suitable for filenames and labels, or fallback "time_{index}" string if time coordinate is unavailable.
+            str: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or fallback string 'time_{index}' if time coordinate is not available or parsing fails. 
         """
         try:
             if hasattr(dataset, 'Time') and len(dataset.Time) > time_index:
@@ -140,16 +134,13 @@ class MPASDateTimeUtils:
     @staticmethod
     def get_time_range(dataset: xr.Dataset) -> Tuple[datetime, datetime]:
         """
-        Extract temporal extent of loaded dataset by identifying start and end times from coordinate data. This method retrieves the first and last time coordinate values from the dataset's time dimension and converts them to standard Python datetime objects. The method performs floor rounding to the nearest second to provide clean timestamp values suitable for display and comparison operations. This temporal extent information is essential for validating time-based queries, generating dataset summaries, and ensuring temporal coverage meets analysis requirements. The method performs validation to ensure the dataset contains time coordinate information before attempting extraction. Both start and end times are returned as timezone-naive datetime objects for compatibility with standard Python datetime operations.
+        This method calculates the start and end time range of the dataset based on the 'Time' coordinate. It retrieves the first and last time values from the 'Time' coordinate, converts them to datetime objects, and floor-rounds them to seconds to represent the temporal coverage of the dataset. The method returns a tuple containing the start and end times as datetime objects. This utility is essential for understanding the overall temporal extent of the dataset, which can inform decisions about temporal subsetting, analysis, and labeling in subsequent processing steps. The method raises informative exceptions if the dataset is None or if it does not contain a 'Time' coordinate to guide users in providing valid input datasets. 
 
         Parameters:
-            dataset (xr.Dataset): MPAS dataset containing time coordinate information for extent calculation.
+            dataset (xr.Dataset): MPAS dataset containing 'Time' coordinate for which to calculate temporal coverage. 
 
         Returns:
-            Tuple[datetime, datetime]: Two-element tuple containing (start_time, end_time) as datetime objects floor-rounded to seconds representing temporal coverage of dataset.
-            
-        Raises:
-            ValueError: If dataset is None or doesn't contain Time coordinate with explanatory message.
+            Tuple[datetime, datetime]: A tuple containing (start_time, end_time) as datetime objects representing the temporal coverage of the dataset based on the 'Time' coordinate. 
         """
         if dataset is None:
             raise ValueError("Dataset cannot be None.")
@@ -165,19 +156,17 @@ class MPASDateTimeUtils:
         return start_time, end_time
 
     @staticmethod
-    def format_time_for_filename(dt: datetime, format_type: str = 'mpas') -> str:
+    def format_time_for_filename(dt: datetime, 
+                                 format_type: str = 'mpas') -> str:
         """
-        Format datetime object into filename-safe string following specified convention for consistent file naming. This method supports multiple output format conventions including MPAS standard format with underscores and dots, ISO compact format without delimiters, and ultra-compact format with only date and hour. The MPAS format follows the YYYY-MM-DD_HH.MM.SS pattern commonly used in MPAS model output filenames. ISO format produces YYYYMMDDTHHMMSS suitable for sortable filenames with ISO 8601 convention. Compact format generates YYYYMMDDHH for minimal filename length while preserving temporal information. These formatted strings are essential for generating consistent output filenames that maintain temporal ordering and human readability. The method validates format_type parameter to prevent invalid format specifications.
+        This method formats a datetime object into a string representation suitable for use in filenames based on a specified format convention. It supports multiple format types, including 'mpas' (e.g., 'YYYY-MM-DD_HH.MM.SS'), 'iso' (e.g., 'YYYYMMDDTHHMMSS'), and 'compact' (e.g., 'YYYYMMDDHH'). The method uses Python's strftime functionality to convert the datetime object into the desired string format, ensuring that the resulting string contains only alphanumeric characters and standard delimiters that are safe for use in filenames across different operating systems. If an unknown format type is provided, the method raises a ValueError to inform users about the valid options. This utility allows for consistent and flexible formatting of datetime information in filenames, which can enhance organization and readability of output files generated during MPAS diagnostic processing. 
 
         Parameters:
-            dt (datetime): Python datetime object to format for use in filename generation.
-            format_type (str): Format convention identifier, one of 'mpas', 'iso', or 'compact' (default: 'mpas').
+            dt (datetime): Datetime object to format into a string representation for filenames.
+            format_type (str): Format convention to use for formatting the datetime string, with options including 'mpas', 'iso', and 'compact' (default: 'mpas'). 
 
         Returns:
-            str: Formatted datetime string following specified convention, suitable for use in filenames with alphanumeric characters and standard delimiters only.
-
-        Raises:
-            ValueError: If format_type is not one of the supported options ('mpas', 'iso', 'compact').
+            str: Formatted datetime string suitable for use in filenames based on the specified format convention. 
         """
         if format_type == 'mpas':
             return dt.strftime('%Y-%m-%d_%H.%M.%S')
@@ -189,19 +178,17 @@ class MPASDateTimeUtils:
             raise ValueError(f"Unknown format_type: {format_type}")
 
     @staticmethod
-    def parse_time_from_string(time_str: str, format_patterns: Optional[List[str]] = None) -> datetime:
+    def parse_time_from_string(time_str: str, 
+                               format_patterns: Optional[List[str]] = None) -> datetime:
         """
-        Parse datetime from string representation using multiple format patterns with automatic fallback. This method attempts to parse datetime strings using a comprehensive list of format patterns covering common conventions including MPAS standard format, ISO formats, and compact representations. The parser tries each pattern sequentially until successful parsing occurs or all patterns are exhausted. Default patterns include MPAS format with underscores and dots, ISO compact format, standard space-delimited format, ultra-compact format, and ISO format with colons. Users can provide custom format patterns to handle non-standard datetime string representations. This flexible parsing approach enables robust datetime extraction from various sources including filenames, metadata, and user input. The method raises a clear exception when all parsing attempts fail to facilitate debugging of format mismatches.
+        This method attempts to parse a datetime object from a given time string by trying multiple format patterns. It accepts a time string and an optional list of strftime format patterns to attempt for parsing. If no custom patterns are provided, it uses a comprehensive default list that includes common formats such as MPAS, ISO, and standard datetime representations. The method iterates through the provided patterns and tries to parse the time string using each pattern until a successful parse is achieved. If none of the patterns can parse the string, it raises a ValueError to inform users about the failure to parse the time string with the provided patterns. This utility allows for flexible and robust parsing of datetime information from various string formats that may be encountered in filenames, labels, or other sources within MPAS diagnostic processing workflows. 
 
         Parameters:
-            time_str (str): Time string to parse into datetime object, potentially in any of several common formats.
-            format_patterns (Optional[List[str]]): Custom list of strftime format patterns to attempt for parsing, or None to use comprehensive default pattern list (default: None).
+            time_str (str): Input string containing datetime information to be parsed.
+            format_patterns (Optional[List[str]]): Optional list of strftime format patterns to try for parsing the time string. If None, a default set of common patterns will be used (default: None). 
 
         Returns:
-            datetime: Successfully parsed datetime object representing the time encoded in input string.
-            
-        Raises:
-            ValueError: If time string cannot be parsed with any of the provided or default patterns, including original string in error message.
+            datetime: Parsed datetime object extracted from the input time string based on the provided format patterns. 
         """
         if format_patterns is None:
             format_patterns = [
@@ -221,16 +208,17 @@ class MPASDateTimeUtils:
         raise ValueError(f"Could not parse time string '{time_str}' with any of the provided patterns.")
 
     @staticmethod
-    def get_time_bounds(dataset: xr.Dataset, time_index: int) -> Tuple[Optional[datetime], Optional[datetime]]:
+    def get_time_bounds(dataset: xr.Dataset, 
+                        time_index: int) -> Tuple[Optional[datetime], Optional[datetime]]:
         """
-        Retrieve time bounds information for specific time index if available in dataset. This method searches for time bounds variables using multiple common naming conventions including time_bnds, time_bounds, Time_bnds, and Time_bounds. Time bounds represent the start and end timestamps of time intervals or accumulation periods associated with each time coordinate value. The method extracts bounds for the specified time index and converts them to Python datetime objects for standard temporal operations. If bounds variables are not present or extraction fails, the method returns None tuple to indicate unavailable bounds information. Time bounds are particularly important for accumulated variables where the time coordinate represents the end of an accumulation period rather than an instantaneous value. This information is essential for correctly interpreting temporal meaning of data values.
+        This method retrieves the start and end time bounds for a specific time index from the dataset, if available. It checks for the presence of standard CF-compliant time bounds variables (e.g., 'time_bnds', 'Time_bnds') in the dataset and attempts to extract the corresponding start and end bound timestamps for the specified time index. If the bounds variables are present and can be successfully parsed as datetime objects, it returns them as a tuple (start_bound, end_bound). If the bounds variables are not present or if extraction fails, it returns (None, None) to indicate that time bounds information is not available. This utility is important for understanding the temporal coverage of individual time steps in the dataset, which can inform decisions about temporal subsetting, analysis, and labeling in subsequent processing steps. 
 
         Parameters:
-            dataset (xr.Dataset): MPAS dataset containing time bounds information in standard CF-compliant variables.
-            time_index (int): Zero-based time index for which to retrieve start and end bound timestamps.
+            dataset (xr.Dataset): MPAS dataset containing potential time bounds variables for extraction. 
+            time_index (int): Zero-based index into the time dimension for which to retrieve time bounds.
 
         Returns:
-            Tuple[Optional[datetime], Optional[datetime]]: Two-element tuple containing (start_bound, end_bound) as datetime objects if available, or (None, None) if bounds variables are not present or extraction fails.
+            Tuple[Optional[datetime], Optional[datetime]]: A tuple containing (start_bound, end_bound) as datetime objects representing the time bounds for the specified time index, or (None, None) if bounds information is not available. 
         """
         if dataset is None:
             return None, None
@@ -252,16 +240,13 @@ class MPASDateTimeUtils:
     @staticmethod
     def calculate_time_delta(dataset: xr.Dataset) -> pd.Timedelta:
         """
-        Calculate average time delta between consecutive time steps for temporal resolution determination. This method computes time differences between all adjacent time coordinate values and returns the median difference to provide a robust estimate of dataset temporal resolution. The median statistic is preferred over mean to handle potential irregular time steps or outliers in time spacing. This temporal resolution information is essential for selecting appropriate accumulation periods, determining valid temporal offsets, and validating consistency of time series data. The method requires at least two time steps to compute meaningful time differences. Time delta calculation supports both regular and irregular time grids by using median to represent typical time spacing. The returned pandas Timedelta object supports convenient arithmetic operations and format conversions.
+        This method calculates the median time delta between consecutive time steps in the dataset based on the 'Time' coordinate. It retrieves the time values from the 'Time' coordinate, converts them to datetime objects, and computes the differences between consecutive time steps. The method then returns the median of these time differences as a pd.Timedelta object, which represents the typical temporal resolution of the dataset. This utility is essential for understanding the temporal spacing of data points in the dataset, which can inform decisions about temporal subsetting, analysis, and labeling in subsequent processing steps. The method raises informative exceptions if the dataset is None or if it does not contain a 'Time' coordinate, or if there are not enough time steps to calculate a meaningful time delta. 
 
         Parameters:
-            dataset (xr.Dataset): MPAS dataset containing time coordinate information for delta calculation.
+            dataset (xr.Dataset): MPAS dataset containing 'Time' coordinate for which to calculate time delta. 
 
         Returns:
-            pd.Timedelta: Median time delta between consecutive time steps representing typical temporal resolution of dataset.
-            
-        Raises:
-            ValueError: If dataset is None, doesn't contain Time coordinate, or has fewer than 2 time steps with explanatory message.
+            pd.Timedelta: Median time delta between consecutive time steps in the dataset based on the 'Time' coordinate. 
         """
         if dataset is None or 'Time' not in dataset.coords:
             raise ValueError("Dataset is None or doesn't contain Time coordinate.")

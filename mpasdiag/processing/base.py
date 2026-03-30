@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Base Data Processor Module
+MPASdiag Core Processing Module: Base Data Processor
 
-This module provides the foundational data processing infrastructure for reading, loading, and managing MPAS atmospheric model output files with support for both diagnostic and history streams. It implements the MPASBaseDataProcessor class that serves as the parent for specialized processors (2D surface, 3D atmospheric), providing common functionality including file discovery with glob pattern matching, xarray-based dataset loading with chunk optimization for memory efficiency, time coordinate extraction and standardization, variable validation and listing, and geographic coordinate handling for MPAS unstructured mesh data. The base processor establishes consistent data access patterns across all MPASdiag processing modules, handles netCDF file operations with proper error handling, manages dataset caching for performance, and provides utility methods for time series processing and spatial subsetting. This foundational class enables rapid development of specialized diagnostic processors by inheriting common file I/O, coordinate handling, and data validation functionality while allowing customization for variable-specific extraction and computation requirements.
-
-Classes:
-    MPASBaseDataProcessor: Abstract base class providing common data processing infrastructure for all MPAS diagnostic processors.
+This module defines the MPASBaseProcessor class, which serves as the foundational component for loading and managing MPAS datasets in MPASdiag. It provides common functionality for discovering data files, parsing datetimes, configuring chunking strategies, and implementing robust loading workflows with multiple strategies and fallbacks. The base processor is designed to be extended by specialized 2D and 3D processors that implement specific diagnostic computations while leveraging the shared loading and dataset management capabilities defined in this class. 
     
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -41,17 +38,17 @@ warnings.filterwarnings('ignore', category=UserWarning, message='.*chunks.*degra
 
 
 class MPASBaseProcessor:
-    """
-    This class provides common functionality for loading, processing, and analyzing MPAS unstructured mesh data with support for lazy loading and temporal analysis.
-    """
+    """ Base class for MPAS data processing with common functionality for loading datasets, managing file I/O, and defining shared attributes and methods for specialized 2D and 3D processors."""
     
-    def __init__(self, grid_file: str, verbose: bool = True) -> None:
+    def __init__(self: "MPASBaseProcessor", 
+                 grid_file: str, 
+                 verbose: bool = True) -> None:
         """
-        Initialize the MPAS data processor for handling unstructured mesh data with lazy loading capabilities. This constructor establishes the foundation for MPAS data processing by validating and storing the grid file path which contains essential mesh topology information. The processor supports multiple data loading strategies including pure xarray and UXarray for efficient handling of MPAS unstructured grid data. Verbose mode enables detailed diagnostic output throughout the data loading and processing pipeline. The initialization validates grid file existence before proceeding to ensure robust error handling. This base class provides common functionality shared across specialized 2D and 3D MPAS data processors.
+        This constructor initializes the MPASBaseProcessor with the specified grid file and verbosity setting. It validates the existence of the grid file, which is essential for loading MPAS datasets with unstructured grid support, and sets up attributes for managing the dataset and data type. The constructor also provides diagnostic feedback in verbose mode about the initialization process and raises an error if the grid file is not found to ensure that subsequent loading operations have the necessary grid information available. 
 
         Parameters:
-            grid_file (str): Absolute path to MPAS static grid file containing mesh topology and coordinate information.
-            verbose (bool): Enable verbose output messages for debugging and diagnostic information during data loading and processing (default: True).
+            grid_file (str): Absolute path to the MPAS grid file, which is required for loading datasets with unstructured grid support using UXarray.
+            verbose (bool): Flag to enable verbose output for diagnostic messages during processing (default: True). 
 
         Returns:
             None
@@ -77,21 +74,35 @@ class MPASBaseProcessor:
         if not os.path.exists(grid_file):
             raise FileNotFoundError(f"Grid file not found: {grid_file}")
     
-    def _find_files_by_pattern(self, data_dir: str, pattern: str, file_type: str) -> List[str]:
+    @staticmethod
+    def _get_plain_dataset(dataset: xr.Dataset) -> xr.Dataset:
         """
-        Search for and validate files matching specified glob pattern in target directory. This method performs comprehensive file discovery using glob pattern matching with automatic sorting by filename for consistent temporal ordering. The search validates that sufficient files exist for temporal analysis operations requiring multiple time steps. If verbose mode is enabled, the method displays a summary of discovered files with truncated listing for large file sets. Error handling ensures clear diagnostic messages for missing files or insufficient temporal coverage. This utility method is used internally by specialized data loading methods across different MPAS output types.
+        This static helper method attempts to convert the provided dataset to a plain xarray.Dataset if it is not already one. It checks if the input dataset is not an instance of xarray.Dataset but can be converted to one (e.g., if it is a UXarray dataset), and if so, it creates a new xarray.Dataset from the input. If the input dataset is already an xarray.Dataset or cannot be converted, it returns the original dataset as is. This method provides a way to ensure that downstream processing can work with a plain xarray.Dataset when needed, while still allowing for flexibility in handling different dataset types that may be used in MPASdiag workflows. 
 
         Parameters:
-            data_dir (str): Absolute path to directory containing MPAS output files to search.
-            pattern (str): Glob pattern for file matching (e.g., 'diag*.nc', 'mpasout*.nc').
-            file_type (str): Human-readable description of file type for informative error messages.
+            dataset (xr.Dataset): The input dataset, which may be a UXarray dataset or another type that can be converted to an xarray.Dataset. 
 
         Returns:
-            List[str]: Sorted list of absolute file paths matching the specified pattern with at least 2 files for temporal analysis.
+            xr.Dataset: A plain xarray.Dataset if the input can be converted, or the original dataset if it cannot be converted to an xarray.Dataset.
+        """
+        if type(dataset) is not xr.Dataset and isinstance(dataset, xr.Dataset):
+            return xr.Dataset(dataset)
+        return dataset  
+      
+    def _find_files_by_pattern(self: "MPASBaseProcessor", 
+                               data_dir: str, 
+                               pattern: str, 
+                               file_type: str) -> List[str]:
+        """
+        This helper method finds files in the specified directory that match the given glob pattern, sorts them by filename to ensure consistent temporal ordering, and validates that a sufficient number of files are found for temporal analysis. It constructs the full file pattern by joining the data directory with the provided glob pattern, uses glob to find matching files, and raises appropriate errors if no files are found or if fewer than 2 files are found (since temporal analysis typically requires multiple time steps). If verbose mode is enabled, it prints a summary of the discovered files with truncated listing for large file sets. The method returns a sorted list of file paths matching the specified pattern for use in subsequent loading and processing operations. 
 
-        Raises:
-            FileNotFoundError: If no files matching the pattern are found in the specified directory.
-            ValueError: If fewer than 2 files are found, which is insufficient for temporal analysis operations.
+        Parameters:
+            data_dir (str): Absolute path to the directory containing the data files to search.
+            pattern (str): Glob pattern to match files (e.g., "mpas_diag_*.nc" for diagnostic files).
+            file_type (str): Human-readable label for the type of files being searched (used in error messages and verbose output). 
+
+        Returns:
+            List[str]: A sorted list of absolute file paths that match the specified pattern in the given directory, ready for loading and processing. 
         """
         # Construct the full file pattern by joining the data directory with the provided glob pattern to create an absolute search pattern for glob.
         file_pattern = os.path.join(data_dir, pattern)
@@ -122,18 +133,16 @@ class MPASBaseProcessor:
         # Return the sorted list of file paths for use in subsequent loading and processing operations.
         return files
 
-    def validate_files(self, files: List[str]) -> List[str]:
+    def validate_files(self: "MPASBaseProcessor", 
+                       files: List[str]) -> List[str]:
         """
-        Validate file existence and accessibility for a list of file paths with comprehensive error checking. This method performs filesystem-level validation to ensure all provided files exist and have read permissions before attempting data loading operations. The validation process checks both file existence and read accessibility to prevent downstream errors during data loading. Each file is tested individually with informative error messages indicating the specific file causing validation failure. This validation step is essential for robust error handling in data processing pipelines where missing or inaccessible files could cause silent failures or cryptic errors. The method returns only successfully validated files for subsequent processing operations.
+        This helper method validates that the provided list of file paths exists and is readable. It iterates through each file path in the input list, checks if the file exists using `os.path.exists`, and checks if the file is readable using `os.access` with the `os.R_OK` flag. If any file does not exist or is not readable, it raises a FileNotFoundError with a message indicating which file is problematic. If all files pass the validation checks, it returns the original list of file paths for use in data loading operations. This method ensures that subsequent loading attempts have valid file paths to work with, reducing the likelihood of runtime errors during data loading due to missing or inaccessible files. 
 
         Parameters:
-            files (List[str]): List of absolute file paths to validate for existence and read accessibility.
+            files (List[str]): A list of file paths to validate for existence and readability before attempting to load data from them. 
 
         Returns:
-            List[str]: List of validated file paths that exist and are readable, preserving original order.
-
-        Raises:
-            FileNotFoundError: If any file does not exist or is not readable with specific file path in error message.
+            List[str]: The original list of file paths if all files are valid, or raises an error if any file is missing or not readable. 
         """
         # Initialize an empty list to store valid file paths
         valid_files = []
@@ -154,15 +163,16 @@ class MPASBaseProcessor:
         # Return the list of validated file paths for use in data loading operations
         return valid_files
     
-    def _prepare_chunking_config(self, chunks: Optional[dict]) -> tuple[dict, dict]:
+    def _prepare_chunking_config(self: "MPASBaseProcessor", 
+                                 chunks: Optional[dict]) -> tuple[dict, dict]:
         """
-        The helper returns a minimal `open_chunks` mapping suitable for `xr.open_mfdataset` and a `full_chunks` mapping suitable for later rechunk operations. When no custom `chunks` are provided a sensible default is returned to balance IO and memory usage for MPAS datasets. This centralizes chunk configuration logic used by various loading strategies in the processor.
+        This helper method prepares the chunking configuration for both opening files and for full rechunking after loading based on the provided `chunks` argument or defaults. If `chunks` is None, it specifies a default chunking strategy that balances IO performance and memory usage for typical MPAS datasets, using 1 time step per chunk for opening to ensure proper concatenation along the Time dimension and 100,000 cells per chunk for the nCells dimension to manage memory usage while allowing efficient access patterns. If a custom chunking configuration is provided, it separates the chunking configuration into `open_chunks`, which includes only the Time dimension to avoid issues with concatenation when opening files, and `full_chunks`, which includes all specified chunks for rechunking after loading. This method returns both the `open_chunks` and `full_chunks` configurations to be used in the loading workflow, ensuring that the appropriate chunking strategies are applied at each stage of the loading process for optimal performance and memory management. 
 
         Parameters:
-            chunks (Optional[dict]): Optional user-specified chunking mapping or None to use defaults.
+            chunks (Optional[dict]): Custom chunking strategy dictionary with dimension names as keys and chunk sizes as values, or None for default chunking. 
 
         Returns:
-            tuple[dict, dict]: (open_chunks, full_chunks) where `open_chunks` is used for opening files and `full_chunks` is used for rechunking.
+            tuple[dict, dict]: A tuple containing two dictionaries: (open_chunks, full_chunks) where open_chunks is the chunking configuration to use when opening files with `xr.open_mfdataset` (typically including only the Time dimension), and full_chunks is the chunking configuration to use for rechunking after loading (which may include all specified chunks for memory optimization). 
         """
         # Specify default chunking strategy when no custom chunks are provided, which balances IO performance and memory usage for typical MPAS datasets. 
         if chunks is None:
@@ -178,18 +188,20 @@ class MPASBaseProcessor:
             # Return the chunks and open_chunks separately so that open_chunks can be used for opening files
             return open_chunks, chunks
 
-    def _load_multifile_dataset(self, data_files: List[str], file_datetimes: List[datetime],
+    def _load_multifile_dataset(self: "MPASBaseProcessor", 
+                                data_files: List[str], 
+                                file_datetimes: List[datetime],
                                 open_chunks: dict) -> xr.Dataset:
         """
-        Files are combined along the `Time` dimension using a nested concat strategy and the provided `file_datetimes` are assigned as Time coordinates. The function sorts the resulting dataset by time and returns a lazily loaded xarray.Dataset ready for downstream processing. This method is the core routine for loading multiple MPAS output files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. It ensures that the combined dataset is temporally ordered and that time coordinates are correctly assigned based on filename parsing. The resulting dataset is lazily loaded with chunking applied to optimize performance when working with large MPAS datasets that may not fit entirely in memory. This helper is used by primary loading strategies in the processor to create a combined dataset from multiple files while maintaining temporal integrity and efficient memory usage.
+        This helper method loads and combines multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. It uses `xr.open_mfdataset` to read the specified data files, combining them along the Time dimension using a nested concatenation strategy. The provided `open_chunks` configuration is applied when opening the files to ensure that chunking is compatible with the concatenation process. After loading, it assigns the provided datetime objects as the Time coordinates in the combined dataset and sorts the dataset by the Time coordinate to ensure temporal ordering. The resulting combined dataset is lazily loaded with chunking applied for efficient handling of large MPAS datasets, and it is returned for use in subsequent processing steps. 
 
         Parameters:
-            data_files (List[str]): Ordered list of file paths to open and concatenate.
-            file_datetimes (List[datetime]): Corresponding list of datetime objects for each input file.
-            open_chunks (dict): Chunk configuration passed to `xr.open_mfdataset`.
+            data_files (List[str]): Ordered list of data files to load and combine into a single dataset.
+            file_datetimes (List[datetime]): Datetimes corresponding to each file, used for assigning Time coordinates in the combined dataset.
+            open_chunks (dict): Chunking configuration to use when opening files with `xr.open_mfdataset`, typically including only the Time dimension to ensure proper concatenation. 
 
         Returns:
-            xr.Dataset: Concatenated xarray.Dataset with assigned Time coordinates.
+            xr.Dataset: A combined xarray.Dataset containing data from all specified files, with Time coordinates assigned and sorted, and chunking applied for efficient memory usage. 
         """
         # Read data files into a single xarray.Dataset using open_mfdataset with the specified chunking strategy for efficient memory usage. 
         combined_ds = xr.open_mfdataset(
@@ -209,16 +221,18 @@ class MPASBaseProcessor:
         # Return the combined dataset, which is lazily loaded with chunking applied for efficient handling of large MPAS datasets.
         return combined_ds
 
-    def _apply_chunking(self, dataset: xr.Dataset, chunks: Optional[dict]) -> xr.Dataset:
+    def _apply_chunking(self: "MPASBaseProcessor", 
+                        dataset: xr.Dataset, 
+                        chunks: Optional[dict]) -> xr.Dataset:
         """
-        When `chunks` is None the original dataset is returned. If chunking is requested the helper attempts `dataset.chunk(chunks)` and gracefully returns the original dataset if chunking fails for any reason.
+        This helper method applies chunking to the provided xarray.Dataset based on the specified chunking configuration. If a valid chunking configuration is provided, it uses the `chunk` method of xarray to apply the specified chunk sizes to the dataset dimensions, enabling efficient memory usage and lazy loading for large datasets. If no chunking configuration is provided (i.e., if `chunks` is None), it returns the original dataset without modification. The method also includes error handling to catch any exceptions that may arise during the chunking process, such as issues with incompatible chunk sizes or dataset structure, and in such cases, it returns the original dataset without applying chunking to ensure that processing can continue even if chunking fails. This approach allows for flexible handling of datasets with or without chunking based on user preferences and system capabilities. 
 
         Parameters:
-            dataset (xr.Dataset): Dataset to apply chunking to.
-            chunks (Optional[dict]): Chunk mapping to apply or None to skip.
+            dataset (xr.Dataset): The xarray.Dataset to which chunking should be applied based on the provided configuration.
+            chunks (Optional[dict]): Chunking configuration dictionary with dimension names as keys and chunk sizes as values, or None to indicate that no chunking should be applied. 
 
         Returns:
-            xr.Dataset: Possibly chunked dataset; original dataset returned on failure.
+            xr.Dataset: The input dataset with chunking applied according to the provided configuration, or the original dataset if no chunking is specified or if an error occurs during chunking. 
         """
         # If no chunking configuration is provided, return the original dataset without modification.
         if chunks is None:
@@ -231,17 +245,18 @@ class MPASBaseProcessor:
             # If chunking fails for any reason, catch the exception and return the original dataset without chunking
             return dataset
 
-    def _create_uxarray_dataset(self, combined_ds: xr.Dataset, 
-                               data_files: List[str]) -> ux.UxDataset:
+    def _create_uxarray_dataset(self: "MPASBaseProcessor", 
+                                combined_ds: xr.Dataset, 
+                                data_files: List[str]) -> ux.UxDataset:
         """
-        The function opens the grid file alongside the first data file to extract `uxgrid` information required to construct a `ux.UxDataset`. This enables unstructured-grid-aware indexing and utilities provided by UXarray.
+        This helper method creates a UXarray dataset by wrapping the provided combined xarray.Dataset and including the unstructured grid information extracted from the grid file. It opens the grid file using UXarray to extract the unstructured grid metadata, which is essential for enabling advanced processing capabilities that leverage the grid topology. The method checks if the grid information was successfully extracted and raises a ValueError if it could not be obtained. If successful, it returns a UXarray dataset that wraps the combined xarray.Dataset and includes the unstructured grid information, allowing for enhanced spatial processing of MPAS datasets with unstructured grids. This method is used in the primary loading strategy when UXarray is preferred for loading multi-file datasets. 
 
         Parameters:
-            combined_ds (xr.Dataset): Concatenated xarray dataset containing data variables.
-            data_files (List[str]): List of original data file paths (used to locate grid info).
+            combined_ds (xr.Dataset): The combined xarray.Dataset that was loaded and processed from multiple files, which will be wrapped in a UXarray dataset with grid information.
+            data_files (List[str]): List of data files that were loaded, used for diagnostic purposes when opening the grid file with UXarray. 
 
         Returns:
-            ux.UxDataset: UXarray dataset wrapping the xarray dataset with grid metadata.
+            ux.UxDataset: A UXarray dataset that wraps the combined xarray.Dataset and includes the unstructured grid information extracted from the grid file, enabling advanced processing capabilities for MPAS datasets with unstructured grids. 
         """
         # Open the grid file using UXarray to extract the unstructured grid information
         # Pass decode_times=False because MPAS grid files may use 'seconds since 0000-01-01'
@@ -258,22 +273,26 @@ class MPASBaseProcessor:
         # Return a UXarray dataset that wraps the combined xarray dataset and includes the unstructured grid information
         return ux.UxDataset(combined_ds, uxgrid=grid_info)
 
-    def _attempt_primary_load(self, data_files: List[str], file_datetimes: List[datetime],
-                             open_chunks: dict, full_chunks: Optional[dict],
-                             use_pure_xarray: bool, data_type_label: str) -> Tuple[Any, str]:
+    def _attempt_primary_load(self: "MPASBaseProcessor", 
+                              data_files: List[str], 
+                              file_datetimes: List[datetime], 
+                              open_chunks: dict, 
+                              full_chunks: Optional[dict], 
+                              use_pure_xarray: bool, 
+                              data_type_label: str) -> Tuple[Any, str]:
         """
-        The routine opens multiple files with `xr.open_mfdataset`, applies chunking, and then either returns a plain xarray.Dataset or wraps it with UXarray depending on `use_pure_xarray`. Successful loading sets instance state (`self.dataset`, `self.data_type`) and returns the dataset and type id.
+        This helper method implements the primary loading strategy for MPAS datasets, which attempts to load and combine multiple files into a single dataset using either pure xarray or UXarray based on the `use_pure_xarray` flag. It first loads the files into a combined xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. If `use_pure_xarray` is True, it returns the combined xarray.Dataset directly without UXarray wrapping. If `use_pure_xarray` is False, it creates a UXarray dataset by wrapping the combined xarray.Dataset with the unstructured grid information extracted from the grid file. The method also includes diagnostic feedback in verbose mode about the loading process and the resulting dataset structure, and it sets the instance attributes for the loaded dataset and data type based on the successful loading strategy. This primary loading approach is designed to leverage UXarray's capabilities when possible while still allowing for a pure xarray fallback when requested by the user. 
 
         Parameters:
-            data_files (List[str]): Ordered list of data files to load.
-            file_datetimes (List[datetime]): Datetimes corresponding to each file.
-            open_chunks (dict): Chunking mapping used during open.
-            full_chunks (Optional[dict]): Full chunk mapping for rechunking.
-            use_pure_xarray (bool): If True, prefer pure xarray over UXarray.
-            data_type_label (str): Human-readable label for the data type (for messages).
+            data_files (List[str]): Ordered list of data files to load and combine into a single dataset.
+            file_datetimes (List[datetime]): Datetimes corresponding to each file, used for assigning Time coordinates in the combined dataset.
+            open_chunks (dict): Chunking configuration to use when opening files with `xr.open_mfdataset`, typically including only the Time dimension to ensure proper concatenation. 
+            full_chunks (Optional[dict]): Full chunk mapping for rechunking after loading, which may include all specified chunks for memory optimization.
+            use_pure_xarray (bool): Flag to force pure xarray backend instead of UXarray for simplified processing without unstructured grid support.
+            data_type_label (str): Human-readable label for the data type being loaded (used in verbose output messages). 
 
         Returns:
-            Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is xarray.Dataset or ux.UxDataset and data_type_identifier is 'xarray' or 'uxarray'.
+            Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds, and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray'). 
         """
         # Load and combine multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. 
         combined_ds = self._load_multifile_dataset(data_files, file_datetimes, open_chunks)
@@ -317,20 +336,22 @@ class MPASBaseProcessor:
             # Return the final UXarray dataset and the string identifier 'uxarray' 
             return final_ds, 'uxarray'
 
-    def _attempt_fallback_load(self, data_files: List[str], file_datetimes: List[datetime],
-                              full_chunks: Optional[dict], 
-                              data_type_label: str) -> Tuple[Any, str]:
+    def _attempt_fallback_load(self: "MPASBaseProcessor", 
+                               data_files: List[str], 
+                               file_datetimes: List[datetime], 
+                               full_chunks: Optional[dict], 
+                               data_type_label: str) -> Tuple[Any, str]:
         """
-        This helper uses a conservative chunking strategy and retries concatenation with xarray only, which increases compatibility at the cost of some grid metadata. It sets `self.dataset` and `self.data_type` upon success.
+        This helper method implements the fallback loading strategy for MPAS datasets, which attempts to load and combine multiple files into a single xarray.Dataset using a more conservative approach that is compatible with a wider range of file formats and system configurations. It uses a fallback chunking strategy that applies 1 time step per chunk when opening files to maximize compatibility with different file structures and concatenation requirements. After loading the combined dataset, it applies the full chunking strategy for memory optimization. The method also includes diagnostic feedback in verbose mode about the loading process and the resulting dataset structure, and it sets the instance attributes for the loaded dataset and data type based on the successful loading strategy. This fallback loading approach is designed to provide a robust alternative when the primary loading strategy fails, ensuring that users can still access their data for analysis even if UXarray loading is not possible. 
 
         Parameters:
-            data_files (List[str]): Ordered list of data files to load.
-            file_datetimes (List[datetime]): Datetimes corresponding to each file.
-            full_chunks (Optional[dict]): Full chunk mapping for rechunking.
-            data_type_label (str): Human-readable label for the data type (for messages).
+            data_files (List[str]): Ordered list of data files to load and combine into a single dataset.
+            file_datetimes (List[datetime]): Datetimes corresponding to each file, used for assigning Time coordinates in the combined dataset.
+            full_chunks (Optional[dict]): Full chunk mapping for rechunking after loading, which may include all specified chunks for memory optimization.
+            data_type_label (str): Human-readable label for the data type being loaded (used in verbose output messages).
 
         Returns:
-            Tuple[Any, str]: (dataset_object, 'xarray') loaded in fallback mode.
+            Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is an xarray.Dataset loaded using the fallback strategy, and data_type_identifier is the string 'xarray' to indicate that the dataset is a plain xarray.Dataset without UXarray wrapping. 
         """
         # If the primary chunking strategy fails use 1 time step per chunk for the fallback loading strategy to maximize compatibility 
         fallback_chunks = {'Time': 1}
@@ -354,21 +375,24 @@ class MPASBaseProcessor:
         # Return the combined xarray.Dataset and the string identifier 'xarray' 
         return combined_ds, 'xarray'
 
-    def _load_data(self, data_dir: str, use_pure_xarray: bool = False,
-                   reference_file: str = "", chunks: Optional[dict] = None, 
+    def _load_data(self: "MPASBaseProcessor", 
+                   data_dir: str, 
+                   use_pure_xarray: bool = False,
+                   reference_file: str = "", 
+                   chunks: Optional[dict] = None, 
                    data_type_label: str = "data") -> Tuple[Any, str]:
         """
-        Load MPAS data from multiple netCDF files with lazy loading and flexible backend support for efficient memory management. This protected method provides the core data loading functionality used by specialized load methods for different MPAS output types including 2D diagnostic files and 3D model output files. The method attempts multiple loading strategies starting with multi-file xarray concatenation, falling back to UXarray with unstructured grid support, and finally attempting single-file loading if concatenation fails. Chunked lazy loading is employed to handle large datasets that exceed available memory by loading only required data portions on demand. The method automatically detects and uses appropriate time dimensions, sorts data temporally, and assigns proper datetime coordinates from filename parsing. Comprehensive error handling with fallback strategies ensures robust data loading across different file formats and system configurations.
+        This method implements a robust loading workflow for MPAS datasets that includes multiple strategies and fallbacks to ensure that data can be loaded successfully under a variety of conditions. It first discovers the relevant data files in the specified directory using custom finder methods if available or a default glob pattern. It then parses datetimes from the filenames to assign proper Time coordinates in the dataset. The method prepares chunking configurations for both opening files and for full rechunking after loading based on the provided `chunks` argument or defaults. It attempts the primary loading strategy, which uses either pure xarray or UXarray based on the `use_pure_xarray` flag, and if that fails, it falls back to a more conservative xarray loading approach with a different chunking strategy. If both multi-file loading strategies fail, it attempts to load a single file as a final fallback. Throughout the process, it provides diagnostic feedback in verbose mode about the loading steps and the resulting dataset structure, and it sets instance attributes for the loaded dataset and data type based on the successful loading strategy. This method is designed to maximize the chances of successfully loading MPAS datasets while providing clear feedback to users about the loading process and any issues encountered. 
 
         Parameters:
-            data_dir (str): Absolute path to directory containing MPAS output files for loading.
-            use_pure_xarray (bool): Force pure xarray backend instead of UXarray for simplified processing without unstructured grid support (default: False).
-            reference_file (str): Optional specific reference file path for time ordering and single-file fallback scenarios (default: "").
-            chunks (Optional[dict]): Custom chunking strategy dictionary with dimension names as keys (e.g., {'Time': 1, 'nCells': 100000}), or None for default chunking (default: None).
-            data_type_label (str): Human-readable label for data type used in verbose output messages (e.g., "2D", "3D", "diagnostic") (default: "data").
+            data_dir (str): Absolute path to the directory containing the data files to load.
+            use_pure_xarray (bool): Flag to force pure xarray backend instead of UXarray for simplified processing without unstructured grid support (default: False).
+            reference_file (str): Optional absolute path to a specific reference file for single-file loading if multi-file loading fails, or an empty string to indicate that the first file from the discovered data files should be used as the fallback (default: "").
+            chunks (Optional[dict]): Custom chunking strategy dictionary with dimension names as keys and chunk sizes as values, or None for default chunking (default: None).
+            data_type_label (str): Human-readable label for the type of data being loaded (e.g., "Diagnostic data" or "Model output") used in verbose output messages (default: "data"). 
 
         Returns:
-            Tuple[Any, str]: Two-element tuple containing (dataset_object, data_type_identifier) where dataset_object is xarray.Dataset or ux.UxDataset and data_type_identifier is either 'xarray' or 'uxarray'.
+            Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is the loaded dataset (either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds), and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray'). 
         """
         # Initialize a variable to hold the list of data files that will be loaded
         data_files: List[str]
@@ -424,15 +448,19 @@ class MPASBaseProcessor:
                     print(f"All loading strategies failed: {e3}")
                     sys.exit(1)
 
-    def _print_loading_success(self, num_files: int, dataset: Any, loader_type: str, data_type_label: str) -> None:
+    def _print_loading_success(self: "MPASBaseProcessor", 
+                               num_files: int, 
+                               dataset: Any, 
+                               loader_type: str, 
+                               data_type_label: str) -> None:
         """
-        Print concise summary information after successfully loading and combining multiple dataset files. This method provides diagnostic feedback about the data loading process including file count, loader type, time dimension structure, and temporal coverage. The summary includes vertical level information when available for 3D datasets to help users verify correct data loading. Memory usage information indicates that lazy loading is active with chunked arrays to manage large datasets efficiently. This diagnostic output is controlled by the verbose flag and helps users confirm successful data loading before proceeding with analysis. The method formats output with clear section headers and consistent indentation for readability.
+        This helper method prints a summary message indicating successful loading of the dataset, including the number of files loaded, the structure of the combined dataset, the time range covered by the dataset, and the memory usage characteristics based on whether chunking is applied. It takes the number of files that were successfully loaded, the loaded dataset object, a string identifier of the loader type used for loading, and a human-readable label for the type of data being loaded to include in the output message. This method provides clear feedback to users about the successful loading process and the resulting dataset structure, which can be helpful for diagnosing issues or confirming that the expected data was loaded correctly. 
 
         Parameters:
-            num_files (int): Number of individual files that were successfully loaded and combined into the dataset.
-            dataset (Any): Combined xarray.Dataset or ux.UxDataset object containing loaded data.
-            loader_type (str): Human-readable loader description indicating backend used (e.g., 'pure xarray', 'UXarray', 'xarray (fallback)').
-            data_type_label (str): Descriptive label for data type being loaded (e.g., '2D', '3D', 'diagnostic').
+            num_files (int): The number of files that were successfully loaded and combined into the dataset, used for reporting in the success message.
+            dataset (Any): The loaded dataset object (either an xarray.Dataset or a ux.UxDataset) that was successfully loaded, used for reporting the structure and time range in the success message.
+            loader_type (str): A string identifier of the loader type used for loading the dataset (e.g., "UXarray", "xarray (fallback)", or "pure xarray") to include in the success message for verbose output.
+            data_type_label (str): A human-readable label for the type of data being loaded (e.g., "Diagnostic data" or "Model output") used in the success message to specify what type of data was loaded. 
 
         Returns:
             None
@@ -447,61 +475,68 @@ class MPASBaseProcessor:
         print("Memory usage: Dataset uses chunked/lazy arrays")
         print(f"Data loaded as: {loader_type} ({data_type_label.lower()})")
     
-    def _select_fallback_file(self, reference_file: str, data_files: List[str]) -> str:
+    def _select_fallback_file(self: "MPASBaseProcessor", 
+                              reference_file: str, 
+                              data_files: List[str]) -> str:
         """
-        If a `reference_file` is provided and exists it is returned; otherwise the first entry from `data_files` is used. This helper centralizes fallback selection logic so downstream loading functions can assume a single canonical file path.
+        This helper method selects a single file to load for the fallback loading strategy when multi-file loading fails. It checks if a specific reference file was provided and if it exists, and if so, it returns that file path for loading. If the reference file is not provided or does not exist, it falls back to using the first file from the list of discovered data files as the default fallback option. This method ensures that there is a valid file path to attempt loading in the final fallback strategy, allowing users to still access their data even when multi-file loading is not successful. 
 
         Parameters:
-            reference_file (str): Optional reference file path provided by user.
-            data_files (List[str]): Candidate data files to choose from.
+            reference_file (str): Optional path to a single reference file to use for loading if multi-file loading fails, or an empty string to indicate that the first file from the data_files list should be used as the fallback.
+            data_files (List[str]): List of absolute paths to data files that were discovered, with the first file used as the default fallback if the reference_file is not provided or does not exist. 
 
         Returns:
-            str: Selected file path to load in single-file fallback mode.
+            str: The file path that should be used for the single-file loading fallback strategy, either the provided reference file if it exists or the first file from the discovered data files. 
         """
         if reference_file and os.path.exists(reference_file):
             return reference_file
         else:
             return data_files[0]
 
-    def _load_single_file_uxarray(self, file_path: str) -> ux.UxDataset:
+    def _load_single_file_uxarray(self: "MPASBaseProcessor", 
+                                  file_path: str) -> ux.UxDataset:
         """
-        This helper opens the dataset using `ux.open_dataset` which attaches the unstructured grid (`uxgrid`) and returns a `ux.UxDataset` for limited single-file operations when multi-file loading is not possible.
+        This helper method attempts to load a single file using UXarray, which provides advanced capabilities for handling unstructured grid datasets. It opens the specified file path with UXarray, using the grid file to extract the unstructured grid metadata necessary for proper dataset construction. The method is designed to be used as part of a fallback loading strategy when multi-file loading fails, allowing users to still access their data with UXarray's capabilities even if only a single file can be loaded. It returns a UXarray dataset containing the data from the specified file along with the associated grid metadata, enabling enhanced spatial processing of MPAS datasets with unstructured grids. 
 
         Parameters:
-            file_path (str): Path to the single netCDF file to open.
+            file_path (str): Path to the single netCDF file to open with UXarray, which will be wrapped in a UXarray dataset with grid information extracted from the grid file. 
 
         Returns:
-            ux.UxDataset: UXarray dataset containing grid metadata.
+            ux.UxDataset: A UXarray dataset that contains the data from the specified file along with the unstructured grid metadata extracted from the grid file, enabling advanced processing capabilities for MPAS datasets with unstructured grids even when only a single file can be loaded. 
         """
         # Return a UXarray dataset by opening the specified file path with the grid file 
         return ux.open_dataset(self.grid_file, file_path, grid_kwargs={'decode_times': False})
 
-    def _load_single_file_xarray(self, file_path: str) -> xr.Dataset:
+    def _load_single_file_xarray(self: "MPASBaseProcessor", 
+                                 file_path: str) -> xr.Dataset:
         """
-        This helper is used as a robust fallback when UXarray loading fails or when grid metadata is not required. It returns an xarray.Dataset instance opened in lazily-loaded mode.
+        This helper method attempts to load a single file using xarray, which provides a more robust loading approach that is compatible with a wider range of file formats and system configurations. It opens the specified file path with xarray in lazily-loaded mode without UXarray wrapping, allowing users to access their data even if UXarray loading fails due to issues with grid metadata or file format. The method is designed to be used as part of a fallback loading strategy when multi-file loading fails, providing a last-resort option for users to still access their data for analysis with reduced temporal coverage but increased compatibility. It returns an xarray dataset loaded from the specified file, which can be used for plotting and analysis operations even without the advanced capabilities provided by UXarray. 
 
         Parameters:
-            file_path (str): Path to the single netCDF file to open.
+            file_path (str): Path to the single netCDF file to open with xarray, which will be loaded as a plain xarray.Dataset without UXarray wrapping. 
 
         Returns:
-            xr.Dataset: xarray dataset loaded from the file.
+            xr.Dataset: An xarray dataset loaded from the specified file, providing a more robust loading approach compatible with a wider range of file formats and system configurations.
         """
         # Return an xarray dataset by opening the specified file path in lazily-loaded mode without UXarray wrapping
         return xr.open_dataset(file_path)
 
-    def _set_dataset_and_return(self, dataset: Any, data_type: str, 
-                               file_path: str, loader_desc: str) -> Tuple[Any, str]:
+    def _set_dataset_and_return(self: "MPASBaseProcessor", 
+                                dataset: Any, 
+                                data_type: str, 
+                                file_path: str, 
+                                loader_desc: str) -> Tuple[Any, str]:
         """
-        This helper centralizes state updates (`self.dataset`, `self.data_type`) and prints a diagnostic message when verbose is enabled. It returns the dataset and data type identifier for callers to continue processing.
+        This helper method sets the instance attributes for the loaded dataset and data type based on the successful loading of a single file, and returns the dataset and data type as a tuple. It takes the loaded dataset object (either an xarray.Dataset or a ux.UxDataset), a string identifier of the data type used for loading, the file path that was loaded, and an optional description of the loader used for verbose output. The method updates the instance attributes `self.dataset` and `self.data_type` to reflect the successfully loaded dataset and its type, and if verbose mode is enabled, it prints a message indicating that the single file was successfully loaded along with the loader description if provided. Finally, it returns a tuple containing the loaded dataset object and the data type identifier, which can be returned to the caller for further processing. 
 
         Parameters:
-            dataset (Any): Loaded dataset object (xarray.Dataset or ux.UxDataset).
-            data_type (str): String identifier of the dataset backend ('xarray' or 'uxarray').
-            file_path (str): Path of the file that was loaded.
-            loader_desc (str): Optional loader description used for messaging.
+            dataset (Any): The loaded dataset object (either an xarray.Dataset or a ux.UxDataset) that was successfully loaded from the single file.
+            data_type (str): A string identifier of the data type used for loading ('xarray' or 'uxarray') to indicate how the dataset was loaded.
+            file_path (str): The file path that was successfully loaded, used for reporting in the verbose output message.
+            loader_desc (str): An optional description of the loader used for verbose output (e.g., "xarray" or "UXarray") to include in the success message when verbose mode is enabled. 
 
         Returns:
-            Tuple[Any, str]: The same (dataset, data_type) tuple passed in.
+            Tuple[Any, str]: A tuple containing the loaded dataset object (either an xarray.Dataset or a ux.UxDataset depending on which loading strategy succeeded) and a string identifier of the data type used for loading ('xarray' or 'uxarray'). 
         """
         # Specify the dataset to the loaded dataset object (either xarray.Dataset or ux.UxDataset)
         self.dataset = dataset
@@ -516,15 +551,16 @@ class MPASBaseProcessor:
         # Return the dataset and data type 
         return dataset, data_type
 
-    def _attempt_single_file_load(self, file_path: str) -> Tuple[Any, str]:
+    def _attempt_single_file_load(self: "MPASBaseProcessor", 
+                                  file_path: str) -> Tuple[Any, str]:
         """
-        The helper first attempts `ux.open_dataset` and, if that fails, uses `xr.open_dataset`. It sets instance state accordingly and returns the loaded dataset with the corresponding backend identifier.
+        This helper method attempts to load a single file using both UXarray and xarray backends in sequence. It first tries to load the specified file with UXarray, and if that attempt raises an exception (e.g., due to issues with grid metadata or file format), it catches the exception and then attempts to load the same file with xarray as a fallback. If the UXarray loading succeeds, it sets the dataset and data type attributes accordingly and returns them. If the UXarray loading fails but the xarray loading succeeds, it sets the dataset and data type attributes for the xarray-loaded dataset and returns them. If both loading attempts fail, it raises an exception that can be caught by the caller for further handling. This method provides a robust mechanism for attempting to load a single file with both backends, maximizing the chances of successfully accessing the data even when multi-file loading strategies are not successful. 
 
         Parameters:
-            file_path (str): Path to the file to load.
+            file_path (str): The file path to the single netCDF file that should be attempted for loading with both UXarray and xarray backends. 
 
         Returns:
-            Tuple[Any, str]: (dataset_object, data_type_identifier) where data_type_identifier is 'uxarray' or 'xarray'.
+            Tuple[Any, str]: A tuple containing the loaded dataset object (either an xarray.Dataset or a ux.UxDataset depending on which loading strategy succeeds) and a string identifier of the data type used for loading ('xarray' or 'uxarray'). 
         """
         try:
             dataset = self._load_single_file_uxarray(file_path)
@@ -533,16 +569,18 @@ class MPASBaseProcessor:
             dataset = self._load_single_file_xarray(file_path)
             return self._set_dataset_and_return(dataset, 'xarray', file_path, 'xarray')
 
-    def _load_single_file_fallback(self, reference_file: str, data_files: List[str]) -> Tuple[Any, str]:
+    def _load_single_file_fallback(self: "MPASBaseProcessor", 
+                                   reference_file: str, 
+                                   data_files: List[str]) -> Tuple[Any, str]:
         """
-        Implement fallback loading strategy using single file when multi-file concatenation fails. This method provides a robust last-resort data loading approach when primary multi-file loading strategies fail due to file format issues, memory constraints, or incompatible file structures. The method first attempts to load a user-specified reference file if provided, otherwise defaults to the first file in the data file list. Loading is attempted with both UXarray and xarray backends in sequence, automatically falling back to xarray if UXarray loading fails. This fallback approach trades temporal completeness for robustness, allowing analysis to proceed with limited time coverage when full multi-file loading is not possible. Verbose output informs users about the fallback mode and loaded file to manage expectations about temporal coverage limitations.
+        This helper method implements the final fallback loading strategy for MPAS datasets, which attempts to load a single file using both UXarray and xarray backends in sequence. It first selects a file to load based on the provided reference file or the first file from the discovered data files. It then tries to load the selected file with UXarray, and if that attempt raises an exception (e.g., due to issues with grid metadata or file format), it catches the exception and then attempts to load the same file with xarray as a fallback. If the UXarray loading succeeds, it sets the dataset and data type attributes accordingly and returns them. If the UXarray loading fails but the xarray loading succeeds, it sets the dataset and data type attributes for the xarray-loaded dataset and returns them. If both loading attempts fail, it raises an exception that can be caught by the caller for further handling. This method provides a robust mechanism for attempting to load a single file with both backends, maximizing the chances of successfully accessing the data even when multi-file loading strategies are not successful. 
 
         Parameters:
-            reference_file (str): Optional absolute path to specific reference file for single-file loading, or empty string to use first file from data_files list.
-            data_files (List[str]): List of absolute paths to data files with first file used as fallback if reference_file is not provided.
+            reference_file (str): Optional path to a single reference file to use for loading if multi-file loading fails, or an empty string to indicate that the first file from the data_files list should be used as the fallback.
+            data_files (List[str]): List of absolute paths to data files that were discovered, with the first file used as the default fallback if the reference_file is not provided or does not exist.
 
         Returns:
-            Tuple[Any, str]: Two-element tuple containing (dataset_object, data_type_identifier) where dataset_object is xarray.Dataset or ux.UxDataset loaded from single file and data_type_identifier is either 'xarray' or 'uxarray'.
+            Tuple[Any, str]: A tuple containing the loaded dataset object (either an xarray.Dataset or a ux.UxDataset depending on which loading strategy succeeds) and a string identifier of the data type used for loading ('xarray' or 'uxarray'). 
         """
         if self.verbose:
             print("Falling back to single-file loading (limited functionality)...")
@@ -550,18 +588,15 @@ class MPASBaseProcessor:
         file_to_load = self._select_fallback_file(reference_file, data_files)
         return self._attempt_single_file_load(file_to_load)
     
-    def get_available_variables(self) -> List[str]:
+    def get_available_variables(self: "MPASBaseProcessor") -> List[str]:
         """
-        Retrieve list of all available data variables in the currently loaded MPAS dataset. This method provides a simple interface to inspect dataset contents and determine which physical variables are available for analysis and visualization. The method requires that a dataset has been loaded through one of the load methods before it can be called. The returned variable list includes all data variables but excludes coordinate variables and dimensional metadata. This functionality is essential for dynamic variable selection in plotting routines and for validating user-requested variables against available dataset contents. The variable list reflects the actual dataset structure after any preprocessing or filtering operations.
+        This method returns a list of available data variable names in the loaded dataset, excluding coordinate variables and dimension metadata. It checks if a dataset has been loaded and raises a ValueError if not. If a dataset is loaded, it retrieves the names of the data variables from the dataset's `data_vars` attribute, which contains only the data variables and excludes coordinates and dimensions. The method returns this list of data variable names, which can be used for diagnostic purposes or to inform users about what variables are available for plotting and analysis. 
 
         Parameters:
             None
 
         Returns:
-            List[str]: List of data variable names available in the loaded dataset excluding coordinate and dimension variables.
-
-        Raises:
-            ValueError: If no dataset has been loaded prior to calling this method.
+            List[str]: A list of available data variable names in the loaded dataset, excluding coordinate variables and dimension metadata.
         """
         # Raise a ValueError if the dataset has not been loaded yet 
         if self.dataset is None:
@@ -570,32 +605,35 @@ class MPASBaseProcessor:
         # Return a list of data variable names from the loaded dataset, excluding coordinate variables and dimension metadata.
         return list(self.dataset.data_vars.keys())
     
-    def normalize_longitude(self, lon: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    def normalize_longitude(self: "MPASBaseProcessor", 
+                            lon: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
         """
-        Normalize longitude values to standard [-180, 180] degree range for consistent geographic representation. This method converts longitude values from any arbitrary range to the standardized range where negative values represent western hemisphere and positive values represent eastern hemisphere. The normalization uses modulo arithmetic to handle longitude values that extend beyond a single 360-degree cycle. The method handles both scalar float values and numpy arrays with automatic type preservation and dimension handling. This normalization is essential for geographic plotting and spatial analysis where consistent longitude representation prevents discontinuities at dateline crossings. The implementation uses efficient numpy operations for array inputs while maintaining float type for scalar inputs.
+        This method normalizes longitude values to the standard [-180, 180] degree range. It takes longitude values that may be in the [0, 360] range or other ranges and applies a modulo operation to wrap them into the desired range. The method can handle both scalar longitude values and numpy arrays of longitude values, returning the normalized longitude(s) with the same type and dimensions as the input. This normalization is important for ensuring that longitude values are consistent and compatible with geographic plotting and analysis operations that typically expect longitudes in the [-180, 180] degree range. 
 
         Parameters:
-            lon (Union[float, np.ndarray]): Longitude value or array in degrees, potentially in [0, 360] or other ranges.
+            lon (Union[float, np.ndarray]): Longitude value(s) to normalize, which can be a single float or a numpy array of longitude values in any range (e.g., [0, 360]). 
 
         Returns:
-            Union[float, np.ndarray]: Normalized longitude value(s) in [-180, 180] degree range, preserving input type (float or array) and array dimensions.
+            Union[float, np.ndarray]: Normalized longitude value(s) in the standard [-180, 180] degree range, with the same type and dimensions as the input. 
         """
         lon = np.asarray(lon)
         result = ((lon + 180) % 360) - 180
         
         if result.ndim == 0:
             return float(result)
+        
         return result
     
-    def validate_geographic_extent(self, extent: Tuple[float, float, float, float]) -> bool:
+    def validate_geographic_extent(self: "MPASBaseProcessor", 
+                                   extent: Tuple[float, float, float, float]) -> bool:
         """
-        Validate geographic extent tuple contains physically realistic coordinate bounds for spatial analysis operations. This method checks that longitude values fall within the valid [-180, 180] degree range and latitude values fall within the valid [-90, 90] degree range. The validation ensures that geographic extent specifications are physically meaningful before they are used in spatial filtering or plotting operations. Invalid extents could cause unexpected behavior in downstream spatial analysis routines or produce empty results. The method performs bounds checking on all four extent components without validating logical relationships between min/max pairs. This validation is typically called before spatial filtering operations to ensure robust error handling and clear diagnostic messages for invalid user input.
+        This method validates a geographic extent defined by longitude and latitude bounds to ensure that the values are within physically valid ranges. It checks that the longitude bounds (lon_min and lon_max) are within the range of [-180, 180] degrees and that the latitude bounds (lat_min and lat_max) are within the range of [-90, 90] degrees. Additionally, it verifies that the minimum longitude is less than the maximum longitude and that the minimum latitude is less than the maximum latitude to ensure a valid rectangular geographic extent. The method returns True if all checks pass, indicating that the provided extent is valid for geographic plotting and analysis, and returns False if any of the checks fail. This validation is important for preventing errors in spatial processing and ensuring that users provide meaningful geographic extents for their analyses. 
 
         Parameters:
-            extent (Tuple[float, float, float, float]): Geographic extent as (lon_min, lon_max, lat_min, lat_max) in degrees.
+            extent (Tuple[float, float, float, float]): A tuple defining the geographic extent as (lon_min, lon_max, lat_min, lat_max) to be validated against physically valid ranges for longitude and latitude. 
 
         Returns:
-            bool: True if all extent values are within physically valid ranges (lon: [-180, 180], lat: [-90, 90]), False otherwise.
+            bool: True if the provided geographic extent is valid (longitude bounds within [-180, 180], latitude bounds within [-90, 90], and min values less than max values), and False if any of the checks fail. 
         """
         lon_min, lon_max, lat_min, lat_max = extent
         
@@ -610,18 +648,15 @@ class MPASBaseProcessor:
             
         return True
     
-    def extract_spatial_coordinates(self) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_spatial_coordinates(self: "MPASBaseProcessor") -> Tuple[np.ndarray, np.ndarray]:
         """
-        Extract and normalize spatial coordinates from loaded MPAS dataset with automatic unit conversion and flattening. This method searches for longitude and latitude coordinates using multiple possible variable names to handle different MPAS output conventions and grid file formats. The method automatically detects whether coordinates are in radians or degrees by checking maximum absolute latitude values against π threshold. Coordinates in radians are converted to degrees for standardized geographic representation. Longitude values are normalized to the standard [-180, 180] degree range to ensure consistent handling of dateline crossings. Multi-dimensional coordinate arrays are flattened to 1D for compatibility with plotting and analysis routines that expect vectorized coordinate inputs. This extraction method is essential for geographic plotting and spatial analysis operations across different MPAS output types.
+        This method extracts the longitude and latitude coordinate arrays from the loaded dataset, handling various possible variable names for spatial coordinates and normalizing longitude values to the standard [-180, 180] degree range. It checks for common variable names for longitude (e.g., 'lonCell', 'longitude', 'lon') and latitude (e.g., 'latCell', 'latitude', 'lat') in both the dataset's coordinates and data variables. If it finds valid longitude and latitude variables, it converts them to numpy arrays. If the latitude values are in radians (indicated by a maximum absolute value less than or equal to π), it converts both longitude and latitude to degrees. The method then flattens the coordinate arrays to 1D and normalizes the longitude values using the `normalize_longitude` method. Finally, it returns a tuple containing the normalized longitude array and the latitude array, which can be used for geographic plotting and analysis. If it cannot find valid spatial coordinate variables, it raises a ValueError with information about the available variables in the dataset. 
 
         Parameters:
             None
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Two-element tuple containing (longitude_array, latitude_array) as flattened 1D numpy arrays in degrees with longitude normalized to [-180, 180] range.
-            
-        Raises:
-            ValueError: If dataset is not loaded or if spatial coordinates cannot be found in dataset with list of available variables.
+            Tuple[np.ndarray, np.ndarray]: A tuple containing the normalized longitude array and the latitude array extracted from the dataset, which can be used for geographic plotting and analysis. The longitude values are normalized to the standard [-180, 180] degree range, and both arrays are flattened to 1D. 
         """
         if self.dataset is None:
             raise ValueError(DATASET_NOT_LOADED_MSG)
@@ -658,15 +693,15 @@ class MPASBaseProcessor:
         
         return lon_coords_normalized, lat_coords_flat
     
-    def _load_grid_file(self) -> xr.Dataset:
+    def _load_grid_file(self: "MPASBaseProcessor") -> xr.Dataset:
         """
-        The grid file contains mesh topology and coordinate variables required to enrich data files with spatial information. When `verbose` is enabled the function prints a short listing of variables discovered in the grid file to aid debugging and verification.
+        This helper method loads the grid file specified by `self.grid_file` using xarray, which contains the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information. It opens the grid file dataset in lazily-loaded mode without decoding times, allowing for efficient access to the grid metadata without loading the entire dataset into memory. The method returns the loaded grid file dataset, which can be used for extracting spatial coordinates and other grid-related information needed for processing MPAS datasets with unstructured grids. If verbose mode is enabled, it also prints a message indicating that the grid file was loaded successfully along with a list of the variables contained in the grid file dataset. 
 
         Parameters:
             None
 
         Returns:
-            xr.Dataset: xarray Dataset loaded from `self.grid_file` containing grid variables.
+            xr.Dataset: The xarray.Dataset loaded from the grid file, containing the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information. 
         """
         grid_file_ds = xr.open_dataset(self.grid_file, decode_times=False)
         
@@ -675,17 +710,18 @@ class MPASBaseProcessor:
         
         return grid_file_ds
 
-    def _prepare_dimension_coordinates(self, combined_ds: xr.Dataset, 
-                                      dimensions_to_add: List[str]) -> dict:
+    def _prepare_dimension_coordinates(self: "MPASBaseProcessor", 
+                                       combined_ds: xr.Dataset, 
+                                       dimensions_to_add: List[str]) -> dict:
         """
-        For each dimension name in `dimensions_to_add` that exists in `combined_ds.sizes` this helper creates a coordinate mapping from the dimension to a zero-based integer index array. This is useful for datasets that lack explicit index coordinates and simplifies downstream indexing and plotting utilities.
+        This helper method checks the `combined_ds` for the presence of specified dimension names (e.g., `nCells`, `nVertices`) and prepares a mapping of coordinate names to (dimension name, index array) pairs for those dimensions that exist in the dataset. This mapping can be used to assign new index coordinates to the dataset for dimensions that are present, which is important for enabling proper indexing and alignment of data variables along those dimensions. The method iterates over the list of dimension names, checks if each dimension exists in the combined dataset's sizes, and if so, it creates an index array using `np.arange` based on the size of that dimension and adds it to the mapping. It also prints verbose messages indicating which index coordinates were added for which dimensions. The resulting dictionary is returned for use in extending the combined dataset with new index coordinates corresponding to existing dimensions. 
 
         Parameters:
-            combined_ds (xr.Dataset): Dataset to inspect for dimension sizes.
-            dimensions_to_add (List[str]): List of dimension names to add index coordinates for.
+            combined_ds (xr.Dataset): The combined dataset to check for existing dimensions and to prepare new index coordinates for.
+            dimensions_to_add (List[str]): A list of dimension names to check for in the combined dataset and prepare index coordinates for (e.g., ['nCells', 'nVertices']). 
 
         Returns:
-            dict: Mapping of coordinate name -> (dim_name, index_array) suitable for `assign_coords`.
+            dict: Mapping of coordinate names to (dimension name, index array) pairs for dimensions that exist in `combined_ds`. Only includes dimensions that are present in the dataset's sizes, and the index arrays are created using `np.arange` based on the size of each dimension. This mapping can be used to assign new index coordinates to the dataset for proper indexing and alignment of data variables along those dimensions. 
         """
         coords_to_add = {}
         
@@ -697,19 +733,20 @@ class MPASBaseProcessor:
         
         return coords_to_add
 
-    def _prepare_spatial_variables(self, grid_file_ds: xr.Dataset, 
-                                  combined_ds: xr.Dataset, 
-                                  spatial_vars: List[str]) -> dict:
+    def _prepare_spatial_variables(self: "MPASBaseProcessor", 
+                                   grid_file_ds: xr.Dataset, 
+                                   combined_ds: xr.Dataset, 
+                                   spatial_vars: List[str]) -> dict:
         """
-        This helper inspects `grid_file_ds` for requested spatial variable names (e.g., `latCell`, `lonCell`) and returns a mapping of variables that are not already present in `combined_ds.data_vars`. The returned mapping can be used to extend the data dataset with missing spatial coordinate variables.
+        This helper method checks the `grid_file_ds` for the presence of specified spatial variable names (e.g., `latCell`, `lonCell`) and prepares a mapping of variable names to DataArray objects for those variables that exist in the grid file dataset and are not already present in the `combined_ds.data_vars`. This mapping can be used to copy spatial variable data from the grid file dataset into the combined dataset without overwriting any existing variables. The method iterates over the list of spatial variable names, checks if each variable exists in the grid file dataset's variables and is not already a data variable in the combined dataset, and if so, it adds it to the mapping. It also prints verbose messages indicating which spatial coordinate variables were added from the grid file. The resulting dictionary is returned for use in extending the combined dataset with new spatial variables extracted from the grid file. 
 
         Parameters:
-            grid_file_ds (xr.Dataset): Grid file dataset containing spatial variables.
-            combined_ds (xr.Dataset): Combined data dataset which may lack spatial vars.
-            spatial_vars (List[str]): Names of spatial variables to copy if available.
+            grid_file_ds (xr.Dataset): The dataset loaded from the grid file, which contains spatial variables that may be added to the combined dataset if they exist and are not already present.
+            combined_ds (xr.Dataset): The combined dataset to check for existing data variables and to prepare new spatial variables for addition.
+            spatial_vars (List[str]): A list of spatial variable names to check for in the grid file dataset and prepare for addition to the combined dataset (e.g., ['latCell', 'lonCell']). 
 
         Returns:
-            dict: Mapping of variable name -> DataArray to add to `combined_ds`.
+            dict: Mapping of variable names to DataArray objects for spatial variables that exist in `grid_file_ds` and are not already present in `combined_ds.data_vars`. This mapping can be used to copy spatial variable data from the grid file dataset into the combined dataset without overwriting any existing variables, allowing for enrichment of the combined dataset with spatial information from the grid file. Only includes variables that are present in the grid file dataset and not already defined as data variables in the combined dataset. 
         """
         data_vars_to_add = {}
         
@@ -721,19 +758,20 @@ class MPASBaseProcessor:
         
         return data_vars_to_add
 
-    def _apply_coordinate_updates(self, combined_ds: xr.Dataset, 
-                                 coords_to_add: dict, 
-                                 data_vars_to_add: dict) -> xr.Dataset:
+    def _apply_coordinate_updates(self: "MPASBaseProcessor", 
+                                  combined_ds: xr.Dataset, 
+                                  coords_to_add: dict, 
+                                  data_vars_to_add: dict) -> xr.Dataset:
         """
-        This helper assigns index coordinates (via `assign_coords`) from `coords_to_add` and copies spatial data variables from `data_vars_to_add` into `combined_ds`. Verbose messages indicate which coordinates and variables were added for user visibility.
+        This helper method applies the prepared coordinate and spatial variable updates to the `combined_ds` by assigning new coordinates from the `coords_to_add` mapping and adding new data variables from the `data_vars_to_add` mapping. It first checks if there are any coordinates to add and if so, it uses `assign_coords` to add them to the combined dataset, printing a verbose message indicating how many coordinate variables were added. Then it checks if there are any spatial variables to add and if so, it iterates over them and adds each one to the combined dataset, printing a verbose message indicating how many spatial variables were added and listing the updated dataset coordinates. If there are no additional coordinate variables found to add, it prints a message indicating that as well. Finally, it returns the updated combined dataset with the new coordinates and data variables applied. 
 
         Parameters:
-            combined_ds (xr.Dataset): Dataset to be updated with new coordinates and data variables.
-            coords_to_add (dict): Mapping of coordinate names to (dim, array) pairs for `assign_coords`.
-            data_vars_to_add (dict): Mapping of variable names to DataArray objects to insert into dataset.
+            combined_ds (xr.Dataset): The combined dataset to which the new coordinates and spatial variables will be added.
+            coords_to_add (dict): A mapping of coordinate names to (dimension name, index array) pairs for new coordinates that should be added to the combined dataset using `assign_coords`.
+            data_vars_to_add (dict): A mapping of variable names to DataArray objects for new spatial variables that should be added to the combined dataset as data variables. 
 
         Returns:
-            xr.Dataset: Updated dataset with applied coordinate and data variable additions.
+            xr.Dataset: The updated combined dataset with the new coordinates and spatial variables applied. This dataset will include any new index coordinates added from `coords_to_add` and any new spatial variables added from `data_vars_to_add`, enriching the dataset with additional spatial information from the grid file. 
         """
         if coords_to_add:
             combined_ds = combined_ds.assign_coords(coords_to_add)
@@ -752,24 +790,22 @@ class MPASBaseProcessor:
         
         return combined_ds
 
-    def _add_spatial_coords_helper(
-        self, 
-        combined_ds: xr.Dataset, 
-        dimensions_to_add: List[str],
-        spatial_vars: List[str],
-        processor_type: str
-    ) -> xr.Dataset:
+    def _add_spatial_coords_helper(self: "MPASBaseProcessor", 
+                                   combined_ds: xr.Dataset, 
+                                   dimensions_to_add: List[str],
+                                   spatial_vars: List[str],
+                                   processor_type: str) -> xr.Dataset:
         """
-        Shared helper method to add spatial coordinates and mesh connectivity to MPAS datasets. This method eliminates code duplication between 2D and 3D processors by providing common coordinate addition logic. It loads the grid file, adds dimensional index coordinates for specified dimensions that exist in the dataset, copies spatial variable data from grid to dataset, and handles errors gracefully with verbose output. The method is dimension-agnostic, allowing each processor to specify which dimensions and spatial variables are relevant for their data type.
+        This helper method attempts to add spatial coordinates to the `combined_ds` by loading the grid file dataset, preparing coordinate mappings for specified dimensions and spatial variables, and applying those updates to the combined dataset. It first loads the grid file dataset to access spatial variables and coordinate information. Then it prepares coordinate mappings for dimensions that exist in the combined dataset to add index coordinates for easier indexing and plotting. Next, it processes spatial variables to add from the grid file, ensuring that only those that are not already present in the combined dataset are added to avoid overwriting existing data variables. It applies the coordinate and variable additions to the combined dataset and closes the grid file dataset to free resources. If any exceptions occur during this process (e.g., issues with loading the grid file or adding coordinates), it catches the exception and prints a warning message indicating that spatial coordinates could not be added for the specified processor type, but continues processing with the original combined dataset without raising an error. Finally, it returns the combined dataset with spatial coordinates added if successful, or the original combined dataset if an error occurred while adding coordinates. 
 
         Parameters:
-            combined_ds (xr.Dataset): Combined dataset to enrich with spatial coordinates.
-            dimensions_to_add (List[str]): List of dimension names to add index coordinates for (e.g., ['nCells', 'nVertices']).
-            spatial_vars (List[str]): List of spatial variable names to copy from grid file (e.g., ['latCell', 'lonCell']).
-            processor_type (str): Type identifier for error messages ('2D' or '3D').
+            combined_ds (xr.Dataset): The combined dataset to which spatial coordinates will be added if successful.
+            dimensions_to_add (List[str]): A list of dimension names to check for in the combined dataset and prepare index coordinates for (e.g., ['nCells', 'nVertices']).
+            spatial_vars (List[str]): A list of spatial variable names to check for in the grid file dataset and prepare for addition to the combined dataset (e.g., ['latCell', 'lonCell']).
+            processor_type (str): A string identifier of the processor type (e.g., "MPASBaseProcessor") to include in the warning message if spatial coordinates cannot be added, providing context for the user about which processor encountered the issue. 
 
         Returns:
-            xr.Dataset: Enriched dataset with added coordinate variables.
+            xr.Dataset: The combined dataset with spatial coordinates added if successful, or the original combined dataset if an error occurred while adding coordinates. This method attempts to enrich the combined dataset with spatial information from the grid file, but gracefully handles any issues that arise during this process without interrupting the overall workflow. 
         """
         try:
             # Load the grid file dataset to access spatial variables and coordinate information
@@ -795,19 +831,18 @@ class MPASBaseProcessor:
         # Return the combined dataset 
         return combined_ds
     
-    def get_time_info(self, time_index: int, var_context: str = "") -> str:
+    def get_time_info(self: "MPASBaseProcessor", 
+                      time_index: int, 
+                      var_context: str = "") -> str:
         """
-        Retrieve formatted time coordinate information for diagnostic output and plot labeling. This method delegates to MPASDateTimeUtils to extract and format timestamp information from the dataset's time coordinate at the specified index. The formatted string includes human-readable date and time suitable for plot titles, filenames, or diagnostic messages. Optional variable context can be included to customize the output message for specific variables or analysis operations. This utility method provides a consistent interface for time information retrieval across different processing classes. The method validates that a dataset has been loaded before attempting coordinate access to ensure robust error handling.
+        This method retrieves and formats time information for a specified time index from the loaded dataset, providing a human-readable string that can be used for diagnostic output or plot labeling. It first checks if a dataset has been loaded by verifying that `self.dataset` is not None, and if it is None, it raises a ValueError indicating that no dataset has been loaded. If a dataset is loaded, it imports the MPASDateTimeUtils class and uses its `get_time_info` method to extract and format the time information for the specified time index, including any provided variable context in the formatted string for more informative labeling. The resulting string contains the time information corresponding to the specified time index, which can be used to enhance the clarity of diagnostic outputs and plots by providing temporal context. 
 
         Parameters:
-            time_index (int): Zero-based index into the time dimension for which to retrieve coordinate information.
-            var_context (str): Optional variable name or context string for customizing diagnostic messages (default: "").
+            time_index (int): The zero-based index along the time dimension for which to retrieve and format time information. This index will be validated against the time dimension of the loaded dataset to ensure it is within bounds.
+            var_context (str): An optional string providing context about the variable or diagnostic being processed, which will be included in the formatted time information string to enhance clarity in diagnostic outputs and plot labeling.
 
         Returns:
-            str: Formatted time information string containing human-readable timestamp appropriate for diagnostic output or plot labeling.
-            
-        Raises:
-            ValueError: If no dataset has been loaded prior to calling this method with instruction to call load methods first.
+            str: A formatted string containing the time information corresponding to the specified time index, which can be used for diagnostic output or plot labeling to provide temporal context. The string may include the variable context if provided, making it more informative for users. 
         """
         # Raise a ValueError if no dataset has been loaded before attempting to retrieve time information
         if self.dataset is None:
@@ -819,15 +854,16 @@ class MPASBaseProcessor:
         # Use get_time_info method from MPASDateTimeUtils to extract and format time information for the specified time index and variable context.
         return MPASDateTimeUtils.get_time_info(self.dataset, time_index, var_context, self.verbose)
     
-    def parse_file_datetimes(self, diag_files: List[str]) -> List:
+    def parse_file_datetimes(self: "MPASBaseProcessor", 
+                             diag_files: List[str]) -> List:
         """
-        Parse datetime information from diagnostic filename patterns using standardized MPAS naming conventions. This method delegates to MPASDateTimeUtils to extract temporal information encoded in MPAS output filenames following standard naming patterns. The parsing handles various MPAS filename formats including diagnostic files and model output files with embedded date-time stamps. Extracted datetime objects are used for temporal sorting, coordinate assignment, and time-based file selection in multi-file loading operations. This utility method provides consistent datetime extraction across different MPAS output types and filename conventions. The parsing supports both older and newer MPAS filename formats with automatic pattern detection and robust error handling for malformed filenames.
+        This method parses datetime information from a list of MPAS diagnostic or output file paths by extracting embedded datetime information from the filenames. It first imports the MPASDateTimeUtils class and then uses its `parse_file_datetimes` method to process the list of file paths, extracting datetime objects based on common MPAS filename conventions. The resulting list of datetime objects is returned in the same order as the input file list, making it suitable for temporal sorting and coordinate assignment in subsequent processing steps. This method provides a standardized way to extract temporal information from filenames, which is essential for organizing and analyzing time series data from MPAS diagnostics and model outputs. 
 
         Parameters:
-            diag_files (List[str]): List of absolute or relative paths to MPAS diagnostic or output files with embedded datetime information in filenames.
+            diag_files (List[str]): A list of absolute file paths to MPAS diagnostic or output files, from which datetime information will be extracted based on filename conventions.
 
         Returns:
-            List: List of datetime objects parsed from filenames in same order as input file list, suitable for temporal sorting and coordinate assignment.
+            List: A list of datetime objects extracted from the input file paths, in the same order as the input list, suitable for temporal sorting and coordinate assignment.
         """
         # Import the MPASDateTimeUtils class necessary for datetime parsing from filenames 
         from .utils_datetime import MPASDateTimeUtils
@@ -835,18 +871,16 @@ class MPASBaseProcessor:
         # Parse datetimes from the filenames using parse_file_datetimes utility 
         return MPASDateTimeUtils.parse_file_datetimes(diag_files, self.verbose)
     
-    def validate_time_parameters(self, time_index: int) -> Tuple[str, int, int]:
+    def validate_time_parameters(self: "MPASBaseProcessor", 
+                                 time_index: int) -> Tuple[str, int, int]:
         """
-        Validate time index parameter against dataset temporal dimensions with automatic bounds checking. This method delegates to MPASDateTimeUtils to perform comprehensive validation of time index requests against the loaded dataset's time dimension size. The validation detects the appropriate time dimension name handling both 'Time' and 'time' conventions used across different MPAS output formats. Negative time indices are converted to positive indices using Python convention for accessing from the end of the time series. Out-of-bounds indices are caught and reported with clear error messages indicating valid index ranges. The method returns validated time dimension name, corrected time index, and time dimension size for subsequent data extraction operations. This validation prevents index errors and provides clear diagnostic messages for invalid time requests.
+        This method validates the provided time index against the time dimension of the loaded dataset to ensure it is within bounds and correctly handles negative indices for counting from the end of the time series. It first checks if a dataset has been loaded by verifying that `self.dataset` is not None, and if it is None, it raises a ValueError indicating that no dataset has been loaded. If a dataset is loaded, it imports the MPASDateTimeUtils class and uses its `validate_time_parameters` method to check that the provided time index is valid for the dataset's time dimension, converting any negative indices to their positive equivalents. The method returns a tuple containing the name of the time dimension, the validated time index (with negative indices converted), and the size of the time dimension for reference in error messages or further processing. This validation is crucial for ensuring that temporal indexing operations are performed correctly and that users receive informative feedback if they provide out-of-bounds indices. 
 
         Parameters:
-            time_index (int): Zero-based time index to validate, supporting negative indices for counting from end of time series.
+            time_index (int): The zero-based index along the time dimension to validate, which may be a negative index for counting from the end of the time series. This index will be checked against the size of the time dimension in the loaded dataset to ensure it is within valid bounds.
 
         Returns:
-            Tuple[str, int, int]: Three-element tuple containing (time_dimension_name, validated_time_index, time_dimension_size) where validated_time_index has negative indices converted to positive equivalents.
-            
-        Raises:
-            ValueError: If dataset is not loaded with instruction to call load methods first, or if time index is out of bounds with valid range information.
+            Tuple[str, int, int]: A tuple containing (time_dim_name, validated_time_index, time_dim_size) where time_dim_name is the name of the time dimension in the dataset, validated_time_index is the non-negative index corresponding to the provided time_index (with negative indices converted), and time_dim_size is the size of the time dimension for reference.
         """
         # Raise a ValueError if no dataset has been loaded before attempting to validate time dimensions
         if self.dataset is None:
@@ -858,23 +892,24 @@ class MPASBaseProcessor:
         # Validate time with validate_time_parameters utility 
         return MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
     
-    def filter_by_spatial_extent(self, data: Any, lon_min: float, lon_max: float, 
-                                lat_min: float, lat_max: float) -> Tuple[Any, np.ndarray]:
+    def filter_by_spatial_extent(self: "MPASBaseProcessor", 
+                                 data: Any, 
+                                 lon_min: float, 
+                                 lon_max: float, 
+                                 lat_min: float, 
+                                 lat_max: float) -> Tuple[Any, np.ndarray]:
         """
-        Filter data array by geographic extent using coordinate-based spatial masking for regional analysis. This method delegates to MPASGeographicUtils to create and apply a boolean mask selecting only data points within the specified longitude and latitude bounds. The filtering handles dateline crossing cases and ensures proper coordinate wrapping for global datasets. The method works with both xarray and numpy array inputs, automatically extracting coordinates from the loaded dataset. Filtered data retains original array structure and metadata while excluding points outside the specified geographic region. The returned boolean mask can be reused for filtering additional variables with identical spatial structure. This spatial filtering is essential for regional analysis, domain-specific plotting, and reducing data volume for focused studies.
+        This method applies a spatial filter to the input data based on specified longitude and latitude bounds, using the spatial coordinates from the loaded dataset to determine which points fall within the defined geographic extent. It first checks if a dataset has been loaded by verifying that `self.dataset` is not None, and if it is None, it raises a ValueError indicating that no dataset has been loaded. If a dataset is loaded, it imports the MPASGeographicUtils class and uses its `filter_by_spatial_extent` method to apply a spatial mask to the input data, returning both the filtered data (with points outside the extent masked) and a boolean array indicating which points were selected based on the geographic bounds. This method is essential for enabling spatially focused analysis and plotting by allowing users to isolate data within specific geographic regions of interest. 
 
         Parameters:
-            data (Any): Data array to filter, either xarray.DataArray or numpy.ndarray with spatial dimensions matching dataset coordinate structure.
-            lon_min (float): Minimum longitude bound in degrees, typically in [-180, 180] range.
-            lon_max (float): Maximum longitude bound in degrees, typically in [-180, 180] range.
-            lat_min (float): Minimum latitude bound in degrees, must be in [-90, 90] range.
-            lat_max (float): Maximum latitude bound in degrees, must be in [-90, 90] range.
+            data (Any): The input data to be filtered, which can be of any type that is compatible with the spatial filtering operation defined in MPASGeographicUtils (e.g., xarray.DataArray, numpy array, etc.).
+            lon_min (float): The minimum longitude bound of the spatial extent in degrees, defining the western edge of the geographic region of interest.
+            lon_max (float): The maximum longitude bound of the spatial extent in degrees, defining the eastern edge of the geographic region of interest.
+            lat_min (float): The minimum latitude bound of the spatial extent in degrees, defining the southern edge of the geographic region of interest.
+            lat_max (float): The maximum latitude bound of the spatial extent in degrees, defining the northern edge of the geographic region of interest.
 
         Returns:
-            Tuple[Any, np.ndarray]: Two-element tuple containing (filtered_data, spatial_mask) where filtered_data has same type as input with points outside extent masked and spatial_mask is boolean array indicating selected points.
-            
-        Raises:
-            ValueError: If dataset is not loaded prior to filtering with instruction to call load methods first.
+            Tuple[Any, np.ndarray]: A tuple containing the filtered data (with points outside the specified geographic extent masked) and a boolean array indicating which points were selected based on the longitude and latitude bounds.
         """
         # Raise a ValueError if no dataset has been loaded before attempting to filter by spatial extent
         if self.dataset is None:

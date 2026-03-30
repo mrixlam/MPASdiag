@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 """
-MPASdiag Example6: Overlaying MSLP contours and 10-m wind vectors on a 2D surface map of 2-m temperature
+MPASdiag Example V: Overlaying MSLP contours and 10-m wind vectors on a 2D surface map of 2-m temperature
 
-This script demonstrates how to create a 2D surface map of 2-meter temperature using MPASdiag's `MPASSurfacePlotter` and then overlay it with mean sea level pressure (MSLP) contours and 10-meter wind vectors. The script uses real MPAS diagnostic data, applies the new overlay capabilities, and saves the resulting plot in high resolution. It showcases the enhanced features of MPASdiag v1.1.0, including automatic unit conversion, professional branding, enhanced scientific notation, and composite plotting capabilities.
-
-It demonstrates the following key features:
-- Automatic unit conversion for 2-m temperature (Kelvin to Celsius) and MSLP (Pa to hPa)
-- Professional branding with timestamp and institution logos
-- Enhanced scientific notation formatting for contour levels
-- Composite plotting capabilities to overlay multiple variables on a single map
+This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours and 10-meter wind vectors. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours and wind vectors are overlaid as arrows. Note that the same plot can be generated with wind vectors represented as barbs by changing the plot_type argument in the add_wind_overlay method. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -43,15 +37,18 @@ pres_var = 'mslp'
 uwnd_var = 'u10'
 vwnd_var = 'v10'
 
+# Define time index for surface variable extraction
+tindex = 1 
+
 # Extract 2D coordinates and variable data for the surface plot
-surface_var = processor.dataset[t_var].isel(Time=0)
+surface_var = processor.dataset[t_var].isel(Time=tindex)
 lon, lat = processor.extract_2d_coordinates_for_variable(t_var, surface_var)
 
 # Extract variable data for the surface plot and overlays (flattening for contour and wind plotting)
-temp = processor.dataset[t_var].isel(Time=0).values.flatten()
-pres = processor.dataset[pres_var].isel(Time=0).values.flatten()
-uwnd = processor.dataset[uwnd_var].isel(Time=0).values.flatten()
-vwnd = processor.dataset[vwnd_var].isel(Time=0).values.flatten()
+temp = processor.dataset[t_var].isel(Time=tindex).values.flatten()
+pres = processor.dataset[pres_var].isel(Time=tindex).values.flatten()
+uwnd = processor.dataset[uwnd_var].isel(Time=tindex).values.flatten()
+vwnd = processor.dataset[vwnd_var].isel(Time=tindex).values.flatten()
 
 # Define plot configuration
 cfg = MPASConfig()
@@ -61,6 +58,10 @@ cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 20.0
 cfg.lat_max = 60.0 
+
+# Extract valid time from the dataset for the specified time index
+valtime = processor.dataset['Time'][tindex].values
+valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
 # -------------- Create base surface map with 2-m temperature --------------
 
@@ -76,7 +77,7 @@ fig, ax = plotter.create_surface_map(
     lat_max=cfg.lat_max,
     plot_type='contourf',
     grid_resolution=0.1,
-    title='MPASdiag Advanced: 2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows)'
+    title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}'
 )
 
 print("\n" + "="*60)
@@ -123,7 +124,7 @@ wind_plotter.add_wind_overlay(ax, lon, lat, wind_config,
 os.makedirs('./output', exist_ok=True)
 
 # Save the final plot with the filled contour, contour overlay, and wind vector overlay
-plotter.save_plot('./output/overlay_surface_and_wind', formats=['png'])
+plotter.save_plot(f'./output/overlay_surface_and_wind_{valtime_str}', formats=['png'])
 plotter.close_plot()
 
-print("Plot saved to ./output/overlay_surface_and_wind.png")
+print(f"Plot saved to ./output/overlay_surface_and_wind_{valtime_str}.png")

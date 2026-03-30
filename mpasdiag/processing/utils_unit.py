@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Unit Conversion Utilities
+MPASdiag Core Processing Module: Unit Conversion Utilities
 
-This module provides comprehensive unit conversion functionality for meteorological and atmospheric data following standard meteorological conventions used in MPAS model diagnostics. It supports conversion between common atmospheric units including temperature scales (Kelvin, Celsius, Fahrenheit), pressure units (Pascal, hectopascal, millibar), precipitation rates, wind speeds, mixing ratios, and distances. The conversion methods handle numpy arrays, xarray DataArrays, and scalar values while preserving input data structure and type, with automatic unit string normalization to accommodate various notation styles. The UnitConverter class provides static methods for bidirectional conversions, preferred display unit selection for human-readable output, and specialized workflows for preparing data for visualization. This utility module ensures consistent and accurate unit handling across all MPASdiag processing and visualization workflows.
-
-Classes:
-    UnitConverter: Static utility class providing comprehensive meteorological unit conversion methods with support for multiple data types and unit notation variants.
+This module provides a comprehensive UnitConverter class for handling unit conversions of meteorological and atmospheric variables commonly found in MPAS model output. It supports a wide range of conversions for temperature, pressure, wind speed, humidity, precipitation rates, and more, following standard meteorological conventions. The class includes methods for converting data between units, determining preferred display units based on variable names, and normalizing unit strings to a canonical form. This utility ensures accurate and consistent unit handling across all MPASdiag processing and visualization workflows. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -28,27 +25,22 @@ from .constants import (
 
 
 class UnitConverter:
-    """
-    Unit conversion utility class for meteorological and atmospheric data with comprehensive conversion support following meteorological conventions. This class provides static methods for converting between common atmospheric units including temperature scales (Kelvin, Celsius, Fahrenheit), pressure units (Pascal, hectopascal, millibar), precipitation rates, wind speeds, mixing ratios, and distances. The conversion functionality supports numpy arrays, xarray DataArrays, and scalar values while preserving input data structure and type. Methods include automatic unit string normalization to handle various notation styles, preferred display unit selection for human-readable output, and specialized conversion workflows for preparing data for visualization with appropriate units and metadata.
-    """
+    """ Unit conversion utility class for meteorological and atmospheric data with comprehensive conversion support following meteorological conventions. """
     
     @staticmethod
     def convert_units(data: Union[np.ndarray, xr.DataArray, float], 
                       from_unit: str, 
                       to_unit: str) -> Union[np.ndarray, xr.DataArray, float]:
         """
-        Convert numerical data between common meteorological units with automatic handling of multiple data types and unit notation variants. This method accepts data as numpy arrays, xarray DataArrays, or scalar floats and returns the converted result preserving the original data structure and type when possible. The conversion logic supports temperature scales (K, °C, °F), pressure units (Pa, hPa, mb), mixing ratios (kg/kg, g/kg), precipitation rates (mm/hr, mm/day, in/hr), wind speeds (m/s, kt, mph, km/h), and distance units (m, km, ft) with bidirectional conversion mappings. Unit strings are automatically normalized to canonical forms to handle common notation variations like 'Kelvin' → 'K' or 'degC' → '°C', enabling flexible user input while maintaining consistent internal representations.
+        This method converts numeric data from one unit to another based on a predefined set of supported conversions for meteorological variables. It first normalizes the input unit strings to a canonical form using the _normalize_unit_string helper method, then looks up the appropriate conversion function from an internal conversion map. The method supports conversions for temperature (K, °C, °F), pressure (Pa, hPa, mb), humidity (kg/kg, g/kg), precipitation rates (mm/hr, mm/day, in/hr), wind speed (m/s, knots, mph, km/hr), and more. If the requested conversion is not supported, it raises a ValueError with a clear message indicating the unsupported conversion and listing available options. The method returns the converted data in the same structure and type as the input (scalars remain scalars, arrays remain arrays, DataArrays remain DataArrays) to ensure seamless integration with existing MPASdiag workflows. 
 
         Parameters:
-            data (Union[np.ndarray, xr.DataArray, float]): Numeric data to convert, can be scalar, numpy array, or xarray DataArray with values to transform.
-            from_unit (str): Source unit string using canonical or common synonym notation (e.g., 'K', 'kelvin', 'Pa', 'hPa').
-            to_unit (str): Target unit string for conversion output using canonical or synonym notation.
+            data (Union[np.ndarray, xr.DataArray, float]): Numeric data to convert, can be a scalar, NumPy array, or xarray DataArray.
+            from_unit (str): Original unit of the data, will be normalized before conversion lookup (e.g., 'Kelvin', 'degC', 'mm/hr').
+            to_unit (str): Desired unit to convert to, will be normalized before conversion lookup (e.g., 'K', '°C', 'mm/hr'). 
 
         Returns:
-            Union[np.ndarray, xr.DataArray, float]: Converted data in the same structure and type as input (scalars remain scalars, arrays remain arrays, DataArrays remain DataArrays).
-
-        Raises:
-            ValueError: If the requested conversion pair (from_unit, to_unit) is not supported in the internal conversion map.
+            Union[np.ndarray, xr.DataArray, float]: Converted data in the same structure and type as the input, with values transformed to the desired unit. 
         """
         from_unit = UnitConverter._normalize_unit_string(from_unit)
         to_unit = UnitConverter._normalize_unit_string(to_unit)
@@ -105,17 +97,19 @@ class UnitConverter:
         return converter(data)
     
     @staticmethod
-    def convert_data_for_display(data: xr.DataArray, var_name: str, metadata_source: xr.DataArray) -> Tuple[Union[np.ndarray, xr.DataArray, float], Dict[str, Any]]:
+    def convert_data_for_display(data: xr.DataArray, 
+                                 var_name: str, 
+                                 metadata_source: xr.DataArray) -> Tuple[Union[np.ndarray, xr.DataArray, float], Dict[str, Any]]:
         """
-        Prepare data array and metadata for human-readable visualization by converting to preferred display units based on variable type. This method consults MPAS metadata registry to determine optimal display units for specific variables (e.g., converting Kelvin to Celsius for temperature variables, Pascal to hectopascal for pressure), automatically performing the conversion when possible and preserving original units when conversion fails or is unavailable. The method extracts unit information from the input data's attributes or the metadata source, attempts conversion to the preferred display unit using convert_units(), and returns both the converted data and an updated metadata dictionary containing both current and original unit information. This workflow is essential for creating properly labeled and intuitively scaled plots where temperature appears in Celsius rather than Kelvin and pressure in hPa rather than Pa for scientific audiences.
+        This method converts an xarray DataArray to preferred display units based on the variable name and its original units, following meteorological conventions for visualization. It first retrieves metadata for the variable using the MPASFileMetadata class, then determines the original units from the data attributes or metadata. Based on the variable name and original units, it looks up the preferred display unit (e.g., '°C' for temperature, 'hPa' for pressure) using the get_display_units method. If the original units differ from the preferred display units, it attempts to convert the data using the convert_units method. The method returns a tuple containing the converted data (in preferred display units) and a metadata dictionary that includes the current display units, original units, and other relevant variable properties extracted from the metadata source. This utility ensures that MPAS variables are presented in a consistent and intuitive manner for analysis and visualization while maintaining accurate unit handling. 
 
-        Parameters:
-            data (xr.DataArray): Original data array to convert, expected to have optional 'units' attribute in data.attrs for unit detection.
-            var_name (str): MPAS variable name used to lookup metadata and display unit preferences from registry (e.g., 't2m', 'mslp', 'rainnc').
-            metadata_source (xr.DataArray): Data array or dataset variable used to extract fallback attributes like units or long_name when not present in data.
+        Parameters: 
+            data (xr.DataArray): Input data array to convert, must have 'units' attribute or corresponding metadata entry.
+            var_name (str): Name of the variable to determine display unit preference (e.g., 't2m', 'mslp').
+            metadata_source (xr.DataArray): DataArray containing metadata for the variable, used to extract original units and properties.
 
         Returns:
-            Tuple[Union[np.ndarray, xr.DataArray, float], Dict[str, Any]]: Two-element tuple containing (converted_data, metadata_dict) where converted_data has values in preferred display units and metadata_dict includes 'units' (current), 'original_units', and other variable properties.
+            Tuple[Union[np.ndarray, xr.DataArray, float], Dict[str, Any]]: A tuple containing the converted data in preferred display units and a metadata dictionary with 'units', 'original_units', and other relevant properties for the variable. 
         """
         from ..visualization import MPASFileMetadata
         
@@ -145,13 +139,13 @@ class UnitConverter:
     @staticmethod
     def _normalize_unit_string(unit: str) -> str:
         """
-        Normalize unit strings to canonical short forms used consistently throughout MPASdiag for reliable unit matching and conversion operations. This helper method maps a variety of verbose or alternative unit representations (e.g., 'kelvin', 'degC', 'mm hr-1', 'hectopascal') to standardized short forms ('K', '°C', 'mm/hr', 'hPa') used internally by the UnitConverter class. The normalization supports case-insensitive matching and handles common notation variants including spelled-out names, abbreviated forms, and various separator styles for compound units. If no canonical mapping is found in the internal dictionary, the method conservatively returns the original string unchanged to avoid breaking conversions for units not in the predefined map.
+        This helper method normalizes unit strings to a canonical form recognized by the UnitConverter class, allowing for flexible input formats while ensuring consistent unit handling. It uses a predefined mapping of common unit synonyms and variations (e.g., 'Kelvin', 'kelvin', 'K' all map to 'K') to convert various input representations into a standardized format. This normalization step enables users to input units in different styles or with common abbreviations without worrying about exact string matches, while still ensuring that the internal conversion logic operates on a consistent set of unit identifiers. If the input unit string does not match any known variations, it returns the original string, allowing for graceful handling of unrecognized units. 
 
         Parameters:
-            unit (str): Unit string to normalize, can use verbose names, abbreviations, or various notation styles (e.g., 'Kelvin', 'degC', 'mm/hr', 'kg kg-1').
+            unit (str): Input unit string to normalize, can be in various formats or synonyms (e.g., 'Kelvin', 'degC', 'mm/hr'). 
 
         Returns:
-            str: Canonicalized unit string in standard MPASdiag notation (e.g., 'K', '°C', 'mm/hr', 'kg/kg'), or original string if no mapping exists.
+            str: Normalized unit string in a canonical form recognized by the UnitConverter (e.g., 'K', '°C', 'mm/hr'), or original string if no normalization rule applies. 
         """
         unit = unit.strip()
         
@@ -188,16 +182,17 @@ class UnitConverter:
         return unit_map.get(unit.lower(), unit)
 
     @staticmethod
-    def get_display_units(variable_name: str, current_unit: str) -> str:
+    def get_display_units(variable_name: str, 
+                          current_unit: str) -> str:
         """
-        Determine the preferred human-friendly display unit for MPAS variables based on meteorological conventions and visualization best practices. This method looks up the variable name in an internal preference dictionary mapping common MPAS variables to their ideal display units (e.g., temperature in °C, pressure in hPa, precipitation in mm/hr, wind speed in m/s), then verifies that a valid conversion exists from the current unit to the preferred unit before returning it. The method performs case-insensitive matching and supports both exact variable name matches and substring pattern matching to handle variable naming variants. If no preference is defined or the conversion is not supported, the method returns the original current_unit unchanged to ensure safe fallback behavior in all cases.
+        This method determines the preferred display unit for a given MPAS variable based on its name and current unit, following meteorological conventions for visualization. It uses a predefined mapping of variable name patterns to preferred display units (e.g., 't2m' maps to '°C', 'mslp' maps to 'hPa') to identify the appropriate unit for visualization. The method first normalizes the current unit string using the _normalize_unit_string helper method, then checks if the variable name matches any of the patterns in the mapping. If a match is found and the current unit differs from the preferred display unit, it attempts to convert between the units using the convert_units method to ensure compatibility. If conversion is successful, it returns the preferred display unit; otherwise, it falls back to returning the original current unit. This utility ensures that MPAS variables are displayed in intuitive and standardized units for analysis and visualization while maintaining accurate unit handling. 
 
         Parameters:
-            variable_name (str): MPAS variable name to look up display unit preference (e.g., 't2m', 'rainnc', 'u10', 'mslp').
-            current_unit (str): Current unit string for the variable, will be normalized before preference lookup and conversion validation.
+            variable_name (str): Name of the variable to determine display unit preference (e.g., 't2m', 'mslp').
+            current_unit (str): Current unit of the variable, will be normalized before checking for display unit preference (e.g., 'K', 'Pa'). 
 
         Returns:
-            str: Preferred display unit for visualization (e.g., '°C' for temperatures, 'hPa' for pressure), or original current_unit if no preference exists or conversion is unavailable.
+            str: Preferred display unit for the variable based on its name and current unit, or the original current unit if no preferred display unit is applicable or if conversion is not possible. 
         """
         current_unit = UnitConverter._normalize_unit_string(current_unit)
             
@@ -256,13 +251,13 @@ class UnitConverter:
     @staticmethod
     def _format_colorbar_label(label: str) -> str:
         """
-        Clean and standardize colorbar label text by replacing verbose unit tokens with proper symbols for professional plot appearance. This helper method applies string substitutions to convert various informal or verbose unit representations commonly found in MPAS metadata (e.g., 'deg_C', 'degrees C', 'degC') to standardized mathematical symbols ('°C') suitable for publication-quality figures. The method handles multiple notation variants for degree Celsius to ensure consistent labeling regardless of the input metadata format. This text cleaning step is typically applied to colorbar labels, axis labels, and plot titles before rendering to improve readability and maintain consistent typography across all MPASdiag visualizations.
+        This helper method formats colorbar label strings by replacing verbose or informal unit tokens with standardized symbols for improved readability in visualizations. It specifically targets common temperature unit representations such as 'deg_C', 'degrees C', 'degrees_C', and 'degC', replacing them with the standard '°C' symbol. This ensures that colorbar labels are concise and visually consistent, enhancing the clarity of plots and figures generated by MPASdiag. The method can be easily extended in the future to handle additional unit formatting rules as needed. 
 
         Parameters:
-            label (str): Input label text that may contain verbose or informal unit tokens like 'deg_C', 'degrees C', 'degrees_C', or 'degC'.
+            label (str): Original colorbar label string that may contain verbose unit representations (e.g., 'Temperature (deg_C)'). 
 
         Returns:
-            str: Cleaned label string with standardized unit symbols such as '°C' replacing all verbose temperature unit representations.
+            str: Formatted colorbar label string with standardized unit symbols (e.g., 'Temperature (°C)'). 
         """
         label = label.replace('deg_C', CELSIUS)
         label = label.replace('deg C', CELSIUS)

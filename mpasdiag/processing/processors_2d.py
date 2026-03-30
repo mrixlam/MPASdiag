@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS 2D Surface Data Processor
+MPASdiag Core Processing Module: 2D Surface Data Processor
 
-This module provides specialized functionality for processing MPAS 2D surface and diagnostic variables including precipitation, temperature, pressure, humidity, and wind fields from atmospheric model output. It implements the MPAS2DProcessor class that extends MPASBaseProcessor to handle time series extraction of surface variables, geographic coordinate retrieval for unstructured mesh cells, precipitation accumulation calculations with temporal differencing, and statistical diagnostics for surface meteorology. The processor manages both diagnostic stream files (with accumulated precipitation variables like rainnc, rainc) and history stream files (with instantaneous surface fields like t2m, mslp, q2), provides methods for extracting cell-centered data with proper time indexing, handles missing data and NaN values with robust filtering, and supports batch processing for creating time series of surface analyses. Core capabilities include automatic file pattern matching for multi-file datasets, xarray-based data extraction with chunk optimization, integration with precipitation diagnostics utilities, and seamless data preparation for 2D surface visualization workflows suitable for operational weather analysis and model evaluation.
-
-Classes:
-    MPAS2DProcessor: Specialized processor class for extracting and analyzing 2D surface variables from MPAS atmospheric model output.
+This module defines the MPAS2DProcessor class, which is responsible for handling 2D surface and diagnostic variables from MPAS model output. It provides methods for loading datasets, extracting spatial coordinates, and preparing data for visualization. The processor is designed to work with both cell-centered and vertex-based variables, ensuring that all necessary spatial information is included for geospatial analysis. By inheriting from MPASBaseProcessor, it utilizes common functionality while implementing specific methods tailored for 2D surface data processing workflows. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -27,36 +24,32 @@ from .constants import DIAG_GLOB, MPASOUT_GLOB
 
 
 class MPAS2DProcessor(MPASBaseProcessor):
-    """
-    Specialized processor for 2D MPAS diagnostic data.
+    """ Processor class for handling 2D surface and diagnostic variables from MPAS model output. """
     
-    This class handles 2D surface and diagnostic variables from MPAS models,
-    providing methods for precipitation analysis, surface meteorology, and 
-    diagnostic file processing.
-    """
-    
-    def __init__(self, grid_file: str, verbose: bool = True):
+    def __init__(self: 'MPAS2DProcessor', grid_file: str, 
+                 verbose: bool = True):
         """
-        Initialize the 2D MPAS processor for surface and diagnostic variable analysis. This constructor sets up the processor by loading the MPAS grid file to extract mesh coordinates and cell connectivity information needed for 2D field processing. It inherits base functionality from MPASBaseProcessor and configures verbose logging for operational transparency. The processor handles precipitation, surface meteorology, and other 2D diagnostic variables from MPAS model output. Coordinates are validated and prepared for subsequent data loading and spatial operations.
+        This constructor initializes the MPAS2DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the necessary attributes for processing 2D diagnostic data, ensuring that the processor is ready to load datasets, extract spatial coordinates, and prepare data for visualization. By inheriting from MPASBaseProcessor, it leverages common functionality while allowing for specific implementations tailored to 2D surface data processing workflows. 
 
         Parameters:
-            grid_file (str): Path to the MPAS grid file containing mesh coordinates and connectivity.
-            verbose (bool): If True, print informational messages during processing operations (default: True).
+            grid_file (str): Path to the MPAS grid file containing spatial coordinate information.
+            verbose (bool): If True, enables detailed logging of processing steps (default: True). 
 
         Returns:
-            None
+            None 
         """
         super().__init__(grid_file, verbose)
     
-    def add_spatial_coordinates(self, combined_ds: xr.Dataset) -> xr.Dataset:
+    def add_spatial_coordinates(self: 'MPAS2DProcessor', 
+                                combined_ds: xr.Dataset) -> xr.Dataset:
         """
-        Enrich 2D diagnostic dataset with spatial coordinates and mesh connectivity from MPAS grid file. This method loads the grid file and extracts geographic coordinates for both cell centers and vertices along with dimensional indices needed for proper dataset structure. It handles multiple spatial dimensions including nCells for cell-centered variables, nVertices for vertex-based fields, and nIsoLevelsT/nIsoLevelsZ for isothermal and isoheight level diagnostics. The method adds coordinate variables as metadata while preserving all existing data variables. Missing or incompatible coordinates are handled gracefully with warning messages when verbose mode is enabled. This coordinate enrichment is essential for subsequent spatial plotting and geographic analysis operations.
+        This method enriches the combined dataset of 2D diagnostic variables by adding coordinate variables for spatial dimensions (nCells, nVertices, nIsoLevelsT, nIsoLevelsZ) and their corresponding geographic coordinates (latitude and longitude). It identifies the relevant dimensions and spatial variables in the dataset, then adds the appropriate coordinate variables based on the grid information. This process ensures that the resulting dataset is fully equipped with the necessary spatial information for geospatial analysis and plotting. By centralizing this functionality in a dedicated method, it promotes code reuse and maintainability across different processing workflows that require spatial coordinate enrichment for 2D diagnostic data. 
 
         Parameters:
-            combined_ds (xr.Dataset): Combined xarray dataset containing 2D diagnostic data from multiple time steps.
+            combined_ds (xr.Dataset): The combined dataset of 2D diagnostic variables to enrich with spatial coordinates. 
 
         Returns:
-            xr.Dataset: Enriched dataset with added coordinate variables for spatial dimensions and geographic coordinates for plotting.
+            xr.Dataset: The enriched dataset with added spatial coordinate variables for nCells, nVertices, nIsoLevelsT, and nIsoLevelsZ, along with their corresponding latitude and longitude coordinates. 
         """
         dimensions_to_add = ['nCells', 'nVertices', 'nIsoLevelsT', 'nIsoLevelsZ']
         spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
@@ -65,18 +58,20 @@ class MPAS2DProcessor(MPASBaseProcessor):
             combined_ds, dimensions_to_add, spatial_vars, "2D"
         )
 
-    def load_2d_data(self, data_dir: str, use_pure_xarray: bool = False, 
+    def load_2d_data(self: 'MPAS2DProcessor', 
+                     data_dir: str, 
+                     use_pure_xarray: bool = False, 
                      reference_file: str = "") -> 'MPAS2DProcessor':
         """
-        Load and configure 2D diagnostic data from MPAS output files with optimized chunking. This method reads diagnostic files from the specified directory using either UXarray or pure xarray backends, applies memory-efficient chunking strategies optimized for 2D fields, and adds spatial coordinates from the grid file. The method supports both regular datasets and UXarray grid objects, automatically detecting and handling the appropriate structure. After loading, it enriches the dataset with geographic coordinates and mesh connectivity needed for visualization and analysis. Returns self to enable method chaining in processing workflows.
+        This method loads 2D diagnostic data from the specified directory, utilizing either the pure xarray backend or the UXarray backend based on the provided flag. It first identifies the relevant diagnostic files in the directory, then loads them into a combined dataset while adding necessary spatial coordinates. The method ensures that the loaded dataset is properly enriched with spatial information for subsequent analysis and visualization. By returning self, it allows for method chaining in processing workflows that require multiple operations on the loaded dataset. 
 
         Parameters:
-            data_dir (str): Directory path containing MPAS diagnostic files to load.
-            use_pure_xarray (bool): If True, use pure xarray backend instead of UXarray (default: False).
-            reference_file (str): Optional specific file to use as reference instead of scanning directory (default: "").
+            data_dir (str): Directory path to search for MPAS diagnostic files.
+            use_pure_xarray (bool): If True, uses the pure xarray backend for loading data; otherwise, uses UXarray (default: False).
+            reference_file (str): Optional path to a reference file for loading data, if required by the backend (default: ""). 
 
         Returns:
-            MPAS2DProcessor: Self reference for method chaining operations.
+            MPAS2DProcessor: The instance of the processor with the loaded dataset ready for analysis and visualization. 
         """
         self.data_dir = data_dir
         
@@ -99,19 +94,16 @@ class MPAS2DProcessor(MPASBaseProcessor):
         
         return self
 
-    def find_diagnostic_files(self, data_dir: str) -> List[str]:
+    def find_diagnostic_files(self: 'MPAS2DProcessor', 
+                              data_dir: str) -> List[str]:
         """
-        Locate and validate MPAS diagnostic or mpasout files in the specified directory by pattern matching with fallback. This method searches for files matching the diagnostic naming convention (diag*.nc) first, then falls back to MPAS output files (mpasout*.nc) if diag files are not available. This enables precipitation analysis from either diagnostic streams or standard model output files that contain rainc and rainnc variables. It performs validation to ensure sufficient files exist for temporal analysis and raises appropriate exceptions if neither file type is found. The method delegates to the base class pattern-matching utility with diagnostic-specific parameters. Sorted output ensures consistent temporal ordering for time series operations.
+        This method searches for diagnostic files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for diagnostic files. If no diagnostic files are found after these attempts, it then searches for MPAS output files (mpasout*.nc) using a similar approach. The method ensures that at least two files are found for temporal analysis and provides informative error messages if no suitable files are located. By returning a sorted list of file paths, it facilitates subsequent loading and processing of the diagnostic data. 
 
         Parameters:
-            data_dir (str): Directory path to search for MPAS diagnostic or output files.
+            data_dir (str): Directory path to search for MPAS diagnostic files. 
 
         Returns:
-            list of str: Sorted list of diagnostic or output file paths found in the directory.
-
-        Raises:
-            FileNotFoundError: If no diagnostic or output files matching the patterns are found in the directory.
-            ValueError: If insufficient files are present for meaningful temporal analysis.
+            List[str]: A sorted list of file paths to the found diagnostic files or MPAS output files suitable for 2D analysis. 
         """
         try:
             return self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
@@ -139,27 +131,29 @@ class MPAS2DProcessor(MPASBaseProcessor):
                             f"No diagnostic files (diag*.nc) or MPAS output files (mpasout*.nc) found under: {data_dir}\n"
                             f"For precipitation analysis, ensure files contain rainc and rainnc variables."
                         )
+
                     if len(mpasout_files) < 2:
                         raise ValueError(f"Insufficient MPAS output files for temporal analysis. Found {len(mpasout_files)}, need at least 2.")
+
                     if self.verbose:
                         print(f"\nFound {len(mpasout_files)} MPAS output files (recursive search):")
                         for i, f in enumerate(mpasout_files[:5]):
                             print(f"  {i+1}: {os.path.basename(f)}")
+
                     return mpasout_files
 
-    def extract_2d_coordinates_for_variable(self, var_name: str, data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_2d_coordinates_for_variable(self: 'MPAS2DProcessor', 
+                                            var_name: str, 
+                                            data_array: Optional[xr.DataArray] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Extract appropriate horizontal coordinates for a 2D variable based on its spatial dimension. This method determines whether the variable is defined on cell centers (nCells) or vertices (nVertices) and returns the corresponding longitude and latitude arrays for plotting. It inspects the data array dimensions or queries the dataset to identify the spatial dimension, then retrieves latCell/lonCell for cell-centered variables or latVertex/lonVertex for vertex-based variables. The method handles MPAS unstructured mesh topology automatically. Note that this method only handles 2D surface variables; 3D variables with vertical dimensions require separate processing with vertical coordinate extraction.
+        This method extracts the longitude and latitude coordinates for a specified 2D variable from the loaded dataset. It first determines whether the variable is associated with cell-centered (nCells) or vertex-based (nVertices) spatial dimensions by inspecting the variable's dimensions or the provided data array. Based on this determination, it identifies the appropriate coordinate variable names for longitude and latitude. The method then retrieves the coordinate values, ensuring they are in degrees if they were originally in radians, and flattens them into 1D arrays. Finally, it normalizes longitude values to the range [-180, 180] and returns the longitude and latitude arrays. This functionality is essential for preparing spatial coordinates for geospatial analysis and visualization of 2D diagnostic variables. 
 
         Parameters:
-            var_name (str): Name of the 2D surface variable to extract coordinates for.
-            data_array (Optional[xr.DataArray]): Optional data array to inspect for dimension information, defaults to querying dataset (default: None).
+            var_name (str): Name of the 2D variable for which to extract coordinates.
+            data_array (Optional[xr.DataArray]): Optional data array of the variable, used to determine spatial dimensions if provided. 
 
         Returns:
-            tuple of (np.ndarray, np.ndarray): Longitude and latitude arrays corresponding to the variable's spatial dimension.
-
-        Raises:
-            ValueError: If dataset is not loaded or spatial dimension cannot be determined.
+            Tuple[np.ndarray, np.ndarray]: A tuple containing the longitude and latitude coordinate arrays corresponding to the specified variable. 
         """
         if self.dataset is None:
             raise ValueError("Dataset not loaded. Call load_2d_data() first.")
@@ -213,19 +207,18 @@ class MPAS2DProcessor(MPASBaseProcessor):
         
         return lon_coords, lat_coords
 
-    def get_2d_variable_data(self, var_name: str, time_index: int = 0) -> xr.DataArray:
+    def get_2d_variable_data(self: 'MPAS2DProcessor', 
+                             var_name: str, 
+                             time_index: int = 0) -> xr.DataArray:
         """
-        Retrieve 2D variable data at a specific time index with validation and optional statistics. This method extracts a single timestep of 2D field data from the loaded dataset after validating that the variable exists and the time index is within bounds. It handles both UXarray and standard xarray data structures transparently, applying the appropriate indexing method for each type. The method computes lazy-loaded data into memory for performance and optionally prints variable statistics when verbose mode is enabled. Returns a fully-realized xarray DataArray ready for analysis or visualization.
+        This method retrieves the data array for a specified 2D variable at a given time index from the loaded dataset. It first checks if the dataset is loaded and if the variable exists in the dataset. It then validates the time index against the dataset's time dimension, ensuring it is within bounds. Depending on the data type (pure xarray or UXarray), it extracts the variable data at the specified time index. If the extracted data is a lazy array, it computes it to get the actual values. If verbose mode is enabled, it also prints out the range of finite values for the variable along with its units if available. Finally, it returns the data array for further analysis or visualization. 
 
         Parameters:
-            var_name (str): Name of the 2D variable to extract from the dataset.
-            time_index (int): Zero-based time index to extract data from (default: 0).
+            var_name (str): Name of the 2D variable to retrieve.
+            time_index (int): Time index to extract data from (default: 0). 
 
         Returns:
-            xr.DataArray: Variable data array at the specified time index with computed values.
-
-        Raises:
-            ValueError: If dataset is not loaded, variable name is not found, or time index is out of bounds.
+            xr.DataArray: The data array for the specified variable at the given time index, ready for analysis or visualization. 
         """
         if self.dataset is None:
             raise ValueError("No dataset loaded. Call load_2d_data() first.")
@@ -261,16 +254,3 @@ class MPAS2DProcessor(MPASBaseProcessor):
                     print(f"Warning: No finite values found for {var_name}")
         
         return var_data
-    
-    def get_accumulation_hours(self, accum_period: str) -> int:
-        """
-        Convert accumulation period string identifier to integer hours for precipitation analysis. This method maps standard MPAS accumulation period codes to their corresponding hour values using a predefined lookup table. It supports common accumulation windows including hourly (a01h), 3-hourly (a03h), 6-hourly (a06h), 12-hourly (a12h), and daily (a24h) periods. If the provided period string is not recognized, the method defaults to 24 hours as a conservative fallback. This conversion is essential for precipitation diagnostics and temporal differencing operations.
-
-        Parameters:
-            accum_period (str): Accumulation period identifier string in format 'aXXh' (e.g., 'a01h', 'a24h').
-
-        Returns:
-            int: Number of hours corresponding to the accumulation period, defaults to 24 if not found.
-        """
-        accum_hours_map = {'a01h': 1, 'a03h': 3, 'a06h': 6, 'a12h': 12, 'a24h': 24}
-        return accum_hours_map.get(accum_period, 24)

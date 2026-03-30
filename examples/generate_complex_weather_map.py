@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example1: Complex Weather Map
+MPASdiag Example VI: Complex Weather Map
 
-This script demonstrates advanced composite plotting by overlaying multiple meteorological
-variables at 850 hPa level:
-- Specific humidity (shaded background)
-- Wind vectors (barbs)
-- Mean sea level pressure (contour lines)
-
-Features showcased:
-- Multi-variable composite plotting
-- Automatic unit conversion (kg/kg→g/kg, Pa→hPa, m→gpm)
-- Professional meteorological visualization
-- Overlay techniques for different plot types
-- Enhanced scientific notation and labeling
+This example demonstrates how to create a complex weather map by overlaying multiple variables from MPAS 2D model output. The example extracts 2-meter specific humidity as the main surface variable and visualizes it as a filled contour map. It then overlays mean sea level pressure (MSLP) contours and 10-meter wind vectors on top of the surface map. The example uses data from the first time index of the dataset and focuses on the CONUS region. Note that the same plot can be generated with different variables, contour levels, colors, and wind vector styles by modifying the respective configuration dictionaries.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -47,6 +36,9 @@ os.makedirs('./output', exist_ok=True)
 processor = MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
+# Define time index for surface variable extraction
+tindex = 1 
+
 # Initialize Surface and Wind Plotter
 plotter = MPASSurfacePlotter(verbose=True, figsize=(14, 13), dpi=300)
 wind_plotter = MPASWindPlotter(figsize=(14, 13), dpi=300)
@@ -58,14 +50,14 @@ vwnd_var = 'v10'
 shum_var = 'q2'
 
 # Extract 2D coordinates and variable data for the surface plot
-surface_var = processor.dataset[pres_var].isel(Time=0)
+surface_var = processor.dataset[pres_var].isel(Time=tindex)
 lon, lat = processor.extract_2d_coordinates_for_variable(pres_var, surface_var)
 
 # Extract variable data for the surface plot and overlays (flattening for contour and wind plotting)
-pres = processor.dataset[pres_var].isel(Time=0).values.flatten()
-uwnd = processor.dataset[uwnd_var].isel(Time=0).values.flatten()
-vwnd = processor.dataset[vwnd_var].isel(Time=0).values.flatten()
-shum = processor.dataset[shum_var].isel(Time=0).values.flatten()
+pres = processor.dataset[pres_var].isel(Time=tindex).values.flatten()
+uwnd = processor.dataset[uwnd_var].isel(Time=tindex).values.flatten()
+vwnd = processor.dataset[vwnd_var].isel(Time=tindex).values.flatten()
+shum = processor.dataset[shum_var].isel(Time=tindex).values.flatten()
 
 # Define plot configuration
 cfg = MPASConfig()
@@ -75,6 +67,10 @@ cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 10.0
 cfg.lat_max = 60.0 
+
+# Extract valid time from the dataset for the specified time index
+valtime = processor.dataset['Time'][tindex].values
+valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
 # -------------- Create base surface map with 2-m specific humidity --------------
 
@@ -90,7 +86,7 @@ fig, ax = plotter.create_surface_map(
     lat_max=cfg.lat_max,
     plot_type='contourf',
     grid_resolution=0.1,
-    title='MPASdiag Advanced: 2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs)'
+    title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}'
 )
 
 print("\n" + "="*60)
@@ -134,7 +130,7 @@ wind_plotter.add_wind_overlay(ax, lon, lat, wind_config,
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max)
 
 # Save the final plot with the filled contour, contour overlay, and wind vector overlay
-plotter.save_plot('./output/example_moisture_transport_with_mslp', formats=['png'])
+plotter.save_plot(f'./output/example_moisture_transport_with_mslp_valid_{valtime_str}', formats=['png'])
 plotter.close_plot()
 
-print("Plot saved to ./output/example_moisture_transport_with_mslp.png")
+print(f"Plot saved to ./output/example_moisture_transport_with_mslp_valid_{valtime_str}.png")

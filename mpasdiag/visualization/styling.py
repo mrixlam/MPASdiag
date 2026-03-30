@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Visualization Styling and Colormaps
+MPASdiag Core Visualization Module: Presentation Styling Utilities
 
-This module provides comprehensive visualization styling utilities for MPAS atmospheric variables including variable-specific colormaps, contour levels, and plot appearance parameters ensuring consistent professional presentation across all diagnostic plots. It implements the MPASVisualizationStyle class as a central repository for styling logic including precipitation-specific discrete colormaps with meteorological contour levels, automatic colormap and level selection based on variable names and data characteristics, coordinate axis formatters for latitude/longitude labels, map projection configuration, and publication-quality plot enhancement functions. The styling system supports both 2D surface fields and 3D atmospheric variables with level-specific configurations for temperature, winds, moisture, reflectivity, and other model diagnostics, maintains backward compatibility with original mpas_analysis visualization schemes, and provides flexible customization options. Core capabilities include intelligent colormap selection using pattern matching on variable names, data-driven contour level generation, adaptive marker sizing, and standardized file saving with optimized compression for high-throughput diagnostic workflows.
-
-Classes:
-    MPASVisualizationStyle: Comprehensive styling utility class providing variable-specific visualization parameters for MPAS diagnostics.
+This module provides comprehensive styling utilities for visualizing MPAS atmospheric diagnostics, including variable-specific colormaps, contour levels, and plot appearance parameters. It includes intelligent defaults based on variable names and data characteristics, as well as dynamic formatting of axis ticks and adaptive marker sizing for scatter plots. The module is designed to enhance the visual clarity and consistency of MPAS diagnostic plots while providing flexibility for customization based on specific variables and data ranges. It also includes functionality for adding standardized branding and metadata annotations to figures, and for saving plots in multiple formats with optimized settings for performance and quality balance. 
     
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -14,7 +11,7 @@ Email: mrislam@ucar.edu
 Date: November 2025
 Version: 1.0.0
 """
-
+# Load necessary libraries for data handling, plotting, and styling
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
@@ -37,20 +34,18 @@ from ..processing.utils_unit import UnitConverter
 
 
 class MPASVisualizationStyle:
-    """
-    Comprehensive visualization styling utility class providing variable-specific colormaps, contour levels, and plot appearance parameters for MPAS atmospheric diagnostics. This class serves as a central repository for all visualization styling logic including precipitation-specific discrete colormaps with meteorological contour levels, automatic colormap and level selection based on variable names and data characteristics, coordinate axis formatters for latitude/longitude labels, map projection configuration utilities, and publication-quality plot enhancement functions (timestamping, branding, file saving). All methods are static utilities designed for use across multiple plotter classes (MPASVisualizer, MPASPrecipitationPlotter, MPASVerticalCrossSectionPlotter) to ensure consistent styling conventions, maintain backward compatibility with original mpas_analysis visualization schemes, and provide flexible customization options for specialized applications. The styling system supports both 2D surface fields and 3D atmospheric variables with level-specific configurations for temperature, winds, moisture, reflectivity, and other model output diagnostics.
-    """
+    """ Comprehensive visualization styling utility class providing variable-specific colormaps, contour levels, and plot appearance parameters for MPAS atmospheric diagnostics. """
     
     @staticmethod
     def create_precip_colormap(accum: str = "a24h") -> Tuple[mcolors.ListedColormap, List[float]]:
         """
-        Creates a discrete precipitation colormap and associated contour levels optimized for meteorological precipitation visualization with accumulation-period-specific configurations. This method implements the exact precipitation color scheme logic from the original mpas_analysis visualization module using a fixed 11-color palette ranging from white (trace amounts) through blues and greens to reds, violets, and magenta (extreme precipitation), ensuring consistent precipitation display across all MPASdiag plots for backward compatibility. The accumulation period string is parsed to extract time duration (e.g., '24' from 'a24h'), which determines contour level spacing: periods ≥12 hours use levels [0.1, 1, 5, 10, 20, 30, 40, 50, 100, 150] mm suitable for daily totals, while shorter periods use finer levels [0.1, 0.5, 2.5, 5, 10, 15, 20, 25, 50, 75] mm appropriate for hourly rates. This method returns a matplotlib ListedColormap object and corresponding level array for use with BoundaryNorm in precipitation scatter plots and filled contours.
+        This method creates a discrete colormap and corresponding contour levels for precipitation variables based on the specified accumulation period. It defines a set of visually distinct colors suitable for representing different precipitation intensities, and then determines appropriate contour levels based on the accumulation period identifier (e.g., 'a24h' for 24-hour accumulation, 'a01h' for 1-hour accumulation). The method uses regular expressions to extract the number of hours from the accumulation string and applies heuristic rules to select contour levels that are commonly used in meteorological analyses for different accumulation periods. The resulting colormap and levels can be directly used in plotting functions to visualize precipitation diagnostics from MPAS output with clear differentiation between intensity ranges. 
 
         Parameters:
-            accum (str): Accumulation period identifier string (e.g., 'a24h', 'a01h', 'a06h') for contour level selection (default: "a24h").
+            accum (str): Accumulation period identifier (e.g., 'a24h', 'a01h', 'daily', 'hourly') used to determine contour levels for precipitation plotting (default: "a24h"). 
 
         Returns:
-            Tuple[mcolors.ListedColormap, List[float]]: Two-element tuple containing (discrete_colormap, contour_levels_list) for precipitation plotting.
+            Tuple[mcolors.ListedColormap, List[float]]: A tuple containing a ListedColormap object with predefined colors for precipitation intensity and a list of contour levels corresponding to the specified accumulation period. 
         """
         colors = [
             "white", "lightskyblue", "dodgerblue", "seagreen", "lawngreen",
@@ -76,16 +71,17 @@ class MPASVisualizationStyle:
         return cmap, levels
     
     @staticmethod
-    def get_variable_style(var_name: str, data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
+    def get_variable_style(var_name: str, 
+                           data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
         """
-        Retrieves comprehensive visualization styling parameters for MPAS atmospheric variables including colormap names, contour levels, colorbar extension modes, and normalization types. This method maintains a central style configuration dictionary mapping variable names to meteorologically-appropriate colormaps (e.g., RdYlBu_r for temperature, Blues for moisture, plasma for CAPE, pyart_NWSRef for reflectivity), handles precipitation variables specially by detecting accumulation periods and invoking create_precip_colormap, automatically generates data-driven contour levels when explicit levels are not configured, and applies sensible fallback defaults (viridis colormap, linear normalization) for unrecognized variables. The method supports both surface diagnostics (t2m, mslp, precip) and isobaric level fields (temperature_500hPa, uzonal_850hPa) with consistent styling conventions, ensuring publication-quality visualizations across the entire MPAS diagnostic suite.
+        This method retrieves styling parameters for a given MPAS variable name, including colormap, contour levels, and other visual attributes. It uses a predefined mapping of variable names (case-insensitive) to styling configurations, which can include specific colormap choices and level settings based on common meteorological conventions. For precipitation variables, it detects accumulation periods from the variable name and applies the create_precip_colormap method to obtain specialized colormaps and levels. If a data array is provided, the method can also attempt to generate contour levels automatically based on the data's statistical distribution (e.g., using percentiles) if no predefined levels are specified for that variable. The returned dictionary contains all necessary styling parameters that can be directly used in plotting functions to ensure consistent and informative visualizations of MPAS diagnostic variables. 
 
         Parameters:
-            var_name (str): MPAS variable name for style configuration lookup (case-insensitive).
-            data_array (Optional[xr.DataArray]): Optional data array for automatic contour level generation from data statistics (default: None).
+            var_name (str): Variable name for which to retrieve styling parameters (case-insensitive).
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the variable's data, used for automatic level generation if needed.
 
         Returns:
-            Dict[str, Any]: Dictionary containing styling parameters with keys 'colormap', 'levels', 'extend', 'norm_type', 'alpha', 'interpolation'.
+            Dict[str, Any]: A dictionary containing styling parameters such as 'colormap', 'levels', 'norm_type', 'alpha', and 'interpolation' that can be used for plotting the specified variable. 
         """
         metadata = MPASFileMetadata.get_variable_metadata(var_name, data_array)
         
@@ -254,16 +250,17 @@ class MPASVisualizationStyle:
         return style
 
     @staticmethod
-    def _generate_levels_from_data(data_array: xr.DataArray, var_name: str) -> Optional[List[float]]:
+    def _generate_levels_from_data(data_array: xr.DataArray, 
+                                   var_name: str) -> Optional[List[float]]:
         """
-        Generates appropriate contour levels automatically from data value distribution using percentile-based range detection and variable-specific level spacing strategies. This internal method flattens the data array, filters out non-finite values (NaN, inf), computes 5th and 95th percentiles to determine robust data range excluding outliers, and applies intelligent level generation based on variable type: temperature variables use rounded intervals (0.5°, 1°, 2°, or 5° spacing), while other variables use linear spacing with 15 levels spanning the data range. The method handles edge cases (empty data, zero range, all-NaN arrays) by returning None to trigger fallback level selection, ensuring robust automatic level generation for diverse MPAS output variables.
+        This internal method generates contour levels automatically from the provided data array based on its statistical distribution. It computes the 5th and 95th percentiles of the finite data values to determine a reasonable range for contour levels, and then applies heuristic rules to create a list of contour levels that are appropriately spaced for the variable type (e.g., finer spacing for temperature variables, wider spacing for pressure or wind speed). The method includes safeguards to handle cases where the data may be invalid (e.g., all values are NaN or infinite) or where the computed range is too narrow to generate meaningful levels. The resulting list of contour levels can be used in plotting functions to visualize the variable with appropriate level spacing based on the actual data characteristics. 
 
         Parameters:
-            data_array (xr.DataArray): Data array for statistical analysis and level computation.
-            var_name (str): Variable name providing context for variable-specific level spacing rules.
+            data_array (xr.DataArray): The xarray DataArray containing the variable's data from which to generate contour levels.
+            var_name (str): The variable name, used for applying variable-specific heuristics in level generation (case-insensitive). 
             
         Returns:
-            Optional[List[float]]: Generated contour level list or None if level generation fails or data is invalid.
+            Optional[List[float]]: A list of contour levels generated from the data statistics, or None if levels could not be generated due to invalid data or insufficient range. 
         """
         try:
             data_values = data_array.values
@@ -306,16 +303,17 @@ class MPASVisualizationStyle:
             return None
 
     @staticmethod
-    def get_variable_specific_settings(var_name: str, data: np.ndarray) -> Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]:
+    def get_variable_specific_settings(var_name: str, 
+                                       data: np.ndarray) -> Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]:
         """
-        Generates variable-specific colormap and contour level recommendations based on meteorological conventions and data characteristics using comprehensive pattern matching and adaptive level spacing. This method implements intelligent defaults for common atmospheric variables by analyzing the variable name for keywords (temperature, precipitation, pressure, wind, geopotential, humidity) and computing data statistics to determine appropriate level ranges and spacings, similar to create_precip_colormap but extended to the full suite of meteorological diagnostics. Temperature fields use RdYlBu_r colormap with spacing adapted to temperature range (1° to 5° intervals), precipitation uses period-specific discrete colormaps from create_precip_colormap, pressure uses RdBu_r with scale-appropriate intervals (500 Pa for large-scale pressure or 5 hPa for sea-level pressure), wind uses plasma colormap with physically-meaningful speed thresholds, geopotential height uses terrain colormap with elevation-appropriate intervals, and humidity uses BuGn colormap with fractional or percentage levels. For unrecognized variables, the method applies symmetric RdBu_r colormap for bipolar data or viridis/plasma for unipolar data with linearly-spaced levels.
+        This method determines variable-specific colormap and contour levels based on the variable name and its data characteristics. It uses pattern matching on the variable name to identify common meteorological variables (e.g., temperature, precipitation, pressure, wind speed) and applies heuristic rules to select appropriate colormaps and contour levels for each variable type. For temperature variables, it uses a diverging colormap and selects levels based on the data range with finer spacing for smaller ranges. For precipitation variables, it detects accumulation periods from the variable name and applies the create_precip_colormap method to obtain specialized colormaps and levels. For pressure and wind speed variables, it selects colormaps that enhance contrast and chooses levels based on typical value ranges for those variables. If the variable name does not match any specific patterns, it defaults to a general colormap and generates levels based on the data range. The method also includes safeguards to handle cases where the data may be invalid or where the computed range is too narrow to generate meaningful levels. The resulting colormap and levels can be directly used in plotting functions to visualize the variable with appropriate styling based on its characteristics. 
 
         Parameters:
-            var_name (str): Variable name for pattern matching and styling selection (case-insensitive).
-            data (np.ndarray): Data array or xarray.DataArray for statistics-based level computation.
+            var_name (str): The variable name, used for determining specific styling rules based on common meteorological variable patterns (case-insensitive).
+            data (np.ndarray): The data array for the variable, used to compute data characteristics such as range and percentiles for level generation.
             
         Returns:
-            Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]: Two-element tuple (colormap_name_or_object, contour_levels_list or None).
+            Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]: A tuple containing the selected colormap (either as a string name or a ListedColormap object) and a list of contour levels appropriate for the variable and its data characteristics. The levels may be None if they could not be generated due to invalid data or insufficient range. 
         """
         var_lower = var_name.lower().strip()
         
@@ -450,21 +448,23 @@ class MPASVisualizationStyle:
             return colormap, levels
     
     @staticmethod
-    def setup_map_projection(lon_min: float, lon_max: float, 
-                           lat_min: float, lat_max: float,
-                           projection: str = 'PlateCarree') -> Tuple[ccrs.Projection, ccrs.PlateCarree]:
+    def setup_map_projection(lon_min: float, 
+                             lon_max: float, 
+                             lat_min: float, 
+                             lat_max: float, 
+                             projection: str = 'PlateCarree') -> Tuple[ccrs.Projection, ccrs.PlateCarree]:
         """
-        Configures Cartopy map projection and data coordinate reference system for geographic plotting with automatic central point calculation. This method computes the central longitude and latitude from the provided map extent bounds, instantiates the requested Cartopy projection object (PlateCarree for global/regional cylindrical equidistant, Mercator for conformal mapping, LambertConformal for mid-latitude conic projection) with appropriate central longitude/latitude parameters, and returns both the map projection for plot axes and PlateCarree data CRS for data coordinate transformation. The PlateCarree data CRS ensures MPAS lon/lat cell coordinates are correctly projected onto any map projection, enabling flexible visualization of MPAS unstructured mesh data on various map projections without data transformation errors.
+        This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. It calculates the central longitude and latitude from the provided bounds to use as reference points for certain projections (e.g., Mercator, Lambert Conformal). The method supports multiple projection types, including 'PlateCarree', 'Mercator', and 'LambertConformal', and defaults to 'PlateCarree' if an unrecognized projection name is provided. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data). This setup allows for flexible visualization of MPAS diagnostics on different map projections while ensuring that the data is correctly transformed to match the chosen projection. 
 
         Parameters:
-            lon_min (float): Western boundary of map extent in degrees.
-            lon_max (float): Eastern boundary of map extent in degrees.
-            lat_min (float): Southern boundary of map extent in degrees.
-            lat_max (float): Northern boundary of map extent in degrees.
-            projection (str): Projection name string ('PlateCarree', 'Mercator', 'LambertConformal') (default: 'PlateCarree').
+            lon_min (float): Minimum longitude of the plot area.
+            lon_max (float): Maximum longitude of the plot area.
+            lat_min (float): Minimum latitude of the plot area.
+            lat_max (float): Maximum latitude of the plot area.
+            projection (str): Desired map projection type (e.g., 'PlateCarree', 'Mercator', 'LambertConformal'). Defaults to 'PlateCarree'. 
 
         Returns:
-            Tuple[ccrs.Projection, ccrs.PlateCarree]: Two-element tuple containing (map_projection_object, data_coordinate_system).
+            Tuple[ccrs.Projection, ccrs.PlateCarree]: A tuple containing the map projection object to be used for plotting and the data coordinate system (PlateCarree). The map projection is configured based on the specified bounds and projection type, while the data coordinate system is set to PlateCarree for compatibility with MPAS data. 
         """
         central_lon = (lon_min + lon_max) / 2
         central_lat = (lat_min + lat_max) / 2
@@ -485,13 +485,13 @@ class MPASVisualizationStyle:
     @staticmethod
     def add_timestamp_and_branding(fig: Figure) -> None:
         """
-        Adds timestamp and MPASdiag version branding annotation to the bottom-left corner of figure for provenance tracking and professional presentation. This method generates a current UTC timestamp string, attempts to import MPASdiag package version number from __version__ module attribute with fallback to default version string if import fails, and adds a small semi-transparent text annotation to the figure using figure-relative coordinates (0.02, 0.02) positioned just above the figure bottom margin. The branding text includes both version information and generation timestamp, providing essential provenance metadata for plots used in publications, presentations, and archival datasets.
+        This method adds a timestamp and branding annotation to the provided matplotlib Figure object. It generates a timestamp string in UTC format and attempts to retrieve the version of MPASdiag being used for plot generation. The method then constructs a branding text string that includes both the MPASdiag version and the timestamp. To ensure that the branding does not interfere with the main plot area, it creates or reuses a dedicated footer Axes at the bottom of the figure where the branding text is placed. The footer is designed to be non-intrusive, with a smaller font size and reduced opacity, allowing it to provide useful metadata about the plot generation without detracting from the visual presentation of the diagnostic data. If any issues arise while creating the footer, the method falls back to placing the branding text directly on the figure with a lower opacity to maintain visibility while minimizing interference with the plot content. 
 
         Parameters:
-            fig (Figure): Matplotlib Figure object to annotate with timestamp and branding.
+            fig (Figure): The matplotlib Figure object to which the timestamp and branding annotation will be added. The method modifies the figure in-place by adding text annotation to a dedicated footer area at the bottom of the figure. 
 
         Returns:
-            None: Modifies the figure in-place by adding text annotation.
+            None: This method does not return any value; it modifies the provided Figure object in-place by adding the timestamp and branding annotation. The annotation includes the MPASdiag version and the timestamp of plot generation, and is placed in a way that minimizes interference with the main plot area. 
         """
         if fig is None:
             return
@@ -518,17 +518,19 @@ class MPASVisualizationStyle:
             fig.text(0.02, 0.02, branding_text, fontsize=8, alpha=0.7, transform=fig.transFigure)
 
     @staticmethod
-    def _create_footer_axes(fig: Figure, height: float = 0.07, pad: float = 0.02) -> Axes:
+    def _create_footer_axes(fig: Figure, 
+                            height: float = 0.07, 
+                            pad: float = 0.02) -> Axes:
         """
-        Create a footer Axes reserved for branding/timestamp that is independent of tight_layout.
+        This internal method creates a dedicated footer Axes at the bottom of the provided matplotlib Figure object for placing annotations such as timestamps and branding. It first checks if a footer Axes already exists (identified by a specific gid) and reuses it if found, allowing for multiple calls to add_timestamp_and_branding without creating duplicate footers. If no existing footer is found, it computes the position for the new footer, taking into account any horizontal colorbars that may be present near the bottom of the figure to ensure the footer is placed above them with a sensible gap. The method then creates a new Axes with the specified height and padding, sets its gid for future identification, and turns off the axis to create a clean area for text annotation. This approach ensures that branding and timestamp information can be added in a consistent and non-intrusive manner across different plots generated by MPASdiag. 
 
         Parameters:
-            fig (Figure): Figure to attach footer to.
-            height (float): Height of the footer in figure-relative coordinates.
-            pad (float): Small bottom padding in figure-relative coordinates.
+            fig (Figure): The matplotlib Figure object to which the footer Axes will be added. The method modifies the figure in-place by adding a new Axes at the bottom of the figure for branding and timestamp annotations.
+            height (float): The height of the footer Axes as a fraction of the figure height (default: 0.07). This determines how much vertical space is reserved for the footer.
+            pad (float): The padding space as a fraction of the figure height to place between the bottom of the main plot area and the top of the footer Axes (default: 0.02). This helps ensure that the footer does not overlap with any plot elements or colorbars near the bottom of the figure. 
 
         Returns:
-            Axes: The created or existing footer Axes.
+            Axes: The created or reused footer Axes object where branding and timestamp annotations can be placed. This Axes is configured to be non-intrusive, with the axis turned off, allowing for clear placement of text without interfering with the main plot area. 
         """
         # Reuse existing footer if present (identified by gid)
         for ax in fig.axes:
@@ -578,21 +580,18 @@ class MPASVisualizationStyle:
                   pad_inches: float = 0.1,
                   dpi: int = 100) -> None:
         """
-        Saves matplotlib figure to file(s) in multiple output formats with optimized compression settings for performance and quality balance. This method creates output directory if necessary, iterates through requested formats to save separate files with format-specific extensions, applies fast PNG compression (level 1 instead of default 6-9) for 5-10x faster file I/O with only 10-20% larger file sizes, uses tight bounding box mode to minimize whitespace around plots, and prints confirmation messages with full file paths. The method supports all matplotlib-savefig formats (png, pdf, svg, eps, jpg) and is designed for high-throughput diagnostic plotting where I/O performance matters more tha: n maximum compression ratio.
+        This method saves the provided matplotlib Figure object to disk in one or more specified formats with configurable options for bounding box, padding, and resolution. It first checks if the figure is valid (not None) and raises a ValueError if there is no figure to save. The method then ensures that the output directory exists, creating it if necessary. For each specified format in the formats list, it constructs the full output file path by appending the appropriate extension to the base output path and saves the figure using fig.savefig with the provided parameters. If the format is 'png', it applies additional PIL-specific parameters to optimize file size while maintaining quality. After saving each file, it prints a confirmation message indicating where the plot was saved. This method provides a flexible and robust way to save MPAS diagnostic plots in various formats with consistent styling and layout. 
 
         Parameters:
-            fig (Figure): Matplotlib Figure object to save to disk.
-            output_path (str): Base output file path without extension (e.g., '/path/to/plot').
-            formats (List[str]): Output format list (extensions like 'png', 'pdf', 'svg') (default: ['png']).
-            bbox_inches (str): Bounding box mode for tight layout ('tight' or standard) (default: 'tight').
-            pad_inches (float): Padding space in inches around figure when using tight bbox (default: 0.1).
-            dpi (int): Output resolution in dots-per-inch for raster formats (default: 300).
+            fig (Figure): The matplotlib Figure object to be saved. This should be a valid figure containing the plot to be saved.
+            output_path (str): The base file path (without extension) where the plot will be saved. The method will append the appropriate extension for each format specified in the formats list.
+            formats (List[str]): A list of string format identifiers indicating the desired output formats (e.g., ['png', 'pdf', 'svg']). Defaults to ['png'] if not provided.
+            bbox_inches (str): The bounding box option for saving the figure, typically 'tight' to minimize whitespace around the plot. Default is 'tight'.
+            pad_inches (float): The amount of padding in inches to add around the figure when bbox_inches is set to 'tight'. Default is 0.1 inches.
+            dpi (int): The resolution in dots per inch for raster formats like PNG. Higher values result in better quality but larger file sizes. Default is 100 dpi.
 
         Returns:
-            None: Writes file(s) to disk and prints save confirmation messages.
-
-        Raises:
-            ValueError: If figure is None (no figure to save).
+            None: This method does not return any value; it saves the figure to disk in the specified formats and prints confirmation messages for each saved file. If the figure is invalid (None), it raises a ValueError to indicate that there is no figure to save. 
         """
         if fig is None:
             raise ValueError("No figure to save. Create a plot first.")
@@ -610,21 +609,19 @@ class MPASVisualizationStyle:
             print(f"Saved plot: {full_path}")
 
     @staticmethod
-    def get_3d_variable_style(var_name: str, level: Optional[Union[str, float]] = None,
-                             data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
+    def get_3d_variable_style(var_name: str, 
+                              level: Optional[Union[str, float]] = None, 
+                              data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
         """
-        Placeholder method for retrieving styling parameters specific to 3D atmospheric variables at specified vertical levels for future 3D visualization capabilities. This method is reserved for future implementation of level-specific styling configurations where colormap and contour level choices depend on both variable type and vertical level (e.g., different temperature colormap ranges for upper troposphere vs lower troposphere, or different wind speed levels for jet stream levels vs surface layers). The method signature accepts variable name, vertical level specification (pressure in hPa, model level index, or height string), and optional data array for statistics-based styling, following the same pattern as get_variable_style but extended to the vertical dimension. Currently raises NotImplementedError to indicate the feature is planned but not yet available in this release.
+        This method is a placeholder for future implementation of styling parameters specific to 3D atmospheric variables in MPAS diagnostics. It is designed to determine appropriate colormaps, contour levels, and other styling options based on the variable name, vertical level specification, and optionally the data array itself for automatic level-specific styling detection. The method is intended to support various types of 3D variables such as temperature, wind components, humidity, and vorticity at different pressure levels, model levels, or height levels. However, as of the current version, this method raises a NotImplementedError to indicate that the functionality for 3D variable styling has not yet been developed and is planned for future enhancement of the MPASVisualizationStyle class. 
 
         Parameters:
-            var_name (str): 3D atmospheric variable name (e.g., 'temperature', 'uzonal', 'relhum').
-            level (Optional[Union[str, float]]): Vertical level specification (pressure level in hPa, model level index, or height string) (default: None).
-            data_array (Optional[xr.DataArray]): Optional data array for automatic level-specific styling detection (default: None).
+            var_name (str): The name of the 3D variable for which styling parameters are to be determined. This could include variables like 'temperature', 'u_wind', 'v_wind', 'humidity', etc.
+            level (Union[str, float], optional): The vertical level specification for the variable, which could be a pressure level (e.g., '500hPa'), a model level (e.g., 'model_level_10'), or a height level (e.g., 'z_1000m'). This parameter is optional and may be used in future implementations to provide level-specific styling.
+            data_array (xr.DataArray, optional): The xarray DataArray containing the variable's data, which can be used for automatic detection of appropriate contour levels and styling based on the data distribution. This parameter is optional and may be utilized in future implementations to enhance the styling logic for 3D variables.
             
         Returns:
-            Dict[str, Any]: Dictionary containing styling parameters with keys 'colormap', 'levels', 'extend' (future implementation).
-            
-        Raises:
-            NotImplementedError: Always raised as this feature is not yet implemented in current version.
+            Dict[str, Any]: A dictionary containing styling parameters such as 'colormap', 'levels', 'norm_type', etc., specific to the 3D variable and its vertical level. This is intended for future implementation and currently raises NotImplementedError. 
         """
         raise NotImplementedError(
             "3D variable support not yet implemented. "
@@ -637,32 +634,34 @@ class MPASVisualizationStyle:
                      mappable: Union[ScalarMappable, QuadContourSet, PathCollection, QuadMesh, LineCollection, AxesImage, Any],
                      label: Optional[str] = None,
                      orientation: str = 'horizontal',
-                     fraction: float = 0.03,
-                     pad: float = 0.12,
-                     shrink: float = 0.7,
+                     fraction: float = 0.04,
+                     pad: float = 0.06,
+                     shrink: float = 0.8,
                      fmt: Union[str, None] = '%d',
-                     labelpad: float = 6.0,
+                     labelpad: float = -50.0,
+                     extend: Optional[str] = None,
                      label_pos: Union[Literal['top', 'bottom'], Literal['left', 'right']] = 'top',
                      tick_labelsize: int = 8) -> Optional[Colorbar]:
         """
-        This method adds a colorbar to the provided figure and axes with flexible configuration options for label, orientation, size, padding, and tick formatting. It accepts a ScalarMappable object (e.g., QuadMesh, ContourSet) for which the colorbar is being created, along with optional parameters to customize the colorbar's appearance and layout. The method handles both horizontal and vertical orientations, allowing the label to be positioned appropriately based on orientation. It also supports custom tick label formatting through a format string or formatter object. The colorbar is added in-place to the provided figure and axes, and the method returns the created Colorbar object for further customization if needed.
+        This method adds a colorbar to the provided matplotlib Figure and Axes, associated with the given mappable object (e.g., QuadMesh, ContourSet). It allows for extensive customization of the colorbar's appearance and formatting, including orientation (horizontal or vertical), size adjustments (fraction, pad, shrink), label configuration (text, font size, padding, position), and tick label formatting. The method first checks if the necessary parameters (figure, axes, mappable) are provided and returns early if any are missing. It then creates the colorbar using fig.colorbar with the specified parameters and applies the label and tick formatting based on the orientation. The method also includes error handling to ensure that if any issues arise while setting labels or formatting, it falls back to default behavior without crashing. Finally, it returns the created Colorbar object for further manipulation if needed. 
 
         Parameters:
-            fig (Figure): Matplotlib Figure to which the colorbar will be attached.
-            ax (Axes): Axes the colorbar is associated with.
-            mappable: The ScalarMappable (e.g., QuadMesh, ContourSet) for which the colorbar is being created.
-            label (str): Optional label string for the colorbar.
-            orientation (str): Colorbar orientation ('horizontal' or 'vertical').
-            fraction (float): Fraction of original axes to use for colorbar (default: 0.03).
-            pad (float): Padding between axes and colorbar (default: 0.12).
-            shrink (float): Fraction of original axes to shrink colorbar (default: 0.7).
-            fmt (str): Format string for colorbar tick labels (e.g., '%.2f' for 2 decimal places) or None to use default formatting.
-            labelpad (float): Padding between colorbar and its label (default: 6.0).
-            label_pos: Position of the colorbar label relative to the colorbar. For horizontal colorbars, valid options are 'top' or 'bottom'. For vertical colorbars, valid options are 'left' or 'right'. Default is 'top' for horizontal and 'right' for vertical.
-            tick_labelsize (int): Font size for colorbar tick labels (default: 8).
+            fig (Figure): The matplotlib Figure object to which the colorbar will be added.
+            ax (Axes, optional): The Axes object to which the colorbar will be associated. This is typically the Axes containing the plot for which the colorbar is relevant. If None, the method will not add a colorbar and will return None.
+            mappable (ScalarMappable, QuadContourSet, PathCollection, QuadMesh, LineCollection, AxesImage, Any): The mappable object (e.g., QuadMesh, ContourSet) for which the colorbar will be created. This is typically the result of a plotting function that returns a mappable object with an associated colormap and normalization.
+            label (str, optional): The text label for the colorbar. If None, no label will be added.
+            orientation (str): The orientation of the colorbar, either 'horizontal' or 'vertical'. Default is 'horizontal'.
+            fraction (float): The fraction of the original axes to use for the colorbar. Default is 0.04.
+            pad (float): The fraction of the original axes to use as padding between the plot and the colorbar. Default is 0.06.
+            shrink (float): The fraction by which to shrink the colorbar. Default is 0.8.
+            fmt (str or None): The format string for the colorbar tick labels (e.g., '%d' for integers). If None, default formatting will be used. Default is '%d'.
+            labelpad (float): The padding between the colorbar and its label in points. Default is 6.0.
+            label_pos (str): The position of the colorbar label. For horizontal colorbars, valid options are 'top' or 'bottom'. For vertical colorbars, valid options are 'left' or 'right'. Default is 'top' for horizontal and 'left' for vertical.
+            extend (str, optional): The extend parameter for the colorbar, which can be 'neither', 'both', 'min', or 'max'. This controls whether the colorbar has extensions at the ends to indicate out-of-range values. Default is None.
+            tick_labelsize (int): The font size for the colorbar tick labels. Default is 8.
 
         Returns:
-            None. Mutates the provided figure/axes in-place.
+            Optional[Colorbar]: The created Colorbar object if the colorbar was successfully added, or None if the necessary parameters were not provided. This allows for further customization of the colorbar after creation if needed. 
         """
         import matplotlib.ticker as mticker
 
@@ -670,7 +669,7 @@ class MPASVisualizationStyle:
             return
 
         cbar = fig.colorbar(mappable, ax=ax, orientation=orientation,
-                            fraction=fraction, pad=pad, shrink=shrink)
+                            fraction=fraction, pad=pad, shrink=shrink, extend=extend)
 
         # Set label and its position based on orientation
         if orientation.lower().startswith('h'):
@@ -721,16 +720,15 @@ class MPASVisualizationStyle:
                              default_long_name: Optional[str] = None,
                              default_units: Optional[str] = None) -> Optional[str]:
         """
-        This method constructs a colorbar label string by intelligently combining variable metadata (long name and units) with fallback defaults. It checks for the presence of 'long_name' and 'units' in the provided metadata dictionary, applies fallbacks if metadata is missing, and formats the label in the form "Long Name [units]" while avoiding redundant unit annotations if the long name already includes units. If neither long name nor units are available, it returns None to indicate that no label should be displayed.
+        This method constructs a colorbar label string based on variable metadata, with a fallback to default long name and units if metadata is not provided. It checks for the presence of 'long_name' and 'units' in the provided metadata dictionary, and if not found, it uses the default values if available. The method then formats the label in the form of "Long Name [units]" if both long name and units are present, or just "Long Name" or "[units]" if only one of them is available. If neither long name nor units can be determined, it returns None, indicating that no label can be constructed. This method provides a standardized way to generate informative colorbar labels for MPAS diagnostic plots based on available metadata and sensible defaults. 
 
         Parameters:
-            var_metadata (str): Optional metadata dict with keys 'long_name' and 'units'.
-            default_long_name (str): Fallback long name if metadata is None.
-            default_units (str): Fallback units if metadata is None.
+            var_metadata (Dict[str, Any], optional): A dictionary containing variable metadata, which may include keys like 'long_name' or 'longName' for the descriptive name of the variable, and 'units' or 'unit' for the measurement units. This metadata is typically extracted from the xarray DataArray attributes associated with the variable.
+            default_long_name (str, optional): A default long name to use if the metadata does not contain a long name. This can be provided as a fallback to ensure that the colorbar label has a descriptive name even if metadata is incomplete.
+            default_units (str, optional): A default units string to use if the metadata does not contain units. This can be provided as a fallback to ensure that the colorbar label includes units information even if metadata is incomplete. 
 
         Returns:
-            Optional[str]: Formatted label like 'Long Name [units]' or None if
-            neither long name nor units are available.
+            Optional[str]: A formatted colorbar label string in the form of "Long Name [units]", "Long Name", or "[units]" based on the available metadata and defaults. If neither long name nor units can be determined, returns None to indicate that no label can be constructed. This allows for flexible labeling of colorbars in MPAS diagnostic plots while providing informative descriptions when possible. 
         """
         long_name = None
         units = None
@@ -756,10 +754,10 @@ class MPASVisualizationStyle:
     @staticmethod
     def format_latitude(value: float, _) -> str:
         """
-        Formats latitude coordinate values for axis tick labels with cardinal direction (N/S) suffix following geographic conventions. This method takes a latitude value in degrees, determines the appropriate cardinal direction (N for non-negative, S for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "45.0°N", "33.5°S"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for y-axis tick labeling.
+        This method formats latitude coordinate values for axis tick labels with cardinal direction (N/S) suffix following geographic conventions. This method takes a latitude value in degrees, determines the appropriate cardinal direction (N for non-negative, S for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "45.0°N", "30.5°S"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for y-axis tick labeling on cartographic plots. 
 
         Parameters:
-            value (float): Latitude coordinate value in degrees [-90, 90].
+            value (float): Latitude coordinate value in degrees [-90, 90]. 
             _ (Any): Unused parameter required by matplotlib.ticker.FuncFormatter callback signature.
 
         Returns:
@@ -771,31 +769,32 @@ class MPASVisualizationStyle:
     @staticmethod
     def format_longitude(value: float, _) -> str:
         """
-        Formats longitude coordinate values for axis tick labels with cardinal direction (E/W) suffix following geographic conventions. This method takes a longitude value in degrees, determines the appropriate cardinal direction (E for non-negative, W for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "120.0°W", "75.5°E"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for x-axis tick labeling on cartographic plots.
+        This method formats longitude coordinate values for axis tick labels with cardinal direction (E/W) suffix following geographic conventions. It takes a longitude value in degrees, determines the appropriate cardinal direction (E for non-negative, W for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "120.0°W", "75.5°E"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for x-axis tick labeling on cartographic plots. 
 
         Parameters:
             value (float): Longitude coordinate value in degrees [-180, 180].
-            _ (Any): Unused parameter required by matplotlib.ticker.FuncFormatter callback signature.
+            _ (Any): Unused parameter required by matplotlib.ticker.FuncFormatter callback signature. 
 
         Returns:
-            str: Formatted longitude string with one decimal place and E/W cardinal direction (e.g., "120.0°W").
+            str: Formatted longitude string with one decimal place and E/W cardinal direction (e.g., "120.0°W"). 
         """
         direction = 'E' if value >= 0 else 'W'
         return f"{abs(value):.1f}°{direction}"
     
     @staticmethod
     def calculate_adaptive_marker_size(map_extent: Tuple[float, float, float, float], 
-                                     num_points: int, fig_size: Tuple[float, float] = (12, 10)) -> float:
+                                     num_points: int, 
+                                     fig_size: Tuple[float, float] = (12, 10)) -> float:
         """
-        Calculates adaptive marker size for MPAS unstructured mesh scatter plots based on map extent, data point density, and figure dimensions to optimize visual clarity. This method computes map area from extent bounds, calculates point density (points per square degree), and applies multi-stage scaling using density-based size selection (8.0 for sparse data to 0.25 for dense data), area-based adjustment factors (larger markers for small regional domains, smaller for large continental/global domains), and figure-size normalization to maintain consistent appearance across different plot sizes. The final marker size is clamped between 0.1 and 20.0 to prevent pathological cases, and diagnostic information is printed showing area, density, scaling factors, and final size for transparency and debugging.
+        This method calculates an adaptive marker size for scatter plots based on the geographic area of the map extent and the density of data points. It takes into account the longitude and latitude bounds to compute the map area, and then determines the point density by dividing the number of points by the map area. Based on predefined density thresholds, it assigns a base marker size that decreases as density increases to prevent overcrowding. The method also applies scaling factors based on the map area and figure size to further adjust the marker size for optimal visibility. Finally, it clamps the computed marker size to a reasonable range to ensure that markers are neither too small nor too large, providing a balanced visual representation of data points across different map extents and densities in MPAS diagnostic plots. 
 
         Parameters:
-            map_extent (Tuple[float, float, float, float]): Geographic bounds as (lon_min, lon_max, lat_min, lat_max) in degrees.
-            num_points (int): Total number of data points to plot on the map.
-            fig_size (Tuple[float, float]): Figure dimensions in inches as (width, height) (default: (12, 10)).
+            map_extent (Tuple[float, float, float, float]): A tuple containing the longitude and latitude bounds of the map in the form (lon_min, lon_max, lat_min, lat_max).
+            num_points (int): The total number of data points to be plotted in the scatter plot.
+            fig_size (Tuple[float, float]): The size of the figure in inches (width, height) used for scaling the marker size. Default is (12, 10). 
             
         Returns:
-            float: Computed marker size value for matplotlib scatter plot (clamped to [0.1, 20.0] range).
+            float: The calculated marker size to be used in scatter plots, adjusted based on map extent, point density, and figure size. This size is clamped to a reasonable range to ensure visibility across different plotting scenarios. 
         """
         if map_extent is None:
             return 5.0  
@@ -842,13 +841,13 @@ class MPASVisualizationStyle:
     @staticmethod
     def format_ticks_dynamic(ticks: List[float]) -> List[str]:
         """
-        Generates formatted tick label strings with appropriate precision based on value magnitude and distribution using intelligent heuristics. This method analyzes the tick value array to determine optimal formatting: scientific notation (1.2e+03) for very large (≥1e4) or very small (<1e-3) values, integer formatting for values close to whole numbers, and decimal place selection based on typical magnitude (0 decimals for 100-999, 1 decimal for 10-99, 2 decimals for 1-9 and 0.1-0.99, 3 decimals for 0.001-0.0099). The method includes duplicate detection and automatic precision increase to ensure all tick labels are distinguishable, preventing overlapping labels on axes with small value ranges.
+        This method formats axis tick labels dynamically based on the range and distribution of tick values. It first checks for non-zero ticks to determine the maximum and minimum absolute values, which helps decide if scientific notation is needed for very large or small numbers. If the ticks are close to integers, it formats them with no decimal places. For other cases, it assesses the typical magnitude of the ticks to choose an appropriate number of decimal places (e.g., 1 decimal for values between 10 and 100, 2 decimals for values between 1 and 10, etc.). The method also checks for duplicate formatted labels and increases precision if necessary to ensure unique labels. If duplicates persist, it falls back to a general format that preserves significant digits. This adaptive formatting ensures that tick labels are both informative and visually clean across a wide range of data values in MPAS diagnostic plots. 
 
         Parameters:
-            ticks (List[float]): List of tick values from matplotlib axis for formatting.
+            ticks (List[float]): A list of tick values to be formatted for axis labels. These values can vary widely in magnitude and may include integers, decimals, or very large/small numbers. 
 
         Returns:
-            List[str]: List of formatted tick label strings with magnitude-appropriate precision.
+            List[str]: A list of formatted tick label strings corresponding to the input tick values, formatted dynamically based on their range and distribution to ensure clarity and uniqueness in axis labeling. 
         """
         if not ticks:
             return []

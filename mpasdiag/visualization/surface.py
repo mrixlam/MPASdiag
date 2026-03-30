@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Surface Variable Visualization
+MPASdiag Core Visualization Module: Surface Variable Plotting and Overlays
 
-This module provides specialized plotting functionality for MPAS surface variables including 2-meter temperature, sea-level pressure, humidity, and wind speed with flexible rendering options and comprehensive cartographic presentation. It implements the MPASSurfacePlotter class that creates professional geographic maps using both scatter plot rendering (direct MPAS cell display preserving unstructured mesh resolution) and contour/filled contour plots (interpolated to regular grids for smooth gradients using MPASRemapper's hybrid KDTree-xESMF approach), with automatic unit conversion from model output to display units, variable-specific colormap and contour level selection, and optional feature overlays including wind vectors and geographic elements. The plotter supports batch processing for creating time series of surface maps with consistent styling, adaptive marker sizing based on map extent and data density, multiple map projections via Cartopy, and handles both 2D surface data and automatic extraction of surface levels from 3D datasets. Core capabilities include MPASRemapper-based grid interpolation for contour plots, geographic extent validation, metadata-driven styling, and publication-quality output suitable for operational weather analysis and climate model diagnostics.
-
-Classes:
-    MPASSurfacePlotter: Specialized class for creating surface variable visualizations from MPAS model output with cartographic presentation.
-    
-Functions:
-    create_surface_plot: Convenience function for quick surface map generation without class instantiation.
+This module provides the MPASSurfacePlotter class, which specializes in creating professional cartographic visualizations of MPAS 2D/3D surface variables. It includes functionality for extracting surface-level data from multidimensional arrays, handling unit conversions based on metadata and variable names, determining appropriate colormaps and contour levels, setting up map projections and features, filtering valid data points for plotting, and rendering scatter, contour, filled contour, or combined plots with proper styling. The class is designed to be flexible and robust, allowing users to create high-quality visualizations of MPAS surface variables while ensuring that the underlying data is processed correctly and displayed with meaningful units and color mappings. 
     
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -17,7 +11,7 @@ Email: mrislam@ucar.edu
 Date: February, 2026
 Version: 1.0.0
 """
-# Import necessary libraries and modules for data handling, plotting, and MPAS-specific processing
+# Import necessary libraries 
 import os
 import numpy as np
 import pandas as pd
@@ -44,26 +38,22 @@ from .styling import MPASVisualizationStyle
 
 
 class MPASSurfacePlotter(MPASVisualizer):
-    """
-    Specialized plotter for creating professional cartographic visualizations of MPAS surface variables including 2-meter temperature, sea-level pressure, humidity, and wind speed with flexible rendering options. This class extends MPASVisualizer to provide comprehensive surface diagnostic plotting capabilities including both scatter plot rendering (direct MPAS cell display preserving unstructured mesh resolution) and contour/filled contour plots (interpolated to regular grids for smooth gradients), automatic unit conversion from model output to display units via UnitConverter, variable-specific colormap and contour level selection through MPASFileMetadata, and optional feature overlays (wind vectors, geographic features, custom surface annotations). The plotter supports batch processing for creating time series of surface maps with consistent styling, adaptive marker sizing based on map extent and data density, multiple map projections via Cartopy, and publication-quality output with timestamps, colorbars, and professional cartographic elements suitable for mesoscale weather analysis and model evaluation diagnostics.
-    """
+    """ Specialized plotter for creating professional cartographic visualizations of MPAS 2D/3D surface variables. """
     
-    def _extract_2d_from_multidimensional(
-        self,
-        data: Union[np.ndarray, xr.DataArray],
-        level_index: Optional[int],
-        level_value: Optional[float]
-    ) -> np.ndarray:
+    def _extract_2d_from_multidimensional(self: "MPASSurfacePlotter",
+                                          data: Union[np.ndarray, xr.DataArray],
+                                          level_index: Optional[int],
+                                          level_value: Optional[float]) -> np.ndarray:
         """
-        This helper extracts a surface-level (2D) slice from 1D/2D/3D arrays and flattens it to a 1D numpy array suitable for plotting. It supports selecting by vertical index or by using the default surface level when not specified. When encountering higher-dimensional inputs the function will raise a ValueError to avoid ambiguous extractions. The method also includes debug print statements to trace the extraction process and confirm the final shape of the output array. 
+        This helper function extracts a 2D surface-level slice from input data that may be 1D, 2D, or 3D. It handles various cases based on the number of dimensions and the presence of optional level_index or level_value parameters. If the data is already 1D or 2D, it converts it to a numpy array and returns it directly. For 3D data, it checks if level_index or level_value is specified to select the appropriate vertical level; if neither is provided, it defaults to taking the last level as the surface. After extracting the relevant slice, it flattens any remaining dimensions to ensure a 1D array of surface values ready for plotting. The function also includes error handling for unsupported dimensions and debug print statements to confirm the extraction process, which can assist in troubleshooting and verifying that the correct slice of data is being used for visualization. 
 
         Parameters:
-            data (np.ndarray or xarray.DataArray): Input data array of 1D/2D/3D shape containing surface or profile data.
-            level_index (Optional[int]): Optional integer index for selecting a vertical level from 3D arrays.
-            level_value (Optional[float]): Optional vertical coordinate value (reserved; not currently implemented for pressure levels).
+            data (Union[np.ndarray, xr.DataArray]): Input data array that may be 1D, 2D, or 3D.
+            level_index (Optional[int]): Optional index of the vertical level to extract (e.g., 0 for surface).
+            level_value (Optional[float]): Optional value of the vertical coordinate to extract (not yet implemented).
 
         Returns:
-            np.ndarray: Flattened 1D numpy array containing surface-level values ready for plotting.
+            np.ndarray: 1D array of surface-level data values ready for plotting. 
         """
         # If data is already 1D or 2D, convert to numpy and return directly
         if data.ndim <= 1:
@@ -103,22 +93,20 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Convert to numpy array if it's still an xarray DataArray and return
         return self.convert_to_numpy(data)
     
-    def _extract_and_convert_units(
-        self,
-        data: np.ndarray,
-        var_name: str,
-        data_array: Optional[xr.DataArray]
-    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def _extract_and_convert_units(self: "MPASSurfacePlotter",
+                                   data: np.ndarray,
+                                   var_name: str,
+                                   data_array: Optional[xr.DataArray]) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
-        The method inspects the provided xarray DataArray and variable metadata to determine the original units, queries UnitConverter for the desired display units, and performs in-place conversion when needed. It returns the converted numpy array and a metadata dictionary describing the variable including long_name and units for downstream plotting. The function includes error handling to catch and log any issues during unit conversion without interrupting the plotting process, and it ensures that the returned data is always a numpy array regardless of the input type. Debug print statements are included to confirm the original and display units and to indicate when conversions occur.
+        This helper function handles the extraction of original units from the input data, associated DataArray attributes, or variable metadata, and performs unit conversion to display units based on the variable name and original units. It first attempts to determine the original units by checking the provided DataArray's attributes, then the data's attributes, and finally the MPASFileMetadata for the variable. Once the original units are identified, it queries the UnitConverter for appropriate display units based on the variable name and original units. If a conversion is needed, it attempts to convert the data to the display units while handling different return types from the conversion (e.g., xarray DataArray, numpy array, or scalar). Additionally, for moisture-related variables, it checks for negative values in the data and clips them to 0 if found since negative moisture is physically invalid. The function returns the converted data as a numpy array along with a metadata dictionary that includes both original and display units for downstream use in titles and colorbar labels. Debug print statements are included to confirm unit extraction and conversion processes, which can assist in troubleshooting and verifying that the correct units are being applied to the plot. 
 
         Parameters:
-            data (np.ndarray): Numeric data values in original units.
-            var_name (str): Variable name used to look up metadata and display units.
-            data_array (Optional[xarray.DataArray]): Optional source DataArray providing attribute-based unit information.
+            data (np.ndarray): Input data array to be converted.
+            var_name (str): Variable name used to determine display units and for logging.
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray that may contain unit attributes.
 
         Returns:
-            Tuple[np.ndarray, Dict[str, Any]]: Converted data array and metadata dictionary for the variable.
+            Tuple[np.ndarray, Dict[str, Any]]: Converted data array and variable metadata dictionary containing original and display units.
         """
         # Initialize file_unit to None
         file_unit = None
@@ -183,26 +171,24 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the converted data as a numpy array along with the variable metadata
         return data, var_metadata
     
-    def _prepare_colormap_and_levels(
-        self,
-        colormap: Optional[str],
-        levels: Optional[List[float]],
-        var_metadata: Dict[str, Any],
-        clim_min: Optional[float],
-        clim_max: Optional[float]
-    ) -> Tuple[str, Optional[List[float]]]:
+    def _prepare_colormap_and_levels(self: "MPASSurfacePlotter",
+                                     colormap: Optional[str],
+                                     levels: Optional[List[float]],
+                                     var_metadata: Dict[str, Any],
+                                     clim_min: Optional[float],
+                                     clim_max: Optional[float]) -> Tuple[str, Optional[List[float]]]:
         """
-        This helper chooses a final colormap (falling back to metadata defaults) and determines contour levels, optionally clipping or augmenting the levels to fit provided color limits. It centralizes colormap/level selection so rendering code can remain concise. It prioritizes explicit parameters from the caller, then metadata values, and finally defaults to ensure that the plotting functions have clear instructions for styling. The method also includes debug print statements to confirm the chosen colormap and levels for the plot, which can assist in troubleshooting and verifying that the styling is applied as intended.
+        This helper function determines the final colormap and contour levels to use for plotting based on a combination of user-specified parameters and variable metadata. It prioritizes explicit inputs from the caller (colormap and levels) over metadata defaults, while also allowing for optional color limits (clim_min and clim_max) to filter the levels if both are provided. The function ensures that the final colormap is valid and falls back to a default if necessary, and it handles the logic for determining which levels to use based on the presence of explicit inputs versus metadata. The resulting colormap and levels are returned for use in the plotting functions. Debug print statements can be included to confirm the chosen colormap and levels, which can assist in troubleshooting and verifying that the correct styling parameters are being applied to the plot. 
 
         Parameters:
-            colormap (Optional[str]): User-specified colormap name to override metadata default.
-            levels (Optional[List[float]]): Optional explicit contour level list supplied by the caller.
-            var_metadata (Dict[str, Any]): Variable metadata dictionary returned by MPASFileMetadata.
-            clim_min (Optional[float]): Optional minimum color limit for clipping levels.
-            clim_max (Optional[float]): Optional maximum color limit for clipping levels.
+            colormap (Optional[str]): Optional colormap name or identifier provided by the caller.
+            levels (Optional[List[float]]): Optional list of contour levels provided by the caller.
+            var_metadata (Dict[str, Any]): Variable metadata dictionary that may contain default colormap and levels.
+            clim_min (Optional[float]): Optional colorbar minimum value for filtering levels.
+            clim_max (Optional[float]): Optional colorbar maximum value for filtering levels.
 
         Returns:
-            Tuple[str, Optional[List[float]]]: Final colormap name or identifier and the list of levels to use (or None).
+            Tuple[str, Optional[List[float]]]: Final colormap name and list of contour levels to use for plotting.
         """
         # Determine final colormap: prioritize explicit colormap from caller, then metadata colormap, otherwise default to 'viridis'
         final_colormap: str = colormap if colormap is not None else var_metadata.get('colormap', 'viridis')
@@ -222,27 +208,24 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the final colormap and levels to be used for plotting
         return final_colormap, levels
     
-    def _setup_map_extent_and_features(
-        self,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        projection: str
-    ) -> Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]:
+    def _setup_map_extent_and_features(self: "MPASSurfacePlotter",
+                                       lon_min: float,
+                                       lon_max: float,
+                                       lat_min: float,
+                                       lat_max: float,
+                                       projection: str) -> Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]:
         """
-        The function prepares the plotting axes using the requested projection, applies a safe global versus regional extent adjustment to avoid dateline artifacts, and attaches coastline, borders, land and ocean features. It returns the projection and computed extent values used to filter input data for plotting. It also includes debug print statements to confirm the chosen map extent and projection, which can assist in troubleshooting and verifying that the map is set up correctly for the intended geographic area. The method ensures that the map is properly configured before any data is plotted, providing a consistent and professional cartographic presentation for all surface variable visualizations.
+        This helper function sets up the map projection, data coordinate reference system (CRS), and map features for the surface plot. It uses the base visualizer's setup function to determine the appropriate map projection and data CRS based on the requested geographic bounds and projection type. The function initializes the figure and GeoAxes with the specified projection, ensuring that the axes is a GeoAxes instance for cartopy plotting. It then determines if the requested extent is global in longitude and latitude to apply a safe extent that avoids dateline wrapping issues in cartopy. For global extents, it applies a small buffer to the bounds to prevent artifacts at the dateline, while for regional extents it uses the provided bounds directly. The function adds cartographic features such as coastlines, borders, land, and ocean with appropriate styling for better visualization. Finally, it returns the map projection, data CRS, and the computed filter bounds for both plotting and data selection to be used in subsequent steps of the plotting process. Debug print statements can be included to confirm the chosen extent and features, which can assist in troubleshooting and verifying that the map is being set up correctly based on the inputs provided. 
 
         Parameters:
-            lon_min (float): Western longitude of desired map extent in degrees.
-            lon_max (float): Eastern longitude of desired map extent in degrees.
-            lat_min (float): Southern latitude of desired map extent in degrees.
-            lat_max (float): Northern latitude of desired map extent in degrees.
-            projection (str): Name of Cartopy projection to use (e.g., 'PlateCarree').
+            lon_min (float): Minimum longitude for the map extent.
+            lon_max (float): Maximum longitude for the map extent.
+            lat_min (float): Minimum latitude for the map extent.
+            lat_max (float): Maximum latitude for the map extent.
+            projection (str): Map projection type (e.g., 'PlateCarree', 'Mercator', etc.) to use for the plot.
 
         Returns:
-            Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]:
-                Projection for plotting, data CRS, and filtered lon/lat bounds for plotting and data selection.
+            Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]: Map projection, data CRS, and filter bounds for plotting and data selection. 
         """
         # Set up the map projection and data CRS using the base visualizer's setup function
         map_proj, data_crs = self.setup_map_projection(lon_min, lon_max, lat_min, lat_max, projection)
@@ -304,26 +287,24 @@ class MPASSurfacePlotter(MPASVisualizer):
         return (map_proj, data_crs, filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
                 filter_lon_min_data, filter_lon_max_data, filter_lat_min_data, filter_lat_max_data)
     
-    def _create_colormap_normalization(
-        self,
-        colormap: str,
-        levels: Optional[List[float]],
-        clim_min: Optional[float],
-        clim_max: Optional[float],
-        data: np.ndarray
-    ) -> Tuple[mcolors.Colormap, Optional[mcolors.Normalize]]:
+    def _create_colormap_normalization(self: "MPASSurfacePlotter",
+                                       colormap: str,
+                                       levels: Optional[List[float]],
+                                       clim_min: Optional[float],
+                                       clim_max: Optional[float],
+                                       data: np.ndarray) -> Tuple[mcolors.Colormap, Optional[mcolors.Normalize]]:
         """
-        This helper returns a colormap instance and an appropriate Normalize (or BoundaryNorm) object depending on explicit color limits or contour levels. It gracefully falls back to sensible defaults when requested colormap or levels are not available. It centralizes the logic for determining how to map data values to colors based on the provided styling parameters, ensuring that the plotting functions can easily apply consistent color mapping without needing to handle the complexity of normalization and colormap selection themselves. The method also includes debug print statements to confirm the chosen colormap and normalization strategy, which can assist in troubleshooting and verifying that the color mapping is applied as intended.
+        This helper function creates a matplotlib colormap object and an optional normalization instance based on the provided colormap name, contour levels, color limits, and data range. It first attempts to get the colormap object from matplotlib using the provided colormap name or identifier, and falls back to a default if the specified colormap is not found or invalid. Then it determines the appropriate normalization for the colormap based on the presence of explicit color limits (clim_min and clim_max) or contour levels. If explicit color limits are provided, it uses a simple Normalize to scale the colormap between those limits. If contour levels are provided, it creates a BoundaryNorm that maps the specified levels to the colormap. The function includes error handling to ensure that a valid colormap is always returned and debug print statements to confirm the chosen colormap and normalization parameters, which can assist in troubleshooting and verifying that the correct styling is being applied to the plot. 
 
         Parameters:
-            colormap (str): Colormap name or identifier.
-            levels (Optional[List[float]]): Optional contour levels to derive a BoundaryNorm.
-            clim_min (Optional[float]): Optional colorbar minimum value.
-            clim_max (Optional[float]): Optional colorbar maximum value.
-            data (np.ndarray): Data array used to infer vmin/vmax when limits are not provided.
+            colormap (str): Colormap name or identifier to use for plotting.
+            levels (Optional[List[float]]): Optional list of contour levels that may influence normalization.
+            clim_min (Optional[float]): Optional minimum color limit for normalization.
+            clim_max (Optional[float]): Optional maximum color limit for normalization.
+            data (np.ndarray): Data array used to determine the range for normalization if color limits are not provided.
 
         Returns:
-            Tuple[matplotlib.colors.Colormap, Optional[matplotlib.colors.Normalize]]: Colormap and normalization to use when plotting.
+            Tuple[mcolors.Colormap, Optional[mcolors.Normalize]]: Colormap object and optional normalization instance for plotting.
         """
         try:
             # Attempt to get the colormap object from matplotlib using the provided colormap name or identifier.
@@ -358,36 +339,34 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         return cmap_obj, norm
     
-    def _filter_valid_data(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        plot_type: str,
-        filter_lon_min_data: float,
-        filter_lon_max_data: float,
-        filter_lat_min_data: float,
-        filter_lat_max_data: float,
-        var_name: str,
-        var_metadata: Dict[str, Any]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _filter_valid_data(self: "MPASSurfacePlotter",
+                           lon: np.ndarray,
+                           lat: np.ndarray,
+                           data: np.ndarray,
+                           plot_type: str,
+                           filter_lon_min_data: float,
+                           filter_lon_max_data: float,
+                           filter_lat_min_data: float,
+                           filter_lat_max_data: float,
+                           var_name: str,
+                           var_metadata: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        The function constructs a validity mask based on finite values and geographic bounds. For scatter plots it additionally enforces the provided extent bounds; for contour-type rendering it retains all finite points for interpolation. It returns the filtered lon, lat, and data arrays for plotting. It also includes debug print statements to confirm the filtering criteria and the number of valid points that will be plotted, which can assist in troubleshooting and verifying that the data filtering is working as intended. The method ensures that only valid and appropriately bounded data points are included in the visualization, which is crucial for creating accurate and meaningful surface maps.
+        This helper function filters the longitude, latitude, and data arrays to retain only valid points for plotting based on the specified plot type and geographic bounds. For scatter plots, it enforces that all longitude, latitude, and data values are finite and fall within the specified geographic bounds to ensure that only valid points are plotted. For contour-type rendering (contour or contourf), it retains all finite points regardless of their location relative to the plotting extent since contouring can interpolate values outside the immediate bounds. The function applies the appropriate filtering logic based on the plot type, checks for any remaining valid points after filtering to avoid plotting empty maps, and returns the filtered longitude, latitude, and data arrays containing only valid points for plotting. Debug print statements are included to confirm the number of valid points being plotted and their data range, which can assist in troubleshooting and verifying that the correct subset of data is being used for visualization. 
 
         Parameters:
-            lon (np.ndarray): 1D longitude array for each data point.
-            lat (np.ndarray): 1D latitude array for each data point.
-            data (np.ndarray): 1D array of data values corresponding to lon/lat.
-            plot_type (str): Plot rendering mode ('scatter', 'contour', 'contourf', or 'both').
-            filter_lon_min_data (float): Minimum longitude for filtering data points.
-            filter_lon_max_data (float): Maximum longitude for filtering data points.
-            filter_lat_min_data (float): Minimum latitude for filtering data points.
-            filter_lat_max_data (float): Maximum latitude for filtering data points.
-            var_name (str): Variable name used for error messages and logging.
-            var_metadata (Dict[str, Any]): Variable metadata dictionary used for units display.
+            lon (np.ndarray): Array of longitude values corresponding to the data points.
+            lat (np.ndarray): Array of latitude values corresponding to the data points.
+            data (np.ndarray): Array of data values to be plotted.
+            plot_type (str): Type of plot being created ('scatter', 'contour', 'contourf', or 'both') which influences the filtering logic.
+            filter_lon_min_data (float): Minimum longitude for filtering data points based on the map extent.
+            filter_lon_max_data (float): Maximum longitude for filtering data points based on the map extent.
+            filter_lat_min_data (float): Minimum latitude for filtering data points based on the map extent.
+            filter_lat_max_data (float): Maximum latitude for filtering data points based on the map extent.
+            var_name (str): Variable name used for logging and error messages.
+            var_metadata (Dict[str, Any]): Variable metadata used for logging units and other information.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered (lon, lat, data) arrays containing only valid points.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered longitude, latitude, and data arrays containing only valid points for plotting.
         """
         print(f"DEBUG: filter_lon_min_data={filter_lon_min_data:.4f}, filter_lon_max_data={filter_lon_max_data:.4f}")
         print(f"DEBUG: lon range in data: [{np.min(lon):.4f}, {np.max(lon):.4f}]")
@@ -427,44 +406,42 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the filtered longitude, latitude, and data arrays containing only valid points for plotting.
         return lon_valid, lat_valid, data_valid
     
-    def _render_plot(
-        self,
-        plot_type: str,
-        lon_valid: np.ndarray,
-        lat_valid: np.ndarray,
-        data_valid: np.ndarray,
-        filter_lon_min: float,
-        filter_lon_max: float,
-        filter_lat_min: float,
-        filter_lat_max: float,
-        cmap_obj: mcolors.Colormap,
-        norm: Optional[mcolors.Normalize],
-        levels: Optional[List[float]],
-        data_crs: ccrs.CRS,
-        grid_resolution: Optional[float],
-        dataset: Optional[xr.Dataset]
-    ) -> None:
+    def _render_plot(self: "MPASSurfacePlotter",
+                     plot_type: str, 
+                     lon_valid: np.ndarray,
+                     lat_valid: np.ndarray,
+                     data_valid: np.ndarray,
+                     filter_lon_min: float,
+                     filter_lon_max: float,
+                     filter_lat_min: float,
+                     filter_lat_max: float,
+                     cmap_obj: mcolors.Colormap,
+                     norm: Optional[mcolors.Normalize],
+                     levels: Optional[List[float]],
+                     data_crs: ccrs.CRS,
+                     grid_resolution: Optional[float],
+                     dataset: Optional[xr.Dataset]) -> None:
         """
-        This dispatcher calls scatter, contour, contourf or both rendering helpers with the pre-computed valid points and colormap normalization. It keeps the high-level create_surface_map logic concise by encapsulating the different render paths. It also includes debug print statements to confirm which rendering mode is being used and to trace the flow of the plotting process, which can assist in troubleshooting and verifying that the correct rendering method is applied based on the specified plot_type. The method ensures that the appropriate visualization technique is applied to the data based on the user's choice, allowing for flexible and customizable surface variable visualizations while maintaining a clean separation of concerns in the code structure.
+        This helper function renders the plot based on the specified plot type ('scatter', 'contour', 'contourf', or 'both') using the filtered valid longitude, latitude, and data points. It calls the appropriate internal helper functions to create scatter plots directly from the valid points or to create contour/filled contour plots by interpolating the valid data onto a regular lat-lon grid. For the 'both' option, it first creates contour lines and then overlays a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization. The function ensures that all rendering is done directly onto the GeoAxes instance (self.ax) and that the figure is updated accordingly. Debug print statements can be included to confirm which rendering mode is being used and to verify that the plotting functions are being called with the correct parameters, which can assist in troubleshooting and verifying that the plot is being rendered as intended based on the inputs provided. 
 
         Parameters:
-            plot_type (str): Selected rendering mode ('scatter', 'contour', 'contourf', or 'both').
-            lon_valid (np.ndarray): Filtered longitude values for plotting.
-            lat_valid (np.ndarray): Filtered latitude values for plotting.
-            data_valid (np.ndarray): Filtered data values for plotting.
-            filter_lon_min (float): Map extent lon_min used for interpolation grids.
-            filter_lon_max (float): Map extent lon_max used for interpolation grids.
-            filter_lat_min (float): Map extent lat_min used for interpolation grids.
-            filter_lat_max (float): Map extent lat_max used for interpolation grids.
-            cmap_obj (matplotlib.colors.Colormap): Colormap instance for mapping values to colors.
-            norm (Optional[matplotlib.colors.Normalize]): Normalization instance for color mapping.
-            levels (Optional[List[float]]): Explicit contour levels when applicable.
-            data_crs (ccrs.CRS): Coordinate reference system of the input data.
-            grid_resolution (Optional[float]): Target grid resolution for interpolation when needed.
-            dataset (Optional[xarray.Dataset]): Optional dataset to assist remapping to lat-lon grid.
+            plot_type (str): Type of plot to render ('scatter', 'contour', 'contourf', or 'both').
+            lon_valid (np.ndarray): Array of valid longitude values for plotting.
+            lat_valid (np.ndarray): Array of valid latitude values for plotting.
+            data_valid (np.ndarray): Array of valid data values for plotting.
+            filter_lon_min (float): Minimum longitude for the plotting extent.
+            filter_lon_max (float): Maximum longitude for the plotting extent.
+            filter_lat_min (float): Minimum latitude for the plotting extent.
+            filter_lat_max (float): Maximum latitude for the plotting extent.
+            cmap_obj (mcolors.Colormap): Colormap object to use for plotting.
+            norm (Optional[mcolors.Normalize]): Optional normalization instance for colormap scaling.
+            levels (Optional[List[float]]): Optional list of contour levels for contour plotting.
+            data_crs (ccrs.CRS): Coordinate reference system of the data for proper plotting.
+            grid_resolution (Optional[float]): Optional grid resolution for contour interpolation.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for contour interpolation.
 
         Returns:
-            None: Rendering functions draw directly onto self.ax and update self.fig.
+            None: This function renders the plot directly onto the GeoAxes instance and does not return any value.
         """
         if plot_type == 'scatter':
             # For scatter plots, we call the helper that creates a scatter plot directly from the valid longitude, latitude, and data points 
@@ -493,22 +470,20 @@ class MPASSurfacePlotter(MPASVisualizer):
             # After plotting the contours, we overlay a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization.
             self._create_scatter_plot(lon_valid, lat_valid, data_valid, cmap_obj, norm, data_crs)
     
-    def _generate_title(
-        self,
-        title: Optional[str],
-        time_stamp: Optional[datetime],
-        var_metadata: Dict[str, Any]
-    ) -> Tuple[str, bool]:
+    def _generate_title(self: "MPASSurfacePlotter",
+                        title: Optional[str],
+                        time_stamp: Optional[datetime],
+                        var_metadata: Dict[str, Any]) -> Tuple[str, bool]:
         """
-        If a custom title is not provided the function composes a default title from variable metadata and appends a formatted valid time when available. It also returns a flag indicating whether the timestamp is already present in the title. It ensures that the plot has a meaningful title even when the user does not provide one, while also avoiding redundant time annotations if the timestamp is already included in a custom title. The method includes debug print statements to confirm the final generated title and whether the timestamp is included, which can assist in troubleshooting and verifying that the title generation logic is working as intended.
+        This helper function generates the title for the plot based on an optional user-provided title, an optional timestamp, and variable metadata. If a custom title is not provided, it constructs a default title using the variable's long name from the metadata. If a timestamp is provided and no custom title is given, it appends a formatted timestamp to the default title with a 'Valid Time:' prefix for clarity. If a custom title is provided along with a timestamp, it checks if the formatted timestamp or common time indicators are already included in the title to avoid redundant time annotations. The function returns the final title string to be used for the plot and a boolean flag indicating whether the timestamp is already included in the title, which can be useful for determining whether to add additional time annotations elsewhere in the plot (e.g., in subtitles or captions). Debug print statements can be included to confirm the generated title and whether the timestamp is included, which can assist in troubleshooting and verifying that the title is being created as intended based on the inputs provided. 
 
         Parameters:
-            title (Optional[str]): Optional user-provided title string.
-            time_stamp (Optional[datetime]): Optional datetime used to annotate the title.
-            var_metadata (Dict[str, Any]): Variable metadata used to derive default long name.
+            title (Optional[str]): Optional custom title provided by the user.
+            time_stamp (Optional[datetime]): Optional timestamp to include in the title if not already present.
+            var_metadata (Dict[str, Any]): Variable metadata that may contain the long name for constructing a default title.
 
         Returns:
-            Tuple[str, bool]: Final title string and a boolean flag whether the timestamp appears in the title.
+            Tuple[str, bool]: Final title string and a boolean flag indicating whether the timestamp is already included in the title.
         """
         # Initialize time_in_title flag to False and then determine the title based on whether a custom title is provided 
         time_in_title = False
@@ -530,65 +505,32 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the final title string and the flag indicating whether the timestamp is already included in the title 
         return title, time_in_title
     
-    def _add_gridlines(self, data_crs: ccrs.CRS) -> None:
+    def _add_overlays(self: "MPASSurfacePlotter",
+                      lon: np.ndarray,
+                      lat: np.ndarray,
+                      wind_overlay: Optional[dict],
+                      surface_overlay: Optional[dict],
+                      filter_lon_min: float,
+                      filter_lon_max: float,
+                      filter_lat_min: float,
+                      filter_lat_max: float,
+                      dataset: Optional[xr.Dataset]) -> None:
         """
-        This helper configures cartopy gridlines with consistent styling and custom formatters for longitude and latitude labels. It requires self.ax to be a cartopy GeoAxes and mutates it in-place. It ensures that the gridlines are added with appropriate styling and that the labels are formatted in a clear and professional manner, enhancing the readability of the map. The method includes debug print statements to confirm that gridlines have been added and to indicate the coordinate reference system used for formatting, which can assist in troubleshooting and verifying that the gridlines are configured correctly.
+        This helper function adds optional overlays to the surface map based on the provided configurations for wind and surface overlays. If a wind overlay configuration is provided, it attempts to create and add the wind overlay to the map using the MPASWindPlotter class, handling any exceptions that may arise during this process and logging appropriate warnings. If a surface overlay configuration is provided, it attempts to add the surface overlay using internal helper methods, again with error handling to catch and log any issues that occur. The function ensures that the axes is a GeoAxes instance for cartopy plotting before attempting to add any overlays, and it uses the provided longitude and latitude coordinates along with the filter bounds to restrict the overlays to the desired geographic area. The dataset parameter is passed to the overlay functions as needed for remapping or interpolation of overlay data. Debug print statements can be included to confirm when overlays are successfully added or if any warnings occur during the process, which can assist in troubleshooting and verifying that the overlays are being applied correctly based on the inputs provided. 
 
         Parameters:
-            data_crs (ccrs.CRS): Coordinate reference system used for formatting gridlines.
+            lon (np.ndarray): Array of longitude values corresponding to the data points.
+            lat (np.ndarray): Array of latitude values corresponding to the data points.
+            wind_overlay (Optional[dict]): Optional configuration dictionary for adding a wind overlay to the map.
+            surface_overlay (Optional[dict]): Optional configuration dictionary for adding an additional surface overlay to the map.
+            filter_lon_min (float): Minimum longitude for filtering overlay data based on the map extent.
+            filter_lon_max (float): Maximum longitude for filtering overlay data based on the map extent.
+            filter_lat_min (float): Minimum latitude for filtering overlay data based on the map extent.
+            filter_lat_max (float): Maximum latitude for filtering overlay data based on the map extent.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for remapping or interpolation of overlay data.
 
         Returns:
-            None: Gridlines are added directly to self.ax.
-        """
-        # Ensure that the axes is a GeoAxes instance for cartopy plotting and raise an error if not
-        assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for gridlines"
-        
-        # Add gridlines to the map with specified styling and label formatting. 
-        gl = self.ax.gridlines(
-            crs=data_crs, draw_labels=True,
-            linewidth=0.5, color='gray', alpha=0.5, linestyle='--'
-        )
-
-        # Configure gridline labels to only show on the left and bottom axes for a cleaner look
-        gl.top_labels = False
-        gl.right_labels = False
-
-        # Set the font size for longitude and latitude labels to ensure they are legible but not overpowering the map features.
-        gl.xlabel_style = {'size': 10}
-        gl.ylabel_style = {'size': 10}
-
-        # Set custom formatters for longitude and latitude labels to display in degrees with appropriate symbols using FuncFormatter
-        gl.xformatter = FuncFormatter(self.format_longitude)
-        gl.yformatter = FuncFormatter(self.format_latitude)
-    
-    def _add_overlays(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        wind_overlay: Optional[dict],
-        surface_overlay: Optional[dict],
-        filter_lon_min: float,
-        filter_lon_max: float,
-        filter_lat_min: float,
-        filter_lat_max: float,
-        dataset: Optional[xr.Dataset]
-    ) -> None:
-        """
-        The method attempts to add a wind overlay via MPASWindPlotter when provided and then adds any configured surface overlay using internal overlay helpers. Errors in overlay routines are caught and logged to avoid interrupting main plot generation. It ensures that additional contextual information such as wind vectors or other surface fields can be overlaid on the main surface variable visualization, enhancing the interpretability and richness of the resulting map. The method includes debug print statements to confirm when overlays are added successfully and to log any issues encountered during the overlay process, which can assist in troubleshooting and verifying that the overlays are applied as intended without disrupting the main plotting workflow.
-
-        Parameters:
-            lon (np.ndarray): Longitude coordinates for overlays.
-            lat (np.ndarray): Latitude coordinates for overlays.
-            wind_overlay (Optional[dict]): Configuration dict for wind overlay (may be None).
-            surface_overlay (Optional[dict]): Configuration dict for surface overlay (may be None).
-            filter_lon_min (float): Map lon_min used to restrict overlays.
-            filter_lon_max (float): Map lon_max used to restrict overlays.
-            filter_lat_min (float): Map lat_min used to restrict overlays.
-            filter_lat_max (float): Map lat_max used to restrict overlays.
-            dataset (Optional[xarray.Dataset]): Optional dataset required by overlay remapping functions.
-
-        Returns:
-            None
+            None: This function adds overlays directly onto the GeoAxes instance and does not return any value.
         """
         # Ensure that the axes is a GeoAxes instance for cartopy plotting and raise an error if not
         assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for overlays"
@@ -620,64 +562,60 @@ class MPASSurfacePlotter(MPASVisualizer):
             except Exception as e:
                 print(f"Warning: Failed to add surface overlay: {e}")
     
-    def create_surface_map(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: Union[np.ndarray, xr.DataArray],
-        var_name: str,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        title: Optional[str] = None,
-        plot_type: str = 'scatter',
-        colormap: Optional[str] = None,
-        levels: Optional[List[float]] = None,
-        clim_min: Optional[float] = None,
-        clim_max: Optional[float] = None,
-        projection: str = 'PlateCarree',
-        time_stamp: Optional[datetime] = None,
-        data_array: Optional[xr.DataArray] = None,
-        grid_resolution: Optional[float] = None,
-        wind_overlay: Optional[dict] = None,
-        surface_overlay: Optional[dict] = None,
-        level_index: Optional[int] = None,
-        level_value: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> Tuple[Figure, Axes]:
+    def create_surface_map(self: "MPASSurfacePlotter",
+                           lon: np.ndarray,
+                           lat: np.ndarray,
+                           data: Union[np.ndarray, xr.DataArray],
+                           var_name: str,
+                           lon_min: float,
+                           lon_max: float,
+                           lat_min: float,
+                           lat_max: float,
+                           title: Optional[str] = None,
+                           plot_type: str = 'scatter',
+                           colormap: Optional[str] = None,
+                           levels: Optional[List[float]] = None,
+                           clim_min: Optional[float] = None,
+                           clim_max: Optional[float] = None,
+                           projection: str = 'PlateCarree',
+                           time_stamp: Optional[datetime] = None,
+                           data_array: Optional[xr.DataArray] = None,
+                           grid_resolution: Optional[float] = None,
+                           wind_overlay: Optional[dict] = None,
+                           surface_overlay: Optional[dict] = None,
+                           level_index: Optional[int] = None,
+                           level_value: Optional[float] = None,
+                           dataset: Optional[xr.Dataset] = None) -> Tuple[Figure, Axes]:
         """
-        This method is the main entry point for surface plotting and supports scatter, contour, and filled-contour renderings with automatic unit conversion, metadata-driven styling, and optional overlays (e.g., wind vectors or additional surface fields). It handles projection and extent setup, filters valid data points, computes colormap normalization and contour levels, interpolates to a regular grid when needed, and returns the matplotlib figure and axes containing the rendered map. The method is suitable for batch plotting or interactive use and raises informative errors for invalid inputs.
+        This function creates a surface map visualization for MPAS mesh cell center data based on the provided longitude, latitude, and data arrays, along with various configuration parameters for styling, projection, and overlays. It validates the input parameters, performs necessary unit conversions using variable metadata, prepares the colormap and contour levels, sets up the map projection and features, filters the data for valid points based on the plot type and geographic bounds, renders the plot using the appropriate method (scatter, contour, contourf, or both), generates a title based on metadata and timestamp information, adds gridlines and optional overlays such as wind vectors or additional surface fields, and finalizes the layout with timestamp and branding annotations. The function returns the figure and axes objects containing the rendered surface map for further manipulation or saving by the caller. Debug print statements can be included throughout the function to confirm key steps such as data filtering results, chosen colormap and levels, generated title, and successful addition of overlays, which can assist in troubleshooting and verifying that each component of the plotting process is functioning as intended based on the inputs provided. 
 
         Parameters:
-            lon (np.ndarray): 1D array of longitude coordinates in degrees for MPAS mesh cell centers.
-            lat (np.ndarray): 1D array of latitude coordinates in degrees for MPAS mesh cell centers.
-            data (np.ndarray or xarray.DataArray): 1D array or DataArray of surface variable values in model units to be plotted.
-            var_name (str): Variable name for metadata lookup and unit conversion (e.g., 't2m', 'mslp').
-            lon_min (float): Western boundary of map extent in degrees.
-            lon_max (float): Eastern boundary of map extent in degrees.
-            lat_min (float): Southern boundary of map extent in degrees.
-            lat_max (float): Northern boundary of map extent in degrees.
-            title (Optional[str]): Custom plot title; if None a metadata-based title is generated.
-            plot_type (str): Rendering method ('scatter', 'contour', 'contourf', or 'both').
-            colormap (Optional[str]): Custom matplotlib colormap name overriding variable-specific defaults.
-            levels (Optional[List[float]]): Custom contour level list overriding metadata defaults.
-            clim_min (Optional[float]): Minimum color limit to clip contour levels.
-            clim_max (Optional[float]): Maximum color limit to clip contour levels.
-            projection (str): Cartopy projection name (e.g., 'PlateCarree').
-            time_stamp (Optional[datetime]): Valid time used for title annotation.
-            data_array (Optional[xarray.DataArray]): Optional DataArray for extracting metadata attributes.
-            grid_resolution (Optional[float]): Grid spacing in degrees for contour interpolation; adaptive if None.
-            wind_overlay (Optional[dict]): Wind overlay configuration dict (optional).
-            surface_overlay (Optional[dict]): Surface overlay configuration dict (optional).
-            level_index (Optional[int]): Vertical index to extract from 3D arrays (optional).
-            level_value (Optional[float]): Vertical level value (reserved; not generally required for surface plots).
+            lon (np.ndarray): Array of longitude values corresponding to the data points.
+            lat (np.ndarray): Array of latitude values corresponding to the data points.
+            data (Union[np.ndarray, xr.DataArray]): Array of data values to be plotted, which can be a numpy array or an xarray DataArray.
+            var_name (str): Variable name used for labeling and metadata extraction.
+            lon_min (float): Minimum longitude for the map extent.
+            lon_max (float): Maximum longitude for the map extent.
+            lat_min (float): Minimum latitude for the map extent.
+            lat_max (float): Maximum latitude for the map extent.
+            title (Optional[str]): Optional custom title for the plot. If not provided, a default title will be generated based on variable metadata.
+            plot_type (str): Type of plot to create ('scatter', 'contour', 'contourf', or 'both').
+            colormap (Optional[str]): Optional colormap name or identifier to use for plotting. If not provided, a default colormap will be used.
+            levels (Optional[List[float]]): Optional list of contour levels to use for contour plotting. If not provided, levels will be determined automatically.
+            clim_min (Optional[float]): Optional minimum color limit for normalization. If not provided, it will be determined from the data.
+            clim_max (Optional[float]): Optional maximum color limit for normalization. If not provided, it will be determined from the data.
+            projection (str): Map projection type to use for the plot (e.g., 'PlateCarree', 'Mercator', etc.).
+            time_stamp (Optional[datetime]): Optional timestamp to include in the title or annotations.
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the data, used for metadata extraction and unit conversion.
+            grid_resolution (Optional[float]): Optional grid resolution for contour interpolation if needed.
+            wind_overlay (Optional[dict]): Optional configuration for adding a wind overlay to the map.
+            surface_overlay (Optional[dict]): Optional configuration for adding an additional surface overlay to the map.
+            level_index (Optional[int]): Optional index for selecting a vertical level from a multi-dimensional data array.
+            level_value (Optional[float]): Optional value for selecting a vertical level from a multi-dimensional data array based on coordinate values.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for remapping or interpolation of data for plotting.            
 
         Returns:
-            Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: Figure and GeoAxes with the rendered surface map.
-
-        Raises:
-            ValueError: If inputs are inconsistent (e.g., mismatched array lengths) or an unsupported plot_type is requested.
+            Tuple[Figure, Axes]: The figure and axes objects containing the rendered surface map for further manipulation or saving by the caller.
         """
         # Validate that the requested plot_type is one of the supported options and raise a ValueError if not 
         if plot_type not in ['scatter', 'contour', 'both', 'contourf']:
@@ -775,367 +713,71 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the figure and axes containing the rendered surface map for further manipulation or saving by the caller.
         return self.fig, self.ax
 
-    def _interpolate_to_grid(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        grid_resolution: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _interpolate_to_grid(self: "MPASSurfacePlotter",
+                             lon: np.ndarray,
+                             lat: np.ndarray,
+                             data: np.ndarray,
+                             lon_min: float,
+                             lon_max: float,
+                             lat_min: float,
+                             lat_max: float,
+                             grid_resolution: Optional[float] = None,
+                             dataset: Optional[xr.Dataset] = None,
+                             method: str = 'nearest',
+                             resolution_bounds: Optional[Tuple[float, float]] = None,) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        This helper uses a hybrid KDTree→xESMF remapping strategy to produce smooth, regularly spaced fields suitable for contour plotting. It supports explicit `grid_resolution` in degrees or an adaptive resolution based on the spatial extent when unspecified. It handles the creation of a temporary xarray Dataset if not provided to facilitate remapping and returns 2D meshgrids for longitude and latitude along with the interpolated data array. The method includes debug print statements to confirm the chosen grid resolution, the number of points being interpolated, and the shape of the resulting grid, which can assist in troubleshooting and verifying that the interpolation process is working as intended.
+        This helper function performs interpolation of the original longitude, latitude, and data points onto a regular lat-lon grid defined by the specified geographic bounds and grid resolution. It uses the specified interpolation method (e.g., 'nearest', 'linear', 'cubic') to interpolate the data values onto the new grid. The function can optionally take an xarray Dataset to assist with interpolation, such as providing coordinate information or metadata, but it can also operate solely based on the provided lon/lat/data arrays. The resolution_bounds parameter can be used to specify minimum and maximum allowable grid resolutions for adaptive interpolation if a specific grid resolution is not provided. The function returns the interpolated longitude, latitude, and data arrays corresponding to the regular grid for use in contour plotting or other visualizations that require gridded data. 
 
         Parameters:
-            lon (np.ndarray): 1D longitude coordinates for each input point.
-            lat (np.ndarray): 1D latitude coordinates for each input point.
-            data (np.ndarray): 1D array of data values corresponding to lon/lat.
-            lon_min (float): Western longitude bound for the target grid.
-            lon_max (float): Eastern longitude bound for the target grid.
-            lat_min (float): Southern latitude bound for the target grid.
-            lat_max (float): Northern latitude bound for the target grid.
-            grid_resolution (Optional[float]): Desired grid spacing in degrees (optional).
-            dataset (Optional[xarray.Dataset]): Optional xarray Dataset describing source coordinates.
+            lon (np.ndarray): Original longitude values corresponding to the data points.
+            lat (np.ndarray): Original latitude values corresponding to the data points.
+            data (np.ndarray): Original data values corresponding to the longitude and latitude points.
+            lon_min (float): Minimum longitude for defining the grid extent.
+            lon_max (float): Maximum longitude for defining the grid extent.
+            lat_min (float): Minimum latitude for defining the grid extent.
+            lat_max (float): Maximum latitude for defining the grid extent.
+            grid_resolution (Optional[float]): Optional grid resolution for the regular lat-lon grid. If not provided, it may be determined based on the input data or resolution_bounds.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may assist with interpolation, such as providing coordinate information or metadata.
+            method (str): Interpolation method to use ('nearest', 'linear', 'cubic').
+            resolution_bounds (Optional[Tuple[float, float]]): Minimum and maximum allowable grid resolutions for adaptive interpolation.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: (lon_mesh, lat_mesh, data_interp) where lon_mesh and lat_mesh are 2D meshgrids and data_interp is the 2D interpolated field.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Interpolated longitude, latitude, and data arrays corresponding to the regular grid.
         """
-        # Validate that the input longitude, latitude, and data arrays are 1D and have matching lengths to ensure they can be used for interpolation.
-        if grid_resolution is not None:
-            step = float(grid_resolution)
-
-            # Validate that the provided grid resolution is a positive value to avoid invalid grid generation and raise a ValueError if it is not.
-            if step <= 0:
-                raise ValueError("grid_resolution must be > 0")
-
-            # If a valid grid resolution is provided, we use it directly for the MPASRemapper and log the chosen resolution for debugging purposes.
-            resolution = step
-            print(f"Using MPASRemapper with target resolution: {resolution}°")
-        else:
-            # If no grid resolution is provided, we calculate an adaptive resolution based on the spatial extent of the data
-            lon_range = lon_max - lon_min
-            lat_range = lat_max - lat_min
-
-            # Set the resolution to be approximately 1% of the larger dimension of the spatial extent to ensure a reasonable number of grid points 
-            resolution = max(lon_range / 100, lat_range / 100)
-            print(f"Auto-selected grid resolution: {resolution:.4f}°")
-        
-        print(f"Interpolating {len(data)} points using MPASRemapper (KDTree→xESMF bilinear)...")
-        
-        # If a dataset is not provided, we create a temporary xarray Dataset with the longitude and latitude coordinates to facilitate the remapping process. 
-        if dataset is None:
-            lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
-            lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
-            dataset = xr.Dataset({
-                'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
-                'latCell': xr.DataArray(lat_arr, dims=['nCells'])
-            })
-        
-        # Convert the input data array to an xarray DataArray with a dimension name that matches the expected input for the remapping function 
-        data_xr = xr.DataArray(data, dims=['nCells'])
-
-        # Use the remapping function to interpolate the data from the irregular MPAS mesh to a regular lat-lon grid defined by the specified bounds and resolution
-        remapped_result = remap_mpas_to_latlon_with_masking(
-            data=data_xr,
-            dataset=dataset,
-            lon_min=lon_min,
-            lon_max=lon_max,
-            lat_min=lat_min,
-            lat_max=lat_max,
-            resolution=resolution,
-            method='nearest',
-            apply_mask=True,
-            lon_convention='auto'
-        )
-        
-        # Extract the longitude and latitude coordinates from the remapped result
-        lon_coords = remapped_result.lon.values
-        lat_coords = remapped_result.lat.values
-
-        # Create 2D meshgrids for longitude and latitude to be used in contour plotting
-        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-
-        # Extract the interpolated data values from the remapped result as a 2D array corresponding to the regular lat-lon grid.
-        data_interp = remapped_result.values
-        
-        print(f"MPASRemapper produced {data_interp.shape[0]}x{data_interp.shape[1]} grid")
-        
-        # Return the longitude mesh, latitude mesh, and interpolated data array for use in contour plotting.
-        return lon_mesh, lat_mesh, data_interp
-
-
-    def _create_scatter_plot(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        cmap_obj: Union[str, mcolors.Colormap],
-        norm: Optional[mcolors.Normalize],
-        data_crs: ccrs.CRS
-    ) -> None:
-        """
-        The method computes marker sizing based on map extent and point density, sorts the points to ensure consistent overlay ordering, and applies adaptive alpha to mitigate overplotting. It draws points on `self.ax` and adds a metadata-driven horizontal colorbar to `self.fig`. It ensures that the scatter plot is visually informative and that the color mapping is clearly communicated through the colorbar. The method includes debug print statements to confirm the number of points being plotted, the calculated marker size, and the chosen alpha value, which can assist in troubleshooting and verifying that the scatter plot is configured correctly for the given data density and map extent.
-
-        Parameters:
-            lon (np.ndarray): 1D longitude array in degrees matching `lat` and `data`.
-            lat (np.ndarray): 1D latitude array in degrees matching `lon` and `data`.
-            data (np.ndarray): 1D array of data values for color mapping.
-            cmap_obj (Union[str, matplotlib.colors.Colormap]): Colormap name or instance.
-            norm (Optional[matplotlib.colors.Normalize]): Normalization object for color mapping.
-            data_crs (ccrs.CRS): CRS describing the input coordinate reference (usually PlateCarree).
-
-        Returns:
-            None: The function draws the scatter to `self.ax` and updates `self.fig`.
-        """
-        # Ensure that the axes and figure are initialized before attempting to create a scatter plot
-        assert self.ax is not None, "Axes must be created before scatter plot"
-        assert self.fig is not None, "Figure must be created before scatter plot"
-        
-        # Define the map extent based on the minimum and maximum longitude and latitude values
-        map_extent = (lon.min(), lon.max(), lat.min(), lat.max())
-
-        # Calculate marker size based on the map extent and the number of data points 
-        fig_size = (self.figsize[0], self.figsize[1])
-        marker_size = self.calculate_adaptive_marker_size(map_extent, len(data), fig_size)
-        
-        # Calculate point density (points per square degree) to determine appropriate alpha for overplotting mitigation
-        map_area = (map_extent[1] - map_extent[0]) * (map_extent[3] - map_extent[2])
-
-        # Avoid division by zero in case of extremely small extents and set point density to zero if map area is not positive
-        point_density = len(data) / map_area if map_area > 0 else 0
-        
-        # Set alpha values based on point density thresholds to balance visibility and overplotting
-        if point_density > 1000:
-            alpha_val = 0.8
-        elif point_density > 100:
-            alpha_val = 0.9
-        else:
-            alpha_val = 0.9
-        
-        # Sort the data points by their values to ensure that higher values are plotted on top of lower values for better visibility in the scatter plot
-        sort_indices = np.argsort(data)
-        lon_sorted = lon[sort_indices]
-        lat_sorted = lat[sort_indices]
-        data_sorted = data[sort_indices]
-        
-        # Create the scatter plot on the axes using the sorted longitude, latitude, and data values
-        scatter = self.ax.scatter(lon_sorted, lat_sorted, c=data_sorted,
-                               cmap=cmap_obj, norm=norm, s=marker_size, alpha=alpha_val,
-                               transform=data_crs, edgecolors='none')
-        
-        # After creating the scatter plot, add a colorbar using the centralized helper
-        try:
-            from mpasdiag.visualization.styling import MPASVisualizationStyle
-            cbar_label = MPASVisualizationStyle.build_colorbar_label(getattr(self, '_current_var_metadata', None))
-
-            # Add a horizontal colorbar below the plot with the appropriate label and formatting
-            cbar = MPASVisualizationStyle.add_colorbar(
-                self.fig, self.ax, scatter,
-                label=cbar_label,
-                orientation='horizontal',
-                fraction=0.03, pad=0.06, shrink=0.8,
-                fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
-            )
-
-            # If the colorbar was successfully created, adjust the ticks to use dynamic formatting 
-            if cbar is not None:
-                ticks = cbar.get_ticks().tolist()
-                cbar.set_ticks(ticks)
-                cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-                cbar.ax.tick_params(labelsize=8)
-        except Exception:
-            pass
-    
-    def _create_contour_plot(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        cmap_obj: Union[str, mcolors.Colormap],
-        norm: Optional[mcolors.Normalize],
-        levels: Optional[List[float]],
-        data_crs: ccrs.CRS,
-        grid_resolution: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> None:
-        """
-        This helper produces line contours using the remapped regular grid and optionally annotates contour values when explicit levels are provided. It supports adaptive or user-specified grid resolution and delegates interpolation to `_interpolate_to_grid`. It ensures that the contour lines are rendered clearly and that any provided contour levels are used effectively to enhance the interpretability of the plot. The method includes debug print statements to confirm the number of points being interpolated, the shape of the resulting grid, and whether contour labels were added, which can assist in troubleshooting and verifying that the contour plot is configured correctly based on the provided data and parameters.
-
-        Parameters:
-            lon (np.ndarray): 1D longitude coordinates of input points.
-            lat (np.ndarray): 1D latitude coordinates of input points.
-            data (np.ndarray): 1D data values corresponding to the coordinates.
-            lon_min (float): Western longitude bound for interpolation grid.
-            lon_max (float): Eastern longitude bound for interpolation grid.
-            lat_min (float): Southern latitude bound for interpolation grid.
-            lat_max (float): Northern latitude bound for interpolation grid.
-            cmap_obj (Union[str, matplotlib.colors.Colormap]): Colormap used when contour lines are colored.
-            norm (Optional[matplotlib.colors.Normalize]): Normalization for color mapping.
-            levels (Optional[List[float]]): Explicit contour levels to draw (optional).
-            data_crs (ccrs.CRS): CRS of input coordinates.
-            grid_resolution (Optional[float]): Optional grid spacing in degrees for remapping.
-            dataset (Optional[xarray.Dataset]): Optional dataset to assist remapping.
-
-        Returns:
-            None: Adds contour lines to `self.ax`.
-        """
-        # Ensure that the axes and figure are initialized before attempting to create a contour plot
-        assert self.ax is not None, "Axes must be created before contour plot"
-        assert self.fig is not None, "Figure must be created before contour plot"
-        
-        # Interpolate the irregularly spaced input data onto a regular lat-lon grid defined by the specified bounds and resolution 
-        lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
+        return super()._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, dataset
+            grid_resolution, dataset, method=method,
+            resolution_bounds=resolution_bounds,
         )
 
-        try:
-            contour_color = 'black'
-            try:
-                # When explicit levels are provided, we use them for contouring and set the line color to black for better visibility. 
-                if levels is not None:
-                    cs = self.ax.contour(lon_mesh, lat_mesh, data_interp, levels=levels,
-                                         colors=contour_color, linewidths=1.0, linestyles='solid',
-                                         transform=data_crs)
-                else:
-                    # If no explicit levels are provided, we let matplotlib automatically determine contour levels based on the data and colormap
-                    cs = self.ax.contour(lon_mesh, lat_mesh, data_interp,
-                                         colors=contour_color, linewidths=1.0, linestyles='solid',
-                                         transform=data_crs)
 
-                # If contour lines were successfully created and explicit levels were provided, we attempt to add contour labels to the plot for better interpretability.
-                if levels is not None:
-                    try:
-                        self.ax.clabel(cs, inline=True, fontsize=8, fmt='%g')
-                    except Exception:
-                        pass
-            except Exception as e:
-                raise RuntimeError(f"Contour plotting failed: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Contour plotting failed: {e}")
-        
-    def _create_contourf_plot(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        cmap_obj: Union[str, mcolors.Colormap],
-        norm: Optional[mcolors.Normalize],
-        levels: Optional[List[float]],
-        data_crs: ccrs.CRS,
-        grid_resolution: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> None:
+    def add_surface_overlay(self: "MPASSurfacePlotter",
+                            ax: Axes,
+                            lon: Union[np.ndarray, xr.DataArray],
+                            lat: Union[np.ndarray, xr.DataArray],
+                            surface_config: Dict[str, Any],
+                            lon_min: Optional[float] = None,
+                            lon_max: Optional[float] = None,
+                            lat_min: Optional[float] = None,
+                            lat_max: Optional[float] = None,
+                            dataset: Optional[xr.Dataset] = None) -> None:
         """
-        This helper mirrors `_create_contour_plot` but uses `contourf` to render filled color bands, and then creates a horizontal colorbar displaying metadata-driven labels. It supports explicit levels and adaptive remapping resolution. It ensures that the filled contours are rendered clearly and that the colorbar effectively communicates the data values through appropriate labeling. The method includes debug print statements to confirm the number of points being interpolated, the shape of the resulting grid, and whether explicit levels were used for contouring, which can assist in troubleshooting and verifying that the filled contour plot is configured correctly based on the provided data and parameters.
+        This function adds an additional surface overlay to the existing GeoAxes instance based on the provided longitude, latitude, and surface configuration. It serves as a public interface for adding surface overlays, which internally calls a helper function that performs the actual processing and rendering of the overlay. The surface_config dictionary is expected to contain at least the key 'data' which holds the overlay data array, and it may also include optional styling keys such as 'var_name', 'plot_type', 'levels', 'colors', 'colormap', 'linewidth', 'alpha', 'level_index', 'add_labels', and 'grid_resolution' to customize the appearance of the overlay. The function allows for optional geographic bounds (lon_min, lon_max, lat_min, lat_max) to restrict the overlay to a specific area if desired. If a dataset is provided, it can be used to assist with remapping or interpolation of the overlay data as needed. The function does not return any value as it directly modifies the provided GeoAxes instance by adding the surface overlay on top of the existing plot. Debug print statements can be included to confirm when the overlay is being added and to log any relevant information about the overlay configuration or data being used, which can assist in troubleshooting and verifying that the overlay is being applied correctly based on the inputs provided. 
 
         Parameters:
-            lon (np.ndarray): 1D longitude coordinates of input points.
-            lat (np.ndarray): 1D latitude coordinates of input points.
-            data (np.ndarray): 1D data values corresponding to the coordinates.
-            lon_min (float): Western longitude bound for interpolation grid.
-            lon_max (float): Eastern longitude bound for interpolation grid.
-            lat_min (float): Southern latitude bound for interpolation grid.
-            lat_max (float): Northern latitude bound for interpolation grid.
-            cmap_obj (Union[str, matplotlib.colors.Colormap]): Colormap instance or name.
-            norm (Optional[matplotlib.colors.Normalize]): Normalization for color mapping.
-            levels (Optional[List[float]]): Explicit contour levels (optional).
-            data_crs (ccrs.CRS): CRS of input coordinates.
-            grid_resolution (Optional[float]): Grid spacing in degrees for remapping.
-            dataset (Optional[xarray.Dataset]): Optional dataset to assist remapping.
+            ax (Axes): The GeoAxes instance to which the surface overlay will be added.
+            lon (Union[np.ndarray, xr.DataArray]): Longitude values corresponding to the overlay data points, which can be a numpy array or an xarray DataArray.
+            lat (Union[np.ndarray, xr.DataArray]): Latitude values corresponding to the overlay data points, which can be a numpy array or an xarray DataArray.
+            surface_config (Dict[str, Any]): Configuration dictionary for the surface overlay, expected to contain at least the key 'data' for the overlay data array and optional styling keys.
+            lon_min (Optional[float]): Optional minimum longitude for restricting the overlay to a specific area.
+            lon_max (Optional[float]): Optional maximum longitude for restricting the overlay to a specific area.
+            lat_min (Optional[float]): Optional minimum latitude for restricting the overlay to a specific area.
+            lat_max (Optional[float]): Optional maximum latitude for restricting the overlay to a specific area.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may assist with remapping or interpolation of the overlay data as needed.
 
         Returns:
-            None: Adds filled contours and a colorbar to the figure.
+            None: This function modifies the provided GeoAxes instance by adding the surface overlay and does not return any value.
         """
-        # Ensure that the axes and figure are initialized before attempting to create a filled contour plot
-        assert self.ax is not None, "Axes must be created before contourf plot"
-        assert self.fig is not None, "Figure must be created before contourf plot"
-        
-        # Interpolate the irregularly spaced input data onto a regular lat-lon grid defined by the specified bounds and resolution 
-        lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
-            lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, dataset
-        )
-
-        # Depending on whether explicit contour levels are provided, we create a filled contour plot 
-        if levels is not None:
-            # When explicit levels are provided, we use them for contouring and set the extend parameter to 'both' 
-            cs = self.ax.contourf(lon_mesh, lat_mesh, data_interp, levels=levels,
-                                cmap=cmap_obj, norm=norm, transform=data_crs, extend='both')
-        else:
-            # If no explicit levels are provided, we let matplotlib automatically determine contour levels based on the data and colormap, and set the extend parameter to 'both'
-            cs = self.ax.contourf(lon_mesh, lat_mesh, data_interp,
-                                cmap=cmap_obj, norm=norm, transform=data_crs, extend='both')
-
-        # After creating the filled contour plot, add a colorbar using the centralized helper
-        try:
-            from mpasdiag.visualization.styling import MPASVisualizationStyle
-            cbar_label = MPASVisualizationStyle.build_colorbar_label(getattr(self, '_current_var_metadata', None))
-
-            # Generate a horizontal colorbar with the specified label and formatting options 
-            cbar = MPASVisualizationStyle.add_colorbar(
-                self.fig, self.ax, cs,
-                label=cbar_label,
-                orientation='horizontal',
-                fraction=0.03, pad=0.06, shrink=0.8,
-                fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
-            )
-
-            # If a colorbar was successfully created, format the tick labels dynamically
-            if cbar is not None:
-                ticks = cbar.get_ticks().tolist()
-                cbar.set_ticks(ticks)
-                cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-                cbar.ax.tick_params(labelsize=8)
-        except Exception:
-            # If there was an issue adding the colorbar, catch the exception and continue 
-            pass
-
-    def add_surface_overlay(
-        self,
-        ax: Axes,
-        lon: Union[np.ndarray, xr.DataArray],
-        lat: Union[np.ndarray, xr.DataArray],
-        surface_config: Dict[str, Any],
-        lon_min: Optional[float] = None,
-        lon_max: Optional[float] = None,
-        lat_min: Optional[float] = None,
-        lat_max: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> None:
-        """
-        This convenience method forwards the overlay configuration to internal helpers that perform unit conversion, optional remapping to a regular grid, and rendering. It supports both line contours and filled contours with configurable levels, colormap, and styling options and does not create a new figure. It ensures that the surface overlay is rendered on top of the existing map and that any necessary unit conversions are handled appropriately. The method includes debug print statements to confirm that the surface overlay is being added and to display the configuration being used, which can assist in troubleshooting and verifying that the surface overlay is configured correctly based on the provided parameters.
-
-        Parameters:
-            ax (matplotlib.axes.Axes): Existing GeoAxes instance to draw the overlay onto.
-            lon (np.ndarray or xarray.DataArray): 1D longitude coordinates for overlay data points.
-            lat (np.ndarray or xarray.DataArray): 1D latitude coordinates for overlay data points.
-            surface_config (Dict[str, Any]): Configuration dict containing at minimum the key 'data' and optional styling keys such as 'var_name', 'plot_type', 'levels', 'colors', 'colormap', 'linewidth', 'alpha', 'level_index', 'add_labels', and 'grid_resolution'.
-            lon_min (Optional[float]): Optional western longitude bound for interpolation.
-            lon_max (Optional[float]): Optional eastern longitude bound for interpolation.
-            lat_min (Optional[float]): Optional southern latitude bound for interpolation.
-            lat_max (Optional[float]): Optional northern latitude bound for interpolation.
-            dataset (Optional[xarray.Dataset]): Optional dataset to assist remapping; created from `lon`/`lat` if omitted.
-
-        Returns:
-            None: Overlay is drawn directly onto the provided `ax`.
-
-        Raises:
-            ValueError: If an unsupported `plot_type` is provided in `surface_config`.
-        """
-        # Delegate the processing and rendering of the surface overlay to internal helper methods that handle unit conversion, optional remapping, and plotting 
         self._add_surface_overlay(
             ax=ax,
             lon=lon,
@@ -1148,26 +790,24 @@ class MPASSurfacePlotter(MPASVisualizer):
             dataset=dataset
         )
 
-    def _prepare_overlay_data(
-        self,
-        overlay_data: np.ndarray,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        var_name: str,
-        surface_config: Dict[str, Any]
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _prepare_overlay_data(self: "MPASSurfacePlotter",
+                              overlay_data: np.ndarray,
+                              lon: np.ndarray,
+                              lat: np.ndarray,
+                              var_name: str,
+                              surface_config: Dict[str, Any]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        The helper auto-detects likely original units when not provided, converts to display units using `UnitConverter`, extracts a surface-level slice for multidimensional inputs, and returns only finite lon/lat/data triplets suitable for interpolation and rendering. It ensures that the overlay data is properly prepared for plotting by handling unit conversions, dimensionality reduction, and filtering of valid data points. The method includes debug print statements to confirm the inferred original units, any conversions performed, and the number of valid points remaining after filtering, which can assist in troubleshooting and verifying that the overlay data is prepared correctly for visualization.
+        This helper function prepares the overlay data for plotting by performing unit inference and conversion, handling multi-dimensional data by extracting a 2D slice if necessary, and filtering valid data points based on finite values in the overlay data and corresponding longitude and latitude arrays. It first attempts to infer the original units of the overlay data based on the variable name and mean value if explicit units are not provided in the surface_config. If original units are determined, it uses the UnitConverter to convert the overlay data to display units for consistency with the main plot. If the overlay data is multi-dimensional (e.g., 3D with vertical levels), it extracts a 2D slice based on a specified level index or defaults to the last level. Finally, it creates a valid mask to filter out any points where the overlay data or corresponding longitude/latitude values are not finite, ensuring that only valid points are returned for interpolation and rendering of the surface overlay. If no valid points are found after filtering, it raises a ValueError to indicate that the overlay cannot be rendered due to lack of valid data. The function returns the filtered longitude, latitude, and overlay data arrays containing only valid points for use in subsequent plotting steps. Debug print statements can be included to confirm unit conversions, handling of multi-dimensional data, and results of filtering for valid points, which can assist in troubleshooting and verifying that the overlay data is being prepared correctly based on the inputs provided. 
 
         Parameters:
-            overlay_data (np.ndarray): Raw overlay data array (may be multidimensional).
-            lon (np.ndarray): Longitude coordinates corresponding to overlay_data.
-            lat (np.ndarray): Latitude coordinates corresponding to overlay_data.
-            var_name (str): Variable name used for unit inference and metadata lookup.
-            surface_config (Dict[str, Any]): Configuration dictionary that may include 'original_units' and 'level_index'.
+            overlay_data (np.ndarray): The original overlay data array that may require unit conversion and filtering.
+            lon (np.ndarray): Longitude values corresponding to the overlay data points.
+            lat (np.ndarray): Latitude values corresponding to the overlay data points.
+            var_name (str): Variable name used for unit inference and conversion.
+            surface_config (Dict[str, Any]): Configuration dictionary for the surface overlay, which may contain information about original units and level index for multi-dimensional data.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered (lon, lat, data) arrays containing only valid points.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered longitude, latitude, and overlay data arrays containing only valid points for plotting.
         """
         original_units = surface_config.get('original_units', None)
         
@@ -1209,28 +849,26 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return only the valid longitude, latitude, and overlay data points for use in interpolation and rendering of the surface overlay.
         return lon[valid_mask], lat[valid_mask], overlay_data[valid_mask]
     
-    def _calculate_overlay_bounds(
-        self,
-        lon_valid: np.ndarray,
-        lat_valid: np.ndarray,
-        lon_min: Optional[float],
-        lon_max: Optional[float],
-        lat_min: Optional[float],
-        lat_max: Optional[float]
-    ) -> Tuple[float, float, float, float]:
+    def _calculate_overlay_bounds(self: "MPASSurfacePlotter",
+                                  lon_valid: np.ndarray,
+                                  lat_valid: np.ndarray,
+                                  lon_min: Optional[float],
+                                  lon_max: Optional[float],
+                                  lat_min: Optional[float],
+                                  lat_max: Optional[float]) -> Tuple[float, float, float, float]:
         """
-        The helper returns a tuple of (lon_min, lon_max, lat_min, lat_max) using supplied explicit bounds when available, otherwise computing bounds from the valid coordinate arrays. It ensures that the overlay is properly framed within the spatial extent of the valid data points while allowing for caller-specified bounds to override the automatic calculation when needed. The method includes debug print statements to confirm the final bounds being used for the overlay, which can assist in troubleshooting and verifying that the bounds are calculated correctly based on the provided parameters.
+        This helper function calculates the geographic bounds for the surface overlay based on the valid longitude and latitude points. If explicit bounds are provided by the caller, it uses those directly. Otherwise, it computes the bounds from the valid longitude and latitude arrays to ensure that the overlay is properly framed within the spatial extent of the valid data points. This approach allows for flexibility in defining the overlay extent while also providing a sensible default based on the actual data being plotted. The function returns a tuple containing the resolved (lon_min, lon_max, lat_min, lat_max) bounds that can be used for subsequent interpolation and plotting of the surface overlay. Debug print statements can be included to confirm the calculated bounds for the overlay, which can assist in troubleshooting and verifying that the bounds are being determined correctly based on the input parameters. 
 
         Parameters:
-            lon_valid (np.ndarray): 1D array of valid longitudes for overlay points.
-            lat_valid (np.ndarray): 1D array of valid latitudes for overlay points.
-            lon_min (Optional[float]): Optional caller-provided western bound.
-            lon_max (Optional[float]): Optional caller-provided eastern bound.
-            lat_min (Optional[float]): Optional caller-provided southern bound.
-            lat_max (Optional[float]): Optional caller-provided northern bound.
+            lon_valid (np.ndarray): Array of valid longitude values corresponding to the overlay data points.
+            lat_valid (np.ndarray): Array of valid latitude values corresponding to the overlay data points.
+            lon_min (Optional[float]): Optional minimum longitude for the overlay bounds. If not provided, it will be calculated from the valid longitude array.
+            lon_max (Optional[float]): Optional maximum longitude for the overlay bounds. If not provided, it will be calculated from the valid longitude array.
+            lat_min (Optional[float]): Optional minimum latitude for the overlay bounds. If not provided, it will be calculated from the valid latitude array.
+            lat_max (Optional[float]): Optional maximum latitude for the overlay bounds. If not provided, it will be calculated from the valid latitude array.
 
         Returns:
-            Tuple[float, float, float, float]: The resolved (lon_min, lon_max, lat_min, lat_max) bounds.
+            Tuple[float, float, float, float]: Resolved (lon_min, lon_max, lat_min, lat_max) bounds for the surface overlay. 
         """
         # If explicit bounds are provided, we use them directly; otherwise, we compute the bounds from the valid longitude and latitude arrays to ensure that the overlay is properly framed within the spatial extent of the valid data points.
         return (
@@ -1240,26 +878,24 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat_max if lat_max is not None else float(lat_valid.max())
         )
     
-    def _calculate_overlay_resolution(
-        self,
-        grid_resolution_input: Optional[float],
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float
-    ) -> float:
+    def _calculate_overlay_resolution(self: "MPASSurfacePlotter",
+                                      grid_resolution_input: Optional[float],
+                                      lon_min: float,
+                                      lon_max: float,
+                                      lat_min: float,
+                                      lat_max: float) -> float:
         """
-        If `grid_resolution_input` is provided it is returned; otherwise an adaptive resolution proportional to the spatial extent is computed to balance quality and performance. It ensures that the remapping process uses an appropriate grid resolution based on either caller specifications or the spatial extent of the overlay data, which can help to optimize the interpolation quality and computational efficiency. The method includes debug print statements to confirm the chosen grid resolution and the spatial extent being considered, which can assist in troubleshooting and verifying that the resolution is calculated correctly based on the provided parameters.
+        This helper function calculates the grid resolution to use for remapping the surface overlay data onto a regular lat-lon grid. If the caller has provided an explicit grid resolution, it uses that directly for remapping. Otherwise, it calculates an adaptive resolution based on the spatial extent of the overlay data defined by the longitude and latitude bounds. The resolution is set to be approximately 2% of the larger dimension of the spatial extent to ensure a reasonable number of grid points for interpolation without being too coarse or too fine. This approach allows for flexibility in defining the grid resolution while also providing a sensible default based on the actual geographic area covered by the overlay data. The function returns the determined grid spacing in degrees that can be used for remapping the overlay data to a regular lat-lon grid. Debug print statements can be included to confirm the calculated resolution for the overlay, which can assist in troubleshooting and verifying that the resolution is being determined correctly based on the input parameters and spatial extent. 
 
         Parameters:
-            grid_resolution_input (Optional[float]): Caller-specified grid spacing in degrees (optional).
-            lon_min (float): Western longitude of the target extent.
-            lon_max (float): Eastern longitude of the target extent.
-            lat_min (float): Southern latitude of the target extent.
-            lat_max (float): Northern latitude of the target extent.
+            grid_resolution_input (Optional[float]): Optional explicit grid resolution provided by the caller. If not provided, it will be calculated based on the spatial extent of the overlay data.
+            lon_min (float): Minimum longitude bound for the overlay data, used to calculate spatial extent if grid_resolution_input is not provided.
+            lon_max (float): Maximum longitude bound for the overlay data, used to calculate spatial extent if grid_resolution_input is not provided.
+            lat_min (float): Minimum latitude bound for the overlay data, used to calculate spatial extent if grid_resolution_input is not provided.
+            lat_max (float): Maximum latitude bound for the overlay data, used to calculate spatial extent if grid_resolution_input is not provided.
 
         Returns:
-            float: Grid spacing in degrees to use for remapping.
+            float: Grid resolution in degrees to use for remapping the surface overlay data to a regular lat-lon grid.
         """
         # If the caller has provided an explicit grid resolution, we use it directly for remapping; otherwise, we calculate an adaptive resolution based on spatial extent 
         if grid_resolution_input is not None:
@@ -1272,22 +908,20 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Set the resolution to be approximately 2% of the larger dimension of the spatial extent to ensure a reasonable number of grid points for interpolation 
         return max(lon_range / 50, lat_range / 50)
     
-    def _create_overlay_dataset(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        dataset: Optional[xr.Dataset]
-    ) -> xr.Dataset:
+    def _create_overlay_dataset(self: "MPASSurfacePlotter",
+                                lon: np.ndarray,
+                                lat: np.ndarray,
+                                dataset: Optional[xr.Dataset]) -> xr.Dataset:
         """
-        The Dataset contains `lonCell` and `latCell` DataArrays and is suitable for passing to remapping utilities that expect an xarray Dataset describing source coordinates. If a dataset is already provided, it is returned unchanged. Otherwise, a new Dataset is constructed from the provided longitude and latitude arrays. This ensures that the remapping functions have the necessary coordinate information in the expected format, whether it is supplied by the caller or created on-the-fly from the input coordinates. The method includes debug print statements to confirm whether a new dataset was created or an existing one was used, which can assist in troubleshooting and verifying that the dataset is prepared correctly for remapping.
+        This helper function creates an xarray Dataset containing the longitude and latitude coordinates for the source points of the overlay data. If a dataset is already provided by the caller, it returns that dataset directly without modification. If no dataset is provided, it constructs a new xarray Dataset with 'lonCell' and 'latCell' DataArrays based on the provided longitude and latitude arrays. This dataset can then be used for remapping or interpolation of the overlay data to a regular lat-lon grid as needed for plotting. The function ensures that the longitude and latitude arrays are properly converted to numpy arrays if they are provided as xarray DataArrays, and it assigns appropriate dimension names for use in subsequent processing steps. The resulting dataset provides a structured way to represent the source coordinates for the overlay data, which can be essential for accurate remapping and visualization on the map. Debug print statements can be included to confirm whether a new dataset was created or an existing one was used, which can assist in troubleshooting and verifying that the dataset is being prepared correctly based on the input parameters. 
 
         Parameters:
-            lon (np.ndarray): 1D longitude coordinates for source points.
-            lat (np.ndarray): 1D latitude coordinates for source points.
-            dataset (Optional[xarray.Dataset]): Optional existing dataset to return unchanged.
+            lon (np.ndarray): Longitude values corresponding to the overlay data points.
+            lat (np.ndarray): Latitude values corresponding to the overlay data points.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may already contain the necessary coordinate information for remapping. If provided, it will be returned directly. If not provided, a new Dataset will be created using the provided longitude and latitude arrays. 
 
         Returns:
-            xarray.Dataset: Dataset with `lonCell` and `latCell` variables.
+            xr.Dataset: An xarray Dataset containing 'lonCell' and 'latCell' DataArrays for the source coordinates of the overlay data, either from the provided dataset or newly created from the longitude and latitude arrays.
         """
         # If a dataset is already provided, we return it directly
         if dataset is not None:
@@ -1303,32 +937,30 @@ class MPASSurfacePlotter(MPASVisualizer):
             'latCell': xr.DataArray(lat_arr, dims=['nCells'])
         })
     
-    def _interpolate_overlay(
-        self,
-        data_valid: np.ndarray,
-        dataset: xr.Dataset,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        resolution: float,
-        var_name: str
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _interpolate_overlay(self: "MPASSurfacePlotter",
+                             data_valid: np.ndarray,
+                             dataset: xr.Dataset,
+                             lon_min: float,
+                             lon_max: float,
+                             lat_min: float,
+                             lat_max: float,
+                             resolution: float,
+                             var_name: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        The method calls the remapping helper, constructs 2D meshgrids for plotting, and returns the interpolated array ready for contour/contourf rendering. If the remapping fails, it raises a RuntimeError with details. It ensures that the overlay data is properly interpolated onto a regular lat-lon grid suitable for contour plotting, and that any issues during the remapping process are clearly communicated through exceptions. The method includes debug print statements to confirm the interpolation process, the resolution being used, and the shape of the resulting grid, which can assist in troubleshooting and verifying that the interpolation is performed correctly based on the provided parameters.
+        This helper function performs the interpolation of the valid overlay data points onto a regular lat-lon grid defined by the specified geographic bounds and resolution. It uses the remapping module to interpolate the data from the unstructured MPAS mesh to a regular lat-lon grid, applying masking to ensure that only valid data points are included in the interpolation. The function creates 2D meshgrids for longitude and latitude from the remapped result to be used in contour plotting, and it extracts the interpolated data values as a 2D array for use in rendering the surface overlay on the map. The function returns the longitude mesh, latitude mesh, and interpolated data array corresponding to the regular grid for use in contour or contourf plotting of the surface overlay on the map. Debug print statements can be included to confirm that interpolation is being performed and to log the resolution being used, which can assist in troubleshooting and verifying that the interpolation is being executed correctly based on the input parameters. 
 
         Parameters:
-            data_valid (np.ndarray): 1D array of valid overlay data values.
-            dataset (xarray.Dataset): Dataset describing source lon/lat coordinates.
-            lon_min (float): Western longitude bound for target grid.
-            lon_max (float): Eastern longitude bound for target grid.
-            lat_min (float): Southern latitude bound for target grid.
-            lat_max (float): Northern latitude bound for target grid.
+            data_valid (np.ndarray): Array of valid data values corresponding to the overlay points that will be interpolated.
+            dataset (xr.Dataset): xarray Dataset containing the source coordinates for the overlay data, used for remapping.
+            lon_min (float): Minimum longitude for defining the grid extent for interpolation.
+            lon_max (float): Maximum longitude for defining the grid extent for interpolation.
+            lat_min (float): Minimum latitude for defining the grid extent for interpolation.
+            lat_max (float): Maximum latitude for defining the grid extent for interpolation.
             resolution (float): Grid spacing in degrees for the target grid.
             var_name (str): Variable name used for log messages.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: (lon_mesh, lat_mesh, data_interp) for plotting.
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Longitude mesh, latitude mesh, and interpolated data array corresponding to the regular grid for contour plotting. 
         """
         print(f"Interpolating {var_name} overlay using MPASRemapper (resolution: {resolution:.4f}°)")
         
@@ -1355,22 +987,20 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the longitude mesh, latitude mesh, and interpolated data array for use in contour or contourf plotting of the surface overlay on the map.
         return lon_mesh, lat_mesh, remapped_overlay.values
     
-    def _validate_contour_levels(
-        self,
-        data_interp: np.ndarray,
-        levels: Optional[List[float]],
-        var_name: str
-    ) -> None:
+    def _validate_contour_levels(self: "MPASSurfacePlotter",
+                                 data_interp: np.ndarray,
+                                 levels: Optional[List[float]],
+                                 var_name: str) -> None:
         """
-        This helper logs the data range and warns if no requested contour levels lie within the available data values. If levels are provided, it checks which levels fall within the range of the interpolated data and logs this information. It ensures that the contour levels specified by the caller are appropriate for the range of data being plotted, which can help to prevent issues where contours are not visible due to levels being outside the data range. The method includes debug print statements to confirm the data range and the contour levels that are within this range, which can assist in troubleshooting and verifying that the contour levels are valid for the given data.
+        This helper function validates the provided contour levels against the range of the interpolated data to ensure that the levels are appropriate for the data being plotted. It computes the minimum and maximum values of the interpolated data to determine the range of values that will be plotted in the contours. If explicit contour levels are provided, it checks which of those levels fall within the range of the data and logs a warning if none of the levels are within the data range, which could indicate that the contours may not be visible or meaningful on the plot. If some levels are within the data range, it logs which levels are valid for plotting. This validation step helps to ensure that the contour visualization will be effective and that users are aware if their specified levels may not be suitable for the data being visualized. Debug print statements can be included to confirm the data range and which contour levels are valid, which can assist in troubleshooting and verifying that the contour levels are being validated correctly based on the input parameters. 
 
         Parameters:
-            data_interp (np.ndarray): 2D interpolated data array.
-            levels (Optional[List[float]]): Contour levels supplied by the caller.
-            var_name (str): Variable name used for logging.
+            data_interp (np.ndarray): The 2D array of interpolated data values that will be contoured, used to determine the range of values for validation.
+            levels (Optional[List[float]]): The list of contour levels provided by the user for validation against the data range.
+            var_name (str): Variable name used for log messages.
 
         Returns:
-            None
+            None: This function performs validation and logging but does not return any value. It raises a warning if contour levels are not within the data range.
         """
         # Compute the minimum and maximum values of the interpolated data to determine the range of values that will be plotted in the contours.
         data_min, data_max = np.nanmin(data_interp), np.nanmax(data_interp)
@@ -1384,38 +1014,36 @@ class MPASSurfacePlotter(MPASVisualizer):
             else:
                 print(f"  Contour levels in data range: {levels_in_range}")
     
-    def _render_overlay(
-        self,
-        ax: Axes,
-        lon_mesh: np.ndarray,
-        lat_mesh: np.ndarray,
-        data_interp: np.ndarray,
-        plot_type: str,
-        levels: Optional[List[float]],
-        colors: str,
-        colormap: Optional[str],
-        linewidth: float,
-        alpha: float,
-        add_labels: bool
-    ) -> None:
+    def _render_overlay(self: "MPASSurfacePlotter",
+                        ax: Axes,
+                        lon_mesh: np.ndarray,
+                        lat_mesh: np.ndarray,
+                        data_interp: np.ndarray,
+                        plot_type: str,
+                        levels: Optional[List[float]],
+                        colors: str,
+                        colormap: Optional[str],
+                        linewidth: float,
+                        alpha: float,
+                        add_labels: bool) -> None:
         """
-        The function accepts either 'contour' or 'contourf' plot types and applies provided styling parameters including levels, colors/colormap, linewidth, and transparency. It draws contours directly onto the input `ax`. If `add_labels` is True and `plot_type` is 'contour', it attempts to add inline contour labels. It ensures that the surface overlay is rendered according to the specified styling options and that any requested contour labels are added for better interpretability of line contours. The method includes debug print statements to confirm the rendering mode being used, the styling parameters applied, and whether contour labels were added, which can assist in troubleshooting and verifying that the overlay is rendered correctly based on the provided configuration.
+        This helper function renders the surface overlay on the provided GeoAxes instance using either contour lines or filled contours based on the specified plot type. It applies the appropriate styling parameters such as colors, colormap, line width, and transparency to ensure that the overlay is visually distinct and informative when plotted on top of the existing map features. For line contours, it uses ax.contour to create contour lines with the specified colors and linewidth, and it optionally adds inline contour labels if requested. For filled contours, it uses ax.contourf to create a filled contour plot with the specified colormap. The function ensures that the contours are plotted using the correct coordinate reference system transformation for geographic data. This rendering step is crucial for visualizing the surface overlay effectively on the map, and it allows for customization of the appearance of the contours to enhance readability and interpretability. Debug print statements can be included to confirm which plot type is being rendered and to log any relevant styling information, which can assist in troubleshooting and verifying that the overlay is being rendered correctly based on the input parameters. 
 
         Parameters:
-            ax (matplotlib.axes.Axes): Axes to draw overlays onto.
-            lon_mesh (np.ndarray): 2D meshgrid of longitudes for the interpolation grid.
-            lat_mesh (np.ndarray): 2D meshgrid of latitudes for the interpolation grid.
-            data_interp (np.ndarray): 2D interpolated data array to contour.
-            plot_type (str): 'contour' or 'contourf' specifying rendering mode.
-            levels (Optional[List[float]]): Optional contour levels to use.
-            colors (str): Color for contour lines (used for 'contour').
-            colormap (Optional[str]): Colormap name for filled contours (used for 'contourf').
-            linewidth (float): Line width for contour lines.
-            alpha (float): Transparency for overlays (0.0 - 1.0).
-            add_labels (bool): Whether to add inline contour labels for line contours.
+            ax (Axes): The GeoAxes instance on which to render the surface overlay.
+            lon_mesh (np.ndarray): 2D array of longitude values corresponding to the regular grid for contour plotting.
+            lat_mesh (np.ndarray): 2D array of latitude values corresponding to the regular grid for contour plotting.
+            data_interp (np.ndarray): 2D array of interpolated data values corresponding to the regular grid for contour plotting.
+            plot_type (str): The type of contour plot to create, either 'contour' for line contours or 'contourf' for filled contours.
+            levels (Optional[List[float]]): The list of contour levels to use for plotting. If None, it will be determined automatically by matplotlib.
+            colors (str): The color specification for contour lines when plot_type is 'contour'.
+            colormap (Optional[str]): The name of the colormap to use for filled contours when plot_type is 'contourf'.
+            linewidth (float): The line width to use for contour lines when plot_type is 'contour'.
+            alpha (float): The transparency level to apply to the contours, where 0 is fully transparent and 1 is fully opaque.
+            add_labels (bool): Whether to add inline contour labels for line contours when plot_type is 'contour'.
 
         Returns:
-            None
+            None: This function renders the surface overlay on the provided GeoAxes instance and does not return any value. It modifies the axes in place by adding the contour or filled contour plot based on the specified parameters.
         """
         # Define common keyword arguments for both contour and contourf to ensure consistent transformation and alpha settings
         common_kwargs = {
@@ -1449,34 +1077,32 @@ class MPASSurfacePlotter(MPASVisualizer):
             # Create the filled contour plot on the axes using the specified parameters and the interpolated data
             ax.contourf(lon_mesh, lat_mesh, data_interp, **contourf_kwargs)
     
-    def _add_surface_overlay(
-        self,
-        ax: Axes,
-        lon: Union[np.ndarray, xr.DataArray],
-        lat: Union[np.ndarray, xr.DataArray],
-        surface_config: Dict[str, Any],
-        lon_min: Optional[float] = None,
-        lon_max: Optional[float] = None,
-        lat_min: Optional[float] = None,
-        lat_max: Optional[float] = None,
-        dataset: Optional[xr.Dataset] = None
-    ) -> None:
+    def _add_surface_overlay(self: "MPASSurfacePlotter",
+                             ax: Axes,
+                             lon: Union[np.ndarray, xr.DataArray],
+                             lat: Union[np.ndarray, xr.DataArray],
+                             surface_config: Dict[str, Any],
+                             lon_min: Optional[float] = None,
+                             lon_max: Optional[float] = None,
+                             lat_min: Optional[float] = None,
+                             lat_max: Optional[float] = None,
+                             dataset: Optional[xr.Dataset] = None) -> None:
         """
-        This helper performs the full overlay workflow: data preparation, extent/resolution calculation, remapping to a regular grid, validation of contour levels, and rendering. It is used internally by the public `add_surface_overlay` and by `create_surface_map` when overlays are requested. If any step fails (e.g., no valid data, remapping error), it logs a warning and exits gracefully without raising an exception, allowing the main plotting workflow to continue. It ensures that the surface overlay is added to the map with proper handling of data preparation, remapping, and rendering, while also providing robust error handling to prevent issues from disrupting the overall visualization process. The method includes debug print statements at each major step to confirm the progress of adding the surface overlay and to display any warnings or issues encountered during the process, which can assist in troubleshooting and verifying that the overlay is added correctly based on the provided parameters.
+        This helper function performs the actual processing and rendering of the surface overlay based on the provided longitude, latitude, and surface configuration. It extracts necessary information from the surface_config such as variable name, plot type, and styling options, and it validates the plot type to ensure it is supported. The function then prepares the overlay data by performing unit inference and conversion, handling multi-dimensional data if necessary, and filtering valid data points. It calculates the geographic bounds for the overlay based on valid points and any provided explicit bounds, and it determines the grid resolution for interpolation. If no dataset is provided for remapping, it creates one from the valid longitude and latitude arrays. The function then performs interpolation of the valid overlay data onto a regular lat-lon grid using the remapping module, and it validates the contour levels against the range of the interpolated data. Finally, it renders the overlay on the provided axes using either contour lines or filled contours based on the specified plot type and styling parameters. Debug print statements can be included throughout this process to confirm each step of the preparation, interpolation, validation, and rendering of the surface overlay, which can assist in troubleshooting and verifying that each part of the process is being executed correctly based on the inputs provided. 
 
         Parameters:
-            ax (matplotlib.axes.Axes): Axes to draw on.
-            lon (np.ndarray or xarray.DataArray): Longitude coordinates for overlay points.
-            lat (np.ndarray or xarray.DataArray): Latitude coordinates for overlay points.
-            surface_config (Dict[str, Any]): Overlay configuration including 'data' and styling options.
-            lon_min (Optional[float]): Optional lon_min bound derived from caller or data.
-            lon_max (Optional[float]): Optional lon_max bound derived from caller or data.
-            lat_min (Optional[float]): Optional lat_min bound derived from caller or data.
-            lat_max (Optional[float]): Optional lat_max bound derived from caller or data.
-            dataset (Optional[xarray.Dataset]): Optional dataset for remapping.
+            ax (Axes): The GeoAxes instance to which the surface overlay will be added.
+            lon (Union[np.ndarray, xr.DataArray]): Longitude values corresponding to the overlay data points, which can be a numpy array or an xarray DataArray.
+            lat (Union[np.ndarray, xr.DataArray]): Latitude values corresponding to the overlay data points, which can be a numpy array or an xarray DataArray.
+            surface_config (Dict[str, Any]): Configuration dictionary for the surface overlay, expected to contain at least the key 'data' for the overlay data array and optional styling keys.
+            lon_min (Optional[float]): Optional minimum longitude for restricting the overlay to a specific area.
+            lon_max (Optional[float]): Optional maximum longitude for restricting the overlay to a specific area.
+            lat_min (Optional[float]): Optional minimum latitude for restricting the overlay to a specific area.
+            lat_max (Optional[float]): Optional maximum latitude for restricting the overlay to a specific area.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may assist with remapping or interpolation of the overlay data as needed.
 
         Returns:
-            None
+            None: This function modifies the provided GeoAxes instance by adding the surface overlay and does not return any value. It performs all necessary processing steps to prepare, interpolate, validate, and render the overlay based on the input parameters and configuration.
         """
         # Extract the variable name and plot type from the surface configuration, providing default values if they are not specified
         var_name = surface_config.get('var_name', 'overlay')
@@ -1538,42 +1164,40 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         print(f"Added {plot_type} surface overlay for {var_name}")
 
-    def create_batch_surface_maps(
-        self,
-        processor: Any,
-        output_dir: str,
-        lon_min: float,
-        lon_max: float,
-        lat_min: float,
-        lat_max: float,
-        var_name: str = 't2m',
-        plot_type: str = 'scatter',
-        file_prefix: str = 'mpas_surface',
-        formats: List[str] = ['png'],
-        grid_resolution: Optional[float] = None,
-        clim_min: Optional[float] = None,
-        clim_max: Optional[float] = None
-    ) -> List[str]:
+    def create_batch_surface_maps(self: "MPASSurfacePlotter",
+                                  processor: Any,
+                                  output_dir: str,
+                                  lon_min: float,
+                                  lon_max: float,
+                                  lat_min: float,
+                                  lat_max: float,
+                                  var_name: str = 't2m',
+                                  plot_type: str = 'scatter',
+                                  file_prefix: str = 'mpas_surface',
+                                  formats: List[str] = ['png'],
+                                  grid_resolution: Optional[float] = None,
+                                  clim_min: Optional[float] = None,
+                                  clim_max: Optional[float] = None) -> List[str]:
         """
-        The method extracts per-time-step variable data and coordinates from `processor`, invokes `create_surface_map` for each step, saves the plots in the requested formats, and returns a list of created file paths. It prints progress updates during processing and continues on errors to allow robust batch runs. If the processor does not have a loaded dataset, it raises a ValueError to indicate that surface maps cannot be created without data. The method ensures that surface maps are created for each time step in the dataset, with appropriate handling of variable extraction, plotting, and file saving, while also providing feedback on the processing status and any issues encountered.
+        This function performs batch processing to create surface maps for each time step in the loaded dataset using the specified variable name and plot type. It iterates through all available time steps, extracts the necessary data for the specified variable, and creates a surface map for each time step using the `create_surface_map` method. The generated plots are saved to the specified output directory with file names that include the variable name, plot type, and time information for easy identification. The function handles errors gracefully by catching exceptions during the creation of each surface map and logging them without interrupting the entire batch process. It also provides progress updates every 10 time steps to inform the user about the processing status. At the end of the batch processing, it returns a list of file paths for all created surface map files across all requested formats. Debug print statements can be included throughout this process to confirm the progress of batch processing, any errors encountered, and the details of each created surface map, which can assist in troubleshooting and verifying that the batch processing is being executed correctly based on the input parameters. 
 
         Parameters:
-            processor (Any): Processor object with a loaded xarray dataset and helper methods such as `get_2d_variable_data`.
-            output_dir (str): Directory path where output files will be saved.
-            lon_min (float): Western longitude bound in degrees.
-            lon_max (float): Eastern longitude bound in degrees.
-            lat_min (float): Southern latitude bound in degrees.
-            lat_max (float): Northern latitude bound in degrees.
-            var_name (str): Variable name to plot for each time step.
-            plot_type (str): Rendering mode for plots ('scatter', 'contour', etc.).
-            file_prefix (str): Prefix for generated file names.
-            formats (List[str]): List of file formats to save (e.g., ['png', 'pdf']).
-            grid_resolution (Optional[float]): Optional grid resolution for contouring.
-            clim_min (Optional[float]): Optional shared colorbar minimum across the batch.
-            clim_max (Optional[float]): Optional shared colorbar maximum across the batch.
+            processor (Any): The MPAS data processor instance that has a loaded dataset from which to extract variable data for plotting.
+            output_dir (str): The directory where the generated surface map files will be saved.
+            lon_min (float): Minimum longitude for the surface map extent.
+            lon_max (float): Maximum longitude for the surface map extent.
+            lat_min (float): Minimum latitude for the surface map extent.
+            lat_max (float): Maximum latitude for the surface map extent.
+            var_name (str): Name of the 2D surface variable to plot (e.g., 't2m').
+            plot_type (str): Type of plot to create for the surface map, either 'scatter', 'contour', or 'contourf'.
+            file_prefix (str): Prefix to use for the output file names of the generated surface maps.
+            formats (List[str]): List of file formats to save the plots in (e.g., ['png', 'pdf']).
+            grid_resolution (Optional[float]): Optional grid resolution in degrees for remapping the data to a regular lat-lon grid. If not provided, an adaptive resolution will be calculated based on the spatial extent of the data.
+            clim_min (Optional[float]): Optional minimum value for color limits in the plot. If not provided, it will be determined automatically based on the data range.
+            clim_max (Optional[float]): Optional maximum value for color limits in the plot. If not provided, it will be determined automatically based on the data range. 
 
         Returns:
-            List[str]: Paths to all created files (one per requested format per time step).
+            List[str]: A list of file paths for all created surface map files across all requested formats.
         """
         # Validate that the processor has a loaded dataset before attempting to create surface maps, and raise a ValueError if no dataset is available
         if processor.dataset is None:
@@ -1641,49 +1265,45 @@ class MPASSurfacePlotter(MPASVisualizer):
         print(f"\nBatch processing completed. Created {len(created_files)} files.")
         return created_files
 
-    def get_surface_colormap_and_levels(
-        self,
-        var_name: str,
-        data_array: Optional[xr.DataArray] = None
-    ) -> Tuple[str, List[float]]:
+    def get_surface_colormap_and_levels(self: "MPASSurfacePlotter",
+                                        var_name: str,
+                                        data_array: Optional[xr.DataArray] = None) -> Tuple[str, List[float]]:
         """
-        This convenience function queries `MPASFileMetadata` and returns the metadata-provided colormap and level specification, optionally using `data_array` to refine level selection. If the variable name is not recognized, it returns a default colormap and levels. It ensures that the appropriate colormap and contour levels are retrieved based on the variable being plotted, which can help to enhance the visual representation of the data by using metadata-informed styling choices. The method includes debug print statements to confirm the retrieved colormap and levels for the specified variable, which can assist in troubleshooting and verifying that the correct metadata is being applied for the surface plot.
+        This helper function retrieves the appropriate colormap and contour levels for a given 2D surface variable name by looking up metadata from the MPASFileMetadata class. It uses the variable name and optionally the data array to access metadata that specifies the recommended colormap and contour levels for that variable, which can be used to ensure consistent and meaningful visualizations across different variables. The function returns a tuple containing the colormap name and a list of contour levels that can be applied when creating surface maps for the specified variable. Debug print statements can be included to confirm the retrieved colormap and levels for the variable, which can assist in troubleshooting and verifying that the correct styling information is being obtained based on the input parameters. 
 
         Parameters:
-            var_name (str): Name of the 2D surface variable (e.g., 't2m').
-            data_array (Optional[xarray.DataArray]): Optional DataArray used for metadata-aware level selection.
+            var_name (str): The name of the 2D surface variable for which to retrieve the colormap and contour levels. This variable name is used to look up metadata that specifies the recommended styling for that variable.
+            data_array (Optional[xr.DataArray]): An optional xarray DataArray containing the variable data, which may be used in some cases to determine appropriate levels based on the data range. However, in this implementation, it is primarily used for metadata lookup and is not required for retrieving the colormap and levels. 
 
         Returns:
-            Tuple[str, List[float]]: Tuple containing a colormap name and a list of contour levels.
+            Tuple[str, List[float]]: A tuple containing the colormap name (as a string) and a list of contour levels (as floats) that are recommended for visualizing the specified variable. This information can be used when creating surface maps to ensure that the visual styling is appropriate for the variable being plotted.
         """
         # Extract the colormap and levels for the specified variable name from the MPASFileMetadata
         metadata = MPASFileMetadata.get_2d_variable_metadata(var_name, data_array)
         return metadata['colormap'], metadata['levels']
 
-    def create_simple_scatter_plot(
-        self,
-        lon: np.ndarray,
-        lat: np.ndarray,
-        data: np.ndarray,
-        title: str = "MPAS Surface Variable",
-        colorbar_label: str = "Value",
-        colormap: str = 'viridis',
-        point_size: float = 2.0
-    ) -> Tuple[Figure, Axes]:
+    def create_simple_scatter_plot(self: "MPASSurfacePlotter",
+                                   lon: np.ndarray,
+                                   lat: np.ndarray,
+                                   data: np.ndarray,
+                                   title: str = "MPAS Surface Variable",
+                                   colorbar_label: str = "Value",
+                                   colormap: str = 'viridis',
+                                   point_size: float = 2.0) -> Tuple[Figure, Axes]:
         """
-        This lightweight helper uses plain matplotlib axes, filters invalid points, renders a colored scatter with a colorbar, and applies basic labels and branding. It is intended for rapid interactive use where cartographic projection is unnecessary. If the input data contains no valid points after filtering, it raises a ValueError to indicate that a scatter plot cannot be created. It ensures that a simple scatter plot can be created for surface variables without the need for cartographic projections, while also providing basic styling and error handling to manage cases where the input data may not be suitable for plotting. The method includes debug print statements to confirm the number of valid points being plotted and any issues encountered during the creation of the scatter plot, which can assist in troubleshooting and verifying that the plot is created correctly based on the provided parameters.
+        This function creates a simple scatter plot of the provided longitude, latitude, and data values without performing any interpolation or remapping. It is designed for cases where the user wants to visualize the raw data points directly on a map without applying contouring or gridding. The function takes in the coordinate arrays, data values, and styling parameters such as title, colorbar label, colormap, and point size to create a scatter plot that shows the distribution of the data points in geographic space. It filters out any invalid data points (e.g., NaN or infinite values) to ensure that only valid points are plotted. The resulting figure and axes containing the scatter plot are returned for further manipulation or saving by the caller. Debug print statements can be included to confirm the number of valid data points being plotted and the parameters being used for the scatter plot, which can assist in troubleshooting and verifying that the plot is being created correctly based on the input parameters. 
 
         Parameters:
-            lon (np.ndarray): Longitude coordinates in degrees.
-            lat (np.ndarray): Latitude coordinates in degrees.
-            data (np.ndarray): Data values used for color mapping.
-            title (str): Title for the plot.
-            colorbar_label (str): Label for the colorbar.
-            colormap (str): Matplotlib colormap name.
-            point_size (float): Marker size for scatter points.
+            lon (np.ndarray): 1D array of longitude values corresponding to the data points to be plotted.
+            lat (np.ndarray): 1D array of latitude values corresponding to the data points to be plotted.
+            data (np.ndarray): 1D array of data values corresponding to the longitude and latitude coordinates, which will be used for coloring the scatter points.
+            title (str): The title for the scatter plot, which will be displayed at the top of the figure.
+            colorbar_label (str): The label for the colorbar that indicates what the colors represent in terms of data values.
+            colormap (str): The name of the colormap to use for coloring the scatter points based on their data values.
+            point_size (float): The size of the scatter points in the plot, where larger values will result in bigger points. 
 
         Returns:
-            Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: Figure and axes containing the scatter plot.
+            Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: A tuple containing the figure and axes objects for the created scatter plot, which can be further manipulated or saved by the caller. 
         """
         # Create a new figure and axes for the scatter plot with the specified size and resolution
         self.fig, self.ax = plt.subplots(figsize=self.figsize, dpi=self.dpi)
@@ -1734,33 +1354,31 @@ class MPASSurfacePlotter(MPASVisualizer):
         return self.fig, self.ax
 
 
-def create_surface_plot(
-    lon: np.ndarray,
-    lat: np.ndarray,
-    data: np.ndarray,
-    var_name: str,
-    extent: Tuple[float, float, float, float],
-    plot_type: str = 'scatter',
-    title: Optional[str] = None,
-    colormap: Optional[str] = None,
-    **kwargs: Any
-) -> Tuple[Figure, Axes]:
+def create_surface_plot(lon: np.ndarray,
+                        lat: np.ndarray,
+                        data: np.ndarray,
+                        var_name: str,
+                        extent: Tuple[float, float, float, float],
+                        plot_type: str = 'scatter',
+                        title: Optional[str] = None,
+                        colormap: Optional[str] = None,
+                        **kwargs: Any) -> Tuple[Figure, Axes]:
     """
-    This thin wrapper constructs an `MPASSurfacePlotter`, unpacks the `extent` tuple into bounds, and delegates to `create_surface_map`, forwarding extra keyword arguments. It is convenient for quick scripting and interactive sessions. If the input data contains no valid points after filtering, it raises a ValueError to indicate that a surface plot cannot be created. It ensures that a surface plot can be created with minimal setup by providing a simple interface that handles the construction of the plotter and the delegation of plotting tasks, while also providing error handling for cases where the input data may not be suitable for plotting. The method includes debug print statements to confirm the parameters being used for creating the surface plot and any issues encountered during the process, which can assist in troubleshooting and verifying that the plot is created correctly based on the provided parameters.
+    This function serves as a high-level interface for creating a surface plot of a specified variable using the provided longitude, latitude, and data values. It takes in the coordinate arrays, data values, variable name, plot type, and optional styling parameters to create a surface map that visualizes the spatial distribution of the variable across the specified geographic extent. The function creates an instance of the MPASSurfacePlotter class to handle the plotting logic and delegates the creation of the surface map to the plotter's `create_surface_map` method, passing all relevant parameters including any additional keyword arguments for customization. The resulting figure and axes containing the rendered surface map are returned for further manipulation or saving by the caller. Debug print statements can be included to confirm the parameters being used for creating the surface plot and to indicate when the plot creation process is being initiated, which can assist in troubleshooting and verifying that the function is being called correctly based on the input parameters. 
 
     Parameters:
-        lon (np.ndarray): 1D longitude array in degrees.
-        lat (np.ndarray): 1D latitude array in degrees.
-        data (np.ndarray): 1D data values corresponding to the coordinate arrays.
-        var_name (str): Variable name used for metadata lookup and unit conversion.
-        extent (Tuple[float, float, float, float]): (lon_min, lon_max, lat_min, lat_max) bounds for the plot.
-        plot_type (str): Rendering mode ('scatter', 'contour', or 'contourf').
-        title (Optional[str]): Optional title override.
-        colormap (Optional[str]): Optional colormap override.
-        **kwargs (Any): Additional keyword arguments passed to `MPASSurfacePlotter.create_surface_map`.
+        lon (np.ndarray): 1D array of longitude values corresponding to the data points to be plotted.
+        lat (np.ndarray): 1D array of latitude values corresponding to the data points to be plotted.
+        data (np.ndarray): 1D array of data values corresponding to the longitude and latitude coordinates, which will be used for coloring the plot.
+        var_name (str): The name of the variable being plotted, which can be used for labeling and metadata lookup.
+        extent (Tuple[float, float, float, float]): A tuple specifying the geographic extent of the plot in the format (lon_min, lon_max, lat_min, lat_max).
+        plot_type (str): The type of plot to create for the surface map, either 'scatter', 'contour', or 'contourf'.
+        title (Optional[str]): An optional title for the plot that will be displayed at the top of the figure. If not provided, a default title may be generated based on the variable name and plot type.
+        colormap (Optional[str]): An optional name of the colormap to use for coloring the plot based on data values. If not provided, a default colormap may be used based on the variable metadata.
+        **kwargs: Additional keyword arguments that can be passed to customize various aspects of the plot creation process, such as styling options for contours or scatter points.
 
     Returns:
-        Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: Figure and GeoAxes with the rendered map.
+        Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: A tuple containing the figure and axes objects for the created surface plot, which can be further manipulated or saved by the caller.
     """
     # Create an instance of the MPASSurfacePlotter to handle the plotting of the surface map
     plotter = MPASSurfacePlotter()

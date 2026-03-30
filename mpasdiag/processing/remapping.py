@@ -1,16 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Data Remapping using KDTree.
+MPASdiag Core Processing Module: Data Remapping using KDTree.
 
-This module provides fast, efficient regridding functionality for MPAS unstructured mesh data using KDTree nearest neighbor interpolation. The implementation uses scipy's KDTree spatial indexing for O(log n) lookups to map MPAS cell values to regular latitude-longitude grids. This approach is significantly faster than xESMF-based methods, preserves original data values without smoothing, and requires less memory. The module supports batch processing of multiple variables, automatic coordinate detection from MPAS conventions, and placement of data at grid cell centers for compatibility with standard visualization and analysis tools. While the MPASRemapper class remains available for advanced xESMF workflows, the remap_mpas_to_latlon convenience function provides a simple, fast interface for most common use cases.
-
-Classes:
-    MPASRemapper: Advanced class for regridding MPAS data using xESMF (for specialized workflows).
-    
-Functions:
-    remap_mpas_to_latlon: Fast KDTree-based remapping from MPAS to regular lat-lon grids (recommended).
-    create_target_grid: Helper function to generate target grid dataset specifications.
+This module provides functionality for remapping MPAS unstructured grid data to regular latitude-longitude grids using a KDTree-based nearest neighbor approach. It includes automatic detection and conversion of coordinate units, generation of intermediate structured grids, and efficient querying of nearest source points for target grid locations. This is particularly useful for preparing MPAS data for visualization or analysis on regular grids without the overhead of building full xESMF regridders, while still maintaining spatial relationships as closely as possible. The module also includes utilities for estimating memory usage and cleaning up resources after remapping operations.
     
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -43,17 +36,17 @@ except ImportError:
     )
 
 
-def _convert_coordinates_to_degrees(lon: Union[np.ndarray, xr.DataArray],
-                                     lat: Union[np.ndarray, xr.DataArray]) -> Tuple[np.ndarray, np.ndarray]:
+def _convert_coordinates_to_degrees(lon: Union[np.ndarray, xr.DataArray], 
+                                    lat: Union[np.ndarray, xr.DataArray]) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Helper function to convert coordinates from radians to degrees and extract numpy arrays.
+    This helper function checks the input longitude and latitude coordinates to determine if they are in degrees or radians based on their maximum absolute values. If the maximum absolute value of the coordinates is less than or equal to π, it assumes the coordinates are in radians and converts them to degrees using numpy's degrees function. If the coordinates are already in degrees (i.e., max absolute value greater than π), it returns them unchanged. The function also handles both xarray DataArrays and numpy arrays as input, ensuring that the output is always a numpy array in degrees suitable for use in xESMF regridding operations. This automatic detection and conversion simplifies the user experience by allowing flexibility in input coordinate formats while ensuring compatibility with xESMF's requirements for degree-based coordinates. 
     
     Parameters:
-        lon: Longitude coordinates (may be DataArray or ndarray, in degrees or radians)
-        lat: Latitude coordinates (may be DataArray or ndarray, in degrees or radians)
+        lon (Union[np.ndarray, xr.DataArray]): Longitude coordinates in either degrees or radians with automatic detection.
+        lat (Union[np.ndarray, xr.DataArray]): Latitude coordinates in either degrees or radians with automatic detection.
     
     Returns:
-        Tuple of (lon_deg, lat_deg) as numpy arrays in degrees
+        Tuple[np.ndarray, np.ndarray]: Converted longitude and latitude coordinates in degrees as numpy arrays. 
     """
     if isinstance(lon, xr.DataArray):
         lon = lon.values
@@ -67,16 +60,17 @@ def _convert_coordinates_to_degrees(lon: Union[np.ndarray, xr.DataArray],
     return lon_deg, lat_deg
 
 
-def _compute_grid_bounds(coords: np.ndarray, resolution: float) -> np.ndarray:
+def _compute_grid_bounds(coords: np.ndarray, 
+                         resolution: float) -> np.ndarray:
     """
-    Helper function to compute grid cell bounds from cell centers.
+    This helper function computes the grid bounds for a given 1D array of coordinate centers and a specified grid spacing (resolution). It calculates the bounds by taking the midpoints between adjacent coordinate centers and extending the first and last bounds by half the resolution to ensure that the grid cells are properly defined around the center points. The resulting bounds array has a length of one more than the input coordinates, which is required for conservative remapping methods in xESMF that rely on cell corner coordinates. This function is essential for preparing the grid specification when using conservative interpolation methods, ensuring that the spatial relationships between grid cells are accurately represented in the remapping process. 
     
     Parameters:
-        coords: 1D array of coordinate centers
-        resolution: Grid spacing
+        coords (np.ndarray): 1D array of coordinate centers (e.g., longitude or latitude values).
+        resolution (float): Grid spacing in degrees, used to calculate the extent of the bounds around the center points. 
     
     Returns:
-        1D array of coordinate bounds (length = len(coords) + 1)
+        np.ndarray: 1D array of grid bounds with length equal to len(coords) + 1, representing the edges of the grid cells. 
     """
     bounds = np.zeros(len(coords) + 1)
     bounds[0] = coords[0] - resolution / 2
@@ -90,19 +84,9 @@ def _compute_grid_bounds(coords: np.ndarray, resolution: float) -> np.ndarray:
 
 
 class MPASRemapper:
-    """
-    This class provides a high-level interface to xESMF regridding functionality specifically designed for MPAS output, supporting all interpolation methods (bilinear, conservative, patch, nearest_s2d, nearest_d2s, conservative_normed), automatic coordinate detection from MPAS conventions, weight file caching for repeated operations, and batch processing of multiple variables. The remapper handles both cell-centered (nCells) and vertex-based (nVertices) MPAS fields, performs proper unit sphere coordinate conversion, manages periodic boundaries for global domains, and applies conservative renormalization when needed. It integrates seamlessly with xarray workflows and provides options for handling masked regions, parallel processing, and memory-efficient chunked operations.
+    """ High-level interface for remapping MPAS unstructured grid data to regular latitude-longitude grids using xESMF interpolation methods. """
     
-    Attributes:
-        source_grid (xr.Dataset): MPAS source grid with lon/lat coordinates
-        target_grid (xr.Dataset): Target regular grid specification
-        method (str): Regridding method name
-        regridder (xe.Regridder): Cached xESMF regridder object
-        weights_dir (Optional[Path]): Directory for weight file caching
-        reuse_weights (bool): Whether to reuse existing weight files
-    """
-    
-    def __init__(self,
+    def __init__(self: 'MPASRemapper', 
                  method: str = 'bilinear',
                  weights_dir: Optional[Union[str, Path]] = None,
                  reuse_weights: bool = True,
@@ -111,23 +95,19 @@ class MPASRemapper:
                  extrap_dist_exponent: Optional[float] = None,
                  extrap_num_src_pnts: Optional[int] = None) -> None:
         """
-        This constructor configures the remapping engine by selecting the xESMF interpolation method and setting up weight file management for efficient repeated operations. The method parameter determines the interpolation algorithm used in the second step of the hybrid approach, after KDTree has created the intermediate 2D grid. Weight file caching significantly improves performance for repeated remapping operations with the same source and target grid combinations. Optional extrapolation parameters control how missing values are handled at grid boundaries or masked regions.
+        This constructor initializes the MPASRemapper instance with user-defined settings for the interpolation method, weight caching, periodicity, and extrapolation options. It validates the selected interpolation method against a list of supported methods and sets up the internal state for managing grid specifications and the regridder object. If a weights directory is provided, it ensures that the directory exists for storing or loading pre-computed interpolation weights, which can significantly improve performance for repeated remapping operations with the same source-target grid pair. The constructor also prepares internal variables to hold the source and target grid datasets and the regridder object, which will be configured in subsequent steps. This initialization step is crucial for setting up the remapping workflow and ensuring that all necessary parameters are defined before performing any remapping operations. 
         
         Parameters:
-            method (str): xESMF interpolation method name - 'bilinear', 'patch', 'nearest_s2d', 'nearest_d2s', 'conservative', or 'conservative_normed' (default: 'bilinear').
-            weights_dir (Optional[Union[str, Path]]): Directory path for storing and loading weight files to enable reuse across sessions (default: None creates temporary weights).
-            reuse_weights (bool): Enable loading existing weight files instead of recomputing for identical grid configurations (default: True).
-            periodic (bool): Specify if source grid has periodic longitude boundaries for global domains (default: False).
-            extrap_method (Optional[str]): Extrapolation algorithm for handling missing values - 'inverse_dist' or 'nearest_s2d' (default: None disables extrapolation).
-            extrap_dist_exponent (Optional[float]): Distance weighting exponent for inverse distance extrapolation method (default: None uses xESMF default value).
-            extrap_num_src_pnts (Optional[int]): Number of source points to use in extrapolation calculations (default: None uses xESMF default value).
+            method (str): Interpolation method to use for remapping, options include 'bilinear', 'conservative', 'conservative_normed', 'patch', 'nearest_s2d', and 'nearest_d2s' (default: 'bilinear').
+            weights_dir (Optional[Union[str, Path]]): Directory path for storing or loading pre-computed interpolation weights to speed up repeated remapping with the same grid pair (default: None).
+            reuse_weights (bool): Whether to reuse existing weight files in weights_dir if available, or overwrite them by recomputing (default: True).
+            periodic (bool): Whether the source grid is periodic in longitude, which affects how xESMF handles edge cases during interpolation (default: False).
+            extrap_method (Optional[str]): Extrapolation method to use for target points outside the convex hull of source points, options include 'nearest_s2d', 'nearest_d2s', and 'inverse_distance' (default: None).
+            extrap_dist_exponent (Optional[float]): Exponent for inverse distance weighting when using 'inverse_distance' extrapolation method, controls how quickly influence decreases with distance (default: None).
+            extrap_num_src_pnts (Optional[int]): Number of nearest source points to consider when performing extrapolation for out-of-hull target points, applicable for both nearest and inverse distance methods (default: None). 
         
         Returns:
             None
-        
-        Raises:
-            ImportError: If xESMF package is not installed or cannot be imported.
-            ValueError: If specified method name is not in the supported methods list.
         """
         if not XESMF_AVAILABLE:
             raise ImportError(
@@ -162,22 +142,22 @@ class MPASRemapper:
         
         print(f"MPASRemapper initialized with method: {method}")
     
-    def prepare_source_grid(self,
-                          lon: Union[np.ndarray, xr.DataArray],
-                          lat: Union[np.ndarray, xr.DataArray],
-                          lon_bounds: Optional[Union[np.ndarray, xr.DataArray]] = None,
-                          lat_bounds: Optional[Union[np.ndarray, xr.DataArray]] = None) -> xr.Dataset:
+    def prepare_source_grid(self: 'MPASRemapper', 
+                            lon: Union[np.ndarray, xr.DataArray], 
+                            lat: Union[np.ndarray, xr.DataArray], 
+                            lon_bounds: Optional[Union[np.ndarray, xr.DataArray]] = None, 
+                            lat_bounds: Optional[Union[np.ndarray, xr.DataArray]] = None) -> xr.Dataset:
         """
-        This method transforms MPAS native coordinate arrays into the standardized format required by xESMF regridding operations. The conversion includes automatic detection and transformation of radian coordinates to degrees, normalization of longitude values to the 0-360 range, and creation of properly named coordinate variables. Optional cell boundary coordinates can be provided for conservative remapping methods that require vertex information for area-weighted interpolation. The resulting dataset serves as the source grid specification for xESMF regridder initialization.
+        This method prepares the source grid specification for xESMF by converting the input longitude and latitude coordinates to degrees if necessary, and then creating an xarray Dataset that contains the 'lon' and 'lat' coordinate arrays. If boundary coordinates are provided for conservative remapping methods, it also includes 'lon_b' and 'lat_b' arrays in the dataset. The method ensures that longitude values are in the [0, 360] range if they were originally in degrees and negative, which is a common convention for global datasets. The resulting source grid dataset is stored internally for use in building the regridder and can be returned for inspection or further processing. This step is essential for defining the spatial structure of the input MPAS data before performing any remapping operations with xESMF. 
         
         Parameters:
-            lon (Union[np.ndarray, xr.DataArray]): Cell center longitude coordinates in either degrees or radians with automatic detection.
-            lat (Union[np.ndarray, xr.DataArray]): Cell center latitude coordinates in either degrees or radians with automatic detection.
-            lon_bounds (Optional[Union[np.ndarray, xr.DataArray]]): Cell corner longitude coordinates with shape (nCells, nVertices) for conservative methods (default: None).
-            lat_bounds (Optional[Union[np.ndarray, xr.DataArray]]): Cell corner latitude coordinates with shape (nCells, nVertices) for conservative methods (default: None).
+            lon (Union[np.ndarray, xr.DataArray]): Longitude coordinates of the source grid in degrees or radians.
+            lat (Union[np.ndarray, xr.DataArray]): Latitude coordinates of the source grid in degrees or radians.
+            lon_bounds (Optional[Union[np.ndarray, xr.DataArray]]): Optional longitude boundary coordinates for conservative remapping methods, should have shape (nCells, nv) where nv is number of vertices per cell (default: None).
+            lat_bounds (Optional[Union[np.ndarray, xr.DataArray]]): Optional latitude boundary coordinates for conservative remapping methods, should have shape (nCells, nv) where nv is number of vertices per cell (default: None). 
         
         Returns:
-            xr.Dataset: Source grid dataset containing 'lon' and 'lat' coordinate arrays plus optional 'lon_b' and 'lat_b' boundary arrays.
+            xr.Dataset: Source grid dataset containing 'lon' and 'lat' coordinate arrays, and optionally 'lon_b' and 'lat_b' for conservative remapping. 
         """
         lon, lat = _convert_coordinates_to_degrees(lon, lat)
         
@@ -199,7 +179,7 @@ class MPASRemapper:
         self.source_grid = source_grid
         return source_grid
     
-    def create_target_grid(self,
+    def create_target_grid(self: 'MPASRemapper',
                           lon_min: float = -180.0,
                           lon_max: float = 180.0,
                           lat_min: float = -90.0,
@@ -207,18 +187,18 @@ class MPASRemapper:
                           dlon: float = 1.0,
                           dlat: float = 1.0) -> xr.Dataset:
         """
-        This method generates a regular rectilinear grid specification suitable for xESMF remapping operations with customizable geographic bounds and spatial resolution. The grid uses cell-center coordinates arranged in a uniform spacing pattern that can represent either regional or global domains. Longitude boundaries can be specified using either the [-180, 180] or [0, 360] convention depending on the target application. The resulting dataset is stored internally and used as the destination grid for subsequent remapping operations.
+        This method creates a regular latitude-longitude target grid specification for xESMF based on user-defined spatial boundaries and grid spacing. It generates 1D coordinate arrays for longitude and latitude using numpy's arange function, ensuring that the grid points are centered within the specified bounds. The method validates that the longitude and latitude boundaries are within acceptable ranges and that the maximum values are greater than the minimum values. The resulting target grid dataset contains 'lon' and 'lat' coordinate arrays with dimensions ['lon'] and ['lat'], which are stored internally for use in building the regridder. This step is crucial for defining the structure of the output grid onto which MPAS data will be remapped using xESMF's interpolation capabilities. 
         
         Parameters:
-            lon_min (float): Western longitude boundary in degrees, supporting both [-180, 180] and [0, 360] conventions (default: -180.0).
-            lon_max (float): Eastern longitude boundary in degrees, must be greater than lon_min (default: 180.0).
-            lat_min (float): Southern latitude boundary in degrees, range [-90, 90] (default: -90.0).
-            lat_max (float): Northern latitude boundary in degrees, range [-90, 90], must be greater than lat_min (default: 90.0).
-            dlon (float): Longitude grid spacing in degrees, determines resolution in east-west direction (default: 1.0).
-            dlat (float): Latitude grid spacing in degrees, determines resolution in north-south direction (default: 1.0).
+            lon_min (float): Minimum longitude for target grid in degrees, should be within [-360, 360] range (default: -180.0).
+            lon_max (float): Maximum longitude for target grid in degrees, should be within [-360, 360] range and greater than lon_min (default: 180.0).
+            lat_min (float): Minimum latitude for target grid in degrees, should be within [-90, 90] range (default: -90.0).
+            lat_max (float): Maximum latitude for target grid in degrees, should be within [-90, 90] range and greater than lat_min (default: 90.0).
+            dlon (float): Grid spacing in degrees for longitude direction, should be positive (default: 1.0).
+            dlat (float): Grid spacing in degrees for latitude direction, should be positive (default: 1.0).
         
         Returns:
-            xr.Dataset: Target grid dataset containing 1D 'lon' and 'lat' coordinate arrays with dimensions ['lon'] and ['lat'].
+            xr.Dataset: Target grid dataset containing 'lon' and 'lat' coordinate arrays with dimensions ['lon'] and ['lat'] for use in xESMF remapping. 
         """
         lon = np.arange(lon_min, lon_max + dlon/2, dlon)
         lat = np.arange(lat_min, lat_max + dlat/2, dlat)
@@ -236,24 +216,20 @@ class MPASRemapper:
         
         return target_grid
     
-    def build_regridder(self,
+    def build_regridder(self: 'MPASRemapper',
                        source_grid: Optional[xr.Dataset] = None,
                        target_grid: Optional[xr.Dataset] = None,
                        filename: Optional[str] = None) -> 'xe.Regridder':
         """
-        This method initializes the core xESMF regridder that performs the actual interpolation transformation from source to target grid coordinates. Weight computation is computationally expensive, involving sparse matrix construction for the interpolation operator, so the method supports caching weights to disk for reuse in subsequent operations with identical grid configurations. The regridder is configured with the interpolation method, periodicity settings, and extrapolation options specified during class initialization. Optional weight file management enables significant performance improvements for repeated remapping workflows.
+        This method builds the xESMF regridder object based on the prepared source and target grid specifications. It checks if the source and target grids have been provided as arguments or if they have been prepared and stored internally, raising an error if either grid is missing. The method then constructs the regridder using the specified interpolation method, periodicity, and extrapolation options. If a weights directory is configured and a filename is not provided, it auto-generates a descriptive filename for the weight file based on the method and grid sizes. The regridder is configured to reuse weights if specified, which can significantly speed up remapping operations for repeated grid pairs. After building the regridder, it is stored internally for use in remapping operations and returned for potential external use. This step is essential for setting up the actual remapping mechanism that will be applied to MPAS data using xESMF's powerful interpolation capabilities. 
         
         Parameters:
-            source_grid (Optional[xr.Dataset]): Source grid dataset with coordinate specifications, uses self.source_grid if not provided (default: None).
-            target_grid (Optional[xr.Dataset]): Target grid dataset with coordinate specifications, uses self.target_grid if not provided (default: None).
-            filename (Optional[str]): Custom weight file name for this specific source-target grid pair, auto-generates descriptive name if not provided (default: None).
+            source_grid (Optional[xr.Dataset]): Source grid dataset containing 'lon' and 'lat' coordinate arrays, and optionally 'lon_b' and 'lat_b' for conservative remapping. If None, uses internally stored source grid (default: None).
+            target_grid (Optional[xr.Dataset]): Target grid dataset containing 'lon' and 'lat' coordinate arrays for use in xESMF remapping. If None, uses internally stored target grid (default: None).
+            filename (Optional[str]): Optional filename for storing or loading pre-computed interpolation weights. If None and weights_dir is set, auto-generates a filename based on method and grid sizes (default: None).
         
         Returns:
-            xe.Regridder: Configured xESMF regridder object ready for data transformation operations.
-        
-        Raises:
-            ValueError: If source grid is not available either as parameter or stored in self.source_grid.
-            ValueError: If target grid is not available either as parameter or stored in self.target_grid.
+            xe.Regridder: Configured xESMF regridder object ready for remapping operations. 
         """
         if source_grid is None:
             if self.source_grid is None:
@@ -300,22 +276,18 @@ class MPASRemapper:
         
         return self.regridder
     
-    def remap(self,
+    def remap(self: 'MPASRemapper',
              data: Union[xr.DataArray, np.ndarray],
              keep_attrs: bool = True) -> xr.DataArray:
         """
-        This method executes the actual data transformation using the pre-configured xESMF regridder object, applying the selected interpolation algorithm to map values from source to target grid points. The method handles both xarray DataArrays with full metadata preservation and raw numpy arrays with automatic dimension inference. For multi-dimensional input data containing additional dimensions beyond the spatial coordinates (such as time series or vertical levels), the method automatically detects and preserves these auxiliary dimensions while applying the spatial transformation. The interpolation respects masked regions and handles missing values according to the configured extrapolation settings.
+        This method applies the configured xESMF regridder to remap a single variable from the source grid to the target grid. It checks if the regridder has been built before attempting to remap, raising an error if it is not available. The method supports both xarray DataArrays and numpy arrays as input, converting numpy arrays to DataArrays with a default dimension if necessary. The remapping operation is performed using the regridder object, and the resulting remapped data is returned as an xarray DataArray with proper coordinate labels corresponding to the target grid. If keep_attrs is True, it preserves the attributes and metadata from the input DataArray in the remapped output, which can be important for maintaining context and information about the variable being remapped. This method provides a simple interface for applying the remapping operation to individual variables after setting up the regridder with the desired source and target grids. 
         
         Parameters:
-            data (Union[xr.DataArray, np.ndarray]): Input data array on source grid with shape matching source grid size, supports xarray with metadata or numpy arrays.
-            keep_attrs (bool): Flag to preserve xarray variable attributes and metadata in the remapped output (default: True).
+            data (Union[xr.DataArray, np.ndarray]): Input data array defined on source grid, can be an xarray DataArray or a numpy array (default: None).
+            keep_attrs (bool): Whether to preserve attributes and metadata from the input DataArray in the remapped output (default: True).
         
         Returns:
-            xr.DataArray: Remapped data on target grid with proper coordinate labels and optional preserved metadata.
-        
-        Raises:
-            ValueError: If regridder object has not been built via build_regridder() method call.
-            ValueError: If input data shape is incompatible with the configured source grid dimensions.
+            xr.DataArray: Remapped data on target grid as an xarray DataArray with appropriate coordinates and optionally preserved attributes. 
         """
         if self.regridder is None:
             raise ValueError("Regridder must be built before remapping. Call build_regridder() first.")
@@ -327,24 +299,20 @@ class MPASRemapper:
         
         return xr.DataArray(result) if not isinstance(result, xr.DataArray) else result
     
-    def remap_dataset(self,
+    def remap_dataset(self: 'MPASRemapper',
                      dataset: xr.Dataset,
                      variables: Optional[List[str]] = None,
                      skip_missing: bool = True) -> xr.Dataset:
         """
-        This method efficiently processes multiple data variables from an xarray Dataset by applying the same regridder configuration to each variable in sequence. The batch processing approach reuses the pre-computed interpolation weights across all variables, significantly improving performance compared to individual remapping operations. Non-spatial dimensions such as time series or vertical levels are automatically preserved in their original structure while only the spatial dimensions undergo transformation. The method provides flexible variable selection and error handling options to accommodate datasets with heterogeneous variable structures.
+        This method applies the remapping operation to multiple variables within an xarray Dataset, allowing users to specify a subset of variables to remap or to remap all data variables if none are specified. It checks if the regridder has been built before attempting to remap, raising an error if it is not available. The method iterates over the specified variables, applying the remapping operation to each one and collecting the results in a new dataset. If a specified variable is not found in the input dataset, it can either skip that variable with a warning or raise an error based on the skip_missing flag. After remapping all specified variables, it returns a new xarray Dataset containing the remapped variables on the target grid, along with preserved non-spatial dimensions and metadata from the original dataset. This method provides a convenient way to apply remapping operations to multiple variables in a single step while maintaining flexibility in variable selection and error handling. 
         
         Parameters:
-            dataset (xr.Dataset): Input xarray Dataset containing multiple data variables on source grid with shared spatial dimensions.
-            variables (Optional[List[str]]): List of variable names to remap from the dataset, processes all data variables if not specified (default: None).
-            skip_missing (bool): Continue processing remaining variables if a specified variable is not found in dataset (default: True).
+            dataset (xr.Dataset): Input xarray Dataset containing variables defined on the source grid to be remapped.
+            variables (Optional[List[str]]): List of variable names in the dataset to remap. If None, all data variables will be remapped (default: None).
+            skip_missing (bool): Whether to skip variables that are specified but not found in the dataset, with a warning, or to raise an error (default: True). 
         
         Returns:
-            xr.Dataset: New xarray Dataset containing all remapped variables on target grid with preserved non-spatial dimensions and metadata.
-        
-        Raises:
-            ValueError: If regridder has not been built before calling this method.
-            ValueError: If skip_missing is False and a specified variable name is not found in the input dataset.
+            xr.Dataset: New xarray Dataset containing the remapped variables on the target grid, with preserved non-spatial dimensions and metadata. 
         """
         if self.regridder is None:
             raise ValueError("Regridder must be built before remapping")
@@ -380,52 +348,31 @@ class MPASRemapper:
         return output_ds
     
     @staticmethod
-    def unstructured_to_structured_grid(
-        data: Union[xr.DataArray, np.ndarray],
-        lon: Union[np.ndarray, xr.DataArray],
-        lat: Union[np.ndarray, xr.DataArray],
-        intermediate_resolution: float = 0.1,
-        lon_min: Optional[float] = None,
-        lon_max: Optional[float] = None,
-        lat_min: Optional[float] = None,
-        lat_max: Optional[float] = None,
-        buffer: float = 2.0
-    ) -> Tuple[xr.DataArray, xr.Dataset]:
+    def unstructured_to_structured_grid(data: Union[xr.DataArray, np.ndarray], 
+                                        lon: Union[np.ndarray, xr.DataArray], 
+                                        lat: Union[np.ndarray, xr.DataArray], 
+                                        intermediate_resolution: float = 0.1, 
+                                        lon_min: Optional[float] = None, 
+                                        lon_max: Optional[float] = None, 
+                                        lat_min: Optional[float] = None, 
+                                        lat_max: Optional[float] = None, 
+                                        buffer: float = 2.0) -> Tuple[xr.DataArray, xr.Dataset]:
         """
-        This is a two-step remapping approach that solves xESMF's incompatibility with unstructured MPAS grids by first using KDTree to map unstructured points to an intermediate 2D structured grid, which can then be used with xESMF for advanced interpolation (bilinear, conservative, patch) to the final target grid. The method creates a regular latitude-longitude grid at the specified intermediate resolution, uses scipy's KDTree for O(log n) nearest neighbor lookups to populate the grid with MPAS data values, and generates proper cell boundary coordinates required for conservative remapping. This approach combines KDTree's ability to handle unstructured point clouds with xESMF's sophisticated interpolation algorithms, enabling the full range of xESMF methods to be applied to MPAS output data.
+        This static method provides a utility for converting MPAS unstructured grid data into a 2D structured grid format using a KDTree-based nearest neighbor interpolation approach. It automatically detects the coordinate units (degrees or radians) and converts them to degrees if necessary. The method generates an intermediate regular grid based on user-defined spatial boundaries and resolution, then constructs a KDTree from the original unstructured coordinates to efficiently find the nearest source point for each target point on the intermediate grid. The resulting 2D structured data array is returned as an xarray DataArray with proper coordinate labels corresponding to the target grid, along with a Dataset containing the intermediate grid specification with coordinates and bounds. This function is useful for quickly preparing MPAS data for visualization or analysis on regular lat-lon grids without requiring the full setup of xESMF regridders, while still maintaining spatial relationships as closely as possible. 
         
         Parameters:
-            data (Union[xr.DataArray, np.ndarray]): Source data on unstructured MPAS grid
-            lon (Union[np.ndarray, xr.DataArray]): Source longitude coordinates
-            lat (Union[np.ndarray, xr.DataArray]): Source latitude coordinates
-            intermediate_resolution (float): Resolution of intermediate 2D grid in degrees 
-                (default: 0.1°, finer than typical target for better interpolation quality)
-            lon_min (Optional[float]): Minimum longitude for intermediate grid (auto-detected if None)
-            lon_max (Optional[float]): Maximum longitude for intermediate grid (auto-detected if None)
-            lat_min (Optional[float]): Minimum latitude for intermediate grid (auto-detected if None)
-            lat_max (Optional[float]): Maximum latitude for intermediate grid (auto-detected if None)
-            buffer (float): Buffer in degrees around data extent (default: 2.0)
+            data (Union[xr.DataArray, np.ndarray]): Input data array defined on MPAS unstructured grid with shape (nCells,) or subset.
+            lon (Union[np.ndarray, xr.DataArray]): MPAS cell center longitude coordinates in degrees or radians.
+            lat (Union[np.ndarray, xr.DataArray]): MPAS cell center latitude coordinates in degrees or radians.
+            intermediate_resolution (float): Grid spacing in degrees for the intermediate structured grid (default: 0.1).
+            lon_min (Optional[float]): Minimum longitude for intermediate grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+            lon_max (Optional[float]): Maximum longitude for intermediate grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+            lat_min (Optional[float]): Minimum latitude for intermediate grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+            lat_max (Optional[float]): Maximum latitude for intermediate grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+            buffer (float): Additional buffer in degrees to add to the spatial extent of the intermediate grid beyond the min/max of input coordinates when auto-determining bounds (default: 2.0). 
         
         Returns:
-            Tuple[xr.DataArray, xr.Dataset]: 
-                - DataArray with data on 2D structured grid (ready for xESMF)
-                - Dataset with grid specification (for xESMF source grid)
-        
-        Example:
-            >>> # Step 1: Convert unstructured to 2D structured
-            >>> structured_data, structured_grid = MPASRemapper.unstructured_to_structured_grid(
-            ...     data=temperature,
-            ...     lon=mpas_lon,
-            ...     lat=mpas_lat,
-            ...     intermediate_resolution=0.1
-            ... )
-            >>> 
-            >>> # Step 2: Use xESMF for advanced interpolation
-            >>> remapper = MPASRemapper(method='bilinear')
-            >>> remapper.source_grid = structured_grid
-            >>> remapper.create_target_grid(lon_min=110, lon_max=120, dlon=1.0, dlat=1.0)
-            >>> remapper.build_regridder()
-            >>> final_result = remapper.remap(structured_data)
+            Tuple[xr.DataArray, xr.Dataset]: A tuple containing the remapped data as an xarray DataArray on the intermediate structured grid, and a Dataset containing the intermediate grid specification with coordinates and bounds. 
         """
         try:
             from scipy.spatial import KDTree
@@ -505,9 +452,9 @@ class MPASRemapper:
         
         return structured_data, structured_grid
     
-    def cleanup(self) -> None:
+    def cleanup(self: 'MPASRemapper') -> None:
         """
-        This method performs explicit cleanup of the xESMF regridder object and associated weight matrices to release allocated memory resources. The cleanup operation removes both the regridder instance and any cached grid specifications stored in class attributes. This is particularly useful when processing multiple different grid pairs sequentially in a single session, as it prevents memory accumulation from multiple regridder instances. After cleanup, a new regridder must be built before performing additional remapping operations.
+        This method cleans up resources associated with the regridder and grid specifications to free up memory. It checks if the regridder object exists and sets it to None, and also clears the source and target grid datasets. This is important for managing memory usage, especially when working with large grids or performing multiple remapping operations in a loop. After calling this method, the MPASRemapper instance will need to be reconfigured with new grid specifications and a new regridder before performing any further remapping operations. 
         
         Parameters:
             None
@@ -524,17 +471,19 @@ class MPASRemapper:
         print("Regridder resources cleaned up")
     
     @staticmethod
-    def estimate_memory_usage(n_source: int, n_target: int, method: str) -> float:
+    def estimate_memory_usage(n_source: int, 
+                              n_target: int, 
+                              method: str) -> float:
         """
-        This utility function provides rough memory usage estimates to help users plan large-scale remapping operations and avoid out-of-memory errors. The calculation accounts for sparse weight matrix storage requirements which vary significantly by interpolation method, plus temporary storage for source and target data arrays. Conservative methods require more neighbor connections per target cell and thus use more memory than bilinear or nearest neighbor approaches. The estimates are approximate and actual memory usage may vary depending on grid geometry, land-sea masks, and xESMF implementation details.
+        This static method provides an estimate of the peak memory usage during the regridding operation based on the number of source and target grid points and the selected interpolation method. It calculates the memory required for storing the weight matrix, which depends on the sparsity pattern determined by the interpolation method, as well as the memory needed for the input and output data arrays. The method returns an estimated total memory usage in gigabytes (GB), which can be useful for planning and managing resources when working with large grids or limited memory environments. This estimation can help users understand the potential memory requirements before performing a remapping operation, allowing them to adjust grid sizes or select more memory-efficient methods if necessary. 
         
         Parameters:
-            n_source (int): Total number of grid points in the source mesh or grid.
-            n_target (int): Total number of grid points in the target output grid.
-            method (str): Interpolation method name determining sparsity pattern of weight matrix.
+            n_source (int): Number of points in the source grid (e.g., number of cells in MPAS).
+            n_target (int): Number of points in the target grid (e.g., number of points in the regular lat-lon grid).
+            method (str): Interpolation method used for remapping, which affects the sparsity of the weight matrix and thus the memory usage. Supported methods include 'bilinear', 'conservative', 'conservative_normed', 'patch', 'nearest_s2d', and 'nearest_d2s'. 
         
         Returns:
-            float: Estimated peak memory usage during regridding operation in gigabytes (GB).
+            float: Estimated total memory usage in gigabytes (GB) for the regridding operation based on the input grid sizes and interpolation method. 
         """
         if method in ['conservative', 'conservative_normed']:
             nnz_per_target = 8
@@ -552,7 +501,7 @@ class MPASRemapper:
         return total_memory
 
 
-def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
+def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray], 
                          lon: Union[np.ndarray, xr.DataArray],
                          lat: Union[np.ndarray, xr.DataArray],
                          lon_min: float = -180.0,
@@ -562,21 +511,21 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
                          resolution: float = 1.0,
                          method: str = 'nearest') -> xr.DataArray:
     """
-    Remap MPAS unstructured mesh data to a regular latitude-longitude grid using scipy interpolation methods. This function supports both nearest neighbor (fast, preserves exact values) and linear interpolation (smooth fields suitable for contour plots). Data is placed at grid cell centers for compatibility with standard visualization and analysis tools.
+    This function provides a convenient interface for remapping MPAS unstructured grid data to a regular latitude-longitude grid using a KDTree-based nearest neighbor interpolation method. It automatically detects the coordinate units (degrees or radians) and converts them to degrees if necessary. The function generates a regular target grid based on user-defined spatial boundaries and resolution, then constructs a KDTree from the original unstructured coordinates to efficiently find the nearest source point for each target point on the regular grid. The resulting remapped data is returned as an xarray DataArray with proper coordinate labels corresponding to the target grid. This function is useful for quickly preparing MPAS data for visualization or analysis on regular lat-lon grids without requiring the full setup of xESMF regridders, while still maintaining spatial relationships as closely as possible. 
     
     Parameters:
         data (Union[xr.DataArray, np.ndarray]): Input data array defined on MPAS unstructured grid with shape (nCells,) or subset.
         lon (Union[np.ndarray, xr.DataArray]): MPAS cell center longitude coordinates in degrees or radians.
         lat (Union[np.ndarray, xr.DataArray]): MPAS cell center latitude coordinates in degrees or radians.
-        lon_min (float): Western boundary of target output grid in degrees (default: -180.0).
-        lon_max (float): Eastern boundary of target output grid in degrees (default: 180.0).
-        lat_min (float): Southern boundary of target output grid in degrees within [-90,90] range (default: -90.0).
-        lat_max (float): Northern boundary of target output grid in degrees within [-90,90] range (default: 90.0).
-        resolution (float): Target grid spacing in degrees for both longitude and latitude directions (default: 1.0).
-        method (str): Interpolation method - 'nearest' (fast, preserves values) or 'linear' (smooth, for contours) (default: 'nearest').
+        lon_min (float): Minimum longitude for target grid in degrees (default: -180.0).
+        lon_max (float): Maximum longitude for target grid in degrees (default: 180.0).
+        lat_min (float): Minimum latitude for target grid in degrees (default: -90.0).
+        lat_max (float): Maximum latitude for target grid in degrees (default: 90.0).
+        resolution (float): Grid spacing in degrees for the regular latitude-longitude grid (default: 1.0).
+        method (str): Interpolation method to use, options include 'nearest' and 'linear' (default: 'nearest').
     
     Returns:
-        xr.DataArray: Remapped data on regular latitude-longitude grid with dimensions [lat, lon] and coordinate labels.
+        xr.DataArray: Remapped data on regular latitude-longitude grid as an xarray DataArray with appropriate coordinates. 
     """
     if method not in ['nearest', 'linear']:
         raise ValueError(f"method must be 'nearest' or 'linear', got '{method}'")
@@ -710,40 +659,31 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     return result
 
 
-def build_remapped_valid_mask(
-    lon_vals: np.ndarray,
-    lat_vals: np.ndarray,
-    lon_min: float,
-    lon_max: float,
-    lat_min: float,
-    lat_max: float,
-    resolution: float,
-    remapped_data: Union[xr.DataArray, np.ndarray],
-    threshold: float = 0.5
-) -> Optional[np.ndarray]:
+def build_remapped_valid_mask(lon_vals: np.ndarray, 
+                              lat_vals: np.ndarray, 
+                              lon_min: float, 
+                              lon_max: float, 
+                              lat_min: float, 
+                              lat_max: float, 
+                              resolution: float, 
+                              remapped_data: Union[xr.DataArray, np.ndarray], 
+                              threshold: float = 0.5) -> Optional[np.ndarray]:
     """
-    Construct a boolean mask indicating valid grid points after remapping.
-
-    The function computes the convex hull of the MPAS cell center points and marks grid 
-    points inside the hull as valid. This is useful to avoid treating points outside the 
-    native MPAS domain as valid when remapping to a regular lat-lon grid.
-    
-    NOTE: Convex hull masking is DISABLED for global data (lon_range > 180) because it 
-    creates artifacts at the prime meridian due to longitude wraparound.
+    This function builds a boolean mask for the remapped data based on the convex hull of the original MPAS cell coordinates. It first checks if the longitude range indicates global coverage, in which case it skips masking since all points are valid. For regional data, it constructs a convex hull around the original cell coordinates and uses matplotlib's Path to determine which points on the target grid fall inside this hull. The resulting boolean mask has the same shape as the remapped data and can be used to identify valid points that are within the original domain of the MPAS data. If any errors occur during the convex hull calculation or if required libraries are not available, it returns None, indicating that no mask could be created. This function is useful for ensuring that analyses or visualizations based on the remapped data only include points that are supported by the original MPAS grid coverage. 
 
     Parameters:
-        lon_vals (np.ndarray): 1D array of MPAS cell longitudes in degrees.
-        lat_vals (np.ndarray): 1D array of MPAS cell latitudes in degrees.
-        lon_min (float): Minimum longitude of the target grid.
-        lon_max (float): Maximum longitude of the target grid.
-        lat_min (float): Minimum latitude of the target grid.
-        lat_max (float): Maximum latitude of the target grid.
-        resolution (float): Grid spacing in degrees for target grid.
-        remapped_data (Union[xr.DataArray, np.ndarray]): Result of remapping operation (2D array-like).
-        threshold (float): Value threshold used to decide validity when applicable (default 0.5).
+        lon_vals (np.ndarray): 1D array of longitude values for the original MPAS cell centers.
+        lat_vals (np.ndarray): 1D array of latitude values for the original MPAS cell centers.
+        lon_min (float): Minimum longitude for target grid in degrees.
+        lon_max (float): Maximum longitude for target grid in degrees.
+        lat_min (float): Minimum latitude for target grid in degrees.
+        lat_max (float): Maximum latitude for target grid in degrees.
+        resolution (float): Grid spacing in degrees for the target grid.
+        remapped_data (Union[xr.DataArray, np.ndarray]): The remapped data array on the target grid, used to determine the shape of the mask.
+        threshold (float): Optional threshold for determining valid points based on distance to hull vertices (not currently used, but can be implemented for more complex masking). 
 
     Returns:
-        Optional[np.ndarray]: 2D boolean mask array with shape (nlat, nlon), or None for global data or on failure.
+        Optional[np.ndarray]: A boolean array with the same shape as remapped_data, where True indicates points inside the convex hull of the original MPAS coordinates, and False indicates points outside. Returns None if masking is skipped or if an error occurs. 
     """
     lon_range = lon_max - lon_min
 
@@ -782,41 +722,33 @@ def build_remapped_valid_mask(
         return None
 
 
-def remap_mpas_to_latlon_with_masking(
-    data: Union[xr.DataArray, np.ndarray],
-    dataset: xr.Dataset,
-    lon_min: Optional[float] = None,
-    lon_max: Optional[float] = None,
-    lat_min: Optional[float] = None,
-    lat_max: Optional[float] = None,
-    resolution: float = 0.1,
-    method: str = 'nearest',
-    apply_mask: bool = True,
-    lon_convention: str = 'auto'
-) -> xr.DataArray:
+def remap_mpas_to_latlon_with_masking(data: Union[xr.DataArray, np.ndarray], 
+                                      dataset: xr.Dataset, 
+                                      lon_min: Optional[float] = None, 
+                                      lon_max: Optional[float] = None, 
+                                      lat_min: Optional[float] = None, 
+                                      lat_max: Optional[float] = None, 
+                                      resolution: float = 0.1, 
+                                      method: str = 'nearest', 
+                                      apply_mask: bool = True, 
+                                      lon_convention: str = 'auto') -> xr.DataArray:
     """
-    Remap MPAS data with automatic coordinate extraction, bounds detection, and optional masking.
-    
-    This is a higher-level wrapper around remap_mpas_to_latlon that:
-    - Extracts coordinates from MPAS dataset (lonCell/latCell or lon/lat)
-    - Auto-detects data bounds if not provided
-    - Handles longitude convention detection for global vs regional data
-    - Applies convex hull masking for regional data (disabled for global)
+    This function provides a convenient interface for remapping MPAS unstructured grid data to a regular latitude-longitude grid with optional convex hull masking to identify valid points. It automatically detects the coordinate units (degrees or radians) and converts them to degrees if necessary. The function generates a regular target grid based on user-defined spatial boundaries and resolution, then constructs a KDTree from the original unstructured coordinates to efficiently find the nearest source point for each target point on the regular grid. After remapping, it applies a convex hull mask to identify which points on the target grid are within the original domain of the MPAS data, setting points outside the hull to NaN. The resulting remapped and masked data is returned as an xarray DataArray with proper coordinate labels corresponding to the target grid. This function is useful for preparing MPAS data for visualization or analysis on regular lat-lon grids while ensuring that only valid points within the original coverage are included in the results. 
     
     Parameters:
-        data (Union[xr.DataArray, np.ndarray]): MPAS data on unstructured mesh.
-        dataset (xr.Dataset): MPAS dataset containing coordinate information.
-        lon_min (Optional[float]): Western boundary, auto-detected if None.
-        lon_max (Optional[float]): Eastern boundary, auto-detected if None.
-        lat_min (Optional[float]): Southern boundary, auto-detected if None.
-        lat_max (Optional[float]): Northern boundary, auto-detected if None.
-        resolution (float): Grid spacing in degrees (default: 0.1).
-        method (str): Interpolation method - 'nearest' or 'linear' (default: 'nearest').
-        apply_mask (bool): Apply convex hull masking for regional data (default: True).
-        lon_convention (str): Longitude convention - 'auto', '[-180,180]', or '[0,360]' (default: 'auto').
+        data (Union[xr.DataArray, np.ndarray]): Input data array defined on MPAS unstructured grid with shape (nCells,) or subset.
+        dataset (xr.Dataset): The original xarray Dataset containing the MPAS data and coordinates, used to extract cell center coordinates for masking.
+        lon_min (Optional[float]): Minimum longitude for target grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+        lon_max (Optional[float]): Maximum longitude for target grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+        lat_min (Optional[float]): Minimum latitude for target grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+        lat_max (Optional[float]): Maximum latitude for target grid in degrees, if None it will be determined from input coordinates with buffer (default: None).
+        resolution (float): Grid spacing in degrees for the regular latitude-longitude grid (default: 0.1).
+        method (str): Interpolation method to use, options include 'nearest' and 'linear' (default: 'nearest').
+        apply_mask (bool): Whether to apply convex hull masking to set points outside the original MPAS coverage to NaN (default: True).
+        lon_convention (str): Longitude convention to use for remapping, options include 'auto', '[-180,180]', and '[0,360]' (default: 'auto'). The 'auto' option will attempt to preserve the original longitude convention of the input dataset, while the other options will convert coordinates to the specified convention if they are not already in that format.
     
     Returns:
-        xr.DataArray: Remapped data with coordinates and optional masking applied.
+        xr.DataArray: Remapped (and optionally masked) data on regular latitude-longitude grid as an xarray DataArray with appropriate coordinates.
     """
     if 'lonCell' in dataset:
         lon_coords = dataset['lonCell']
@@ -901,25 +833,25 @@ def remap_mpas_to_latlon_with_masking(
     return remapped_data
 
 
-def create_target_grid(lon_min: float = -180.0,
-                      lon_max: float = 180.0,
-                      lat_min: float = -90.0,
-                      lat_max: float = 90.0,
-                      dlon: float = 1.0,
-                      dlat: float = 1.0) -> xr.Dataset:
+def create_target_grid(lon_min: float = -180.0, 
+                       lon_max: float = 180.0, 
+                       lat_min: float = -90.0, 
+                       lat_max: float = 90.0, 
+                       dlon: float = 1.0, 
+                       dlat: float = 1.0) -> xr.Dataset:
     """
-    This utility function creates a uniform grid dataset with evenly spaced coordinate arrays suitable for use as a target grid in xESMF remapping operations. The grid specification includes only coordinate metadata without allocating space for data arrays, making it memory-efficient for defining target grid structures. The function supports both regional and global grid configurations with flexible longitude conventions. Generated grid objects can be reused across multiple remapping operations with different source data but identical target grid requirements.
+    This function creates a target grid specification as an xarray Dataset with 1D coordinate arrays for longitude and latitude based on user-defined spatial boundaries and grid spacing. The longitude and latitude values are generated using numpy's arange function, ensuring that the grid points are centered within the specified bounds. The resulting Dataset contains 'lon' and 'lat' coordinates with dimensions ['lon'] and ['lat'], which can be used as the target grid specification for remapping operations. This function provides a simple way to generate regular lat-lon grids of varying resolutions for use in remapping MPAS data or other geospatial datasets. 
     
     Parameters:
-        lon_min (float): Western longitude boundary in degrees, supports [-180,180] or [0,360] convention (default: -180.0).
-        lon_max (float): Eastern longitude boundary in degrees (default: 180.0).
-        lat_min (float): Southern latitude boundary in degrees within [-90,90] valid range (default: -90.0).
-        lat_max (float): Northern latitude boundary in degrees within [-90,90] valid range (default: 90.0).
-        dlon (float): Longitude grid spacing in degrees determining east-west resolution (default: 1.0).
-        dlat (float): Latitude grid spacing in degrees determining north-south resolution (default: 1.0).
+        lon_min (float): Minimum longitude for target grid in degrees (default: -180.0).
+        lon_max (float): Maximum longitude for target grid in degrees (default: 180.0).
+        lat_min (float): Minimum latitude for target grid in degrees (default: -90.0).
+        lat_max (float): Maximum latitude for target grid in degrees (default: 90.0).
+        dlon (float): Grid spacing in degrees for longitude (default: 1.0).
+        dlat (float): Grid spacing in degrees for latitude (default: 1.0). 
     
     Returns:
-        xr.Dataset: Grid specification dataset with 1D coordinate arrays 'lon' and 'lat' with dimensions ['lon'] and ['lat'].
+        xr.Dataset: An xarray Dataset containing 1D coordinate arrays for 'lon' and 'lat' that define the target grid specification for remapping. The 'lon' coordinate has dimension ['lon'] and the 'lat' coordinate has dimension ['lat']. 
     """
     lon = np.arange(lon_min, lon_max + dlon/2, dlon)
     lat = np.arange(lat_min, lat_max + dlat/2, dlat)

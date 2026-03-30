@@ -22,7 +22,7 @@ import numpy as np
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from unittest.mock import Mock, patch
-from typing import cast, Any, Generator
+from typing import cast, Any, Generator, Union
 
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
@@ -32,6 +32,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.40962.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u120k', 'mpasout')
+
+
+def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
+    """
+    This helper function searches through the variables in the processor's dataset to find a variable that has a vertical dimension (either 'nVertLevels' or 'nVertLevelsP1'). It returns the name of the first variable that meets this criterion, which can be used for testing purposes when a specific 3D variable is needed. If no such variable is found, it returns None. This function is useful for dynamically identifying a suitable 3D variable in the dataset for testing the vertical cross-section plotting functionality.
+
+    Parameters:
+        processor: An instance of MPAS3DProcessor containing the dataset to search through.
+
+    Returns:
+        The name of the first variable with a vertical dimension, or None if no such variable is found.
+    """
+    for v in processor.dataset.data_vars:
+        if 'nVertLevels' in processor.dataset[v].sizes or 'nVertLevelsP1' in processor.dataset[v].sizes:
+            return str(v)
+    return None
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:
@@ -52,6 +68,7 @@ def test_vertical_cross_section_plotter_initialization() -> None:
     assert plotter.ax is None
     
     custom_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 6), dpi=150)
+
     assert custom_plotter.figsize == (10, 6)
     assert custom_plotter.dpi == 150
 
@@ -756,6 +773,11 @@ class TestVerticalCoordinateEdgeCases:
             None
         """
         processor = self.processor
+        var_3d = _find_3d_var(processor)
+
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
+        
         plotter = MPASVerticalCrossSectionPlotter()
         
         with patch.object(plotter, '_generate_cross_section_data') as mock_gen:
@@ -771,7 +793,7 @@ class TestVerticalCoordinateEdgeCases:
 
             try:
                 fig, ax = plotter.create_vertical_cross_section(
-                    processor, 'pressure', (-100, 30), (-90, 40),
+                    processor, var_3d, (-100, 30), (-90, 40),
                     display_vertical='pressure'
                 )
                 plt.close(fig)
@@ -789,6 +811,10 @@ class TestVerticalCoordinateEdgeCases:
             None
         """
         processor = self.processor
+        var_3d = _find_3d_var(processor)
+
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -804,7 +830,7 @@ class TestVerticalCoordinateEdgeCases:
             }
             
             fig, ax = plotter.create_vertical_cross_section(
-                processor, 'pressure', (-100, 30), (-90, 40),
+                processor, var_3d, (-100, 30), (-90, 40),
                 display_vertical='pressure'
             )
 
@@ -822,6 +848,10 @@ class TestVerticalCoordinateEdgeCases:
             None
         """
         processor = self.processor
+        var_3d = _find_3d_var(processor)
+
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -837,7 +867,7 @@ class TestVerticalCoordinateEdgeCases:
             }
             
             fig, ax = plotter.create_vertical_cross_section(
-                processor, 'pressure', (-100, 30), (-90, 40),
+                processor, var_3d, (-100, 30), (-90, 40),
                 display_vertical='pressure'
             )
 
@@ -854,6 +884,10 @@ class TestVerticalCoordinateEdgeCases:
             None
         """
         processor = self.processor
+        var_3d = _find_3d_var(processor)
+
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -869,7 +903,7 @@ class TestVerticalCoordinateEdgeCases:
             }
             
             fig, ax = plotter.create_vertical_cross_section(
-                processor, 'pressure', (-100, 30), (-90, 40),
+                processor, var_3d, (-100, 30), (-90, 40),
                 max_height=10.0 
             )
 
@@ -886,6 +920,10 @@ class TestVerticalCoordinateEdgeCases:
             None
         """
         processor = self.processor
+        var_3d = _find_3d_var(processor)
+
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -903,7 +941,7 @@ class TestVerticalCoordinateEdgeCases:
             with patch('numpy.asarray', side_effect=Exception("Test exception")):
                 try:
                     fig, ax = plotter.create_vertical_cross_section(
-                        processor, 'pressure', (-100, 30), (-90, 40),
+                        processor, var_3d, (-100, 30), (-90, 40),
                         max_height=10.0,
                         display_vertical='height'
                     )
@@ -942,13 +980,19 @@ class TestVerticalCoordinateEdgeCasesFinal:
         Returns:
             None: Assertions validate plotting succeeded and no exceptions.
         """
-        original_pressure = self.processor.dataset['pressure'].copy()
-        self.processor.dataset['pressure'][0, :, 10:15] = np.nan
+        var_3d = _find_3d_var(self.processor)
         
-        try:
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
+
+        num_levels = self.processor.dataset.sizes.get('nVertLevels', 55)
+        pressure_with_nan = np.linspace(100000.0, 1000.0, num_levels)
+        pressure_with_nan[10:15] = np.nan
+
+        with patch.object(self.processor, 'get_vertical_levels', return_value=pressure_with_nan.tolist()):
             fig, ax = self.plotter.create_vertical_cross_section(
                 self.processor,
-                'theta',
+                var_3d,
                 (0, 0),
                 (10, 10),
                 vertical_coord='pressure',
@@ -956,10 +1000,8 @@ class TestVerticalCoordinateEdgeCasesFinal:
                 time_index=0
             )
 
-            assert fig is not None
-            plt.close(fig)
-        finally:
-            self.processor.dataset['pressure'] = original_pressure
+        assert fig is not None
+        plt.close(fig)
     
     def test_pressure_unit_detection_pa(self: "TestVerticalCoordinateEdgeCasesFinal") -> None:
         """

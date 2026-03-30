@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Command-Line Argument Parser Utilities
+MPASdiag Core Processing Module: Command-Line Argument Parser Utilities
 
-This module provides comprehensive command-line argument parsing functionality for MPAS diagnostic workflows through factory methods that generate specialized ArgumentParser instances. It includes pre-configured parsers for general CLI operations, surface variable plotting, wind vector visualization, and vertical cross-section analysis, each with organized argument groups and helpful usage examples. The module features converter methods that transform parsed argparse.Namespace objects into MPASConfig data structures, enabling seamless integration between command-line interfaces and internal configuration management. This centralized parser factory approach ensures consistent CLI design across all MPASdiag tools while simplifying maintenance of argument definitions. The parsers support both direct command-line usage and configuration file input, providing flexible specification of analysis parameters for meteorological diagnostics.
-
-Classes:
-    ArgumentParser: Factory class providing static methods for creating specialized command-line parsers for different MPAS diagnostic types.
-
-Functions:
-    convert_namespace_to_config: Converts argparse.Namespace objects to MPASConfig instances for internal use.
+This module provides factory methods for creating and configuring command-line argument parsers tailored to different MPAS diagnostic analysis workflows, including general precipitation analysis, surface variable plotting, wind vector visualization, and vertical cross-section plotting. Each parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. Additionally, methods are provided to convert parsed command-line arguments from argparse.Namespace to the MPASConfig data structure used throughout MPASdiag workflows, ensuring consistent configuration handling regardless of input source. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -26,17 +20,18 @@ from .utils_config import MPASConfig
 
 
 class ArgumentParser:
-    """
-    Command-line argument parser factory utilities for MPAS analysis workflows with pre-configured parsers for different diagnostic types. This class provides static factory methods that produce argparse.ArgumentParser instances specialized for general CLI operations, surface variable plotting, wind vector visualization, and vertical cross-section analysis. Each factory method returns a fully configured parser with organized argument groups, sensible defaults, and helpful usage examples tailored to specific MPAS diagnostic workflows. Helper converter methods transform parsed argparse.Namespace objects into the project's MPASConfig data structure, enabling seamless integration between command-line interfaces and internal configuration management. This centralized parser factory approach ensures consistent command-line interface design across all MPASdiag tools and simplifies maintenance of argument definitions.
-    """
+    """ Command-line argument parser factory utilities for MPAS analysis workflows with pre-configured parsers for different diagnostic types. """
     
     @staticmethod
     def create_parser() -> argparse.ArgumentParser:
         """
-        Create a general-purpose command-line argument parser for MPAS data analysis and visualization workflows with comprehensive option groups. This factory method constructs an argparse.ArgumentParser instance pre-configured with argument groups for input/output paths, spatial extent bounds, variable selection, visualization settings, processing options, and output control flags. The parser supports both direct command-line usage and configuration file input, enabling flexible specification of analysis parameters for precipitation, surface, wind, and cross-section diagnostic plots. The returned parser includes helpful examples in the epilog, sensible defaults for common use cases, and organized argument groups for improved help message readability in the MPASdiag command-line interface.
+        This factory method creates and configures a command-line argument parser for general MPAS diagnostic analysis, with options for input/output control, spatial extent configuration, variable selection, visualization settings, processing flags, and output formatting. The parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for MPASdiag workflows, with comprehensive options for customizing analysis parameters and output generation. 
+
+        Parameters:
+            None
 
         Returns:
-            argparse.ArgumentParser: Fully configured ArgumentParser instance with groups for IO, spatial extent, variables, visualization, processing, and output control ready for parsing sys.argv or custom argument lists.
+            argparse.ArgumentParser: Configured ArgumentParser instance with groups for input/output, spatial extent, variable selection, visualization settings, processing flags, and output control, along with detailed examples in the epilog. 
         """
         parser = argparse.ArgumentParser(
             description="MPAS Data Analysis and Visualization Tool",
@@ -124,13 +119,13 @@ Examples:
     @staticmethod
     def parse_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        Convert parsed command-line arguments from argparse.Namespace to the MPASConfig data structure used throughout MPASdiag workflows. This method maps recognized argument names from the general-purpose parser to MPASConfig attribute names, extracting values from the Namespace object and constructing a configuration dictionary that can initialize an MPASConfig instance. The conversion handles type preservation, default value assignment, and ensures all required configuration parameters are properly transferred from command-line input to the internal configuration representation. This transformation enables consistent configuration handling whether inputs come from command-line arguments, configuration files, or programmatic API calls.
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes for general MPAS diagnostic analysis. It extracts values for grid file, data directory, output directory, spatial extent, variable selection, accumulation period, colormap, figure size, DPI, output formats, color limits, data processing backend, batch mode flag, time index, parallel processing flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for general MPAS analysis are transferred to the MPASConfig object for use in various diagnostic workflows. 
 
         Parameters:
-            args (argparse.Namespace): Parsed command-line arguments returned from create_parser().parse_args() containing user-specified options.
+            args (argparse.Namespace): Parsed command-line arguments returned from create_parser().parse_args() with general analysis options. 
 
         Returns:
-            MPASConfig: Configuration object populated with values from command-line arguments, ready for use in MPAS analysis workflows.
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS diagnostic analysis workflows. 
         """
         config_dict = {}
         
@@ -170,10 +165,13 @@ Examples:
     @staticmethod
     def create_surface_parser() -> argparse.ArgumentParser:
         """
-        Create a specialized command-line argument parser for MPAS surface variable visualization with options tailored to 2D field plotting. This factory method constructs an ArgumentParser configured specifically for surface diagnostic analysis including 2-meter temperature, sea-level pressure, humidity, and 10-meter winds, with support for both scatter and contour plot types. The parser includes required arguments for grid and data files, variable selection with time indexing, plot type and styling options, spatial extent configuration, color limit controls, and output format specifications. The returned parser provides comprehensive examples in the epilog demonstrating common surface plotting workflows and includes organized argument groups for improved command-line help readability in surface-specific MPASdiag operations.
+        This factory method creates and configures a command-line argument parser specifically for MPAS surface variable plotting, with options tailored for visualizing surface fields such as temperature, pressure, humidity, and wind speed. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection, plot settings (plot type, colormap, title), spatial extent configuration, color limit controls, output options (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating surface variable plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various surface variable visualization scenarios. 
+
+        Parameters:
+            None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for surface variable plotting with groups for required inputs, variable selection, plot settings, spatial extent, color controls, output options, and processing flags.
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for surface variable plotting with options for variable selection, plot type, colormap, spatial extent, color limits, and output control, along with detailed examples in the epilog. 
         """
         parser = argparse.ArgumentParser(
             description="MPAS Surface Variable Plotting Tool",
@@ -262,13 +260,13 @@ Examples:
     @staticmethod
     def parse_surface_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        Convert parsed surface plotting command-line arguments from argparse.Namespace to MPASConfig for surface diagnostic workflows. This method performs argument name mapping from the surface-specific parser to MPASConfig attributes, extracting surface plotting options including variable name, plot type, time index, spatial extent, color limits, grid resolution, and output settings. The conversion ensures all surface-specific parameters like scatter vs contour plot type, variable-specific colormaps, and adaptive grid resolution settings are properly transferred to the configuration object. This specialized conversion handles surface plotting defaults and validation requirements distinct from precipitation or wind analysis configurations.
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for surface variable plotting. It extracts values for grid file, data directory, variable name, time index, plot type, colormap, title, spatial extent, color limits, grid resolution for contour interpolation, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for surface variable plotting are transferred to the MPASConfig object for use in MPAS surface diagnostic visualization workflows. 
 
-        Parameters:
-            args (argparse.Namespace): Parsed command-line arguments returned from create_surface_parser().parse_args() with surface plotting options.
+        Parameters: 
+            args (argparse.Namespace): Parsed command-line arguments returned from create_surface_parser().parse_args() with surface plotting options. 
 
         Returns:
-            MPASConfig: Configuration object populated with surface plotting parameters ready for use in MPAS surface diagnostic visualization workflows.
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS surface variable plotting workflows. 
         """
         config_dict = {}
         
@@ -316,10 +314,13 @@ Examples:
     @staticmethod
     def create_wind_parser() -> argparse.ArgumentParser:
         """
-        Create a specialized command-line argument parser for MPAS wind vector visualization with options for barbs and arrows representation. This factory method constructs an ArgumentParser configured specifically for wind field analysis including 10-meter surface winds and upper-air wind components, with support for both wind barb and arrow vector plot types, optional background wind speed shading, and vector subsampling controls. The parser includes arguments for U and V wind component variable specification, wind level descriptors, vector styling parameters, optional background contour fill, time indexing, spatial extent configuration, and comprehensive output format options. The returned parser provides practical examples demonstrating wind plotting workflows and organized argument groups for wind-specific visualization in MPASdiag operations.
+        This factory method creates and configures a command-line argument parser specifically for MPAS wind vector plotting, with options tailored for visualizing wind fields using barbs or arrows. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection for U and V components, plot settings (plot type, subsampling, scaling), background shading options, spatial extent configuration, output control (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating wind vector plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various wind visualization scenarios. 
+
+        Parameters:
+            None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for wind vector plotting with options for component variables, plot type (barbs/arrows), subsampling, background shading, spatial extent, and output settings.
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for wind vector plotting with options for variable selection, plot type, subsampling, scaling, background shading, spatial extent, and output control, along with detailed examples in the epilog. 
         """
         parser = argparse.ArgumentParser(
             description="Generate MPAS wind vector plots with barbs or arrows",
@@ -387,10 +388,13 @@ Examples:
     @staticmethod
     def create_crosssection_parser() -> argparse.ArgumentParser:
         """
-        Create a specialized command-line argument parser for MPAS 3D vertical cross-section plotting along user-defined transects through the atmosphere. This factory method constructs an ArgumentParser configured for extracting and visualizing vertical slices of 3D atmospheric variables (temperature, winds, moisture, reflectivity) along great circle paths between specified start and end coordinates. The parser includes required arguments for grid file, data directory, and 3D variable name, with options for cross-section endpoints, vertical coordinate selection (pressure, height, model levels), number of interpolation points, colormap and contour level controls, time indexing, and output format specifications. The returned parser provides detailed examples of common cross-section workflows and organized argument groups for 3D diagnostic visualization in MPASdiag.
+        This factory method creates and configures a command-line argument parser specifically for MPAS 3D vertical cross-section plotting, with options tailored for defining transect paths, selecting 3D variables, configuring vertical coordinate systems, controlling interpolation resolution, and customizing visualization styling. The parser includes organized argument groups for required inputs (grid file and data directory), transect definition (start/end coordinates), cross-section parameters (time index, vertical coordinate, number of points, max height), visualization options (plot type, colormap, levels, colorbar extension), and output control (filename, directory, formats). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating vertical cross-section plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various cross-section visualization scenarios. 
+
+        Parameters:
+            None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for vertical cross-section plotting with options for transect definition, 3D variable selection, vertical coordinate system, interpolation resolution, and visualization styling.
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for vertical cross-section plotting with options for transect definition, variable selection, vertical coordinate configuration, visualization styling, and output control, along with detailed examples in the epilog. 
         """
         parser = argparse.ArgumentParser(
             description="Generate MPAS 3D vertical cross-section plots",
@@ -471,13 +475,13 @@ Examples:
     @staticmethod
     def parse_wind_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        Convert parsed wind plotting command-line arguments from argparse.Namespace to MPASConfig for wind vector visualization workflows. This method performs argument name mapping from the wind-specific parser to MPASConfig attributes, extracting wind plotting options including U and V component variable names, wind level descriptors, vector plot type (barbs or arrows), subsampling factor, optional wind scale, background wind speed display settings, time index, spatial extent, and output formatting parameters. The conversion handles default spatial extent assignment when not explicitly provided and ensures all wind-specific visualization parameters are properly transferred to the configuration object for use in wind diagnostic plotting.
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for wind vector plotting. It extracts values for grid file, data directory, U and V variable names, wind level description, plot type (barbs or arrows), subsampling factor, scaling factor, background shading options, spatial extent, time index, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for wind vector plotting are transferred to the MPASConfig object for use in MPAS wind visualization workflows. 
 
         Parameters:
             args (argparse.Namespace): Parsed command-line arguments returned from create_wind_parser().parse_args() with wind plotting options.
 
         Returns:
-            MPASConfig: Configuration object populated with wind plotting parameters ready for use in MPAS wind vector visualization workflows.
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS wind vector plotting workflows. 
         """
         if args.extent:
             lon_min, lon_max, lat_min, lat_max = args.extent
@@ -520,13 +524,13 @@ Examples:
     @staticmethod
     def parse_crosssection_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        Convert parsed vertical cross-section plotting command-line arguments from argparse.Namespace to MPASConfig for 3D transect visualization workflows. This method performs argument name mapping from the cross-section-specific parser to MPASConfig attributes, extracting 3D plotting options including variable name, transect start/end coordinates, vertical coordinate system choice, number of interpolation points, maximum height limits, plot type, colormap selection, custom contour levels, and colorbar extension settings. The conversion handles optional contour level list parsing and ensures all cross-section-specific parameters including transect geometry, vertical coordinate preferences, and visualization styling are properly transferred to the configuration object for use in 3D diagnostic plotting operations.
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for vertical cross-section plotting. It extracts values for grid file, data directory, variable name, time index, vertical coordinate system, number of interpolation points, maximum height for vertical axis, plot type, colormap, contour levels, colorbar extension, output control (filename, directory, formats), figure size, DPI, and verbosity settings. The method handles default values and ensures that all relevant parameters for vertical cross-section plotting are transferred to the MPASConfig object for use in MPAS 3D transect visualization workflows. 
 
         Parameters:
-            args (argparse.Namespace): Parsed command-line arguments returned from create_crosssection_parser().parse_args() with vertical cross-section plotting options.
+            args (argparse.Namespace): Parsed command-line arguments returned from create_crosssection_parser().parse_args() with cross-section plotting options. 
 
         Returns:
-            MPASConfig: Configuration object populated with cross-section plotting parameters ready for use in MPAS 3D vertical transect visualization workflows.
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS vertical cross-section plotting workflows. 
         """
         levels = None
 

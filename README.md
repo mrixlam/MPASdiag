@@ -16,6 +16,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 - NetCDF4-compatible system libraries
 - HDF5 libraries (for h5netcdf)
 - MPI libraries (OpenMPI or MPICH for parallel processing)
+- ESMpy and xESMF (for remapping capabilities)
 
 ### From GitHub Repository (Recommended)
 
@@ -49,6 +50,12 @@ conda install -y -c conda-forge uxarray
 # Install MPI support for parallel processing
 conda install -y -c conda-forge mpi4py
 
+# Install esmpy and xESMF for remapping capabilities
+conda install -y -c conda-forge esmpy xesmf 
+
+# Install MetPy for thermodynamic diagnostics
+conda install -y -c conda-forge metpy
+
 # Install the package
 pip install -e .
 ```
@@ -72,6 +79,9 @@ pip install -e .
 # On macOS: brew install open-mpi
 # On Ubuntu/Debian: sudo apt-get install libopenmpi-dev
 # On RHEL/CentOS: sudo yum install openmpi-devel
+
+# Optional: install MetPy for thermodynamic diagnostics
+pip install metpy
 ```
 
 ## Python API Usage

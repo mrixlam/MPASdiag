@@ -3,9 +3,7 @@
 """
 MPAS Analysis Processing Package
 
-This package provides data processing functionality for MPAS analysis including
-base processors, 2D surface processors, 3D atmospheric processors, unit conversion,
-and variable metadata management.
+This package contains the core processing modules for MPAS diagnostic analysis, including data handling, remapping, parallel processing management, and utility functions. The modules are designed to facilitate efficient and robust processing of MPAS model output data for a variety of diagnostic analyses and visualizations. Each module provides specialized functionality while adhering to a consistent interface and design philosophy to ensure ease of use and maintainability across the MPASdiag codebase. The package serves as the foundation for all MPAS diagnostic processing workflows, enabling users to easily access, manipulate, and visualize their MPAS data with confidence in the underlying processing steps.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR

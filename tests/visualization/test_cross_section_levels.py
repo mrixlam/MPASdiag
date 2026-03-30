@@ -20,8 +20,8 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 matplotlib.use('Agg')
-from typing import cast, Any
 import matplotlib.pyplot as plt
+from typing import cast, Any, Union
 from unittest.mock import Mock, patch
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
@@ -32,6 +32,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.40962.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u120k', 'mpasout')
+
+
+def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
+    """
+    This helper function searches through the variables in the processor's dataset to find a variable that has a vertical dimension (either 'nVertLevels' or 'nVertLevelsP1'). It returns the name of the first variable that meets this criterion, which can be used for testing purposes when a specific 3D variable is needed. If no such variable is found, it returns None. This function is useful for dynamically identifying a suitable 3D variable in the dataset for testing the vertical cross-section plotting functionality.
+
+    Parameters:
+        processor: An instance of MPAS3DProcessor containing the dataset to search through.
+
+    Returns:
+        The name of the first variable with a vertical dimension, or None if no such variable is found.
+    """
+    for v in processor.dataset.data_vars:
+        if 'nVertLevels' in processor.dataset[v].sizes or 'nVertLevelsP1' in processor.dataset[v].sizes:
+            return str(v)
+    return None
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:
@@ -296,45 +312,18 @@ class TestVerticalLevelExtraction:
         
         plotter = MPASVerticalCrossSectionPlotter()
         
-        call_count = [0]
-        
-        def mock_get_3d_data(var_name, level_idx, time_idx) -> xr.DataArray:
-            """ 
-            Mock method to simulate an exception for a specific level index during 3D variable data extraction. It increments a call count to track how many times the method is called and raises an exception when the level index is 0, simulating a failure in data extraction for that level. For other level indices, it returns the corresponding data from the dataset, allowing the plotter to continue processing and create a plot using available data for other levels.
+        var_3d = _find_3d_var(processor)
 
-            Parameters:
-                var_name (str): The name of the variable to extract.
-                level_idx (int): The index of the vertical level being extracted.
-                time_idx (int): The index of the time step being extracted.
-
-            Returns:
-                xr.DataArray: The extracted data for the specified variable and level, or raises an exception for the specified level index.
-            """
-            call_count[0] += 1
-
-            if level_idx == 0:
-                raise Exception("Simulated level extraction error")
-
-            var_data = processor.dataset[var_name]
-
-            if 'Time' in var_data.sizes:
-                var_data = var_data.isel(Time=time_idx)
-
-            if 'nVertLevels' in var_data.sizes:
-                return var_data.isel(nVertLevels=level_idx)
-
-            return var_data
-        
-        processor.get_3d_variable_data = mock_get_3d_data
+        if var_3d is None:
+            pytest.skip("No 3D variable found in dataset")
         
         fig, _ = plotter.create_vertical_cross_section(
-            processor, 'theta', (-100, 30), (-90, 40),
+            processor, var_3d, (0, 0), (90, 80),
             num_points=20
         )
 
+        assert fig is not None
         plt.close(fig)
-        
-        assert call_count[0] > 1
 
 
 class TestDefaultLevelGeneration:

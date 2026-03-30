@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Data Validation Utilities
+MPASdiag Core Processing Module: Data Validation Utilities
 
-This module provides comprehensive data validation functionality for MPAS unstructured mesh data through quality assurance checks performed before intensive analysis or visualization operations. It includes validation methods for geographic coordinate bounds verification, finite value completeness testing, statistical outlier detection, and threshold-based data range validation. The DataValidator class offers stateless static methods optimized for efficiency on large MPAS datasets while catching data integrity issues such as invalid coordinates, excessive missing values, uniform data artifacts, or unexpected value ranges. These lightweight validators serve as quality gates ensuring data correctness before downstream processing, providing detailed diagnostic information when problems are detected. The module integrates seamlessly with MPASdiag processing workflows to maintain robust data quality standards throughout the diagnostic pipeline.
-
-Classes:
-    DataValidator: Static utility class providing comprehensive validation methods for MPAS coordinate arrays and numerical data quality assurance.
+This module provides comprehensive data validation utilities for MPAS coordinate arrays and numerical data quality assurance with sanity checking capabilities. It includes methods to validate longitude and latitude coordinate arrays for MPAS unstructured mesh data, ensuring they have matching lengths, finite values, and valid geographic bounds. Additionally, it offers a method to validate numerical data arrays by checking for finite values, calculating basic statistics (min, max, mean, std, median), and identifying potential issues such as excessive missing values, uniform data artifacts, or out-of-range values based on optional thresholds. The validation results are returned in a structured format that includes overall validity status, detected issues, and computed statistics. This module is essential for ensuring the integrity of spatial and numerical data before any analysis or visualization steps in the MPAS diagnostic workflow. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -20,21 +17,20 @@ from typing import Dict, Any, Optional
 
 
 class DataValidator:
-    """
-    Data validation utilities for MPAS coordinate arrays and numerical data quality assurance with comprehensive sanity checking capabilities. This class provides stateless static methods designed to perform quick pre-processing validation before intensive analysis or visualization operations on MPAS unstructured mesh data. Validation checks include geographic coordinate bounds verification, finite value completeness testing, statistical outlier detection, and threshold-based data range validation. These lightweight validators serve as quality gates catching data integrity issues such as invalid coordinates, excessive missing values, uniform data artifacts, or unexpected value ranges. The validators are optimized for efficiency on large arrays typical of MPAS datasets while providing detailed diagnostic information when problems are detected.
-    """
+    """ Data validation utilities for MPAS coordinate arrays and numerical data quality assurance with comprehensive sanity checking capabilities. """
     
     @staticmethod
-    def validate_coordinates(lon: np.ndarray, lat: np.ndarray) -> bool:
+    def validate_coordinates(lon: np.ndarray, 
+                             lat: np.ndarray) -> bool:
         """
-        Validate longitude and latitude coordinate arrays for geographic correctness and completeness. This method performs comprehensive checks ensuring coordinate arrays have matching lengths, contain only finite values (no NaN or Inf), and fall within valid geographic bounds (-180 to 180 for longitude, -90 to 90 for latitude). It serves as a pre-processing quality gate to catch data integrity issues before visualization or analysis operations. The validation is efficient and suitable for large unstructured mesh coordinates typical of MPAS datasets. Returns True only when all validation criteria pass, False otherwise.
+        This method validates longitude and latitude coordinate arrays for MPAS unstructured mesh data. It checks that the longitude and latitude arrays have matching lengths, contain only finite values, and that the longitude values are within the range of -180 to 180 degrees while latitude values are within -90 to 90 degrees. The method returns True if all validation checks pass, indicating that the coordinate arrays are valid for use in MPAS diagnostics, and False if any check fails, which would suggest issues with the coordinate data that need to be addressed before further processing or visualization steps. 
 
         Parameters:
-            lon (np.ndarray): One-dimensional array of longitude values in degrees East.
-            lat (np.ndarray): One-dimensional array of latitude values in degrees North.
+            lon (np.ndarray): 1D array of longitude values for MPAS grid points, expected to be in degrees and within the range of -180 to 180.
+            lat (np.ndarray): 1D array of latitude values for MPAS grid points, expected to be in degrees and within the range of -90 to 90.
 
         Returns:
-            bool: True if coordinate arrays pass all validation checks, False if any check fails.
+            bool: True if the coordinate arrays are valid (matching lengths, finite values, and within geographic bounds), False otherwise. 
         """
         if len(lon) != len(lat):
             return False
@@ -55,15 +51,29 @@ class DataValidator:
                           min_val: Optional[float] = None,
                           max_val: Optional[float] = None) -> Dict[str, Any]:
         """
-        Perform comprehensive validation and statistical summary of numerical data arrays with optional threshold checking. This method analyzes data quality by computing summary statistics (min, max, mean, std, median) on finite values while tracking missing data through NaN/Inf counts. It validates data against optional minimum and maximum thresholds, flagging any exceedances as issues in the returned dictionary. The function treats all non-finite values (NaN, Inf, -Inf) as missing data and reports their percentage. This validation is essential for data quality assurance before visualization or analysis, helping identify outliers, data gaps, or processing artifacts in MPAS model output.
+        This method validates a numerical data array by checking for finite values, calculating basic statistics (min, max, mean, std, median), and identifying potential issues such as excessive missing values, uniform data artifacts, or out-of-range values based on optional minimum and maximum thresholds. The method returns a dictionary containing the overall validity status of the data array, a list of detected issues if any are found, and a nested dictionary of computed statistics including the total number of points, count and percentage of finite values, and the calculated min, max, mean, std, and median of the finite data. This comprehensive validation approach helps ensure that the numerical data is suitable for analysis or visualization in MPAS diagnostics and can highlight potential problems that may need to be addressed before further processing. 
 
         Parameters:
-            data (np.ndarray): Numerical data array to validate and summarize, can be multi-dimensional.
-            min_val (Optional[float]): Optional minimum threshold - reports issue if observed minimum is below this value (default: None).
-            max_val (Optional[float]): Optional maximum threshold - reports issue if observed maximum is above this value (default: None).
+            data (np.ndarray): Numerical data array to be validated, which may contain finite values, NaNs, or infinities.
+            min_val (Optional[float]): Optional minimum threshold for valid data values; if provided, values below this threshold will be flagged as issues (default: None).
+            max_val (Optional[float]): Optional maximum threshold for valid data values; if provided, values above this threshold will be flagged as issues (default: None). 
 
         Returns:
-            dict: Dictionary with 'valid' (bool) overall status, 'issues' (list of str) detected problems, and 'stats' (dict) containing min, max, mean, std, median, total_points, finite_points, and finite_percentage.
+            Dict[str, Any]: A dictionary containing the validation results with the following structure:
+                {
+                    "valid": bool,  # Overall validity status of the data array
+                    "issues": List[str],  # List of detected issues if any
+                    "stats": {  # Nested dictionary of computed statistics
+                        "total_points": int,  # Total number of points in the data array
+                        "finite_points": int,  # Count of finite values in the data array
+                        "finite_percentage": float,  # Percentage of finite values relative to total points
+                        "min": float,  # Minimum value among finite data points
+                        "max": float,  # Maximum value among finite data points
+                        "mean": float,  # Mean value among finite data points
+                        "std": float,  # Standard deviation among finite data points
+                        "median": float  # Median value among finite data points
+                    }
+                }
         """
         results = {
             "valid": True,

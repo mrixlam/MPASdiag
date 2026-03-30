@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Configuration Management Utilities
+MPASdiag Core Processing Module: Configuration Management Utilities
 
-This module provides comprehensive configuration management for MPAS data analysis and visualization workflows including parameter validation, YAML file I/O operations, and centralized settings storage. It implements the MPASConfig dataclass that maintains all analysis parameters (data paths, variable names, geographic extents, visualization options, output settings) in a structured format with type hints and default values, supports loading configuration from YAML files with validation and error handling, enables command-line argument override of file-based configurations, and provides serialization methods for saving configurations to disk. The configuration system centralizes parameter management across all MPASdiag modules (processors, visualizers, CLI), ensures consistency between interactive and batch processing workflows, validates parameter combinations and value ranges with comprehensive error messages, and supports all analysis types including precipitation maps, surface variable plots, wind vectors, and vertical cross-sections. Core capabilities include automatic parameter validation with type checking, YAML parsing with schema validation, configuration merging for combining multiple sources, and extensible design for adding new analysis-specific parameters.
-
-Classes:
-    MPASConfig: Centralized configuration dataclass for all MPAS analysis operations with validation and file I/O capabilities.
+This module defines the MPASConfig dataclass, which encapsulates all configuration parameters for MPAS analysis and plotting. It provides methods for validating spatial extent parameters, converting the configuration to and from dictionary format, and saving/loading configurations to YAML files. This structured approach to configuration management ensures that all parameters are organized, validated, and easily accessible throughout the processing workflow. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -22,47 +19,8 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class MPASConfig:
-    """
-    Configuration class for MPAS analysis parameters.
-    
-    Centralized configuration management for all MPAS analysis operations including
-    data processing, visualization, and output generation. Supports all plot types
-    (precipitation, surface variables, wind vectors) with comprehensive parameter sets.
-    
-    Attributes:
-        Data Parameters:
-            grid_file (str): Path to MPAS grid file
-            data_dir (str): Directory containing MPAS diagnostic files
-            output_dir (str): Output directory for plots and results
-            
-        Spatial Parameters:
-            lat_min, lat_max (float): Latitude bounds for analysis extent
-            lon_min, lon_max (float): Longitude bounds for analysis extent
-            
-        Processing Parameters:
-            variable (str): Primary variable to analyze
-            time_index (int): Time step index for processing
-            data_type (str): Data processing backend ('uxarray' or 'xarray')
-            
-        Visualization Parameters:
-            colormap (str): Colormap name for plots
-            figure_size (Tuple[float, float]): Figure dimensions in inches
-            dpi (int): Output resolution
-            output_formats (List[str]): List of output formats
-            
-        Wind-Specific Parameters:
-            u_variable, v_variable (str): Wind component variable names
-            wind_level (str): Atmospheric level description
-            wind_plot_type (str): Vector representation ('barbs' or 'arrows')
-            subsample_factor (int): Vector density subsampling
-            wind_scale (float): Vector scaling factor
-            show_background (bool): Enable background wind speed display
-            
-        Performance Parameters:
-            verbose (bool): Enable detailed logging
-            parallel (bool): Enable parallel processing
-            batch_all (bool): Process all available time steps
-    """
+    """ Configuration class for MPAS analysis parameters. """
+
     grid_file: str = ""
     data_dir: str = ""
     output_dir: str = ""
@@ -143,9 +101,14 @@ class MPASConfig:
     transparency: float = 0.7
     contour_overlay: bool = False
     
-    def __post_init__(self) -> None:
+    sounding_lon: Optional[float] = None
+    sounding_lat: Optional[float] = None
+    show_indices: bool = False
+    show_parcel: bool = False
+    
+    def __post_init__(self: 'MPASConfig') -> None:
         """
-        Execute post-initialization validation and default value assignment after dataclass instantiation. This method is automatically called by the dataclass mechanism following object construction to perform configuration validation and setup. It ensures output_formats has a default value if not specified and validates spatial extent parameters for consistency. If spatial extent validation fails, it raises a ValueError to prevent invalid configurations from being used. This hook enables robust configuration validation without requiring explicit constructor override.
+        This method is automatically called after the dataclass is initialized. It performs validation and sets default values for certain parameters if they are not provided. Specifically, it checks if the output_formats parameter is None and sets it to a default list containing "png". It also calls the _validate_spatial_extent method to ensure that the spatial extent parameters (latitude and longitude bounds) are valid. If the spatial extent parameters are invalid, it raises a ValueError with an appropriate message. This post-initialization step ensures that the configuration object is in a consistent and valid state before it is used in any processing or plotting operations. 
 
         Parameters:
             None
@@ -159,9 +122,9 @@ class MPASConfig:
         if not self._validate_spatial_extent():
             raise ValueError("Invalid spatial extent parameters")
     
-    def _validate_spatial_extent(self) -> bool:
+    def _validate_spatial_extent(self: 'MPASConfig') -> bool:
         """
-        Validate spatial extent parameters to ensure geographic bounds are physically meaningful and properly ordered. This method checks that longitude values fall within [-180, 180] degrees, latitude values are within [-90, 90] degrees, and maximum bounds exceed minimum bounds for both coordinates. If any coordinate is None, validation is skipped to allow for unspecified extent. Returns True when extent is valid or unspecified, False when invalid bounds are detected. This validation prevents downstream plotting and analysis errors from malformed geographic constraints.
+        This method validates the spatial extent parameters (latitude and longitude bounds) of the configuration. It checks if any of the spatial extent parameters (lon_min, lon_max, lat_min, lat_max) are None, in which case it considers the spatial extent to be valid (as it may be unspecified). If all parameters are specified, it ensures that the longitude values are between -180 and 180 degrees, the latitude values are between -90 and 90 degrees, and that the maximum bounds are greater than the minimum bounds. This validation step is crucial for ensuring that any spatial subsetting or plotting operations based on these parameters will function correctly without encountering errors due to invalid geographic bounds. 
 
         Parameters:
             None
@@ -181,9 +144,9 @@ class MPASConfig:
             self.lat_max > self.lat_min
         )
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self: 'MPASConfig') -> Dict[str, Any]:
         """
-        Convert configuration object to a dictionary representation for serialization and inspection. This method uses the dataclass asdict utility to transform all configuration attributes into a dictionary structure suitable for YAML export or programmatic access. It performs post-processing to convert tuple values to lists since YAML and many serialization formats prefer list representations. The resulting dictionary contains all configuration parameters with their current values. This enables configuration persistence, comparison, and external manipulation of settings.
+        This method converts the MPASConfig dataclass instance into a dictionary format. It uses the asdict function from the dataclasses module to create a dictionary representation of the dataclass. Additionally, it iterates through the dictionary items and checks if any values are tuples (such as figure_size) and converts them to lists, since YAML serialization does not support tuples. This method ensures that all configuration parameters are in a format suitable for saving to a YAML file or for other uses where a dictionary representation is needed. 
 
         Parameters:
             None
@@ -200,27 +163,27 @@ class MPASConfig:
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any]) -> 'MPASConfig':
         """
-        Construct a new configuration object from a dictionary of parameter values with automatic type conversion. This class method serves as an alternative constructor that accepts a dictionary containing configuration parameters and returns a properly initialized MPASConfig instance. It handles special type conversions such as transforming list representations back to tuples for parameters like figure_size that require tuple types. The method enables configuration loading from YAML files, JSON, or any dictionary source. This pattern supports flexible configuration creation from external data sources while maintaining type safety.
+        This class method creates an instance of MPASConfig from a given dictionary of configuration parameters. It takes a dictionary as input, which should contain keys that match the attribute names of the MPASConfig dataclass. The method checks if the 'figure_size' key is present in the dictionary and if its value is a list; if so, it converts it to a tuple since the MPASConfig class expects figure_size to be a tuple. Finally, it uses the unpacking operator (**) to pass the dictionary items as keyword arguments to the MPASConfig constructor, which will initialize the instance with the provided configuration values. This method allows for easy creation of configuration objects from dictionaries, such as those loaded from YAML files or other sources.  
 
-        Parameters:
-            config_dict (Dict[str, Any]): Dictionary containing configuration parameters with keys matching MPASConfig attribute names.
+        Parameters: 
+            config_dict (Dict[str, Any]): Dictionary containing configuration parameters with keys matching MPASConfig attributes. 
 
         Returns:
-            MPASConfig: Newly constructed configuration object initialized with dictionary values.
+            MPASConfig: An instance of MPASConfig initialized with the provided configuration parameters. 
         """
         if 'figure_size' in config_dict and isinstance(config_dict['figure_size'], list):
             config_dict['figure_size'] = tuple(config_dict['figure_size'])
         return cls(**config_dict)
     
-    def save_to_file(self, filepath: str) -> None:
+    def save_to_file(self: 'MPASConfig', filepath: str) -> None:
         """
-        Persist the current configuration to a YAML file for reproducibility and sharing. This method converts the configuration object to a dictionary representation, writes it to the specified file path using YAML formatting with proper indentation, and prints a confirmation message. The YAML format is human-readable, version-control friendly, and easily editable, making it ideal for configuration management. Saved configurations can be loaded later using load_from_file to reproduce analysis workflows exactly. This enables configuration version control, sharing analysis setups between team members, and maintaining consistent processing parameters across runs.
+        This method saves the current configuration parameters of the MPASConfig instance to a YAML file at the specified filepath. It first converts the configuration to a dictionary format using the to_dict method, which also handles any necessary conversions (such as tuples to lists). Then, it opens the specified file in write mode and uses the yaml.dump function to write the configuration dictionary to the file in a human-readable format with proper indentation. After successfully saving the configuration, it prints a confirmation message indicating where the configuration has been saved. This method allows users to easily export their current configuration settings for later use or sharing with others. 
 
         Parameters:
-            filepath (str): Absolute or relative path to output YAML file where configuration will be saved.
+            filepath (str): Absolute or relative path to YAML file where configuration should be saved. 
 
         Returns:
-            None
+            None 
         """
         config_dict = self.to_dict()
         
@@ -232,13 +195,13 @@ class MPASConfig:
     @classmethod
     def load_from_file(cls, filepath: str) -> 'MPASConfig':
         """
-        Load configuration parameters from a YAML file and construct a validated configuration object. This class method reads a YAML configuration file using safe loading to prevent code execution vulnerabilities, parses the parameter dictionary, and uses from_dict to construct a fully initialized MPASConfig instance. It enables reproducible analysis workflows by restoring previously saved configurations with all parameters intact. The method handles type conversions automatically and validates the configuration through __post_init__ after construction. This is the primary mechanism for loading saved analysis setups and sharing configurations across analysis runs.
+        This class method loads configuration parameters from a specified YAML file and creates an instance of MPASConfig with those parameters. It opens the YAML file in read mode and uses the yaml.safe_load function to parse the contents of the file into a dictionary. Then, it calls the from_dict class method to convert the loaded dictionary into an MPASConfig instance, which will be initialized with the parameters from the file. This method allows users to easily load previously saved configurations or configurations shared by others, ensuring that all parameters are correctly set up for use in analysis and plotting operations. 
 
         Parameters:
-            filepath (str): Absolute or relative path to YAML configuration file to load.
+            filepath (str): Absolute or relative path to YAML file containing configuration parameters. 
 
         Returns:
-            MPASConfig: Loaded and validated configuration object with all parameters from file.
+            MPASConfig: An instance of MPASConfig initialized with parameters loaded from the specified YAML file. 
         """
         with open(filepath, 'r') as f:
             config_dict = yaml.safe_load(f)

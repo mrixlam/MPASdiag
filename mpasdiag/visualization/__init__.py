@@ -21,6 +21,7 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_pl
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
+from mpasdiag.visualization.skewt import MPASSkewTPlotter
 
 __all__ = [
     'MPASVisualizer',
@@ -31,5 +32,6 @@ __all__ = [
     'create_surface_plot',
     'MPASVerticalCrossSectionPlotter',
     'MPASPrecipitationPlotter',
-    'MPASWindPlotter'
+    'MPASWindPlotter',
+    'MPASSkewTPlotter'
 ]

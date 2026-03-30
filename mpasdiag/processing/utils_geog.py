@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
 """
-MPAS Geographic and Spatial Utilities
+MPASdiag Core Processing Module: Geographic and Spatial Utilities
 
-This module provides comprehensive geographic and spatial utilities for MPAS model data processing including coordinate extraction from unstructured meshes, geographic extent validation, spatial filtering operations, and coordinate transformations. It implements the MPASGeographicUtils class with static methods for extracting longitude and latitude arrays from MPAS datasets with automatic unit detection and conversion (radians to degrees), validating and normalizing geographic extents for plotting and subsetting, computing spatial bounds and bounding boxes for data regions, and performing point-in-region filtering for spatial subsetting. The utilities handle MPAS-specific coordinate naming conventions (lonCell, latCell) and mesh geometries (Voronoi cells, dual mesh edges), support both cell-centered and vertex-based coordinate systems, normalize longitude values to standard [-180, 180] range for dateline handling, and provide robust error handling for missing or malformed coordinate data. Core capabilities include automatic coordinate flattening for multi-dimensional arrays, extent validation with range checking and dateline crossing detection, great-circle distance calculations for spatial proximity operations, and integration with cartographic projection systems suitable for visualizing MPAS unstructured mesh data on geographic maps.
-
-Classes:
-    MPASGeographicUtils: Utility class providing static methods for geographic operations on MPAS unstructured mesh datasets.
+This module defines the MPASGeographicUtils class, which provides a collection of static methods for handling geographic and spatial operations on MPAS model output data. The MPASGeographicUtils class includes functions for extracting longitude and latitude coordinates from xarray Datasets, filtering data based on geographic extents, normalizing longitude values, validating geographic extents, calculating spatial resolution estimates, and determining if an extent covers the global domain. These utilities are designed to facilitate common spatial operations required in MPAS diagnostic processing workflows, enabling users to easily manage and analyze spatial data from MPAS simulations. By centralizing these geographic functions in a dedicated utility class, MPASdiag promotes code reuse, consistency, and maintainability across different diagnostic scripts and analyses that involve spatial data handling. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -21,27 +18,20 @@ from typing import Tuple, Optional
 
 
 class MPASGeographicUtils:
-    """
-    Geographic utilities class for MPAS spatial operations.
-    
-    This class provides functionality for handling geographic coordinates,
-    spatial extents, and coordinate transformations for MPAS unstructured mesh data.
-    """
+    """ Utility class for geographic and spatial operations on MPAS model output data, providing static methods for coordinate extraction, spatial filtering, and resolution estimation. """
     
     @staticmethod
-    def extract_spatial_coordinates(dataset: xr.Dataset, normalize: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def extract_spatial_coordinates(dataset: xr.Dataset, 
+                                    normalize: bool = True) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Extract longitude and latitude coordinate arrays from MPAS unstructured mesh datasets with automatic unit conversion and optional normalization. This method searches for coordinate variables using common MPAS naming conventions ('lonCell', 'latCell', 'longitude', 'latitude', 'lon', 'lat'), handles both radian and degree units by detecting value ranges and converting radians to degrees when necessary, and flattens multi-dimensional coordinate arrays to 1D for consistency. The method can optionally normalize longitude values to the standard [-180, 180] range or preserve the original range for global data. This coordinate extraction is fundamental for all spatial operations including plotting, subsetting, and geographic analysis of MPAS model output on irregular Voronoi meshes.
+        This method extracts longitude and latitude coordinates from an MPAS xarray Dataset, handling various possible variable names and coordinate structures commonly found in MPAS model output. It searches for standard coordinate variable names such as 'lonCell', 'latCell', 'longitude', 'latitude', 'lon', and 'lat' in both the dataset's coordinates and data variables. If the coordinates are found in radians, it converts them to degrees. The method then flattens the longitude and latitude arrays into 1D numpy arrays for easier handling in subsequent spatial operations. If the normalize parameter is set to True, it also normalizes longitude values to the range [-180, 180] degrees to ensure consistency across datasets that may use different longitude conventions (e.g., [0, 360]). This function is essential for preparing spatial coordinate data for filtering, plotting, and analysis tasks in MPAS diagnostic workflows. 
 
         Parameters:
-            dataset (xr.Dataset): MPAS xarray Dataset containing coordinate information in variables or coordinates.
-            normalize (bool): Whether to normalize longitude to [-180, 180] range. Set to False for global data spanning 0-360. Default: True.
+            dataset (xr.Dataset): MPAS xarray Dataset containing coordinate information for spatial operations.
+            normalize (bool): If True, normalizes longitude values to the range [-180, 180] degrees (default: True). 
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: Two-element tuple containing (longitude_array, latitude_array) as flattened 1D numpy arrays in degrees.
-            
-        Raises:
-            ValueError: If dataset is None or if no recognizable spatial coordinates are found in the dataset.
+            Tuple[np.ndarray, np.ndarray]: Two-element tuple containing (lon_coords, lat_coords) as 1D numpy arrays of longitude and latitude values in degrees, normalized if specified. 
         """
         if dataset is None:
             raise ValueError("Dataset cannot be None.")
@@ -78,22 +68,25 @@ class MPASGeographicUtils:
         return lon_coords, lat_coords
 
     @staticmethod
-    def filter_by_spatial_extent(data: xr.DataArray, dataset: xr.Dataset,
-                                lon_min: float, lon_max: float, 
-                                lat_min: float, lat_max: float) -> Tuple[xr.DataArray, np.ndarray]:
+    def filter_by_spatial_extent(data: xr.DataArray, 
+                                 dataset: xr.Dataset, 
+                                 lon_min: float, 
+                                 lon_max: float, 
+                                 lat_min: float, 
+                                 lat_max: float) -> Tuple[xr.DataArray, np.ndarray]:
         """
-        Apply geographic bounding box filtering to MPAS data arrays by masking cells outside specified longitude and latitude ranges. This method extracts spatial coordinates from the dataset, creates a boolean mask identifying cells within the specified rectangular geographic extent, and applies the mask to the data array using xarray's `where()` method to set out-of-bounds values to NaN. The filtering preserves the original data structure and dimensions while enabling regional analysis and visualization of MPAS model output. The method returns both the filtered data array and the boolean mask for potential reuse in subsequent operations or for tracking which cells were included in the spatial subset.
+        This method filters an xarray DataArray based on a specified geographic extent defined by longitude and latitude bounds. It first extracts the longitude and latitude coordinates from the provided dataset using the extract_spatial_coordinates method. Then, it creates a boolean mask to identify which cells fall within the specified bounding box defined by lon_min, lon_max, lat_min, and lat_max. If the DataArray has a spatial dimension named 'nCells', it applies the mask to set values outside the extent to NaN, effectively filtering the data to include only the cells within the geographic bounds. The method returns a tuple containing the filtered DataArray and the boolean mask used for filtering, allowing users to easily identify which cells were included in the spatial subset. This functionality is crucial for focusing analyses and visualizations on specific regions of interest within MPAS model output data. 
 
         Parameters:
-            data (xr.DataArray): MPAS data array to filter, typically with 'nCells' spatial dimension.
-            dataset (xr.Dataset): MPAS dataset containing coordinate information for spatial subsetting.
-            lon_min (float): Minimum longitude bound in degrees [-180 to 180] for western edge of bounding box.
-            lon_max (float): Maximum longitude bound in degrees [-180 to 180] for eastern edge of bounding box.
-            lat_min (float): Minimum latitude bound in degrees [-90 to 90] for southern edge of bounding box.
-            lat_max (float): Maximum latitude bound in degrees [-90 to 90] for northern edge of bounding box.
+            data (xr.DataArray): The xarray DataArray to be filtered based on geographic extent.
+            dataset (xr.Dataset): The xarray Dataset containing coordinate information for extracting longitude and latitude.
+            lon_min (float): Minimum longitude bound of the geographic extent in degrees.
+            lon_max (float): Maximum longitude bound of the geographic extent in degrees.
+            lat_min (float): Minimum latitude bound of the geographic extent in degrees.
+            lat_max (float): Maximum latitude bound of the geographic extent in degrees. 
 
         Returns:
-            Tuple[xr.DataArray, np.ndarray]: Two-element tuple containing (filtered_data_array, boolean_mask) where filtered_data has NaN outside extent and mask indicates included cells.
+            Tuple[xr.DataArray, np.ndarray]: A tuple containing the filtered DataArray with values outside the extent set to NaN (if 'nCells' dimension exists) and the boolean mask array indicating which cells are within the specified geographic bounds. 
         """
         lon, lat = MPASGeographicUtils.extract_spatial_coordinates(dataset)
         
@@ -110,13 +103,13 @@ class MPASGeographicUtils:
     @staticmethod
     def normalize_longitude(lon: np.ndarray) -> np.ndarray:
         """
-        Normalize longitude values to the standard geographic range of [-180, 180] degrees using modular arithmetic for consistent dateline handling. This method takes longitude arrays that may span [0, 360], [-180, 180], or any other range due to coordinate system differences or accumulated offsets, and converts all values to the standardized [-180, 180] convention used throughout MPASdiag. The normalization uses the formula `((lon + 180) % 360) - 180` to wrap longitude values around the international dateline while preserving geographic accuracy. This standardization is essential for proper visualization, spatial filtering, and coordinate comparisons across datasets that may use different longitude conventions.
+        This method normalizes longitude values to the range [-180, 180] degrees, which is a common convention for geographic data. It takes an array of longitude values that may be in any range (commonly [0, 360] or already in [-180, 180]) and applies a modulo operation to wrap the values into the desired range. The formula used is ((lon + 180) % 360) - 180, which effectively shifts the longitude values by 180 degrees, applies modulo 360 to wrap around, and then shifts back by 180 degrees to ensure all values fall within the range of -180 to 180 degrees. This normalization is important for ensuring consistency in spatial analyses and visualizations, especially when combining datasets that may use different longitude conventions. 
 
         Parameters:
-            lon (np.ndarray): Longitude array in degrees with values in any range (commonly [0, 360] or [-180, 180]).
+            lon (np.ndarray): Array of longitude values in degrees, which may be in any range (e.g., [0, 360] or already in [-180, 180]). 
 
         Returns:
-            np.ndarray: Normalized longitude array with all values mapped to the range [-180, 180] degrees.
+            np.ndarray: Array of longitude values normalized to the range [-180, 180] degrees. 
         """
         lon = np.asarray(lon)
         lon = ((lon + 180) % 360) - 180
@@ -125,13 +118,13 @@ class MPASGeographicUtils:
     @staticmethod
     def validate_geographic_extent(extent: Tuple[float, float, float, float]) -> bool:
         """
-        Validate that geographic extent coordinates are within valid geographic ranges and properly ordered for bounding box operations. This method checks that longitude values fall within [-180, 180] degrees, latitude values fall within [-90, 90] degrees, and that maximum bounds are greater than minimum bounds in both dimensions to define a valid rectangular region. The validation ensures that user-provided or calculated geographic extents are physically meaningful before use in spatial filtering, plotting, or subsetting operations. This function is particularly useful for input validation in command-line interfaces and for detecting configuration errors that could cause incorrect spatial queries or visualization artifacts.
+        This method validates a geographic extent defined by a tuple of (lon_min, lon_max, lat_min, lat_max) to ensure that the longitude and latitude bounds are within valid ranges and properly ordered. It checks that longitude values are between -180 and 180 degrees, latitude values are between -90 and 90 degrees, and that the maximum longitude is greater than the minimum longitude, and the maximum latitude is greater than the minimum latitude. This validation is crucial for ensuring that geographic extents used in filtering, plotting, or spatial analyses are meaningful and do not contain invalid or nonsensical values that could lead to errors or incorrect results in MPAS diagnostic processing workflows. If the extent passes all checks, the method returns True; otherwise, it returns False to indicate an invalid geographic extent. 
 
         Parameters:
-            extent (Tuple[float, float, float, float]): Geographic extent tuple as (lon_min, lon_max, lat_min, lat_max) in degrees.
+            extent (Tuple[float, float, float, float]): Geographic extent tuple as (lon_min, lon_max, lat_min, lat_max) in degrees to be validated. 
 
         Returns:
-            bool: True if extent coordinates are within valid ranges and properly ordered (lon_max > lon_min, lat_max > lat_min), False otherwise.
+            bool: True if the geographic extent is valid (longitude between -180 and 180, latitude between -90 and 90, and properly ordered), False otherwise. 
         """
         lon_min, lon_max, lat_min, lat_max = extent
         return (
@@ -141,18 +134,19 @@ class MPASGeographicUtils:
         )
 
     @staticmethod
-    def get_extent_from_coordinates(lon: np.ndarray, lat: np.ndarray, 
-                                   buffer: float = 0.0) -> Tuple[float, float, float, float]:
+    def get_extent_from_coordinates(lon: np.ndarray, 
+                                    lat: np.ndarray, 
+                                    buffer: float = 0.0) -> Tuple[float, float, float, float]:
         """
-        Calculate the minimum bounding box geographic extent from coordinate arrays with optional buffer expansion for margin control in visualizations. This method determines the rectangular geographic extent that encompasses all valid (non-NaN) coordinate points by computing minimum and maximum longitude and latitude values, then optionally expands the extent by a specified buffer in degrees to add whitespace around the data in plots. The method filters out invalid coordinates using finite checks, applies the buffer symmetrically on all sides, and clamps the final extent to valid geographic ranges [-180, 180] for longitude and [-90, 90] for latitude. This automatic extent calculation is essential for creating properly sized map projections and ensuring all data points are visible in regional visualization workflows.
+        This method calculates the geographic extent (bounding box) from given longitude and latitude coordinate arrays, optionally adding a buffer distance to expand the extent for plot margins or spatial analyses. It first creates a boolean mask to identify valid (finite) longitude and latitude values, then computes the minimum and maximum longitude and latitude from the valid coordinates. The method applies the specified buffer to expand the extent on all sides, ensuring that the resulting bounds are clamped to valid ranges for longitude (-180 to 180 degrees) and latitude (-90 to 90 degrees). This function is useful for automatically determining appropriate geographic extents for plotting or spatial filtering based on the actual distribution of coordinate data in MPAS datasets, while allowing for additional margin space as needed. If no valid coordinates are found, it raises a ValueError indicating that an extent cannot be calculated. 
 
         Parameters:
-            lon (np.ndarray): Longitude coordinate array in degrees, may contain NaN values.
-            lat (np.ndarray): Latitude coordinate array in degrees, may contain NaN values.
-            buffer (float): Buffer distance in degrees to add around extent on all sides for plot margins (default: 0.0).
+            lon (np.ndarray): Array of longitude coordinates in degrees.
+            lat (np.ndarray): Array of latitude coordinates in degrees.
+            buffer (float): Optional buffer distance in degrees to expand the extent on all sides (default: 0.0). 
 
         Returns:
-            Tuple[float, float, float, float]: Geographic extent tuple as (lon_min, lon_max, lat_min, lat_max) in degrees, clamped to valid ranges and expanded by buffer.
+            Tuple[float, float, float, float]: Geographic extent as a tuple (lon_min, lon_max, lat_min, lat_max) in degrees, expanded by the specified buffer and clamped to valid ranges.  
         """
         valid_mask = np.isfinite(lon) & np.isfinite(lat)
 
@@ -173,18 +167,19 @@ class MPASGeographicUtils:
         return lon_min, lon_max, lat_min, lat_max
 
     @staticmethod
-    def calculate_spatial_resolution(lon: np.ndarray, lat: np.ndarray, 
-                                   sample_size: int = 1000) -> float:
+    def calculate_spatial_resolution(lon: np.ndarray, 
+                                     lat: np.ndarray, 
+                                     sample_size: int = 1000) -> float:
         """
-        Estimate the average spatial resolution of the MPAS unstructured mesh by computing median nearest-neighbor distances between sample coordinate points. This method randomly samples a subset of mesh cells (or uses all points if fewer than sample_size), calculates Euclidean distances between consecutive points in the sample, and returns the median distance as a representative resolution value in degrees. The median statistic provides robustness against outliers that may occur in variable-resolution MPAS meshes where refinement regions have dramatically different cell sizes. This resolution estimate is useful for selecting appropriate contouring levels, determining optimal plotting parameters, and understanding the effective scale of the model output data for quality control and analysis purposes.
+        This method estimates the spatial resolution of an MPAS mesh by calculating the median distance between neighboring longitude and latitude coordinate points. It takes arrays of longitude and latitude coordinates, optionally samples a subset of points for faster computation, and computes the pairwise distances between consecutive points in the sample. The method then returns the median distance as an estimate of the spatial resolution in degrees. If there are fewer than 2 valid points, it returns 0.0 to indicate that resolution cannot be calculated. This function provides a simple way to estimate the effective spatial resolution of MPAS model output data based on the distribution of coordinate points, which can be useful for understanding the level of detail in spatial analyses and visualizations. 
 
         Parameters:
-            lon (np.ndarray): Longitude coordinate array for MPAS mesh cells in degrees.
-            lat (np.ndarray): Latitude coordinate array for MPAS mesh cells in degrees.
-            sample_size (int): Number of coordinate points to sample for resolution estimation, smaller values faster but less accurate (default: 1000).
+            lon (np.ndarray): Array of longitude coordinates in degrees.
+            lat (np.ndarray): Array of latitude coordinates in degrees.
+            sample_size (int): Optional number of points to sample for distance calculation to improve performance (default: 1000). If the total number of points is less than sample_size, all points will be used.
 
         Returns:
-            float: Estimated spatial resolution in degrees representing median distance between neighboring mesh cells, returns 0.0 if resolution cannot be calculated.
+            float: Estimated spatial resolution in degrees, calculated as the median distance between neighboring coordinate points. Returns 0.0 if there are fewer than 2 valid points. 
         """
         if len(lon) < 2 or len(lat) < 2:
             return 0.0
@@ -217,16 +212,16 @@ class MPASGeographicUtils:
 
     @staticmethod
     def is_global_extent(extent: Tuple[float, float, float, float], 
-                        tolerance: float = 1.0) -> bool:
+                         tolerance: float = 1.0) -> bool:
         """
-        Determine if a geographic extent approximately covers the entire globe by comparing longitude and latitude spans to full Earth coverage with configurable tolerance. This method calculates the longitude span (lon_max - lon_min) and latitude span (lat_max - lat_min) from the provided extent, then checks if the spans are within tolerance of 360° and 180° respectively, which would indicate global coverage. The tolerance parameter allows flexibility for near-global domains that may have small gaps or overlap, with default 1° tolerance accommodating minor coordinate rounding or mesh boundary effects. This classification is useful for automatically selecting global vs regional map projections, determining appropriate plotting strategies, and optimizing data processing workflows that differ for global and regional MPAS simulations.
+        This method determines whether a given geographic extent approximately covers the global domain by checking if the longitude span is close to 360 degrees and the latitude span is close to 180 degrees, within a specified tolerance. It calculates the longitude and latitude spans from the provided extent tuple (lon_min, lon_max, lat_min, lat_max) and compares them against the thresholds of 360 degrees for longitude and 180 degrees for latitude, allowing for a small tolerance to account for extents that may not perfectly match the full globe but still effectively cover it. If both the longitude and latitude spans meet or exceed their respective thresholds minus the tolerance, the method returns True, indicating that the extent can be considered global; otherwise, it returns False. This function is useful for identifying when a dataset or plot should be treated as global in scope based on its geographic coverage. 
 
         Parameters:
-            extent (Tuple[float, float, float, float]): Geographic extent tuple as (lon_min, lon_max, lat_min, lat_max) in degrees.
-            tolerance (float): Tolerance in degrees for "global" determination, allowing spans slightly less than full Earth coverage (default: 1.0).
+            extent (Tuple[float, float, float, float]): Geographic extent as a tuple (lon_min, lon_max, lat_min, lat_max) in degrees to be evaluated for global coverage.
+            tolerance (float): Tolerance in degrees for determining if the longitude and latitude spans are close enough to 360 and 180 degrees, respectively (default: 1.0 degree). 
 
         Returns:
-            bool: True if extent spans approximately the full globe (longitude span ≥ 360° - tolerance and latitude span ≥ 180° - tolerance), False otherwise.
+            bool: True if the extent is considered global (longitude span >= 360 - tolerance and latitude span >= 180 - tolerance), False otherwise. 
         """
         lon_min, lon_max, lat_min, lat_max = extent
         
