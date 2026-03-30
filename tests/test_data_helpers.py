@@ -97,7 +97,28 @@ def _grid_file_path() -> str:
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
 
+    if _is_lfs_pointer(grid_file):
+        pytest.skip("MPAS grid file is a Git LFS pointer (LFS data not pulled)")
+
     return str(grid_file)
+
+
+def _is_lfs_pointer(filepath: Path) -> bool:
+    """
+    This helper function checks if the given file is a Git LFS pointer file by reading its header and looking for the characteristic LFS signature. It returns True if the file is an LFS pointer, which indicates that the actual data is not present locally and may need to be fetched from the remote repository. This is important for tests that rely on sample data files, as it allows them to skip gracefully when the data is not available in the local environment. 
+
+    Parameters:
+        filepath (Path): The path to the file to check.
+
+    Returns:
+        bool: True if the file is an LFS pointer, False otherwise. 
+    """
+    try:
+        with open(filepath, 'rb') as f:
+            header = f.read(50)
+        return header.startswith(b'version https://git-lfs.github.com/')
+    except (OSError, IOError):
+        return False
 
 
 def _find_and_load_2d_processor(data_subdir: str) -> MPAS2DProcessor:

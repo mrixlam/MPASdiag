@@ -23,6 +23,24 @@ from unittest.mock import Mock
 from typing import Dict, Any, Optional, Tuple, Generator
 
 
+def _is_lfs_pointer(filepath: Path) -> bool:
+    """
+    This helper function checks if the given file is a Git LFS pointer file by reading its header and looking for the characteristic LFS signature. It returns True if the file is an LFS pointer, which indicates that the actual data is not present locally and may need to be fetched from the remote repository. This is important for tests that rely on sample data files, as it allows them to skip gracefully when the data is not available in the local environment. 
+
+    Parameters:
+        filepath (Path): The path to the file to check.
+
+    Returns:
+        bool: True if the file is an LFS pointer, False otherwise. 
+    """
+    try:
+        with open(filepath, 'rb') as f:
+            header = f.read(50)
+        return header.startswith(b'version https://git-lfs.github.com/')
+    except (OSError, IOError):
+        return False
+
+
 @pytest.fixture(scope="session")
 def project_root() -> Path:
     """
@@ -63,7 +81,7 @@ def grid_file(test_data_dir: Path) -> Optional[str]:
         Optional[str]: String path to the grid file when present; otherwise `None` when the sample data file is missing.
     """
     grid_path = test_data_dir / "grids" / "x1.40962.static.nc"
-    if grid_path.exists():
+    if grid_path.exists() and not _is_lfs_pointer(grid_path):
         return str(grid_path)
     return None
 
