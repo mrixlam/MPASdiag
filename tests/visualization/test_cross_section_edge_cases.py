@@ -2013,12 +2013,16 @@ class TestCrossSectionBatch:
         Returns:
             None
         """
+        import tempfile
         plotter = MPASVerticalCrossSectionPlotter()
-        with pytest.raises(ValueError, match="must be an instance"):
-            plotter.create_batch_cross_section_plots(
-                mpas_3d_processor="not_a_processor",
-                output_dir='/tmp/test',
-                var_name='theta',
+        mock_proc = MagicMock(spec=MPAS3DProcessor)
+
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with pytest.raises(ValueError, match="must be an instance"):
+                plotter.create_batch_cross_section_plots(
+                    mpas_3d_processor=mock_proc,
+                    output_dir=tmp_output_dir,
+                    var_name='theta',
                 start_point=(-110, 30),
                 end_point=(-100, 40)
             )
@@ -2033,13 +2037,18 @@ class TestCrossSectionBatch:
         Returns:
             None
         """
+        import tempfile
+
         plotter = MPASVerticalCrossSectionPlotter()
         mock_proc = MagicMock(spec=MPAS3DProcessor)
+
         mock_proc.dataset = None
-        with pytest.raises(ValueError, match="must have loaded data"):
-            plotter.create_batch_cross_section_plots(
+
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with pytest.raises(ValueError, match="must have loaded data"):
+                plotter.create_batch_cross_section_plots(
                 mpas_3d_processor=mock_proc,
-                output_dir='/tmp/test',
+                output_dir=tmp_output_dir,
                 var_name='theta',
                 start_point=(-110, 30),
                 end_point=(-100, 40)
@@ -2055,19 +2064,24 @@ class TestCrossSectionBatch:
         Returns:
             None
         """
+        import tempfile
+
         plotter = MPASVerticalCrossSectionPlotter()
         mock_proc = MagicMock(spec=MPAS3DProcessor)
+
         mock_proc.dataset = xr.Dataset({
             'theta': (['Time', 'nVertLevels', 'nCells'], np.zeros((2, 5, 10)))
         })
-        with pytest.raises(ValueError, match="not found"):
-            plotter.create_batch_cross_section_plots(
-                mpas_3d_processor=mock_proc,
-                output_dir='/tmp/test',
-                var_name='nonexistent_var',
-                start_point=(-110, 30),
-                end_point=(-100, 40)
-            )
+
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with pytest.raises(ValueError, match="not found"):
+                plotter.create_batch_cross_section_plots(
+                    mpas_3d_processor=mock_proc,
+                    output_dir=tmp_output_dir,
+                    var_name='nonexistent_var',
+                    start_point=(-110, 30),
+                    end_point=(-100, 40)
+                )
 
     def test_batch_cross_section_time_iteration(self, tmp_path) -> None:
         """
@@ -2081,6 +2095,7 @@ class TestCrossSectionBatch:
         """
         plotter = MPASVerticalCrossSectionPlotter()
         mock_proc = MagicMock(spec=MPAS3DProcessor)
+
         mock_proc.dataset = xr.Dataset({
             'theta': (['Time', 'nVertLevels', 'nCells'], np.random.uniform(200, 350, (3, 5, 100))),
             'Time': (['Time'], pd.date_range('2025-01-01', periods=3, freq='h').values),

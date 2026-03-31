@@ -414,10 +414,12 @@ class TestAdditionalMissingLines:
         Returns:
             None
         """
+        import tempfile
         assert MPASVisualizationStyle.save_plot is not None
 
-        with pytest.raises(ValueError) as exc_info:
-            MPASVisualizationStyle.save_plot(None, '/tmp/test') # type: ignore
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with pytest.raises(ValueError) as exc_info:
+                MPASVisualizationStyle.save_plot(None, tmp_output_dir) # type: ignore
         
         assert "No figure to save" in str(exc_info.value)
     
@@ -1086,8 +1088,11 @@ class TestSavePlotException:
         Returns:
             None
         """
-        with pytest.raises(ValueError) as exc_info:
-            MPASVisualizationStyle.save_plot(None, '/tmp/test_plot') # type: ignore
+        import tempfile
+        
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with pytest.raises(ValueError) as exc_info:
+                MPASVisualizationStyle.save_plot(None, tmp_output_dir) # type: ignore
 
         assert "No figure to save" in str(exc_info.value)
 

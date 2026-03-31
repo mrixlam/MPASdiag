@@ -910,6 +910,9 @@ class TestVisualizationIntegration:
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
         
+        if tmp_path is None:
+            pytest.skip("Temporary path not available")
+
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
         
         plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=100)
@@ -1196,6 +1199,9 @@ class TestVisualizationIntegration:
         from mpasdiag.visualization.styling import MPASVisualizationStyle
         
         lon, lat = mpas_coordinates
+
+        if lon is None or lat is None:
+            pytest.skip("Longitude or latitude data not available")
         
         n_points = min(1000, len(mpas_surface_temp_data))
         sample_data = mpas_surface_temp_data[:n_points]

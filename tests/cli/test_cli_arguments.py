@@ -546,34 +546,36 @@ class TestWorkersArgumentIntegration:
             Optional[subprocess.CompletedProcess]: The `CompletedProcess` returned by `subprocess.run` when execution completes, or `None` if execution could not be performed (missing data or timeout).
         """
         import subprocess
+        import tempfile
         import os
-        
+
         data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "u240k", "mpasout")
         grid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "grids", "x1.10242.static.nc")
-        
+
         if not os.path.exists(data_dir) or not os.path.exists(grid_file):
             return None
-        
-        cmd = [
-            "mpasdiag", plot_type,
-            "--grid-file", grid_file,
-            "--data-dir", data_dir,
-            "--output-dir", "/tmp/test_output"
-        ]
-        
-        if plot_type == "surface":
-            cmd.extend(["--variable", "t2m"])
-        elif plot_type == "precipitation":
-            cmd.extend(["--variable", "rainnc"])
-        
-        if workers is not None:
-            cmd.extend(["--workers", str(workers)])
-        
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
-            return result
-        except subprocess.TimeoutExpired:
-            return None
+
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            cmd = [
+                "mpasdiag", plot_type,
+                "--grid-file", grid_file,
+                "--data-dir", data_dir,
+                "--output-dir", tmp_output_dir
+            ]
+
+            if plot_type == "surface":
+                cmd.extend(["--variable", "t2m"])
+            elif plot_type == "precipitation":
+                cmd.extend(["--variable", "rainnc"])
+
+            if workers is not None:
+                cmd.extend(["--workers", str(workers)])
+
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                return result
+            except subprocess.TimeoutExpired:
+                return None
     
     @staticmethod
     def extract_metrics(output: str) -> Dict[str, Any]:

@@ -1594,6 +1594,7 @@ class TestPrecipitationBatchAndCoordinates:
         Returns:
             None: Assertions validate that the method correctly handles empty time indices.
         """
+        import tempfile
         mock_proc = MagicMock()
         mock_proc.dataset = MagicMock()
         mock_proc.dataset.sizes = {'Time': 1}
@@ -1602,11 +1603,12 @@ class TestPrecipitationBatchAndCoordinates:
             np.random.uniform(-110, -100, 50), np.random.uniform(30, 40, 50)
         )
 
-        result = self.plotter.create_batch_precipitation_maps(
-            processor=mock_proc, output_dir='/tmp/test',
-            lon_min=-110, lon_max=-100, lat_min=30, lat_max=40,
-            var_name='rainnc', accum_period='a24h'
-        )
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            result = self.plotter.create_batch_precipitation_maps(
+                processor=mock_proc, output_dir=tmp_output_dir,
+                lon_min=-110, lon_max=-100, lat_min=30, lat_max=40,
+                var_name='rainnc', accum_period='a24h'
+            )
 
         assert result == []
 
@@ -1740,22 +1742,24 @@ class TestPrecipitationProcessSingleTimeStep:
         Returns:
             None: Assertions validate that a ValueError is raised when no 'Time' coordinate is present in the dataset.
         """
+        import tempfile
         mock_proc = MagicMock()
         mock_proc.dataset = xr.Dataset({'rainnc': (['time', 'nCells'], np.zeros((5, 100)))})
         mock_proc.data_type = 'history'
 
         mock_precip = xr.DataArray(np.random.uniform(0, 5, 100), attrs={'units': 'mm'})
 
-        with patch.object(PrecipitationDiagnostics, 'compute_precipitation_difference',
-                         return_value=mock_precip), \
-             patch.object(self.plotter, 'create_precipitation_map',
-                         return_value=(MagicMock(), MagicMock())), \
-             patch.object(self.plotter, 'save_plot'), \
-             patch.object(self.plotter, 'close_plot'):
-            files = self.plotter._process_single_time_step(
-                mock_proc, 0, np.zeros(100), np.zeros(100),
-                -110, -100, 30, 40, 'rainnc', 'a01h', 'scatter',
-                None, None, None, None, '/tmp', 'test', ['png']
+        with tempfile.TemporaryDirectory() as tmp_output_dir:
+            with patch.object(PrecipitationDiagnostics, 'compute_precipitation_difference',
+                             return_value=mock_precip), \
+                 patch.object(self.plotter, 'create_precipitation_map',
+                             return_value=(MagicMock(), MagicMock())), \
+                 patch.object(self.plotter, 'save_plot'), \
+                 patch.object(self.plotter, 'close_plot'):
+                files = self.plotter._process_single_time_step(
+                    mock_proc, 0, np.zeros(100), np.zeros(100),
+                    -110, -100, 30, 40, 'rainnc', 'a01h', 'scatter',
+                    None, None, None, None, tmp_output_dir, 'test', ['png']
             )
         assert isinstance(files, list)
 

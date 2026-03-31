@@ -618,6 +618,13 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5], mpas_coordinates[1][:5]
         u, v = mpas_wind_data[0][:5], mpas_wind_data[1][:5]
@@ -675,6 +682,13 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS data (first 100 points)
         lon, lat = mpas_coordinates[0][:100], mpas_coordinates[1][:100]
         u, v = mpas_wind_data[0][:100], mpas_wind_data[1][:100]
@@ -738,6 +752,13 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Use real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5].copy(), mpas_coordinates[1][:5].copy()
         u, v = mpas_wind_data[0][:5].copy(), mpas_wind_data[1][:5].copy()
@@ -800,9 +821,19 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates reshaped to 2D (2x5 grid)
         lon = mpas_coordinates[0][:10].reshape(2, 5)
         lat = mpas_coordinates[1][:10].reshape(2, 5)
+
+        if lon.shape != (2, 5) or lat.shape != (2, 5):
+            pytest.skip("MPAS data not available or not in expected shape")
 
         # Load real MPAS wind data reshaped to 2D (2x5 grid)
         u = mpas_wind_data[0][:10].reshape(2, 5)
@@ -855,9 +886,19 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Use real MPAS coordinates reshaped to 2D (10x10 grid)
         lon = mpas_coordinates[0][:100].reshape(10, 10)
         lat = mpas_coordinates[1][:100].reshape(10, 10)
+
+        if lon.shape != (10, 10) or lat.shape != (10, 10):
+            pytest.skip("MPAS data not available or not in expected shape")
 
         # Load real MPAS wind data reshaped to 2D (10x10 grid)
         u = mpas_wind_data[0][:100].reshape(10, 10)
@@ -910,10 +951,23 @@ class TestPrepareWindData:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Use real MPAS coordinates and wind data (first 3 points)
         lon_data, lat_data = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
         u_data, v_data = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
         
+        if (
+            lon_data.shape != (3,) or lat_data.shape != (3,) or
+            u_data.shape != (3,) or v_data.shape != (3,)
+        ):
+            pytest.skip("MPAS data not available or not in expected shape")
+
         # Wrap in xarray DataArrays
         lon = xr.DataArray(lon_data, dims=['x'])
         lat = xr.DataArray(lat_data, dims=['x'])
@@ -993,6 +1047,16 @@ class TestRenderWindVectors:
         # Add GeoAxes with PlateCarree projection
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
         
+        if ax is None:
+            pytest.skip("Failed to create GeoAxes for testing")
+        
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
 
@@ -1030,7 +1094,14 @@ class TestRenderWindVectors:
 
         # Add GeoAxes with PlateCarree projection
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
-        
+
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
 
@@ -1068,7 +1139,14 @@ class TestRenderWindVectors:
 
         # Add GeoAxes with PlateCarree projection
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
-        
+
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
 
@@ -1107,6 +1185,13 @@ class TestRenderWindVectors:
         # Add GeoAxes with PlateCarree projection
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Use real MPAS data to create a small 5x5 grid
         lon_1d = mpas_coordinates[0][:25]
         lat_1d = mpas_coordinates[1][:25]
@@ -1158,6 +1243,13 @@ class TestRenderWindVectors:
         # Add GeoAxes with PlateCarree projection
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
         
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
 
@@ -1191,7 +1283,14 @@ class TestRenderWindVectors:
         
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
-        
+
+        if (
+            mpas_coordinates is None or mpas_wind_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
 
