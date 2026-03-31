@@ -96,8 +96,8 @@ class TestRealDataIntegration:
         Returns:
             dict: Dictionary with keys 'data_dir' and 'grid_file' pointing to expected sample data locations.
         """
-        data_dir = 'data/u120k/mpasout'
-        grid_file = 'data/grids/x1.40962.static.nc'
+        data_dir = 'data/u240k/mpasout'
+        grid_file = 'data/grids/x1.10242.static.nc'
         
         if not os.path.exists(data_dir):
             pytest.skip(f"MPAS data directory not found: {data_dir}")

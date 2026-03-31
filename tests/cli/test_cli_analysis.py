@@ -415,7 +415,7 @@ class TestCrossSectionWorkflows:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'mpasout')
+        data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
         cli = MPASUnifiedCLI()
 
@@ -459,7 +459,7 @@ class TestCrossSectionWorkflows:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'mpasout')
+        data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
         cli = MPASUnifiedCLI()
         
@@ -504,7 +504,7 @@ class TestCrossSectionWorkflows:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'mpasout')
+        data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
         cli = MPASUnifiedCLI()
 
@@ -549,7 +549,7 @@ class TestCrossSectionWorkflows:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'mpasout')
+        data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
         cli = MPASUnifiedCLI()
 

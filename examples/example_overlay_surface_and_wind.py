@@ -20,8 +20,8 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u120k/diag/'
-gridPath = '../data/grids/x1.40962.init.nc'
+dataDir = '../data/u240k/diag/'
+gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS data
 processor = MPAS2DProcessor(grid_file=gridPath)

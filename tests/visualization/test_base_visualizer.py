@@ -34,8 +34,8 @@ from tests.test_data_helpers import load_mpas_coords_from_processor
 warnings.filterwarnings('ignore')
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.40962.static.nc')
-MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u120k', 'mpasout')
+GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
+MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
 class TestProcessorInitializationAndSetup:

@@ -35,7 +35,7 @@ def mpas_test_data() -> xr.Dataset:
         xarray.Dataset: The loaded MPAS grid dataset.
     """
     data_dir = Path(__file__).parent.parent.parent / "data"
-    grid_file = data_dir / "grids" / "x1.40962.static.nc"
+    grid_file = data_dir / "grids" / "x1.10242.static.nc"
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")

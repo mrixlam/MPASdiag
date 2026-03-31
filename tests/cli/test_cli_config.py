@@ -228,7 +228,7 @@ class TestConfigurationAndValidation:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k')  
+        data_dir = str(Path(test_data_dir) / 'u240k')  
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -378,8 +378,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = object.__new__(MPASConfig)
-        object.__setattr__(config, 'grid_file', 'data/grids/x1.40962.static.nc')
-        object.__setattr__(config, 'data_dir', 'data/u120k/diag')
+        object.__setattr__(config, 'grid_file', 'data/grids/x1.10242.static.nc')
+        object.__setattr__(config, 'data_dir', 'data/u240k/diag')
         object.__setattr__(config, 'lat_min', 50.0)
         object.__setattr__(config, 'lat_max', 40.0)  # Invalid: lat_max < lat_min
         object.__setattr__(config, 'lon_min', -180.0)
@@ -404,8 +404,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = object.__new__(MPASConfig)
-        object.__setattr__(config, 'grid_file', 'data/grids/x1.40962.static.nc')
-        object.__setattr__(config, 'data_dir', 'data/u120k/diag')
+        object.__setattr__(config, 'grid_file', 'data/grids/x1.10242.static.nc')
+        object.__setattr__(config, 'data_dir', 'data/u240k/diag')
         object.__setattr__(config, 'lat_min', -90.0)
         object.__setattr__(config, 'lat_max', 90.0)
         object.__setattr__(config, 'lon_min', 100.0)
@@ -430,8 +430,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='cross',
             # start_lon missing
             start_lat=5.0,
@@ -457,8 +457,8 @@ class TestValidateConfigEdgeCases:
         
         cli = MPASUnifiedCLI()
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='cross',
             start_lon=95.0,
             # start_lat missing
@@ -484,8 +484,8 @@ class TestValidateConfigEdgeCases:
         
         cli = MPASUnifiedCLI()
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='cross',
             start_lon=95.0,
             start_lat=5.0,
@@ -512,8 +512,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='cross',
             start_lon=95.0,
             start_lat=5.0,
@@ -540,8 +540,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='xsec',  # Alias for cross-section
             # Missing coordinates should fail validation
         )
@@ -565,8 +565,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='3d',  # Alias for cross-section
         )
         
@@ -589,8 +589,8 @@ class TestValidateConfigEdgeCases:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='vertical',  # Alias for cross-section
         )
         

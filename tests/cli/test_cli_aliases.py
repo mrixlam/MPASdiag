@@ -138,14 +138,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='precip',  # Alias
             variable='rainnc',
             accumulation_period='a01h',
@@ -170,14 +170,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='rain',  # Alias
             variable='rainnc',
             accumulation_period='a01h',
@@ -202,14 +202,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='surf',  # Alias
             variable='t2m',
             plot_type='scatter',
@@ -234,14 +234,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='2d',  # Alias
             variable='t2m',
             plot_type='scatter',
@@ -266,14 +266,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='vector',  # Alias
             u_variable='u10',
             v_variable='v10',
@@ -300,14 +300,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='winds',  # Alias
             u_variable='u10',
             v_variable='v10',
@@ -334,14 +334,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='complex',  # Alias
             overlay_type='precip_wind',
             time_index=0,
@@ -365,14 +365,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='multi',  # Alias
             overlay_type='temp_pressure',
             time_index=0,
@@ -396,14 +396,14 @@ class TestAnalysisTypeAliases:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='composite',  # Alias
             overlay_type='precip_wind',
             time_index=0,

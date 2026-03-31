@@ -74,7 +74,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -111,7 +111,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -148,7 +148,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -187,7 +187,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -224,7 +224,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -264,7 +264,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         original_argv = sys.argv
         
         try:
@@ -304,7 +304,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')        
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')        
         original_argv = sys.argv
         
         try:
@@ -345,7 +345,7 @@ class TestIntegrationWithRealData:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')        
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')        
         original_argv = sys.argv
         
         try:

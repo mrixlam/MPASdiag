@@ -166,7 +166,7 @@ class TestParseArgsToConfig:
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
         
-        data_dir = str(test_data_dir / "u120k" / "diag")
+        data_dir = str(test_data_dir / "u240k" / "diag")
         
         args = argparse.Namespace(
             grid_file=grid_file,
@@ -394,7 +394,7 @@ class TestParseSurfaceArgsToConfig:
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
         
-        data_dir = str(test_data_dir / "u120k" / "diag")
+        data_dir = str(test_data_dir / "u240k" / "diag")
         
         args = argparse.Namespace(
             grid_file=grid_file,
@@ -646,7 +646,7 @@ class TestParseWindArgsToConfig:
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
         
-        data_dir = str(test_data_dir / "u120k" / "diag")
+        data_dir = str(test_data_dir / "u240k" / "diag")
         
         args = argparse.Namespace(
             grid_file=grid_file,
@@ -952,7 +952,7 @@ class TestParseCrosssectionArgsToConfig:
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
         
-        data_dir = str(test_data_dir / "u120k" / "mpasout")
+        data_dir = str(test_data_dir / "u240k" / "mpasout")
         
         args = argparse.Namespace(
             grid_file=grid_file,

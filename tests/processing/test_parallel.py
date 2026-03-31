@@ -1424,13 +1424,13 @@ def grid_file(test_data_dir: Path) -> str:
     Returns:
         str: Filesystem path to the MPAS grid initialization file.
     """
-    return str(test_data_dir / "grids" / "x1.40962.static.nc")
+    return str(test_data_dir / "grids" / "x1.10242.static.nc")
 
 
 @pytest.fixture
 def mpas_output_files(test_data_dir: Path) -> List[str]:
     """
-    This fixture returns a list of filesystem paths to sample MPAS output files as strings. It looks for NetCDF files in the `mpasout` subdirectory of the `u120k` directory within the `data` directory. If such files are found, it returns the paths to up to three of them; if no files are present, it returns an empty list. This allows tests to access sample MPAS output data for integration testing without hardcoding absolute paths, while also providing flexibility in the number of files available for testing. 
+    This fixture returns a list of filesystem paths to sample MPAS output files as strings. It looks for NetCDF files in the `mpasout` subdirectory of the `u240k` directory within the `data` directory. If such files are found, it returns the paths to up to three of them; if no files are present, it returns an empty list. This allows tests to access sample MPAS output data for integration testing without hardcoding absolute paths, while also providing flexibility in the number of files available for testing. 
 
     Parameters:
         test_data_dir (Path): Root data directory fixture.
@@ -1438,7 +1438,7 @@ def mpas_output_files(test_data_dir: Path) -> List[str]:
     Returns:
         List[str]: Up to three MPAS output file paths, or an empty list if none are present.
     """
-    output_dir = test_data_dir / "u120k" / "mpasout"
+    output_dir = test_data_dir / "u240k" / "mpasout"
 
     if output_dir.exists():
         files = sorted(output_dir.glob("*.nc"))

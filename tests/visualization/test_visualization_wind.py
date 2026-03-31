@@ -1242,7 +1242,7 @@ class TestRegridWindComponents:
         data_dir = Path(__file__).parent.parent.parent / "data"
 
         # Specify the path to MPAS grid file for testing
-        grid_file = data_dir / "grids" / "x1.40962.static.nc"
+        grid_file = data_dir / "grids" / "x1.10242.static.nc"
 
         # Skip test if grid file is not available
         if not grid_file.exists():
@@ -1314,7 +1314,7 @@ class TestRegridWindComponents:
         data_dir = Path(__file__).parent.parent.parent / "data"
 
         # Specify the path to MPAS grid file for testing
-        grid_file = data_dir / "grids" / "x1.40962.static.nc"
+        grid_file = data_dir / "grids" / "x1.10242.static.nc"
 
         # Skip test if grid file is not available
         if not grid_file.exists():

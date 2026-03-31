@@ -26,8 +26,8 @@ from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u120k/diag/'
-gridPath = '../data/grids/x1.40962.init.nc'
+dataDir = '../data/u240k/diag/'
+gridPath = '../data/grids/x1.10242.static.nc'
 
 # Create output directory if it doesn't exist
 os.makedirs('./output', exist_ok=True)

@@ -1122,7 +1122,7 @@ def test_data_dir() -> Path:
 @pytest.fixture
 def grid_file(test_data_dir: Path) -> str:
     """
-    This fixture locates a sample grid file for testing purposes and returns its filesystem path as a string. It constructs the path to the grid file by appending the "grids/x1.40962.static.nc" subpath to the provided base test data directory. This grid file can be used in tests that require access to grid information without needing to rely on external data sources. 
+    This fixture locates a sample grid file for testing purposes and returns its filesystem path as a string. It constructs the path to the grid file by appending the "grids/x1.10242.static.nc" subpath to the provided base test data directory. This grid file can be used in tests that require access to grid information without needing to rely on external data sources. 
 
     Parameters:
         test_data_dir (Path): Fixture-provided base test data directory.
@@ -1130,13 +1130,13 @@ def grid_file(test_data_dir: Path) -> str:
     Returns:
         str: Filesystem path to the sample grid file as a string.
     """
-    return str(test_data_dir / "grids" / "x1.40962.static.nc")
+    return str(test_data_dir / "grids" / "x1.10242.static.nc")
 
 
 @pytest.fixture
 def mpas_output_files(test_data_dir: Path) -> List[str]:
     """
-    This fixture provides a list of MPAS output file paths for testing purposes when available. It looks for NetCDF files in the "u120k/mpasout" subdirectory of the provided base test data directory. If the directory exists and contains files, it returns a sorted list of the first two file paths as strings. If the directory does not exist or contains no files, it returns an empty list. This allows tests to access sample MPAS output data without requiring external dependencies. 
+    This fixture provides a list of MPAS output file paths for testing purposes when available. It looks for NetCDF files in the "u240k/mpasout" subdirectory of the provided base test data directory. If the directory exists and contains files, it returns a sorted list of the first two file paths as strings. If the directory does not exist or contains no files, it returns an empty list. This allows tests to access sample MPAS output data without requiring external dependencies. 
 
     Parameters:
         test_data_dir (Path): Fixture-provided base test data directory.
@@ -1144,7 +1144,7 @@ def mpas_output_files(test_data_dir: Path) -> List[str]:
     Returns:
         List[str]: List of MPAS output file paths (as strings). Returns empty list when files are unavailable.
     """
-    output_dir = test_data_dir / "u120k" / "mpasout"
+    output_dir = test_data_dir / "u240k" / "mpasout"
 
     if output_dir.exists():
         files = sorted(output_dir.glob("*.nc"))
@@ -1155,7 +1155,7 @@ def mpas_output_files(test_data_dir: Path) -> List[str]:
 @pytest.fixture
 def mpas_diag_files(test_data_dir: Path) -> List[str]:
     """
-    This fixture provides a list of MPAS diagnostic file paths for testing purposes when available. It looks for NetCDF files in the "u120k/diag" subdirectory of the provided base test data directory. If the directory exists and contains files, it returns a sorted list of the first two file paths as strings. If the directory does not exist or contains no files, it returns an empty list. This allows tests to access sample MPAS diagnostic data without requiring external dependencies.
+    This fixture provides a list of MPAS diagnostic file paths for testing purposes when available. It looks for NetCDF files in the "u240k/diag" subdirectory of the provided base test data directory. If the directory exists and contains files, it returns a sorted list of the first two file paths as strings. If the directory does not exist or contains no files, it returns an empty list. This allows tests to access sample MPAS diagnostic data without requiring external dependencies.
 
     Parameters:
         test_data_dir (Path): Fixture-provided base test data directory.
@@ -1163,7 +1163,7 @@ def mpas_diag_files(test_data_dir: Path) -> List[str]:
     Returns:
         List[str]: List of diagnostic file paths as strings, or empty list if none present.
     """
-    diag_dir = test_data_dir / "u120k" / "diag"
+    diag_dir = test_data_dir / "u240k" / "diag"
 
     if diag_dir.exists():
         files = sorted(diag_dir.glob("*.nc"))

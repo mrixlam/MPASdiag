@@ -80,7 +80,7 @@ def grid_file(test_data_dir: Path) -> Optional[str]:
     Returns:
         Optional[str]: String path to the grid file when present; otherwise `None` when the sample data file is missing.
     """
-    grid_path = test_data_dir / "grids" / "x1.40962.static.nc"
+    grid_path = test_data_dir / "grids" / "x1.10242.static.nc"
     if grid_path.exists() and not _is_lfs_pointer(grid_path):
         return str(grid_path)
     return None
@@ -89,7 +89,7 @@ def grid_file(test_data_dir: Path) -> Optional[str]:
 @pytest.fixture(scope="session")
 def mpas_2d_processor_diag() -> Optional[Any]:
     """
-    This session-scoped fixture loads the 2D diagnostic data from u120k/diag once per test session and shares the initialized processor across all tests. If the data or grid file is unavailable, None is returned and tests should check for None before using.
+    This session-scoped fixture loads the 2D diagnostic data from u240k/diag once per test session and shares the initialized processor across all tests. If the data or grid file is unavailable, None is returned and tests should check for None before using.
 
     Parameters:
         None
@@ -99,7 +99,7 @@ def mpas_2d_processor_diag() -> Optional[Any]:
     """
     try:
         from tests.test_data_helpers import _find_and_load_2d_processor
-        return _find_and_load_2d_processor("u120k/diag")
+        return _find_and_load_2d_processor("u240k/diag")
     except (FileNotFoundError, ImportError):
         return None
     except pytest.skip.Exception:
@@ -109,7 +109,7 @@ def mpas_2d_processor_diag() -> Optional[Any]:
 @pytest.fixture(scope="session")
 def mpas_3d_processor() -> Optional[Any]:
     """
-    This session-scoped fixture loads the 3D data from u120k/mpasout once per test session and shares it across all tests. If the data or grid file is unavailable, None is returned.
+    This session-scoped fixture loads the 3D data from u240k/mpasout once per test session and shares it across all tests. If the data or grid file is unavailable, None is returned.
 
     Parameters:
         None
@@ -121,7 +121,7 @@ def mpas_3d_processor() -> Optional[Any]:
         from mpasdiag.processing import MPAS3DProcessor
         from tests.test_data_helpers import _grid_file_path
         
-        data_dir = Path(__file__).parent.parent / "data" / "u120k" / "mpasout"
+        data_dir = Path(__file__).parent.parent / "data" / "u240k" / "mpasout"
         if not data_dir.exists():
             return None
         
@@ -174,7 +174,7 @@ def mpas_coordinates() -> Optional[Tuple[np.ndarray, np.ndarray]]:
 @pytest.fixture(scope="session")
 def mpas_wind_data() -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
-    This session-scoped fixture loads wind data once per test session from the u120k/diag files. If data is unavailable, None is returned.
+    This session-scoped fixture loads wind data once per test session from the u240k/diag files. If data is unavailable, None is returned.
 
     Parameters:
         None
@@ -265,7 +265,7 @@ def mpas_data_available() -> bool:
     try:
         from tests.test_data_helpers import _grid_file_path
         _grid_file_path()
-        data_dir = Path(__file__).parent.parent / "data" / "u120k"
+        data_dir = Path(__file__).parent.parent / "data" / "u240k"
         return data_dir.exists() and (data_dir / "diag").exists()
     except (FileNotFoundError, ImportError):
         return False
@@ -512,7 +512,7 @@ def mock_file_paths(temp_dir: Path) -> Dict[str, Path]:
         Dict[str, Path]: A mapping of logical file names to pathlib `Path` objects within the temporary directory (e.g., 'grid', 'mpasout_1').
     """
     paths = {
-        'grid': temp_dir / 'x1.40962.static.nc',
+        'grid': temp_dir / 'x1.10242.static.nc',
         'mpasout_1': temp_dir / 'mpasout.2024-01-01_00.00.00.nc',
         'mpasout_2': temp_dir / 'mpasout.2024-01-01_06.00.00.nc',
         'diag_1': temp_dir / 'diag.2024-01-01_00.00.00.nc',
@@ -564,9 +564,9 @@ def mock_config() -> Dict[str, Any]:
     """
     return {
         'input': {
-            'invariant_file': 'data/grids/x1.40962.static.nc',
-            'data_dir': 'data/u120k/mpasout',
-            'diag_dir': 'data/u120k/diag',
+            'invariant_file': 'data/grids/x1.10242.static.nc',
+            'data_dir': 'data/u240k/mpasout',
+            'diag_dir': 'data/u240k/diag',
         },
         'output': {
             'output_dir': 'output/test',
@@ -599,8 +599,8 @@ def mock_cli_args() -> Any:
     """
     class Args:
         def __init__(self):
-            self.invariant_file = 'data/grids/x1.40962.static.nc'
-            self.data_dir = 'data/u120k/mpasout'
+            self.invariant_file = 'data/grids/x1.10242.static.nc'
+            self.data_dir = 'data/u240k/mpasout'
             self.output_dir = 'output/test'
             self.variable = 'temperature'
             self.time_index = 0
@@ -625,7 +625,7 @@ def mock_processor() -> Mock:
         Mock: A `unittest.mock.Mock` object configured with minimal mesh attributes and flags used by tests.
     """
     processor = Mock()
-    processor.invariant_file = 'data/grids/x1.40962.static.nc'
+    processor.invariant_file = 'data/grids/x1.10242.static.nc'
     processor.mesh_data = Mock()
     processor.mesh_data.latCell = Mock()
     processor.mesh_data.lonCell = Mock()

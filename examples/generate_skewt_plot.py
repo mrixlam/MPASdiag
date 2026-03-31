@@ -20,8 +20,8 @@ from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 from mpasdiag.visualization.skewt import MPASSkewTPlotter
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u120k/mpasout'
-gridPath = '../data/grids/x1.40962.static.nc'
+dataDir = '../data/u240k/mpasout'
+gridPath = '../data/grids/x1.10242.static.nc'
 
 # Specify output directory for plots
 plotDir = Path("output/skewt")

@@ -26,8 +26,8 @@ from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.40962.static.nc')
-MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u120k', 'mpasout')
+GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
+MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:

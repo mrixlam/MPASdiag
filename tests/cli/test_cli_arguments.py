@@ -197,7 +197,7 @@ class TestMainFunctionAndArgumentHandling:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'diag')
+        data_dir = str(test_data_dir / 'u240k' / 'diag')
         
         original_argv = sys.argv
         
@@ -239,7 +239,7 @@ class TestMainFunctionAndArgumentHandling:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'diag')
+        data_dir = str(test_data_dir / 'u240k' / 'diag')
         
         original_argv = sys.argv
         
@@ -352,7 +352,7 @@ class TestMainArgumentReorderingAdditional:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'diag')        
+        data_dir = str(test_data_dir / 'u240k' / 'diag')        
         original_argv = sys.argv
         
         try:
@@ -393,7 +393,7 @@ class TestMainArgumentReorderingAdditional:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(test_data_dir / 'u120k' / 'diag')
+        data_dir = str(test_data_dir / 'u240k' / 'diag')
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
             log_file = f.name
@@ -548,8 +548,8 @@ class TestWorkersArgumentIntegration:
         import subprocess
         import os
         
-        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "u120k", "mpasout")
-        grid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "grids", "x1.40962.static.nc")
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "u240k", "mpasout")
+        grid_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "grids", "x1.10242.static.nc")
         
         if not os.path.exists(data_dir) or not os.path.exists(grid_file):
             return None

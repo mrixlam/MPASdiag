@@ -34,8 +34,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag'
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag'
         )
         
         result = cli.run_analysis(config)
@@ -57,8 +57,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='unknown_type', 
             verbose=True
         )
@@ -82,8 +82,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='precipitation',
             variable='rainnc',
             accumulation_period='a01h',
@@ -111,8 +111,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='precipitation',
             variable='rainnc',
             accumulation_period='a01h',
@@ -141,8 +141,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='precipitation',
             variable='rainnc',
             accumulation_period='a01h',
@@ -201,8 +201,8 @@ class TestErrorHandlingAndExceptions:
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/mpasout',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/mpasout',
             analysis_type='cross',
             variable='temperature'
         )

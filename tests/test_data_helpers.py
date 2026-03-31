@@ -92,7 +92,7 @@ def _grid_file_path() -> str:
         str: Absolute path to the MPAS grid file as a string (suitable for passing to xarray or processor constructors).
     """
     data_dir = Path(__file__).parent.parent / "data"
-    grid_file = data_dir / "grids" / "x1.40962.static.nc"
+    grid_file = data_dir / "grids" / "x1.10242.static.nc"
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
@@ -204,7 +204,7 @@ def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarra
 
 def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rainc", "rain_nc", "rain")) -> np.ndarray:
     """
-    The function initializes a processor for the `u120k/diag` directory and searches for a matching precipitation-like variable from `var_candidates`. If no suitable variable exists the test is skipped. The returned array is a flattened 1D numpy array of length `n` containing the first time slice.
+    The function initializes a processor for the `u240k/diag` directory and searches for a matching precipitation-like variable from `var_candidates`. If no suitable variable exists the test is skipped. The returned array is a flattened 1D numpy array of length `n` containing the first time slice.
 
     Parameters:
         n (int): Number of horizontal samples (cells) to return.
@@ -213,7 +213,7 @@ def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rain
     Returns:
         np.ndarray: 1D numpy array of length `n` with precipitation accumulation values.
     """
-    proc = _find_and_load_2d_processor(os.path.join("u120k", "diag"))
+    proc = _find_and_load_2d_processor(os.path.join("u240k", "diag"))
     available = set(proc.dataset.data_vars.keys()) if proc.dataset is not None else set()
 
     var_name = None
@@ -234,7 +234,7 @@ def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rain
 
 def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("t2m", "air_temperature", "t_surf")) -> np.ndarray:
     """
-    The helper probes the `u120k/diag` data directory for one of the supplied `var_candidates` and returns the first time slice as a flattened 1D array. If no candidate variable is present in the diag files the calling test is skipped to avoid false failures in environments lacking sample data.
+    The helper probes the `u240k/diag` data directory for one of the supplied `var_candidates` and returns the first time slice as a flattened 1D array. If no candidate variable is present in the diag files the calling test is skipped to avoid false failures in environments lacking sample data.
 
     Parameters:
         n (int): Number of horizontal samples (cells) to return.
@@ -243,7 +243,7 @@ def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = (
     Returns:
         np.ndarray: 1D numpy array of length `n` with surface temperature values.
     """
-    proc = _find_and_load_2d_processor(os.path.join("u120k", "diag"))
+    proc = _find_and_load_2d_processor(os.path.join("u240k", "diag"))
     available = set(proc.dataset.data_vars.keys()) if proc.dataset is not None else set()
 
     var_name = None
@@ -262,7 +262,7 @@ def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = (
 
 def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "u10", "x_wind"), v_candidates: Tuple[str, ...] = ("v", "v10", "y_wind")) -> Tuple[np.ndarray, np.ndarray]:
     """
-    The helper searches the `u120k/diag` dataset for suitable u and v variable names (from `u_candidates` and `v_candidates`). It returns flattened u and v arrays for the first time index. If either component is missing the test is skipped to avoid failures when diag data is not present.
+    The helper searches the `u240k/diag` dataset for suitable u and v variable names (from `u_candidates` and `v_candidates`). It returns flattened u and v arrays for the first time index. If either component is missing the test is skipped to avoid failures when diag data is not present.
 
     Parameters:
         n (int): Number of horizontal samples (cells) to return.
@@ -272,7 +272,7 @@ def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "
     Returns:
         Tuple[np.ndarray, np.ndarray]: Two 1D numpy arrays `(u, v)` each of length `n`.
     """
-    proc = _find_and_load_2d_processor(os.path.join("u120k", "diag"))
+    proc = _find_and_load_2d_processor(os.path.join("u240k", "diag"))
     available = set(proc.dataset.data_vars.keys()) if proc.dataset is not None else set()
 
     u_name = next((c for c in u_candidates if c in available), None)
@@ -289,7 +289,7 @@ def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "
 
 def load_qv_3d_from_mpasout(n: int = 100, n_levels: int = 10, var_candidates: Tuple[str, ...] = ("qv", "specific_humidity", "q", "theta", "vorticity")) -> np.ndarray:
     """
-    The helper looks for mpasout files under `data/u120k/mpasout`, initializes an `MPAS3DProcessor`, and probes for a matching 3D variable. Since specific humidity (qv) may not be available in all datasets, this function falls back to other 3D variables like theta (potential temperature) which have similar data characteristics for testing styling and level generation. If no suitable variable exists the test is skipped.
+    The helper looks for mpasout files under `data/u240k/mpasout`, initializes an `MPAS3DProcessor`, and probes for a matching 3D variable. Since specific humidity (qv) may not be available in all datasets, this function falls back to other 3D variables like theta (potential temperature) which have similar data characteristics for testing styling and level generation. If no suitable variable exists the test is skipped.
 
     Parameters:
         n (int): Number of horizontal samples (cells) to return.
@@ -299,7 +299,7 @@ def load_qv_3d_from_mpasout(n: int = 100, n_levels: int = 10, var_candidates: Tu
     Returns:
         np.ndarray: 1D numpy array containing the surface-level variable values, flattened and trimmed to length `n`.
     """
-    data_dir = Path(__file__).parent.parent / "data" / "u120k" / "mpasout"
+    data_dir = Path(__file__).parent.parent / "data" / "u240k" / "mpasout"
 
     if not data_dir.exists():
         pytest.skip(f"MPASOUT data directory not found: {data_dir}")
@@ -334,10 +334,10 @@ def get_mpas_data_paths() -> dict:
     paths = {
         'data_root': data_root if data_root.exists() else None,
         'grid_dir': data_root / "grids" if (data_root / "grids").exists() else None,
-        'grid_file': data_root / "grids" / "x1.40962.static.nc" if (data_root / "grids" / "x1.40962.static.nc").exists() else None,
-        'u120k_dir': data_root / "u120k" if (data_root / "u120k").exists() else None,
-        'diag_dir': data_root / "u120k" / "diag" if (data_root / "u120k" / "diag").exists() else None,
-        'mpasout_dir': data_root / "u120k" / "mpasout" if (data_root / "u120k" / "mpasout").exists() else None,
+        'grid_file': data_root / "grids" / "x1.10242.static.nc" if (data_root / "grids" / "x1.10242.static.nc").exists() else None,
+        'u240k_dir': data_root / "u240k" if (data_root / "u240k").exists() else None,
+        'diag_dir': data_root / "u240k" / "diag" if (data_root / "u240k" / "diag").exists() else None,
+        'mpasout_dir': data_root / "u240k" / "mpasout" if (data_root / "u240k" / "mpasout").exists() else None,
     }
     
     return paths
@@ -361,12 +361,12 @@ def check_mpas_data_available() -> bool:
     )
 
 
-def load_mpas_2d_processor(data_subdir: str = "u120k/diag", verbose: bool = False) -> MPAS2DProcessor:
+def load_mpas_2d_processor(data_subdir: str = "u240k/diag", verbose: bool = False) -> MPAS2DProcessor:
     """
     This top-level function provides a centralized way to create and load a 2D processor with actual MPAS data. It handles path resolution and error cases consistently. Tests should prefer this function over creating processors directly.
 
     Parameters:
-        data_subdir (str): Subdirectory under data/ containing 2D files. Default is "u120k/diag".
+        data_subdir (str): Subdirectory under data/ containing 2D files. Default is "u240k/diag".
         verbose (bool): Whether to enable verbose processor output.
 
     Returns:
@@ -390,12 +390,12 @@ def load_mpas_2d_processor(data_subdir: str = "u120k/diag", verbose: bool = Fals
     return proc
 
 
-def load_mpas_3d_processor(data_subdir: str = "u120k/mpasout", verbose: bool = False) -> MPAS3DProcessor:
+def load_mpas_3d_processor(data_subdir: str = "u240k/mpasout", verbose: bool = False) -> MPAS3DProcessor:
     """
     This top-level function provides a centralized way to create and load a 3D processor with actual MPAS data. It handles path resolution and error cases consistently. Tests should prefer this function over creating processors directly.
 
     Parameters:
-        data_subdir (str): Subdirectory under data/ containing 3D files. Default is "u120k/mpasout".
+        data_subdir (str): Subdirectory under data/ containing 3D files. Default is "u240k/mpasout".
         verbose (bool): Whether to enable verbose processor output.
 
     Returns:

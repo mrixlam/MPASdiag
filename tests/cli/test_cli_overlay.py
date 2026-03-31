@@ -37,7 +37,7 @@ class TestOverlayAndCompositeAnalysis:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -73,7 +73,7 @@ class TestOverlayAndCompositeAnalysis:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -109,7 +109,7 @@ class TestOverlayAndCompositeAnalysis:
         if grid_file is None:
             pytest.skip("Test data files not available")
         
-        data_dir = str(Path(test_data_dir) / 'u120k' / 'diag')
+        data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
@@ -143,14 +143,14 @@ class TestOverlayTypePaths:
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
 
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='overlay',
             overlay_type='custom_type', 
             time_index=0,
@@ -179,15 +179,15 @@ class TestOverlayWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='overlay',
             overlay_type='precip_wind',
             time_index=0,
@@ -212,15 +212,15 @@ class TestOverlayWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='overlay',
             overlay_type='temp_pressure',
             time_index=0,
@@ -245,15 +245,15 @@ class TestOverlayWithLogger:
         from mpasdiag.processing.utils_config import MPASConfig
         from mpasdiag.processing.utils_logger import MPASLogger
         
-        if not os.path.exists('data/grids/x1.40962.static.nc'):
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
         
         config = MPASConfig(
-            grid_file='data/grids/x1.40962.static.nc',
-            data_dir='data/u120k/diag',
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
             analysis_type='overlay',
             overlay_type='custom_overlay', 
             time_index=0,
