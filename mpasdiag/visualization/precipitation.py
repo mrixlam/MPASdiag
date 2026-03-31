@@ -28,6 +28,7 @@ from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter
 from typing import Tuple, Optional, List, Any, Union, Dict, cast
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 # Import relevant MPASdiag modules for visualization and processing
 from .base_visualizer import MPASVisualizer
@@ -1335,8 +1336,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         gl.ylabel_style = {'size': 10}
 
         # Format longitude and latitude labels
-        gl.xformatter = FuncFormatter(self.format_longitude)
-        gl.yformatter = FuncFormatter(self.format_latitude)
+        gl.xformatter = LongitudeFormatter()
+        gl.yformatter = LatitudeFormatter()
     
     def _plot_precipitation_data(self: "MPASPrecipitationPlotter",
                                  ax: Axes,

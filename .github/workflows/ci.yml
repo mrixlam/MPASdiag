@@ -112,7 +112,17 @@ jobs:
         echo "=== Conda Packages ===" | tee -a "${LOG_FILE}"
         conda list 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
-    
+
+    - name: Pin importlib_metadata for Python 3.9
+      if: matrix.python-version == '3.9'
+      shell: bash -l {0}
+      run: |
+        echo "=== Pinning importlib_metadata<4 for Python 3.9 ===" | tee -a "${LOG_FILE}"
+        # esmpy reads package metadata using msg["Author"] which raises KeyError in
+        # importlib_metadata>=4. Pin to <4 to restore the pre-4.0 None-returning behavior.
+        conda install -y -c conda-forge "importlib_metadata<4" 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+
     - name: Install dependencies
       shell: bash -l {0}
       run: |

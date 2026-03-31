@@ -27,6 +27,7 @@ from matplotlib.colors import BoundaryNorm
 from matplotlib.ticker import FuncFormatter
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from typing import Tuple, Optional, List, Any, Union, Sequence, cast
 
 from ..processing.utils_unit import UnitConverter
@@ -419,8 +420,8 @@ class MPASVisualizer:
         gl.right_labels = False
         gl.xlabel_style = {'size': 10}
         gl.ylabel_style = {'size': 10}
-        gl.xformatter = FuncFormatter(self.format_longitude)
-        gl.yformatter = FuncFormatter(self.format_latitude)
+        gl.xformatter = LongitudeFormatter()
+        gl.yformatter = LatitudeFormatter()
         
         wind_speed = np.sqrt(u_data**2 + v_data**2)
         
@@ -576,8 +577,8 @@ class MPASVisualizer:
         gl.right_labels = False
         gl.xlabel_style = {'size': 10}
         gl.ylabel_style = {'size': 10}
-        gl.xformatter = FuncFormatter(self.format_longitude)
-        gl.yformatter = FuncFormatter(self.format_latitude)
+        gl.xformatter = LongitudeFormatter()
+        gl.yformatter = LatitudeFormatter()
 
     def _interpolate_to_grid(self: "MPASVisualizer",
                              lon: np.ndarray,
