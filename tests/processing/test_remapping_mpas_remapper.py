@@ -110,8 +110,8 @@ class TestMPASRemapper:
         assert not remapper.reuse_weights
         assert remapper.periodic
         assert remapper.extrap_method == 'inverse_dist'
-        assert remapper.extrap_dist_exponent == 2.0
-        assert remapper.extrap_num_src_pnts == 8
+        assert remapper.extrap_dist_exponent == pytest.approx(2.0)
+        assert remapper.extrap_num_src_pnts == pytest.approx(8)
     
     def test_remapper_invalid_method(self: "TestMPASRemapper") -> None:
         """
@@ -211,8 +211,8 @@ class TestMPASRemapper:
         
         assert isinstance(target_grid, xr.Dataset)
         assert remapper.target_grid is not None
-        assert len(target_grid.lon) == 73
-        assert len(target_grid.lat) == 37
+        assert len(target_grid.lon) == pytest.approx(73)
+        assert len(target_grid.lat) == pytest.approx(37)
     
     def test_build_regridder_error_no_source(self: "TestMPASRemapper") -> None:
         """
@@ -384,7 +384,7 @@ class TestMPASRemapper:
         
         assert isinstance(structured_data, xr.DataArray)
         assert isinstance(structured_grid, xr.Dataset)
-        assert len(structured_data.dims) == 2
+        assert len(structured_data.dims) == pytest.approx(2)
 
         assert 'lon' in structured_grid
         assert 'lat' in structured_grid

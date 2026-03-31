@@ -154,7 +154,7 @@ class TestFileDiscoveryAndValidation:
             output = captured_output.getvalue()
             
             assert "Found 5 diagnostic files" in output
-            assert len(files) == 5
+            assert len(files) == pytest.approx(5)
             assert all(f.endswith('.nc') for f in files)
             assert files == sorted(files)
         finally:
@@ -380,10 +380,10 @@ class TestSpatialCoordinatesAndFiltering:
         
         lon, lat = self.processor.extract_spatial_coordinates()
         
-        assert len(lon) == 4
-        assert len(lat) == 4
-        assert np.all(lon >= -180)
-        assert np.all(lon <= 180)
+        assert len(lon) == pytest.approx(4)
+        assert len(lat) == pytest.approx(4)
+        assert np.all(lon >= -180.0)
+        assert np.all(lon <= 180.0)
     
     def test_extract_spatial_coordinates_radians(self: "TestSpatialCoordinatesAndFiltering") -> None:
         """
@@ -456,8 +456,8 @@ class TestSpatialCoordinatesAndFiltering:
         
         lon, lat = self.processor.extract_spatial_coordinates()
         
-        assert len(lon) == 2
-        assert len(lat) == 2
+        assert len(lon) == pytest.approx(2)
+        assert len(lat) == pytest.approx(2)
 
 
 class TestDatasetOperationsAndVariables:
@@ -1091,8 +1091,8 @@ class TestVisualizerOperations:
         """
         visualizer = MPASVisualizer()
         
-        assert visualizer.figsize == (10, 14)
-        assert visualizer.dpi == 100
+        assert visualizer.figsize == (pytest.approx(10), pytest.approx(14))
+        assert visualizer.dpi == pytest.approx(100)
         assert visualizer.verbose
         assert visualizer.fig is None
         assert visualizer.ax is None
@@ -1109,8 +1109,8 @@ class TestVisualizerOperations:
         """
         visualizer = MPASVisualizer(figsize=(12, 8), dpi=150, verbose=False)
         
-        assert visualizer.figsize == (12, 8)
-        assert visualizer.dpi == 150
+        assert visualizer.figsize == (pytest.approx(12), pytest.approx(8))
+        assert visualizer.dpi == pytest.approx(150)
         assert not visualizer.verbose
     
     def test_close_plot(self: "TestVisualizerOperations") -> None:
@@ -1239,7 +1239,7 @@ class TestVisualizerOperations:
         
         assert fig is not None
         lines = ax.get_lines()
-        assert len(lines) == 1
+        assert len(lines) == pytest.approx(1)
     
 
     def test_create_time_series_custom_labels(self: "TestVisualizerOperations") -> None:
@@ -1349,7 +1349,7 @@ class TestVisualizerOperations:
         )
         result = self.visualizer.extract_2d_from_3d(data_3d, level_value=850.0, method='nearest')
         assert isinstance(result, np.ndarray)
-        assert result.ndim == 1
+        assert result.ndim == pytest.approx(1)
         assert result.shape == (100,)
 
 
@@ -1625,7 +1625,7 @@ class TestVerboseTruncationAndChunking:
             sys.stdout = sys.__stdout__
 
         output = captured.getvalue()
-        assert len(files) == 8
+        assert len(files) == pytest.approx(8)
         assert "... and 3 more files" in output
 
     def test_apply_chunking_returns_original_on_failure(self) -> None:

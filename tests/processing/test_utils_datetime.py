@@ -44,7 +44,7 @@ class TestParseFileDatetimes:
         
         datetimes = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
         
-        assert len(datetimes) == 3
+        assert len(datetimes) == pytest.approx(3)
         assert datetimes[0] == datetime(2024, 1, 1, 0, 0, 0)
         assert datetimes[1] == datetime(2024, 1, 1, 6, 0, 0)
         assert datetimes[2] == datetime(2024, 1, 1, 12, 0, 0)
@@ -67,7 +67,7 @@ class TestParseFileDatetimes:
         
         datetimes = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
         
-        assert len(datetimes) == 3
+        assert len(datetimes) == pytest.approx(3)
         assert datetimes[0] == datetime(2024, 1, 1, 0, 0, 0)
         assert isinstance(datetimes[1], datetime)
         assert datetimes[2] == datetime(2024, 1, 1, 12, 0, 0)
@@ -88,7 +88,7 @@ class TestParseFileDatetimes:
         
         datetimes = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
         
-        assert len(datetimes) == 1
+        assert len(datetimes) == pytest.approx(1)
         assert datetimes[0] == datetime(2000, 1, 1, 0, 0, 0)
     
     def test_parse_file_datetimes_verbose(self: "TestParseFileDatetimes") -> None:
@@ -135,7 +135,7 @@ class TestParseFileDatetimes:
         
         datetimes = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
         
-        assert len(datetimes) == 2
+        assert len(datetimes) == pytest.approx(2)
         assert datetimes[0] == datetime(2024, 2, 15, 18, 30, 45)
         assert datetimes[1] == datetime(2024, 2, 16, 0, 0, 0)
 
@@ -178,8 +178,8 @@ class TestValidateTimeParameters:
         )
         
         assert time_dim == 'Time'
-        assert time_idx == 5
-        assert time_size == 10
+        assert time_idx == pytest.approx(5)
+        assert time_size == pytest.approx(10)
     
     def test_validate_time_parameters_out_of_bounds(self: "TestValidateTimeParameters") -> None:
         """
@@ -196,8 +196,8 @@ class TestValidateTimeParameters:
         )
         
         assert time_dim == 'Time'
-        assert time_idx == 9 
-        assert time_size == 10
+        assert time_idx == pytest.approx(9)
+        assert time_size == pytest.approx(10)
     
     def test_validate_time_parameters_out_of_bounds_verbose(self: "TestValidateTimeParameters") -> None:
         """
@@ -223,7 +223,7 @@ class TestValidateTimeParameters:
             
             assert "Warning" in output
             assert "exceeds available times" in output
-            assert time_idx == 9
+            assert time_idx == pytest.approx(9)
         finally:
             sys.stdout = sys.__stdout__
     
@@ -250,8 +250,8 @@ class TestValidateTimeParameters:
         )
         
         assert time_dim == 'time'
-        assert time_idx == 2
-        assert time_size == 5
+        assert time_idx == pytest.approx(2)
+        assert time_size == pytest.approx(5)
     
     def test_validate_time_parameters_none_dataset(self: "TestValidateTimeParameters") -> None:
         """
@@ -423,10 +423,10 @@ class TestGetTimeRange:
         
         assert isinstance(start_time, datetime)
         assert isinstance(end_time, datetime)
-        assert start_time.year == 2024
-        assert start_time.month == 1
-        assert start_time.day == 1
-        assert end_time.day == 10
+        assert start_time.year == pytest.approx(2024)
+        assert start_time.month == pytest.approx(1)
+        assert start_time.day == pytest.approx(1)
+        assert end_time.day == pytest.approx(10)
     
     def test_get_time_range_none_dataset(self: "TestGetTimeRange") -> None:
         """
@@ -978,7 +978,7 @@ class TestEdgeCases:
         """
         files = []        
         datetimes = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)        
-        assert len(datetimes) == 0
+        assert len(datetimes) == pytest.approx(0)
     
     def test_validate_time_parameters_zero_index(self: "TestEdgeCases") -> None:
         """
@@ -1002,7 +1002,7 @@ class TestEdgeCases:
             dataset, 0, verbose=False
         )
         
-        assert time_idx == 0
+        assert time_idx == pytest.approx(0)
     
     def test_format_time_edge_cases(self: "TestEdgeCases") -> None:
         """

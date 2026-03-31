@@ -68,7 +68,7 @@ class TestFindFilesComprehensive:
             f.write("test")
         
         files = FileManager.find_files(self.temp_dir, "*.nc", recursive=True)
-        assert len(files) == 3
+        assert len(files) == pytest.approx(3)
     
     def test_find_files_nonexistent_directory(self: "TestFindFilesComprehensive") -> None:
         """
@@ -143,7 +143,7 @@ class TestCleanupFiles:
         
         deleted_count = FileManager.cleanup_files(self.temp_dir, "*.tmp", older_than_days=7)
         
-        assert deleted_count == 1
+        assert deleted_count == pytest.approx(1)
         assert not os.path.exists(old_file)
         assert os.path.exists(new_file)
     
@@ -164,7 +164,7 @@ class TestCleanupFiles:
         
         deleted_count = FileManager.cleanup_files(self.temp_dir, "*.tmp", older_than_days=7)
         
-        assert deleted_count == 0
+        assert deleted_count == pytest.approx(0)
         assert os.path.exists(new_file)
 
 
@@ -289,7 +289,7 @@ class TestGetAvailableMemory:
                 from mpasdiag.processing import utils_file
                 importlib.reload(utils_file)               
                 memory = utils_file.FileManager.get_available_memory()
-                assert memory == 0.0, "Should return 0.0 when psutil unavailable"
+                assert memory == pytest.approx(0.0), "Should return 0.0 when psutil unavailable"
         finally:
             if psutil_backup is not None:
                 sys.modules['psutil'] = psutil_backup

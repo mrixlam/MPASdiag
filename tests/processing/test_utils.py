@@ -65,7 +65,7 @@ class TestMPASConfig:
         config = MPASConfig()        
         assert config.variable == "rainnc"
         assert config.accumulation_period == "a01h"
-        assert config.dpi == 100
+        assert config.dpi == pytest.approx(100)
         assert config.use_pure_xarray is False
         assert config.verbose is True
         assert config.quiet is False
@@ -92,7 +92,7 @@ class TestMPASConfig:
         assert config.grid_file == "/path/to/grid.nc"
         assert config.data_dir == "/path/to/data"
         assert config.variable == "rainc"
-        assert config.dpi == 600
+        assert config.dpi == pytest.approx(600)
         assert config.output_formats == ["png", "pdf"]
     
     def test_invalid_spatial_extent(self: "TestMPASConfig") -> None:
@@ -127,7 +127,7 @@ class TestMPASConfig:
         config_dict = config.to_dict()        
         assert isinstance(config_dict, dict)
         assert config_dict["variable"] == "rainc"
-        assert config_dict["dpi"] == 400
+        assert config_dict["dpi"] == pytest.approx(400)
     
     def test_from_dict(self: "TestMPASConfig") -> None:
         """
@@ -148,7 +148,7 @@ class TestMPASConfig:
         config = MPASConfig.from_dict(config_dict)
         
         assert config.variable == "total"
-        assert config.dpi == 500
+        assert config.dpi == pytest.approx(500)
         assert config.verbose is False
     
     def test_save_and_load_file(self: "TestMPASConfig") -> None:
@@ -175,7 +175,7 @@ class TestMPASConfig:
             loaded_config = MPASConfig.load_from_file(config_file)
             
             assert loaded_config.variable == "rainc"
-            assert loaded_config.dpi == 350
+            assert loaded_config.dpi == pytest.approx(350)
             assert loaded_config.output_formats == ["png", "svg"]
             
         finally:
@@ -295,7 +295,7 @@ class TestFileManager:
         
         nc_files = FileManager.find_files(self.temp_dir, "*.nc")
         
-        assert len(nc_files) == 2
+        assert len(nc_files) == pytest.approx(2)
         assert any("test1.nc" in f for f in nc_files)
         assert any("test2.nc" in f for f in nc_files)
     
@@ -416,9 +416,9 @@ class TestDataValidator:
         result = DataValidator.validate_data_array(data, min_val=200.0, max_val=350.0)
         
         assert result["valid"] is True
-        assert len(result["issues"]) == 0
-        assert result["stats"]["total_points"] == 100
-        assert result["stats"]["finite_points"] == 100
+        assert len(result["issues"]) == pytest.approx(0)
+        assert result["stats"]["total_points"] == pytest.approx(100)
+        assert result["stats"]["finite_points"] == pytest.approx(100)
         assert result["stats"]["min"] >= 200.0
         assert result["stats"]["max"] <= 350.0
     
@@ -438,8 +438,8 @@ class TestDataValidator:
         
         assert result["valid"] is False
         assert len(result["issues"]) > 0
-        assert result["stats"]["total_points"] == 5
-        assert result["stats"]["finite_points"] == 4 
+        assert result["stats"]["total_points"] == pytest.approx(5)
+        assert result["stats"]["finite_points"] == pytest.approx(4)
     
     def test_validate_data_array_all_identical(self: "TestDataValidator") -> None:
         """
@@ -457,7 +457,7 @@ class TestDataValidator:
         
         assert result["valid"] is False
         assert "All values are identical" in result["issues"]
-        assert result["stats"]["std"] == 0.0
+        assert result["stats"]["std"] == pytest.approx(0.0)
 
 
 class TestPerformanceMonitor:
@@ -507,7 +507,7 @@ class TestPerformanceMonitor:
         
         summary = monitor.get_summary()
         
-        assert len(summary) == 2
+        assert len(summary) == pytest.approx(2)
         assert "operation1" in summary
         assert "operation2" in summary
 
@@ -564,7 +564,7 @@ class TestArgumentParser:
         assert config.grid_file == 'grid.nc'
         assert config.data_dir == './data'
         assert config.variable == 'total'
-        assert config.dpi == 400
+        assert config.dpi == pytest.approx(400)
         assert config.verbose is True
 
 
@@ -616,7 +616,7 @@ class TestUtilityFunctions:
         mock_get_memory = create_mock_memory_getter(8 * (1024**3))
         
         memory = mock_get_memory()
-        assert memory == 8.0
+        assert memory == pytest.approx(8.0)
     
     def test_get_available_memory_without_psutil(self: "TestUtilityFunctions") -> None:
         """

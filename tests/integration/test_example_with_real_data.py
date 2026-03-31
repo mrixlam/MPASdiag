@@ -82,8 +82,8 @@ class TestRealMPASDataLoading:
         assert isinstance(lon, np.ndarray)
         assert isinstance(lat, np.ndarray)
         assert len(lon) == len(lat)
-        assert lon.ndim == 1
-        assert lat.ndim == 1
+        assert lon.ndim == pytest.approx(1)
+        assert lat.ndim == pytest.approx(1)
         
         assert -180 <= np.min(lon) <= 180
         assert -180 <= np.max(lon) <= 180
@@ -132,8 +132,8 @@ class TestRealMPASDataLoading:
         assert isinstance(u, np.ndarray)
         assert isinstance(v, np.ndarray)
         assert len(u) == len(v)
-        assert u.ndim == 1
-        assert v.ndim == 1
+        assert u.ndim == pytest.approx(1)
+        assert v.ndim == pytest.approx(1)
         
         assert -100 < np.min(u) < 100  
         assert -100 < np.max(u) < 100
@@ -157,7 +157,7 @@ class TestRealMPASDataLoading:
         precip = mpas_precip_data
         
         assert isinstance(precip, np.ndarray)
-        assert precip.ndim == 1
+        assert precip.ndim == pytest.approx(1)
         assert len(precip) > 0
         
         assert np.min(precip) >= 0
@@ -179,7 +179,7 @@ class TestRealMPASDataLoading:
         t2m = mpas_surface_temp_data
         
         assert isinstance(t2m, np.ndarray)
-        assert t2m.ndim == 1
+        assert t2m.ndim == pytest.approx(1)
         assert len(t2m) > 0
         
         assert 200 < np.min(t2m) < 350
@@ -232,7 +232,7 @@ class TestRealMPASDataLoading:
         theta_data = proc.dataset['theta'].isel(Time=0, nVertLevels=0).values
         
         assert isinstance(theta_data, np.ndarray)
-        assert theta_data.ndim == 1
+        assert theta_data.ndim == pytest.approx(1)
         assert len(theta_data) > 0
         
         assert 200 < np.min(theta_data) < 400
@@ -303,7 +303,7 @@ class TestCombiningMultipleFixtures:
         )
         
         assert isinstance(var_data, np.ndarray)
-        assert var_data.ndim == 1
+        assert var_data.ndim == pytest.approx(1)
         assert len(var_data) > 0
     
     def test_3d_processor_variable_extraction(
@@ -340,7 +340,7 @@ class TestCombiningMultipleFixtures:
         var_data = proc.dataset[var_name].isel(Time=0, nVertLevels=0).values
         
         assert isinstance(var_data, np.ndarray)
-        assert var_data.ndim == 1
+        assert var_data.ndim == pytest.approx(1)
         assert len(var_data) > 0
         
         if var_name == 'theta':
@@ -524,8 +524,8 @@ class TestHelperFunctions:
             lon, lat = get_real_mpas_coordinates(n=50)
             assert isinstance(lon, np.ndarray)
             assert isinstance(lat, np.ndarray)
-            assert len(lon) == 50
-            assert len(lat) == 50
+            assert len(lon) == pytest.approx(50)
+            assert len(lat) == pytest.approx(50)
         except (FileNotFoundError, pytest.skip.Exception):
             pytest.skip("Real MPAS grid data not available")
 

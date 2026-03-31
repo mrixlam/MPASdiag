@@ -302,7 +302,7 @@ class TestUnifiedCLI:
             '--workers', '8'
         ])
 
-        assert args.workers == 8
+        assert args.workers == pytest.approx(8)
 
     def test_invalid_subcommand_raises_error(self: "TestUnifiedCLI") -> None:
         """

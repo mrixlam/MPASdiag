@@ -169,7 +169,7 @@ class TestConditionalTimeDisplay:
         corner_text_calls = [call for call in text_calls 
                    if len(call[0]) >= 3 and math.isclose(call[0][1], 0.98, abs_tol=1e-6) and math.isclose(call[0][2], 0.02, abs_tol=1e-6)]
 
-        assert len(corner_text_calls) == 0, "Corner text should not be displayed when time is in title"
+        assert len(corner_text_calls) == pytest.approx(0), "Corner text should not be displayed when time is in title"
     
     def test_custom_title_without_time(self: "TestConditionalTimeDisplay") -> None:
         """
@@ -225,7 +225,7 @@ class TestConditionalTimeDisplay:
         corner_text_calls = [call for call in text_calls 
                            if len(call[0]) >= 3 and 'Valid: 20240917T03' in str(call[0])]
         
-        assert len(corner_text_calls) == 0, "Corner text should not be displayed when time is already in title"
+        assert len(corner_text_calls) == pytest.approx(0), "Corner text should not be displayed when time is already in title"
     
     def test_no_timestamp(self: "TestConditionalTimeDisplay") -> None:
         """
@@ -259,7 +259,7 @@ class TestConditionalTimeDisplay:
             corner_text_calls = [call for call in text_calls 
                                if len(call[0]) >= 3 and 'Valid:' in str(call[0])]
             
-        assert len(corner_text_calls) == 0, "No time display should appear when timestamp is None"
+        assert len(corner_text_calls) == pytest.approx(0), "No time display should appear when timestamp is None"
 
 
 if __name__ == '__main__':

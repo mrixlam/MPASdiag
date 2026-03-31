@@ -536,7 +536,7 @@ class TestGetAccumulationHours:
         """
         hours = self.precip_diag.get_accumulation_hours('a01h')
         assert isinstance(hours, (int, float))
-        assert hours == 1
+        assert hours == pytest.approx(1)
 
     def test_accumulation_3_hour(self: "TestGetAccumulationHours") -> None:
         """
@@ -550,7 +550,7 @@ class TestGetAccumulationHours:
         """
         hours = self.precip_diag.get_accumulation_hours('a03h')
         assert isinstance(hours, (int, float))
-        assert hours == 3
+        assert hours == pytest.approx(3)
 
     def test_accumulation_6_hour(self: "TestGetAccumulationHours") -> None:
         """
@@ -564,7 +564,7 @@ class TestGetAccumulationHours:
         """
         hours = self.precip_diag.get_accumulation_hours('a06h')
         assert isinstance(hours, (int, float))
-        assert hours == 6
+        assert hours == pytest.approx(6)
 
     def test_accumulation_12_hour(self: "TestGetAccumulationHours") -> None:
         """
@@ -578,7 +578,7 @@ class TestGetAccumulationHours:
         """
         hours = self.precip_diag.get_accumulation_hours('a12h')
         assert isinstance(hours, (int, float))
-        assert hours == 12
+        assert hours == pytest.approx(12)
 
     def test_accumulation_24_hour(self: "TestGetAccumulationHours") -> None:
         """
@@ -592,7 +592,7 @@ class TestGetAccumulationHours:
         """
         hours = self.precip_diag.get_accumulation_hours('a24h')
         assert isinstance(hours, (int, float))
-        assert hours == 24
+        assert hours == pytest.approx(24)
 
     def test_accumulation_none(self: "TestGetAccumulationHours") -> None:
         """
@@ -847,7 +847,7 @@ class TestFileDiscoveryFallbacks:
             [str(f) for f in sorted(diag_sub.glob("diag*.nc"))],
         ]):
             result = processor.find_diagnostic_files(str(tmp_path))
-        assert len(result) == 3
+        assert len(result) == pytest.approx(3)
 
     def test_find_diag_files_recursive(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
         """
@@ -874,7 +874,7 @@ class TestFileDiscoveryFallbacks:
             with patch('sys.stdout', captured):
                 result = processor.find_diagnostic_files(str(tmp_path))
 
-        assert len(result) == 3
+        assert len(result) == pytest.approx(3)
 
     def test_fallback_to_mpasout_files(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
         """
@@ -901,7 +901,7 @@ class TestFileDiscoveryFallbacks:
             captured = StringIO()
             with patch('sys.stdout', captured):
                 result = processor.find_diagnostic_files(str(tmp_path))
-        assert len(result) == 3
+        assert len(result) == pytest.approx(3)
 
     def test_fallback_to_mpasout_recursive(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
         """
@@ -927,7 +927,7 @@ class TestFileDiscoveryFallbacks:
             captured = StringIO()
             with patch('sys.stdout', captured):
                 result = processor.find_diagnostic_files(str(tmp_path))
-        assert len(result) == 3
+        assert len(result) == pytest.approx(3)
 
     def test_no_files_found_raises_error(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
         """

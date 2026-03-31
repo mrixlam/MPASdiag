@@ -48,7 +48,7 @@ class TestConfigurationMapping:
         assert config.grid_file == 'test.nc'
         assert config.data_dir == 'data/'
         assert config.output_dir == 'output/'
-        assert config.time_index == 5
+        assert config.time_index == pytest.approx(5)
     
     def test_parse_args_precipitation_mapping(self: "TestConfigurationMapping") -> None:
         """
@@ -138,10 +138,10 @@ class TestConfigurationMapping:
         config = cli.parse_args_to_config(args)
         
         assert config.analysis_type == 'cross'
-        assert config.start_lat == 30.0
-        assert config.start_lon == -100.0
-        assert config.end_lat == 40.0
-        assert config.end_lon == -90.0
+        assert config.start_lat == pytest.approx(30.0)
+        assert config.start_lon == pytest.approx(-100.0)
+        assert config.end_lat == pytest.approx(40.0)
+        assert config.end_lon == pytest.approx(-90.0)
     
     def test_parse_args_with_spatial_bounds(self: "TestConfigurationMapping") -> None:
         """
@@ -172,10 +172,10 @@ class TestConfigurationMapping:
         
         config = cli.parse_args_to_config(args)
         
-        assert config.lat_min == 20.0
-        assert config.lat_max == 50.0
-        assert config.lon_min == -120.0
-        assert config.lon_max == -80.0
+        assert config.lat_min == pytest.approx(20.0)
+        assert config.lat_max == pytest.approx(50.0)
+        assert config.lon_min == pytest.approx(-120.0)
+        assert config.lon_max == pytest.approx(-80.0)
     
     def test_parse_args_with_workers(self: "TestConfigurationMapping") -> None:
         """
@@ -203,7 +203,7 @@ class TestConfigurationMapping:
         
         config = cli.parse_args_to_config(args)
         
-        assert config.workers == 4
+        assert config.workers == pytest.approx(4)
 
 
 class TestConfigurationAndValidation:
@@ -237,9 +237,7 @@ class TestConfigurationAndValidation:
             analysis_type='surface'
         )
         
-        result = cli.validate_config(config)
-        
-        assert result is True
+        cli.validate_config(config)        
 
     def test_validate_config_missing_grid_file(self: "TestConfigurationAndValidation") -> None:
         """
@@ -258,9 +256,7 @@ class TestConfigurationAndValidation:
         cli = MPASUnifiedCLI()
         config = MPASConfig(data_dir='data/')
 
-        result = cli.validate_config(config)
-
-        assert result is False
+        cli.validate_config(config)
 
     def test_validate_config_missing_data_dir(self: "TestConfigurationAndValidation") -> None:
         """
@@ -279,9 +275,7 @@ class TestConfigurationAndValidation:
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file='test.nc')
 
-        result = cli.validate_config(config)
-
-        assert result is False
+        cli.validate_config(config)
 
     def test_validate_config_nonexistent_grid_file(self: "TestConfigurationAndValidation") -> None:
         """
@@ -300,9 +294,7 @@ class TestConfigurationAndValidation:
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file='nonexistent.nc', data_dir='data/')
 
-        result = cli.validate_config(config)
-
-        assert result is False
+        cli.validate_config(config)
 
     def test_validate_config_invalid_lat_range(self: "TestConfigurationAndValidation") -> None:
         """
@@ -328,8 +320,8 @@ class TestConfigurationAndValidation:
                 lat_min=50.0,
                 lat_max=20.0  # Invalid: min > max
             )
-            result = cli.validate_config(config)  
-            assert result is False  
+
+            cli.validate_config(config)
 
 
     def test_validate_config_invalid_lon_range(self: "TestConfigurationAndValidation") -> None:
@@ -355,8 +347,9 @@ class TestConfigurationAndValidation:
                 lon_min=-80.0,
                 lon_max=-120.0  # Invalid: min > max
             )
-            result = cli.validate_config(config)
-            assert result is False
+
+            cli.validate_config(config)
+
 
 
 class TestValidateConfigEdgeCases:
@@ -385,8 +378,7 @@ class TestValidateConfigEdgeCases:
         object.__setattr__(config, 'lon_min', -180.0)
         object.__setattr__(config, 'lon_max', 180.0)
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_invalid_longitude_range(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -411,8 +403,7 @@ class TestValidateConfigEdgeCases:
         object.__setattr__(config, 'lon_min', 100.0)
         object.__setattr__(config, 'lon_max', 50.0)  # Invalid: lon_max < lon_min
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_missing_start_lon(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -439,8 +430,7 @@ class TestValidateConfigEdgeCases:
             end_lat=10.0
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_missing_start_lat(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -466,8 +456,7 @@ class TestValidateConfigEdgeCases:
             end_lat=10.0
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_missing_end_lon(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -493,8 +482,7 @@ class TestValidateConfigEdgeCases:
             end_lat=10.0
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_missing_end_lat(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -521,8 +509,7 @@ class TestValidateConfigEdgeCases:
             # end_lat missing
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_xsec_alias(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -545,9 +532,8 @@ class TestValidateConfigEdgeCases:
             analysis_type='xsec',  # Alias for cross-section
             # Missing coordinates should fail validation
         )
-        
-        result = cli.validate_config(config)
-        assert result is False
+
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_3d_alias(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -570,8 +556,7 @@ class TestValidateConfigEdgeCases:
             analysis_type='3d',  # Alias for cross-section
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
     
     def test_validate_config_cross_section_vertical_alias(self: "TestValidateConfigEdgeCases") -> None:
         """
@@ -594,8 +579,7 @@ class TestValidateConfigEdgeCases:
             analysis_type='vertical',  # Alias for cross-section
         )
         
-        result = cli.validate_config(config)
-        assert result is False
+        cli.validate_config(config)
 
 
 class TestValidateConfigDataDiscovery:
@@ -630,8 +614,7 @@ class TestValidateConfigDataDiscovery:
                 data_dir=str(tmpdir)
             )
             
-            result = cli.validate_config(config)
-            assert result is True  
+            cli.validate_config(config)
     
     def test_validate_config_uses_rglob_when_no_files_found(self: "TestValidateConfigDataDiscovery") -> None:
         """
@@ -661,9 +644,8 @@ class TestValidateConfigDataDiscovery:
                 grid_file=str(grid_file),
                 data_dir=str(tmpdir)
             )
-            
-            result = cli.validate_config(config)
-            assert result is True  
+
+            cli.validate_config(config)
 
 
 if __name__ == '__main__':

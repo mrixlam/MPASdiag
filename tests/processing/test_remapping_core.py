@@ -157,8 +157,8 @@ class TestRemappingModule:
         assert isinstance(grid, xr.Dataset)
         assert 'lon' in grid
         assert 'lat' in grid
-        assert len(grid.lon) == 71  
-        assert len(grid.lat) == 26  
+        assert len(grid.lon) == pytest.approx(71)
+        assert len(grid.lat) == pytest.approx(26)  
 
 
 @pytest.mark.skipif(not REMAPPING_AVAILABLE, reason="Remapping module not available")
@@ -221,7 +221,7 @@ class TestKDTreeRemapping:
         )
         
         assert isinstance(remapped, xr.DataArray)
-        assert len(remapped.dims) == 2
+        assert len(remapped.dims) == pytest.approx(2)
         assert 'lon' in remapped.dims
         assert 'lat' in remapped.dims
         assert np.all(np.isfinite(remapped.values))
@@ -275,8 +275,8 @@ class TestKDTreeRemapping:
         )
         
         assert isinstance(remapped, xr.DataArray)
-        assert len(remapped.lon) == 36  
-        assert len(remapped.lat) == 13  
+        assert len(remapped.lon) == pytest.approx(36)
+        assert len(remapped.lat) == pytest.approx(13)
     
     def test_fine_resolution(self: "TestKDTreeRemapping") -> None:
         """
@@ -299,8 +299,8 @@ class TestKDTreeRemapping:
         
         assert isinstance(remapped, xr.DataArray)
         assert np.all(np.isfinite(remapped.values))
-        assert len(remapped.lon) == 41  
-        assert len(remapped.lat) == 41  
+        assert len(remapped.lon) == pytest.approx(41)
+        assert len(remapped.lat) == pytest.approx(41)
     
     def test_data_preservation(self: "TestKDTreeRemapping") -> None:
         """
@@ -349,10 +349,10 @@ class TestKDTreeRemapping:
             resolution=20.0
         )
         
-        assert float(remapped.lon.min()) == -180.0
-        assert float(remapped.lon.max()) == 180.0
-        assert float(remapped.lat.min()) == -90.0
-        assert float(remapped.lat.max()) == 90.0
+        assert float(remapped.lon.min()) == pytest.approx(-180.0)
+        assert float(remapped.lon.max()) == pytest.approx(180.0)
+        assert float(remapped.lat.min()) == pytest.approx(-90.0)
+        assert float(remapped.lat.max()) == pytest.approx(90.0)
 
 
 class TestRemapMpasToLatlon:
@@ -399,7 +399,7 @@ class TestRemapMpasToLatlon:
         )
         
         assert isinstance(remapped, xr.DataArray)
-        assert len(remapped.dims) == 2
+        assert len(remapped.dims) == pytest.approx(2)
         assert np.all(np.isfinite(remapped.values))
     
     def test_remap_linear_method(self: "TestRemapMpasToLatlon") -> None:
@@ -585,8 +585,8 @@ class TestCreateTargetGrid:
         assert isinstance(grid, xr.Dataset)
         assert 'lon' in grid
         assert 'lat' in grid
-        assert len(grid.lon) == 181
-        assert len(grid.lat) == 91
+        assert len(grid.lon) == pytest.approx(181)
+        assert len(grid.lat) == pytest.approx(91)
     
     def test_create_regional_grid(self: "TestCreateTargetGrid") -> None:
         """
@@ -628,8 +628,8 @@ class TestCreateTargetGrid:
             dlon=1.0, dlat=1.0
         )
         
-        assert len(grid.lon) == 2
-        assert len(grid.lat) == 2
+        assert len(grid.lon) == pytest.approx(2)
+        assert len(grid.lat) == pytest.approx(2)
     
     def test_create_grid_different_resolutions(self: "TestCreateTargetGrid") -> None:
         """
@@ -647,8 +647,8 @@ class TestCreateTargetGrid:
             dlon=2.0, dlat=1.0
         )
         
-        assert len(grid.lon) == 6  
-        assert len(grid.lat) == 6  
+        assert len(grid.lon) == pytest.approx(6)
+        assert len(grid.lat) == pytest.approx(6)
 
 @pytest.mark.skipif(not XESMF_AVAILABLE, reason="xESMF not available")
 

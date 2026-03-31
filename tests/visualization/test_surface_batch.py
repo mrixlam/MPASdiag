@@ -109,7 +109,7 @@ class TestBatchProcessing:
             plot_type='scatter'
         )
         
-        assert len(files) == 3
+        assert len(files) == pytest.approx(3)
         assert all(os.path.exists(f) for f in files)
     
     def test_batch_without_time_dimension(self: "TestBatchProcessing") -> None:
@@ -143,7 +143,7 @@ class TestBatchProcessing:
             var_name='t2m'
         )
         
-        assert len(files) == 2
+        assert len(files) == pytest.approx(2)
     
     def test_batch_with_exception(self: "TestBatchProcessing") -> None:
         """
@@ -180,7 +180,7 @@ class TestBatchProcessing:
             var_name='t2m'
         )
         
-        assert len(files) == 1
+        assert len(files) == pytest.approx(1)
 
 
 class TestHelperMethods:

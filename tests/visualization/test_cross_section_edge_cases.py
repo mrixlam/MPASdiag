@@ -65,14 +65,14 @@ def test_vertical_cross_section_plotter_initialization() -> None:
     """
     plotter = MPASVerticalCrossSectionPlotter()
     
-    assert plotter.figsize == (10, 12)
-    assert plotter.dpi == 100  
+    assert plotter.figsize == (pytest.approx(10), pytest.approx(12))
+    assert plotter.dpi == pytest.approx(100)
     assert plotter.fig is None
     assert plotter.ax is None
     
     custom_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 6), dpi=150)
-    assert custom_plotter.figsize == (10, 6)
-    assert custom_plotter.dpi == 150
+    assert custom_plotter.figsize == (pytest.approx(10), pytest.approx(6))
+    assert custom_plotter.dpi == pytest.approx(150)
 
 
 def test_great_circle_path_generation() -> None:
@@ -259,8 +259,8 @@ class TestEdgeCases:
         
         levels = self.plotter._get_default_levels(data, 'theta')
         
-        assert len(levels) == 1
-        assert levels[0] == 100.0
+        assert len(levels) == pytest.approx(1)
+        assert levels[0] == pytest.approx(100.0)
     
     def test_default_levels_temperature_variable(self: "TestEdgeCases") -> None:
         """
@@ -344,7 +344,7 @@ class TestEdgeCases:
             start, end, num_points=10
         )
         
-        assert len(lons) == 10
+        assert len(lons) == pytest.approx(10, abs=1e-1)
         assert np.all(distances >= 0)
 
 
@@ -824,7 +824,7 @@ class TestAdditionalCoverage:
             num_points=50
         )
         
-        assert len(lons) == 50
+        assert len(lons) == pytest.approx(50, abs=1e-1)
         assert np.allclose(dists, 0)
     
     def test_great_circle_first_point(self: "TestAdditionalCoverage") -> None:
@@ -918,7 +918,7 @@ class TestAdditionalCoverage:
         )
         
         assert result is not None
-        assert len(result) == 10
+        assert len(result) == pytest.approx(10, abs=1e-1)
     
     def test_height_extraction_interpolation_scipy(self: "TestAdditionalCoverage") -> None:
         """
@@ -947,7 +947,7 @@ class TestAdditionalCoverage:
         )
         
         assert result is not None
-        assert len(result) == 10
+        assert len(result) == pytest.approx(10, abs=1e-1)
     
     def test_height_extraction_exception_handling(self: "TestAdditionalCoverage") -> None:
         """
@@ -1218,7 +1218,7 @@ class TestAdditionalCoverage:
             max_height=5.0
         )
         
-        assert len(files) == 2
+        assert len(files) == pytest.approx(2, abs=0.1)
         for f in files:
             assert os.path.exists(f)
 
@@ -1429,7 +1429,7 @@ class TestCrossSectionPathValidation:
             end_point=(-100, 35),
             num_points=5
         )
-        assert len(lons) == 5
+        assert len(lons) == pytest.approx(5)
         assert np.all(dists >= 0)
 
 
@@ -1611,7 +1611,7 @@ class TestInterpolationAllNaN:
         result = self.plotter._interpolate_along_path(
             grid_lons, grid_lats, grid_data, path_lons, path_lats
         )
-        assert len(result) == 10
+        assert len(result) == pytest.approx(10)
         assert not np.all(np.isnan(result))
 
 
@@ -1664,10 +1664,10 @@ class TestCrossSectionRenderingPaths:
         """
         data = np.array([-0.001, 0.0, 0.005, 0.01, -0.002])
         n_negative = np.sum(data < 0)
-        assert n_negative == 2
+        assert n_negative == pytest.approx(2)
         clipped = np.clip(data, 0, None)
         assert np.all(clipped >= 0)
-        assert clipped[0] == 0.0
+        assert clipped[0] == pytest.approx(0.0)
 
     def test_display_height_conversion_branch(self) -> None:
         """
@@ -1731,8 +1731,8 @@ class TestCrossSectionRenderingPaths:
         max_height = 12.0
         mask = vertical_display <= float(max_height)
         filtered = vertical_display[mask]
-        assert len(filtered) == 5
-        assert filtered[-1] == 10.0
+        assert len(filtered) == pytest.approx(5)
+        assert filtered[-1] == pytest.approx(10.0)
 
     def test_colormap_levels_auto_lookup(self) -> None:
         """
@@ -1941,7 +1941,7 @@ class TestCrossSectionAxisFormatting:
         self.plotter.ax.set_ylabel('Height [m]', fontsize=12) # type: ignore
         self.plotter.ax.set_ylim(vertical_coords.min(), y_max) # type: ignore
         ylim = self.plotter.ax.get_ylim() # type: ignore
-        assert ylim[1] == 12000
+        assert ylim[1] == pytest.approx(12000.0, abs=1e-5)
 
     def test_path_info_text_box(self) -> None:
         """
@@ -2099,8 +2099,8 @@ class TestCrossSectionBatch:
                 end_point=(-100, 40)
             )
             count = len(files)
-        assert mock_create.call_count == 3
-        assert count == 3
+        assert mock_create.call_count == pytest.approx(3)
+        assert count == pytest.approx(3)
 
 
 if __name__ == '__main__':

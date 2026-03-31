@@ -159,9 +159,9 @@ def test_error_handling() -> None:
     print(f"Failed: {len(failures)}/{len(results)}")
     print(f"Failed task IDs: {[r.task_id for r in failures]}")
     
-    assert len(successes) == 9, f"Expected 9 successes, got {len(successes)}"
-    assert len(failures) == 1, f"Expected 1 failure, got {len(failures)}"
-    assert failures[0].task_id == 5, "Wrong task failed"
+    assert len(successes) == pytest.approx(9), f"Expected 9 successes, got {len(successes)}"
+    assert len(failures) == pytest.approx(1), f"Expected 1 failure, got {len(failures)}"
+    assert failures[0].task_id == pytest.approx(5), "Wrong task failed"
 
 
 def test_serial_fallback() -> None:
@@ -208,7 +208,7 @@ def test_n_workers_argument() -> None:
     time_1_worker = time.time() - start
     
     assert results_1 is not None, "parallel_map returned None with 1 worker"
-    assert manager_1.size == 1, f"Expected size=1, got {manager_1.size}"
+    assert manager_1.size == pytest.approx(1), f"Expected size=1, got {manager_1.size}"
     print(f"✓ n_workers=1: Wall time = {time_1_worker:.2f}s, Pool size = {manager_1.size}")
     
     manager_4 = MPASParallelManager(n_workers=4, backend='multiprocessing')
@@ -218,7 +218,7 @@ def test_n_workers_argument() -> None:
     time_4_workers = time.time() - start
     
     assert results_4 is not None, "parallel_map returned None with 4 workers"
-    assert manager_4.size == 4, f"Expected size=4, got {manager_4.size}"
+    assert manager_4.size == pytest.approx(4), f"Expected size=4, got {manager_4.size}"
     print(f"✓ n_workers=4: Wall time = {time_4_workers:.2f}s, Pool size = {manager_4.size}")
     
     manager_auto = MPASParallelManager(n_workers=None, backend='multiprocessing')
@@ -541,7 +541,7 @@ class TestMPASParallelManagerInitializationModule:
         manager = MPASParallelManager(verbose=False)
 
         assert manager.backend == 'multiprocessing'
-        assert manager.rank == 0
+        assert manager.rank == pytest.approx(0)
         assert manager.is_master
         assert manager.comm is None
         assert manager.distributor is None
@@ -560,7 +560,7 @@ class TestMPASParallelManagerInitializationModule:
         manager = MPASParallelManager(backend='multiprocessing', n_workers=4, verbose=False)
 
         assert manager.backend == 'multiprocessing'
-        assert manager.size == 4
+        assert manager.size == pytest.approx(4)
         assert manager.is_master
     
     def test_init_serial_backend(self: "TestMPASParallelManagerInitializationModule") -> None:
@@ -576,8 +576,8 @@ class TestMPASParallelManagerInitializationModule:
         manager = MPASParallelManager(backend='serial', verbose=False)
         
         assert manager.backend == 'serial'
-        assert manager.rank == 0
-        assert manager.size == 1
+        assert manager.rank == pytest.approx(0)
+        assert manager.size == pytest.approx(1)
         assert manager.is_master
         assert manager.comm is None
     
@@ -685,7 +685,7 @@ class TestMultiprocessingExecution:
         
         assert results is not None
 
-        assert len(results) == 5
+        assert len(results) == pytest.approx(5)
         assert all(r.success for r in results)
         assert [r.result for r in results] == [2, 4, 6, 8, 10]
     
@@ -729,9 +729,9 @@ class TestMultiprocessingExecution:
         results = self.manager.parallel_map(failing_func, tasks)
         
         assert results is not None
-        assert len(results) == 5
-        assert sum(1 for r in results if r.success) == 4
-        assert sum(1 for r in results if not r.success) == 1
+        assert len(results) == pytest.approx(5)
+        assert sum(1 for r in results if r.success) == pytest.approx(4)
+        assert sum(1 for r in results if not r.success) == pytest.approx(1)
         
         failed_result = [r for r in results if not r.success][0]
 
@@ -758,9 +758,9 @@ class TestMultiprocessingExecution:
         stats = self.manager.get_statistics()
 
         assert stats is not None
-        assert stats.total_tasks == 3
-        assert stats.completed_tasks == 3
-        assert stats.failed_tasks == 0
+        assert stats.total_tasks == pytest.approx(3)
+        assert stats.completed_tasks == pytest.approx(3)
+        assert stats.failed_tasks == pytest.approx(0)
         assert stats.total_time > 0
         assert results is not None
         assert all(r.success for r in results)
@@ -779,7 +779,7 @@ class TestMultiprocessingExecution:
         results = manager.parallel_map(lambda x: x * 2, [1])
 
         assert results is not None
-        assert len(results) == 1
+        assert len(results) == pytest.approx(1)
     
     def test_multiprocessing_fallback_on_error(self: "TestMultiprocessingExecution") -> None:
         """
@@ -803,7 +803,7 @@ class TestMultiprocessingExecution:
             manager = MPASParallelManager(backend='multiprocessing', n_workers=2, verbose=False)
             results = manager.parallel_map(lambda x: x * 2, [1, 2])
             assert results is not None
-            assert len(results) == 2
+            assert len(results) == pytest.approx(2)
             assert all(r.success for r in results)
         finally:
             _parallel_mod.get_context = original_get_context
@@ -846,7 +846,7 @@ class TestSerialExecution:
         results = self.manager.parallel_map(simple_func, tasks)
         
         assert results is not None
-        assert len(results) == 5
+        assert len(results) == pytest.approx(5)
         assert all(r.success for r in results)
         assert [r.result for r in results] == [2, 4, 6, 8, 10]
     
@@ -870,9 +870,9 @@ class TestSerialExecution:
         results = self.manager.parallel_map(failing_func, tasks)
 
         assert results is not None
-        assert len(results) == 5
-        assert sum(1 for r in results if r.success) == 4
-        assert sum(1 for r in results if not r.success) == 1
+        assert len(results) == pytest.approx(5)
+        assert sum(1 for r in results if r.success) == pytest.approx(4)
+        assert sum(1 for r in results if not r.success) == pytest.approx(1)
 
 
 class TestTaskDistributor:
@@ -912,7 +912,7 @@ class TestTaskDistributor:
         distributor = MPASTaskDistributor(self.mock_comm, LoadBalanceStrategy.STATIC)
         local_tasks = distributor.distribute_tasks(self.tasks)
         
-        assert len(local_tasks) == 4
+        assert len(local_tasks) == pytest.approx(4)
         assert [tid for tid, _ in local_tasks] == [0, 1, 2, 3]
     
     def test_static_distribution_rank1(self: "TestTaskDistributor") -> None:
@@ -931,7 +931,7 @@ class TestTaskDistributor:
         distributor = MPASTaskDistributor(self.mock_comm, LoadBalanceStrategy.STATIC)
         local_tasks = distributor.distribute_tasks(self.tasks)
         
-        assert len(local_tasks) == 3
+        assert len(local_tasks) == pytest.approx(3)
         assert [tid for tid, _ in local_tasks] == [4, 5, 6]
     
     def test_block_distribution(self: "TestTaskDistributor") -> None:
@@ -950,7 +950,7 @@ class TestTaskDistributor:
         distributor = MPASTaskDistributor(self.mock_comm, LoadBalanceStrategy.BLOCK)
         local_tasks = distributor.distribute_tasks(self.tasks)
         
-        assert len(local_tasks) == 4
+        assert len(local_tasks) == pytest.approx(4) 
         assert [tid for tid, _ in local_tasks] == [0, 1, 2, 3]
     
     def test_cyclic_distribution(self: "TestTaskDistributor") -> None:
@@ -987,7 +987,7 @@ class TestTaskDistributor:
         distributor = MPASTaskDistributor(self.mock_comm, LoadBalanceStrategy.DYNAMIC)
         local_tasks = distributor.distribute_tasks(self.tasks)
         
-        assert len(local_tasks) == 5
+        assert len(local_tasks) == pytest.approx(5)
 
 
 class TestResultCollector:
@@ -1039,7 +1039,7 @@ class TestResultCollector:
         results = collector.gather_results(local_results)
         
         assert results is not None
-        assert len(results) == 3
+        assert len(results) == pytest.approx(3)
     
     def test_gather_results_worker(self: "TestResultCollector") -> None:
         """
@@ -1083,12 +1083,12 @@ class TestResultCollector:
         collector = MPASResultCollector(self.mock_comm)
         stats = collector.compute_statistics(results)
         
-        assert stats.total_tasks == 3
-        assert stats.completed_tasks == 2
-        assert stats.failed_tasks == 1
-        assert stats.total_time == 3.5
-        assert stats.worker_times[0] == 3.0
-        assert stats.worker_times[1] == 0.5
+        assert stats.total_tasks == pytest.approx(3)
+        assert stats.completed_tasks == pytest.approx(2)
+        assert stats.failed_tasks == pytest.approx(1)
+        assert stats.total_time == pytest.approx(3.5)
+        assert stats.worker_times[0] == pytest.approx(3.0)
+        assert stats.worker_times[1] == pytest.approx(0.5)
         assert stats.load_imbalance > 0
 
 
@@ -1112,8 +1112,8 @@ class TestMultiprocessingTaskWrapperModule:
         result = _multiprocessing_task_wrapper(args)
         
         assert result.success
-        assert result.result == 15
-        assert result.task_id == 0
+        assert result.result == pytest.approx(15)
+        assert result.task_id == pytest.approx(0)
         assert result.execution_time > 0
     
     def test_wrapper_error_collect(self: "TestMultiprocessingTaskWrapperModule") -> None:
@@ -1182,9 +1182,9 @@ class TestErrorHandling:
         results = manager.parallel_map(failing_func, tasks)
         
         assert results is not None
-        assert len(results) == 5
-        assert sum(1 for r in results if r.success) == 3
-        assert sum(1 for r in results if not r.success) == 2
+        assert len(results) == pytest.approx(5)
+        assert sum(1 for r in results if r.success) == pytest.approx(3)
+        assert sum(1 for r in results if not r.success) == pytest.approx(2)
     
     def test_error_policy_continue(self: "TestErrorHandling") -> None:
         """
@@ -1208,8 +1208,8 @@ class TestErrorHandling:
         results = manager.parallel_map(failing_func, tasks)
         
         assert results is not None
-        assert len(results) == 3
-        assert sum(1 for r in results if r.success) == 2
+        assert len(results) == pytest.approx(3)
+        assert sum(1 for r in results if r.success) == pytest.approx(2)
 
 
 class TestStatistics:
@@ -1232,7 +1232,7 @@ class TestStatistics:
         stats = manager.get_statistics()
         
         assert stats is not None
-        assert stats.total_tasks == 3
+        assert stats.total_tasks == pytest.approx(3)
         assert results is not None
         assert all(r.success for r in results)
     
@@ -1341,7 +1341,7 @@ class TestParallelPlotFunctionModule:
         results = parallel_plot(simple_plot, files, output_dir='./output/')
         
         assert results is not None
-        assert len(results) == 3
+        assert len(results) == pytest.approx(3)
         assert all(r.success for r in results)
 
 
@@ -1362,7 +1362,7 @@ class TestEdgeCases:
         results = manager.parallel_map(lambda x: x * 2, [])
 
         assert results is not None
-        assert len(results) == 0
+        assert len(results) == pytest.approx(0)
     
     def test_single_task(self: "TestEdgeCases") -> None:
         """
@@ -1378,9 +1378,9 @@ class TestEdgeCases:
         results = manager.parallel_map(lambda x: x * 2, [5])
         
         assert results is not None
-        assert len(results) == 1
+        assert len(results) == pytest.approx(1)
         assert results[0].success
-        assert results[0].result == 10
+        assert results[0].result == pytest.approx(10)
     
     def test_more_workers_than_tasks(self: "TestEdgeCases") -> None:
         """
@@ -1395,7 +1395,7 @@ class TestEdgeCases:
         manager = MPASParallelManager(backend='multiprocessing', n_workers=10, verbose=False)
         results = manager.parallel_map(lambda x: x * 2, [1, 2, 3])
         assert results is not None
-        assert len(results) == 3
+        assert len(results) == pytest.approx(3)
         assert all(r.success for r in results)
 
 
@@ -1497,7 +1497,7 @@ class TestMultiprocessingTaskWrapperAdditional:
         assert not result.success
         assert result.error is not None
         assert "RuntimeError: Expected error" in result.error
-        assert result.task_id == 1
+        assert result.task_id == pytest.approx(1)
     
     def test_wrapper_collect_policy(self: "TestMultiprocessingTaskWrapperAdditional") -> None:
         """
@@ -1518,7 +1518,7 @@ class TestMultiprocessingTaskWrapperAdditional:
         assert not result.success
         assert result.error is not None
         assert "TypeError: Type mismatch" in result.error
-        assert result.task_id == 2
+        assert result.task_id == pytest.approx(2)
 
 
 class TestMPASResultCollectorStatistics:
@@ -1543,11 +1543,11 @@ class TestMPASResultCollectorStatistics:
         results = []
         stats = collector.compute_statistics(results)
         
-        assert stats.total_tasks == 0
-        assert stats.completed_tasks == 0
-        assert stats.failed_tasks == 0
-        assert stats.total_time == 0.0
-        assert stats.load_imbalance == 0.0
+        assert stats.total_tasks == pytest.approx(0)
+        assert stats.completed_tasks == pytest.approx(0)
+        assert stats.failed_tasks == pytest.approx(0)
+        assert stats.total_time == pytest.approx(0.0)
+        assert stats.load_imbalance == pytest.approx(0.0)
     
     def test_compute_statistics_with_single_worker(self: "TestMPASResultCollectorStatistics") -> None:
         """
@@ -1572,12 +1572,12 @@ class TestMPASResultCollectorStatistics:
         
         stats = collector.compute_statistics(results)
         
-        assert stats.total_tasks == 2
-        assert stats.completed_tasks == 1
-        assert stats.failed_tasks == 1
-        assert stats.total_time == 1.5
+        assert stats.total_tasks == pytest.approx(2)
+        assert stats.completed_tasks == pytest.approx(1)
+        assert stats.failed_tasks == pytest.approx(1)
+        assert stats.total_time == pytest.approx(1.5)
         assert 0 in stats.worker_times
-        assert stats.load_imbalance == 0.0  
+        assert stats.load_imbalance == pytest.approx(0.0)
 
 
 class TestMPASParallelManagerInitializationAdditional:
@@ -1596,7 +1596,7 @@ class TestMPASParallelManagerInitializationAdditional:
         with patch('mpasdiag.processing.parallel.MPI_AVAILABLE', False):
             manager = MPASParallelManager(backend=None, verbose=False)            
             assert manager.backend == 'multiprocessing'
-            assert manager.rank == 0
+            assert manager.rank == pytest.approx(0)
             assert manager.is_master
             assert manager.comm is None
             assert manager.distributor is None
@@ -1614,8 +1614,8 @@ class TestMPASParallelManagerInitializationAdditional:
         """
         manager = MPASParallelManager(backend='serial', verbose=False)        
         assert manager.backend == 'serial'
-        assert manager.rank == 0
-        assert manager.size == 1
+        assert manager.rank == pytest.approx(0)
+        assert manager.size == pytest.approx(1)
         assert manager.is_master
         assert manager.comm is None
         assert manager.distributor is None
@@ -1633,8 +1633,8 @@ class TestMPASParallelManagerInitializationAdditional:
         """
         manager = MPASParallelManager(backend='multiprocessing', n_workers=2, verbose=False)        
         assert manager.backend == 'multiprocessing'
-        assert manager.rank == 0
-        assert manager.size == 2
+        assert manager.rank == pytest.approx(0)
+        assert manager.size == pytest.approx(2)
         assert manager.is_master
         assert manager.comm is None
     
@@ -1979,7 +1979,7 @@ class TestExecuteLocalTasks:
         output = f.getvalue()
         assert "Error processing task" in output
         assert len(results) == len(sample_tasks)
-        assert sum(1 for r in results if not r.success) == 1
+        assert sum(1 for r in results if not r.success) == pytest.approx(1)
 
 
 class TestSerialMap:
@@ -2321,7 +2321,7 @@ class TestParallelPlotFunctionAdditional:
         if results is not None:
             assert len(results) == len(files)
             failed = [r for r in results if not r.success]
-            assert len(failed) == 1
+            assert len(failed) == pytest.approx(1)
             assert failed[0].error is not None
             assert "file2" in failed[0].error
     
@@ -2366,7 +2366,7 @@ class TestMPASTaskDistributor:
         
         distributed = distributor.distribute_tasks(tasks)
         
-        assert len(distributed) == 4
+        assert len(distributed) == pytest.approx(4)
         assert distributed[0] == (0, 0)
         assert distributed[1] == (1, 1)
     
@@ -2388,7 +2388,7 @@ class TestMPASTaskDistributor:
         tasks = list(range(10))
         
         distributed = distributor.distribute_tasks(tasks)
-        assert len(distributed) == 3
+        assert len(distributed) == pytest.approx(3)
     
     def test_block_distribution(self: "TestMPASTaskDistributor") -> None:
         """
@@ -2409,7 +2409,7 @@ class TestMPASTaskDistributor:
         
         distributed = distributor.distribute_tasks(tasks)
         
-        assert len(distributed) == 4
+        assert len(distributed) == pytest.approx(4)
         assert distributed[0] == (4, 4) 
         assert distributed[3] == (7, 7)
     
@@ -2432,7 +2432,7 @@ class TestMPASTaskDistributor:
         
         distributed = distributor.distribute_tasks(tasks)
         
-        assert len(distributed) == 3
+        assert len(distributed) == pytest.approx(3)
         assert distributed[0] == (1, 1)
         assert distributed[1] == (4, 4)
         assert distributed[2] == (7, 7)
@@ -2456,7 +2456,7 @@ class TestMPASTaskDistributor:
         
         distributed = distributor.distribute_tasks(tasks)
         
-        assert len(distributed) == 4
+        assert len(distributed) == pytest.approx(4)
         assert distributed[0] == (4, 4)
     
     def test_distribute_tasks_unknown_strategy(self: "TestMPASTaskDistributor") -> None:
@@ -2481,7 +2481,7 @@ class TestMPASTaskDistributor:
         distributor.strategy = "invalid" # type: ignore        
         tasks = list(range(6))
         distributed = distributor.distribute_tasks(tasks)        
-        assert len(distributed) == 3
+        assert len(distributed) == pytest.approx(3)
 
 
 class TestMPASResultCollectorGather:
@@ -2538,9 +2538,9 @@ class TestMPASResultCollectorGather:
         gathered = collector.gather_results(local_results)
         
         assert gathered is not None
-        assert len(gathered) == 2
-        assert gathered[0].task_id == 0
-        assert gathered[1].task_id == 1
+        assert len(gathered) == pytest.approx(2)
+        assert gathered[0].task_id == pytest.approx(0)
+        assert gathered[1].task_id == pytest.approx(1)
 
 
 class TestMPIMapExecution:
@@ -2751,7 +2751,7 @@ class TestWithRealMPASData:
         results = manager.parallel_map(extract_grid_info, [grid_file])
         
         assert results is not None
-        assert len(results) == 1
+        assert len(results) == pytest.approx(1)
         assert results[0].success
         assert 'nCells' in results[0].result
         assert 'nVertices' in results[0].result
@@ -2839,7 +2839,7 @@ class TestMultiprocessingBreakStatement:
         assert results is not None
         assert len(results) == len(sample_tasks)
         assert all(r.success for r in results)
-        assert results[0].result == 100 
+        assert results[0].result == pytest.approx(100)
 
 
 class TestMultiprocessingResultsNoneCheck:
@@ -2956,7 +2956,7 @@ class TestParallelPlotFunctionComplete:
         results = parallel_plot(counting_plot, files, multiplier=2)
         
         if results is not None:
-            assert len(results) == 2
+            assert len(results) == pytest.approx(2)
             assert all(isinstance(r, TaskResult) for r in results)
 
 

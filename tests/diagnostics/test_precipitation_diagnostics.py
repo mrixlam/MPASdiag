@@ -82,7 +82,7 @@ class TestPrecipitationDiagnostics:
         
         assert tp is not None
         assert isinstance(rainnc, xr.DataArray)
-        assert rainnc.shape[0] == 100  
+        assert rainnc.shape[0] == pytest.approx(100)  
         assert np.all(rainnc >= 0)
     
     def test_compute_precipitation_rate(self: "TestPrecipitationDiagnostics", mock_mpas_2d_data: Any) -> None:
@@ -306,7 +306,7 @@ class TestGetAccumulationHours:
             None: Assertion validates returned accumulation hours.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('a01h') == 1
+        assert diag.get_accumulation_hours('a01h') == pytest.approx(1)
     
     def test_get_accumulation_hours_a03h(self: "TestGetAccumulationHours") -> None:
         """
@@ -319,7 +319,7 @@ class TestGetAccumulationHours:
             None: Assertion validates returned accumulation hours.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('a03h') == 3
+        assert diag.get_accumulation_hours('a03h') == pytest.approx(3)
     
     def test_get_accumulation_hours_a06h(self: "TestGetAccumulationHours") -> None:
         """
@@ -332,7 +332,7 @@ class TestGetAccumulationHours:
             None: Assertion validates returned accumulation hours.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('a06h') == 6
+        assert diag.get_accumulation_hours('a06h') == pytest.approx(6)
     
     def test_get_accumulation_hours_a12h(self: "TestGetAccumulationHours") -> None:
         """
@@ -345,7 +345,7 @@ class TestGetAccumulationHours:
             None: Assertion validates returned accumulation hours.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('a12h') == 12
+        assert diag.get_accumulation_hours('a12h') == pytest.approx(12)
     
     def test_get_accumulation_hours_a24h(self: "TestGetAccumulationHours") -> None:
         """
@@ -358,7 +358,7 @@ class TestGetAccumulationHours:
             None: Assertion validates returned accumulation hours.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('a24h') == 24
+        assert diag.get_accumulation_hours('a24h') == pytest.approx(24)
     
     def test_get_accumulation_hours_unknown(self: "TestGetAccumulationHours") -> None:
         """
@@ -371,7 +371,7 @@ class TestGetAccumulationHours:
             None: Assertion validates the default fallback value.
         """
         diag = PrecipitationDiagnostics(verbose=False)
-        assert diag.get_accumulation_hours('unknown') == 24
+        assert diag.get_accumulation_hours('unknown') == pytest.approx(24)
 
 
 class TestComputePrecipitationDifference:
@@ -412,12 +412,12 @@ class TestComputePrecipitationDifference:
         )
         
         assert isinstance(result, xr.DataArray)
-        assert len(result.shape) == 1
+        assert len(result.shape) == pytest.approx(1)
         assert result.shape[0] > 0  
         assert 'units' in result.attrs
         assert result.attrs['units'] == 'mm'
         assert 'accumulation_period' in result.attrs
-        assert result.attrs['accumulation_hours'] == 1
+        assert result.attrs['accumulation_hours'] == pytest.approx(1)
     
     def test_compute_difference_verbose(self: "TestComputePrecipitationDifference", sample_dataset: Any) -> None:
         """
@@ -461,7 +461,7 @@ class TestComputePrecipitationDifference:
         )
         
         assert isinstance(result, xr.DataArray)
-        assert len(result.shape) == 1
+        assert len(result.shape) == pytest.approx(1)
         assert result.shape[0] > 0  
         assert np.all(result.values >= 0)
     
@@ -540,7 +540,7 @@ class TestComputePrecipitationDifference:
         )
         
         assert isinstance(result, xr.DataArray)
-        assert len(result.shape) == 1
+        assert len(result.shape) == pytest.approx(1)
         assert result.shape[0] > 0  
     
     def test_compute_difference_insufficient_lookback(self: "TestComputePrecipitationDifference", sample_dataset: Any) -> None:
@@ -663,8 +663,8 @@ class TestApplyPrecipitationFilters:
         diag = PrecipitationDiagnostics(verbose=False)
         result = diag._apply_precipitation_filters_and_attributes(data, var_context='rainnc')
         
-        assert result.values[3] == 0  
-        assert result.values[4] == 0 
+        assert result.values[3] == pytest.approx(0)  
+        assert result.values[4] == pytest.approx(0) 
         assert 'units' in result.attrs
         assert result.attrs['units'] == 'mm'
 
@@ -975,10 +975,10 @@ class TestExceptionHandlers:
         stats = diag._compute_result_statistics(data)
 
         assert stats is not None
-        assert stats['min'] == 0.0
-        assert stats['max'] == 2.0
+        assert stats['min'] == pytest.approx(0.0)
+        assert stats['max'] == pytest.approx(2.0)
         assert stats['nonzero_count'] > 0
-        assert stats['total_count'] == 4  # NaN excluded
+        assert stats['total_count'] == pytest.approx(4)  # NaN excluded
 
 
 class TestTimeSliceInfo:

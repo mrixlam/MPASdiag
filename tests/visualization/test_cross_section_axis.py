@@ -43,14 +43,14 @@ def test_vertical_cross_section_plotter_initialization() -> None:
     """
     plotter = MPASVerticalCrossSectionPlotter()
     
-    assert plotter.figsize == (10, 12)
-    assert plotter.dpi == 100  
+    assert plotter.figsize == (pytest.approx(10), pytest.approx(12))
+    assert plotter.dpi == pytest.approx(100)
     assert plotter.fig is None
     assert plotter.ax is None
     
     custom_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 6), dpi=150)
-    assert custom_plotter.figsize == (10, 6)
-    assert custom_plotter.dpi == 150
+    assert custom_plotter.figsize == (pytest.approx(10), pytest.approx(6))
+    assert custom_plotter.dpi == pytest.approx(150)
 
 
 def test_great_circle_path_generation() -> None:
@@ -348,7 +348,7 @@ class TestAxisFormatting:
         )
 
         assert self.plotter.ax is not None
-        assert self.plotter.ax.get_ylim() == (1, 3)
+        assert self.plotter.ax.get_ylim() == (pytest.approx(1), pytest.approx(3))
         assert self.plotter.ax.get_ylabel() == 'Model Level'
 
 

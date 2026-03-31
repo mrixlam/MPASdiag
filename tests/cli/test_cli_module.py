@@ -33,7 +33,7 @@ class TestModuleLevelExecution:
         with patch.object(cli_unified, 'main', return_value=0):
             with patch.object(cli_unified, '__name__', '__main__'):
                 result = cli_unified.main()
-                assert result == 0
+                assert result == pytest.approx(0)
 
 
 class TestModuleExecution:
@@ -53,7 +53,7 @@ class TestModuleExecution:
         
         with patch.object(cli_unified.MPASUnifiedCLI, 'main', return_value=0) as mock_main:
             result = cli_unified.main()
-            assert result == 0
+            assert result == pytest.approx(0)
             mock_main.assert_called_once()
     
     def test_module_level_main_returns_exit_code(self: "TestModuleExecution") -> None:
@@ -70,7 +70,7 @@ class TestModuleExecution:
         
         with patch.object(cli_unified.MPASUnifiedCLI, 'main', return_value=1):
             result = cli_unified.main()
-            assert result == 1
+            assert result == pytest.approx(1)
     
     def test_main_block_calls_sys_exit(self: "TestModuleExecution") -> None:
         """

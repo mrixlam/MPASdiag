@@ -258,7 +258,7 @@ class SoundingDiagnostics:
         ]
         
         # Initialize the result dictionary with all keys set to None by default
-        result: Dict[str, Optional[float]] = {k: None for k in _ALL_KEYS}
+        result: Dict[str, Optional[float]] = dict.fromkeys(_ALL_KEYS, None)
 
         # If MetPy is not available, compute a fallback LCL estimate and skip the rest of the indices
         if not HAS_METPY:
@@ -622,7 +622,7 @@ class SoundingDiagnostics:
             wb_c = np.asarray(wb.to('degC').magnitude, dtype=np.float64)
 
             # Find the indices where the wet bulb temperature crosses 0°C
-            crossings = np.where(np.diff(np.sign(wb_c)))[0]
+            crossings = np.nonzero(np.diff(np.sign(wb_c)))[0]
 
             if len(crossings) > 0:
                 # Get the index of the first crossing of the 0°C isotherm in the wet bulb temperature profile

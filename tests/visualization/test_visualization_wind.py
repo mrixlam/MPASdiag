@@ -97,7 +97,7 @@ class TestMPASWindPlotterInit:
         assert plotter.figsize == (12, 10)
 
         # Verify default DPI is 100
-        assert plotter.dpi == 100
+        assert plotter.dpi == pytest.approx(100)
 
         # Verify figure is None before plotting
         assert plotter.fig is None
@@ -124,7 +124,7 @@ class TestMPASWindPlotterInit:
         assert plotter.figsize == (14, 12)
 
         # Verify custom DPI is set correctly
-        assert plotter.dpi == 150
+        assert plotter.dpi == pytest.approx(150)
 
         # Verify figure is None before plotting
         assert plotter.fig is None
@@ -173,7 +173,7 @@ class TestCalculateOptimalSubsample:
         )
 
         # Verify no subsampling for barbs
-        assert subsample_barbs_small == 1
+        assert subsample_barbs_small == pytest.approx(1)
 
         # Define a small dataset with few points to plot wind arrows
         subsample_arrows_small = plotter.calculate_optimal_subsample(
@@ -184,7 +184,7 @@ class TestCalculateOptimalSubsample:
         )
 
         # Verify no subsampling for arrows
-        assert subsample_arrows_small == 1
+        assert subsample_arrows_small == pytest.approx(1)
 
         # Close any open figures to free resources
         plt.close('all')
@@ -685,8 +685,10 @@ class TestPrepareWindData:
         )
         
         # Outputs should be half the length and strided
-        assert len(lon_out) == 50
-        assert len(lat_out) == 50
+        assert len(lon_out) == pytest.approx(50)
+        assert len(lat_out) == pytest.approx(50)
+        assert len(u_out) == pytest.approx(50)
+        assert len(v_out) == pytest.approx(50)
 
         # Verify shape is 1D with expected length
         assert lon_out.shape == (50,)
@@ -751,7 +753,10 @@ class TestPrepareWindData:
         )
         
         # Only indices 0 and 3 are valid (both u and v are finite)
-        assert len(lon_out) == 2
+        assert len(lon_out) == pytest.approx(2)
+        assert len(lat_out) == pytest.approx(2)
+        assert len(u_out) == pytest.approx(2)
+        assert len(v_out) == pytest.approx(2)
 
         # Check that dtypes match
         assert lon_out.dtype == lon.dtype
@@ -1432,7 +1437,7 @@ class TestCreateWindPlot:
         assert ax is not None
 
         # Ensure the render method was called once
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure to free resources
         plt.close(fig)
@@ -1484,7 +1489,7 @@ class TestCreateWindPlot:
         assert ax is not None
 
         # Ensure the render method was called once
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure to free resources
         plt.close(fig)
@@ -1535,7 +1540,7 @@ class TestCreateWindPlot:
         assert ax is not None
 
         # Ensure the render method was called once
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Cast to GeoAxes for extent checking
         geo_ax = cast(GeoAxes, ax)
@@ -1544,7 +1549,7 @@ class TestCreateWindPlot:
         extent = geo_ax.get_extent()
 
         # Verify that extent is a tuple of length 4
-        assert isinstance(extent, tuple) and len(extent) == 4
+        assert isinstance(extent, tuple) and len(extent) == pytest.approx(4)
 
         # Close the figure to free resources
         plt.close(fig)
@@ -1601,7 +1606,7 @@ class TestCreateWindPlot:
         assert custom_title in ax.get_title()
 
         # Ensure the render method was called once
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure to free resources
         plt.close(fig)
@@ -1991,7 +1996,7 @@ class TestAddWindOverlay:
         plotter.add_wind_overlay(ax, lon, lat, wind_config)
 
         # Assert that the render method was called once, confirming that the overlay addition logic proceeded to the rendering step
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure after the test to free up resources, since we are not actually displaying it in this test context
         plt.close(fig)
@@ -2049,7 +2054,7 @@ class TestAddWindOverlay:
         plotter.add_wind_overlay(ax, lon, lat, wind_config)
 
         # Assert that the render method was called once, confirming that the overlay addition logic proceeded to the rendering step after extracting the specified level from the 3D data
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure after the test to free up resources, since we are not actually displaying it in this test context
         plt.close(fig)
@@ -2105,7 +2110,7 @@ class TestAddWindOverlay:
         plotter.add_wind_overlay(ax, lon, lat, wind_config)
 
         # Assert that the render method was called once, confirming that the overlay addition logic proceeded to the rendering step after selecting the default topmost level from the 3D data
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure after the test to free up resources, since we are not actually displaying it in this test context
         plt.close(fig)
@@ -2178,7 +2183,7 @@ class TestAddWindOverlay:
         )
 
         # Assert that the render method was called once, confirming that the overlay addition logic proceeded to the rendering step after regridding was triggered and its outputs were used
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
 
         # Close the figure after the test to free up resources, since we are not actually displaying it in this test context
         plt.close(fig)
@@ -2270,7 +2275,7 @@ class TestAddWindOverlay:
             lon_min=0, lon_max=50,
             lat_min=0, lat_max=25
         )
-        assert calls['render'] == 1
+        assert calls['render'] == pytest.approx(1)
         plt.close(fig)
     
     # ------------------ Test Wind Overlay Addition with Automatic Subsampling but Missing Bounds ------------------
@@ -2347,7 +2352,7 @@ class TestAddWindOverlay:
         plotter.add_wind_overlay(ax, lon, lat, wind_config)
 
         # Should not render
-        assert calls['render'] == 0
+        assert calls['render'] == pytest.approx(0)
         plt.close(fig)
     
     # ------------------ Test Wind Overlay Addition with Empty 2D Data ------------------
@@ -2783,7 +2788,7 @@ class TestCreateBatchWindPlots:
         )
 
         # Assert that the method returns a list of created file paths and that the expected number of files (3 time steps) were created
-        assert len(created_files) == 3
+        assert len(created_files) == pytest.approx(3), f"Expected 3 created files, got {len(created_files)}"
 
         # Verify that the expected output files were created in the temporary directory
         for path in created_files:

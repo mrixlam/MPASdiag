@@ -54,8 +54,8 @@ class TestRemappingEdgeCases:
             dlon=1.0, dlat=1.0
         )
         
-        assert len(grid.lon) == 1
-        assert len(grid.lat) == 1
+        assert len(grid.lon) == pytest.approx(1)
+        assert len(grid.lat) == pytest.approx(1)
 
 
 class TestEdgeCasesAndErrorHandling:
@@ -135,7 +135,7 @@ class TestEdgeCasesAndErrorHandling:
         
         bounds = _compute_grid_bounds(coords, resolution)
         
-        assert len(bounds) == 2
+        assert len(bounds) == pytest.approx(2)
         assert bounds[0] == pytest.approx(4.5)
         assert bounds[1] == pytest.approx(5.5)
     

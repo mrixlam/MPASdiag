@@ -53,12 +53,12 @@ class TestMPASPrecipitationPlotterInitialization:
         plotter = MPASPrecipitationPlotter()
 
         assert isinstance(plotter, MPASPrecipitationPlotter)
-        assert plotter.figsize == (10, 14)
-        assert plotter.dpi == 100
+        assert plotter.figsize == (pytest.approx(10), pytest.approx(14))
+        assert plotter.dpi == pytest.approx(100)
         custom_plotter = MPASPrecipitationPlotter(figsize=(10, 6), dpi=150)
 
-        assert custom_plotter.figsize == (10, 6)
-        assert custom_plotter.dpi == 150
+        assert custom_plotter.figsize == (pytest.approx(10), pytest.approx(6))
+        assert custom_plotter.dpi == pytest.approx(150)
 
 
 class TestUnitConversion:
@@ -499,7 +499,7 @@ class TestComparisonPlot:
         )
         
         assert isinstance(fig, Figure)
-        assert len(axes) == 2
+        assert len(axes) == pytest.approx(2)
         plt.close(fig)
     
     def test_comparison_plot_with_custom_titles(self: "TestComparisonPlot") -> None:
@@ -665,7 +665,7 @@ class TestColormap:
             
             assert isinstance(cmap, mcolors.ListedColormap), f"Failed for {accum_period}"
 
-            assert cmap.N == 11, f"Failed for {accum_period}"
+            assert cmap.N == pytest.approx(11), f"Failed for {accum_period}"
             assert levels == expected_levels, f"Failed for {accum_period}"
 
 
@@ -1390,8 +1390,8 @@ class TestPrecipitationRenderingPaths:
         color_levels_sorted = [0.1, 0.5, 1.0, 2.0, 5.0]
         last_bound = max(color_levels_sorted) + 1
         bounds = [0] + color_levels_sorted + [last_bound]
-        assert bounds[-1] == 6.0
-        assert bounds[0] == 0
+        assert bounds[-1] == pytest.approx(6.0)
+        assert bounds[0] == pytest.approx(0.0)
 
     def test_scatter_plot_valid_mask_geographic(self) -> None:
         """
@@ -1443,7 +1443,7 @@ class TestPrecipitationRenderingPaths:
         """
         color_levels = [0.1, float('inf'), 0.5, 1.0, float('nan'), 2.0, 5.0]
         result = sorted(set([v for v in color_levels if np.isfinite(v)]))
-        assert result == [0.1, 0.5, 1.0, 2.0, 5.0]
+        assert result == [pytest.approx(0.1), pytest.approx(0.5), pytest.approx(1.0), pytest.approx(2.0), pytest.approx(5.0)]
         assert not any(np.isinf(v) or np.isnan(v) for v in result)
 
 
@@ -1476,7 +1476,7 @@ class TestPrecipitationBatchAndCoordinates:
         mock_proc = MagicMock()
         mock_proc.extract_2d_coordinates_for_variable.return_value = (np.zeros(10), np.zeros(10))
         lon, lat = self.plotter._extract_coordinates_from_processor(mock_proc, 'rainnc')
-        assert len(lon) == 10
+        assert len(lon) == pytest.approx(10)
 
     def test_extract_coordinates_from_processor_spatial(self) -> None:
         """
@@ -1491,7 +1491,7 @@ class TestPrecipitationBatchAndCoordinates:
         mock_proc = MagicMock(spec=[])
         mock_proc.extract_spatial_coordinates = MagicMock(return_value=(np.zeros(10), np.zeros(10)))
         lon, lat = self.plotter._extract_coordinates_from_processor(mock_proc, 'rainnc')
-        assert len(lon) == 10
+        assert len(lon) == pytest.approx(10)
 
     def test_extract_coordinates_from_processor_dataset_fallback(self) -> None:
         """
@@ -1508,7 +1508,7 @@ class TestPrecipitationBatchAndCoordinates:
         mock_proc.dataset.lonCell.values = np.zeros(10)
         mock_proc.dataset.latCell.values = np.zeros(10)
         lon, lat = self.plotter._extract_coordinates_from_processor(mock_proc, 'rainnc')
-        assert len(lon) == 10
+        assert len(lon) == pytest.approx(10)
 
     def test_setup_batch_time_indices_all_valid(self) -> None:
         """
@@ -1526,7 +1526,7 @@ class TestPrecipitationBatchAndCoordinates:
 
         indices, accum_hours = self.plotter._setup_batch_time_indices(mock_proc, 'a01h', None)
 
-        assert accum_hours == 1
+        assert accum_hours == pytest.approx(1)
         assert indices == list(range(1, 10))
 
     def test_setup_batch_time_indices_too_few_timesteps(self, capsys) -> None:
@@ -1546,7 +1546,7 @@ class TestPrecipitationBatchAndCoordinates:
         indices, accum_hours = self.plotter._setup_batch_time_indices(mock_proc, 'a24h', None)
 
         assert indices == []
-        assert accum_hours == 24
+        assert accum_hours == pytest.approx(24)
 
     def test_setup_batch_time_indices_filtered_user_indices(self) -> None:
         """

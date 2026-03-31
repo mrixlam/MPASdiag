@@ -321,7 +321,7 @@ class TestWindAnalysisExtended:
 
         config = cli.parse_args_to_config(args)
 
-        assert config.subsample_factor == 5
+        assert config.subsample_factor == pytest.approx(5)
 
 
 class TestCrossSectionExtended:
@@ -390,7 +390,7 @@ class TestCrossSectionExtended:
 
         config = cli.parse_args_to_config(args)
 
-        assert config.num_points == 200
+        assert config.num_points == pytest.approx(200)
 
 
 class TestCrossSectionWorkflows:

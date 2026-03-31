@@ -89,9 +89,9 @@ class TestParseArgsToConfig:
         assert isinstance(config, MPASConfig)
         assert config.grid_file == 'grid.nc'
         assert config.data_dir == './data'
-        assert config.lat_min == -10.0
+        assert config.lat_min == pytest.approx(-10.0)
         assert config.variable == 'rainnc'
-        assert config.dpi == 150
+        assert config.dpi == pytest.approx(150)
     
     def test_parse_args_with_figure_size(self: "TestParseArgsToConfig") -> None:
         """
@@ -111,8 +111,8 @@ class TestParseArgsToConfig:
         
         config = ArgumentParser.parse_args_to_config(args)
         
-        assert config.figure_width == 12.0
-        assert config.figure_height == 8.0
+        assert config.figure_width == pytest.approx(12.0)
+        assert config.figure_height == pytest.approx(8.0)
     
     def test_parse_args_with_xarray_data_type(self: "TestParseArgsToConfig") -> None:
         """
@@ -260,7 +260,7 @@ class TestCreateSurfaceParser:
         
         assert args.plot_type == 'contour'
         assert args.colormap == 'plasma'
-        assert args.time_index == 10
+        assert args.time_index == pytest.approx(10)
         assert args.verbose is True
         assert args.batch_all is True
 
@@ -308,13 +308,13 @@ class TestParseSurfaceArgsToConfig:
         assert isinstance(config, MPASConfig)
         assert config.grid_file == 'grid.nc'
         assert config.variable == 't2m'
-        assert config.time_index == 5
+        assert config.time_index == pytest.approx(5)
         assert config.plot_type == 'scatter'
         assert config.colormap == 'coolwarm'
-        assert config.clim_min == 280.0
-        assert config.clim_max == 310.0
-        assert config.grid_resolution == 200
-        assert config.figure_size == (10.0, 12.0)
+        assert config.clim_min == pytest.approx(280.0)
+        assert config.clim_max == pytest.approx(310.0)
+        assert config.grid_resolution == pytest.approx(200)
+        assert config.figure_size == (pytest.approx(10.0), pytest.approx(12.0))
     
     def test_parse_surface_args_with_batch_all(self: "TestParseSurfaceArgsToConfig") -> None:
         """
@@ -377,7 +377,7 @@ class TestParseSurfaceArgsToConfig:
         )
         
         config = ArgumentParser.parse_surface_args_to_config(args)        
-        assert config.time_index == 0
+        assert config.time_index == pytest.approx(0)
 
 
     def test_parse_surface_args_with_real_mpas_paths(self: "TestParseSurfaceArgsToConfig", grid_file, test_data_dir) -> None:
@@ -454,8 +454,8 @@ class TestCreateWindParser:
         assert args.v_variable == 'v10'
         assert args.wind_level == 'surface'
         assert args.wind_plot_type == 'barbs'
-        assert args.subsample_factor == 0
-        assert args.time_index == 0
+        assert args.subsample_factor == pytest.approx(0)
+        assert args.time_index == pytest.approx(0)
     
     def test_create_wind_parser_custom_args(self: "TestCreateWindParser") -> None:
         """
@@ -493,11 +493,11 @@ class TestCreateWindParser:
         assert args.v_variable == 'v850'
         assert args.wind_level == '850mb'
         assert args.wind_plot_type == 'arrows'
-        assert args.subsample_factor == 5
-        assert args.wind_scale == 100.0
+        assert args.subsample_factor == pytest.approx(5)
+        assert args.wind_scale == pytest.approx(100.0)
         assert args.show_background is True
         assert args.background_colormap == 'plasma'
-        assert args.extent == [-100.0, -90.0, 30.0, 45.0]
+        assert args.extent == [pytest.approx(-100.0), pytest.approx(-90.0), pytest.approx(30.0), pytest.approx(45.0)]
         assert args.verbose is True
         assert args.batch_all is True
 
@@ -546,15 +546,15 @@ class TestParseWindArgsToConfig:
         assert config.v_variable == 'v10'
         assert config.wind_level == 'surface'
         assert config.wind_plot_type == 'barbs'
-        assert config.subsample_factor == 3
-        assert config.wind_scale == 50.0
+        assert config.subsample_factor == pytest.approx(3)
+        assert config.wind_scale == pytest.approx(50.0)
         assert config.show_background is True
         assert config.background_colormap == 'viridis'
-        assert config.lon_min == -100.0
-        assert config.lon_max == -90.0
-        assert config.lat_min == 30.0
-        assert config.lat_max == 45.0
-        assert config.figure_size == (12.0, 10.0)
+        assert config.lon_min == pytest.approx(-100.0)
+        assert config.lon_max == pytest.approx(-90.0)
+        assert config.lat_min == pytest.approx(30.0)
+        assert config.lat_max == pytest.approx(45.0)
+        assert config.figure_size == (pytest.approx(12.0), pytest.approx(10.0))
     
     def test_parse_wind_args_without_extent(self: "TestParseWindArgsToConfig") -> None:
         """
@@ -591,10 +591,10 @@ class TestParseWindArgsToConfig:
         
         config = ArgumentParser.parse_wind_args_to_config(args)
         
-        assert config.lon_min == -180.0
-        assert config.lon_max == 180.0
-        assert config.lat_min == -90.0
-        assert config.lat_max == 90.0
+        assert config.lon_min == pytest.approx(-180.0)
+        assert config.lon_max == pytest.approx(180.0)
+        assert config.lat_min == pytest.approx(-90.0)
+        assert config.lat_max == pytest.approx(90.0)
     
     def test_parse_wind_args_with_batch_all(self: "TestParseWindArgsToConfig") -> None:
         """
@@ -677,7 +677,7 @@ class TestParseWindArgsToConfig:
         assert config.grid_file == grid_file
         assert config.data_dir == data_dir
         assert config.wind_plot_type == 'barbs'
-        assert config.subsample_factor == 5
+        assert config.subsample_factor == pytest.approx(5)
 
 
 class TestCreateCrosssectionParser:
@@ -721,10 +721,10 @@ class TestCreateCrosssectionParser:
         assert args.grid_file == 'grid.nc'
         assert args.data_dir == './data'
         assert args.variable == 'theta'
-        assert args.start_lon == -105.0
-        assert args.start_lat == 39.7
-        assert args.end_lon == -94.6
-        assert args.end_lat == 39.1
+        assert args.start_lon == pytest.approx(-105.0)
+        assert args.start_lat == pytest.approx(39.7)
+        assert args.end_lon == pytest.approx(-94.6)
+        assert args.end_lat == pytest.approx(39.1)
     
     def test_create_crosssection_parser_defaults(self: "TestCreateCrosssectionParser") -> None:
         """
@@ -748,14 +748,14 @@ class TestCreateCrosssectionParser:
             '--end-lat', '40'
         ])
         
-        assert args.time_index == 0
+        assert args.time_index == pytest.approx(0)
         assert args.vertical_coord == 'pressure'
-        assert args.num_points == 100
+        assert args.num_points == pytest.approx(100)
         assert args.plot_type == 'filled_contour'
         assert args.colormap == 'viridis'
         assert args.extend == 'both'
         assert args.output_dir == './output'
-        assert args.dpi == 100
+        assert args.dpi == pytest.approx(100)
     
     def test_create_crosssection_parser_custom_args(self: "TestCreateCrosssectionParser") -> None:
         """
@@ -794,10 +794,10 @@ class TestCreateCrosssectionParser:
             '--verbose'
         ])
         
-        assert args.time_index == 24
+        assert args.time_index == pytest.approx(24)
         assert args.vertical_coord == 'model_levels'
-        assert args.num_points == 200
-        assert args.max_height == 15.0
+        assert args.num_points == pytest.approx(200)
+        assert args.max_height == pytest.approx(15.0)
         assert args.plot_type == 'contour'
         assert args.colormap == 'plasma'
         assert args.levels == [250.0, 260.0, 270.0, 280.0, 290.0, 300.0]
@@ -849,14 +849,14 @@ class TestParseCrosssectionArgsToConfig:
         assert config.grid_file == 'grid.nc'
         assert config.data_dir == './data'
         assert config.variable == 'theta'
-        assert config.time_index == 12
-        assert config.start_lon == -100.0
-        assert config.start_lat == 30.0
-        assert config.end_lon == -90.0
-        assert config.end_lat == 40.0
+        assert config.time_index == pytest.approx(12)
+        assert config.start_lon == pytest.approx(-100.0)
+        assert config.start_lat == pytest.approx(30.0)
+        assert config.end_lon == pytest.approx(-90.0)
+        assert config.end_lat == pytest.approx(40.0)
         assert config.vertical_coord == 'pressure'
-        assert config.num_points == 150
-        assert config.max_height == 12.0
+        assert config.num_points == pytest.approx(150)
+        assert config.max_height == pytest.approx(12.0)
         assert config.plot_type == 'filled_contour'
         assert config.colormap == 'viridis'
         assert config.levels is None
@@ -985,8 +985,8 @@ class TestParseCrosssectionArgsToConfig:
         assert config.grid_file == grid_file
         assert config.data_dir == data_dir
         assert config.variable == 'theta'
-        assert config.start_lon == -100.0
-        assert config.end_lon == -90.0
+        assert config.start_lon == pytest.approx(-100.0)
+        assert config.end_lon == pytest.approx(-90.0)
         assert config.vertical_coord == 'pressure'
 
 if __name__ == "__main__": 

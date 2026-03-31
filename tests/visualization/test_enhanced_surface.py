@@ -1022,7 +1022,7 @@ class TestDataTypeAgnosticFeatures:
         assert isinstance(levels, list)
         assert levels is not None
         assert levels is not None 
-        assert levels[0] == 0  
+        assert levels[0] == pytest.approx(0.0)  
         
     def test_variable_specific_geopotential_settings(self: "TestDataTypeAgnosticFeatures") -> None:
         """

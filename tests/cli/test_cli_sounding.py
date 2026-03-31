@@ -164,8 +164,8 @@ class TestSoundingParser:
             '--time-index', '0',
         ])
 
-        assert args.lon == -97.5
-        assert args.lat == 36.25
+        assert args.lon == pytest.approx(-97.5)
+        assert args.lat == pytest.approx(36.25)
 
     def test_show_indices_default_false(self: "TestSoundingParser", parser: "argparse.Namespace") -> None:
         """
@@ -258,8 +258,8 @@ class TestSoundingArgMapping:
         config = cli.parse_args_to_config(args)
 
         assert config.analysis_type == 'sounding'
-        assert config.sounding_lon == -97.5
-        assert config.sounding_lat == 36.0
+        assert config.sounding_lat == pytest.approx(36.0)
+        assert config.sounding_lon == pytest.approx(-97.5)
         assert config.show_indices is True
         assert config.show_parcel is True
 

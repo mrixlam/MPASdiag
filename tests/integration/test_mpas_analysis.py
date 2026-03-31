@@ -154,7 +154,7 @@ class TestConfigurationAndValidation:
         assert config.v_variable == "v10"
         assert config.wind_level == "surface"
         assert config.wind_plot_type == "barbs"
-        assert config.subsample_factor == 0
+        assert config.subsample_factor == pytest.approx(0)
         assert config.show_background is True
 
 
@@ -487,7 +487,7 @@ class TestVisualization:
             None
         """
         assert visualizer.figsize == (10, 8)
-        assert visualizer.dpi == 100
+        assert visualizer.dpi == pytest.approx(100)
         assert visualizer.fig is None
         assert visualizer.ax is None
     

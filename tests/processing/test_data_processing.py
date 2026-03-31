@@ -99,12 +99,12 @@ class TestUtilityFunctions:
         """
         precip_diag = PrecipitationDiagnostics(verbose=False)
 
-        assert precip_diag.get_accumulation_hours('a01h') == 1
-        assert precip_diag.get_accumulation_hours('a03h') == 3
-        assert precip_diag.get_accumulation_hours('a06h') == 6
-        assert precip_diag.get_accumulation_hours('a12h') == 12
-        assert precip_diag.get_accumulation_hours('a24h') == 24
-        assert precip_diag.get_accumulation_hours('invalid') == 24  
+        assert precip_diag.get_accumulation_hours('a01h') == pytest.approx(1)
+        assert precip_diag.get_accumulation_hours('a03h') == pytest.approx(3)
+        assert precip_diag.get_accumulation_hours('a06h') == pytest.approx(6)
+        assert precip_diag.get_accumulation_hours('a12h') == pytest.approx(12)
+        assert precip_diag.get_accumulation_hours('a24h') == pytest.approx(24)
+        assert precip_diag.get_accumulation_hours('invalid') == pytest.approx(24)  
 
 class TestMPAS2DProcessor:
     """ Tests for MPAS2DProcessor class. """
@@ -180,7 +180,7 @@ class TestMPAS2DProcessor:
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
         files = processor.find_diagnostic_files(diag_dir)
 
-        assert len(files) == 3
+        assert len(files) == pytest.approx(3)
         assert files == sorted(files)
     
     def test_find_diagnostic_files_insufficient(self: "TestMPAS2DProcessor") -> None:
@@ -224,7 +224,7 @@ class TestMPAS2DProcessor:
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
         datetimes = processor.parse_file_datetimes(files)
         
-        assert len(datetimes) == 3
+        assert len(datetimes) == pytest.approx(3)
         assert datetimes[0] == datetime(2024, 1, 1, 0, 0, 0)
         assert datetimes[1] == datetime(2024, 1, 1, 1, 0, 0)
         assert isinstance(datetimes[2], datetime)
@@ -248,11 +248,11 @@ class TestMPAS2DProcessor:
         
         time_dim, time_idx, time_size = processor.validate_time_parameters(5)
         assert time_dim == 'Time'
-        assert time_idx == 5
-        assert time_size == 10
+        assert time_idx == pytest.approx(5)
+        assert time_size == pytest.approx(10)
         
         time_dim, time_idx, time_size = processor.validate_time_parameters(15)
-        assert time_idx == 9  
+        assert time_idx == pytest.approx(9)
     
     def test_validate_time_parameters_no_dataset(self: "TestMPAS2DProcessor") -> None:
         """

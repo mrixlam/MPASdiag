@@ -543,7 +543,7 @@ class TestProcessParallelResults:
             
             output = captured_output.getvalue()
             
-            assert len(files) == 2
+            assert len(files) == pytest.approx(2)
             assert "TEST BATCH PROCESSING RESULTS" in output
             assert "Successful: 2/2" in output
         finally:
@@ -593,7 +593,7 @@ class TestProcessParallelResults:
             
             output = captured_output.getvalue()
             
-            assert len(files) == 1
+            assert len(files) == pytest.approx(1)
             assert "Successful: 1/2" in output
             assert "Failed: 1/2" in output
         finally:
@@ -1820,7 +1820,7 @@ class TestProcessParallelResultsFailures:
         
         output = f.getvalue()
         
-        assert len(created_files) == 2  
+        assert len(created_files) == pytest.approx(2)
         assert "TEST_PROCESSING" in output
         assert "test_var" in output
 
@@ -1991,7 +1991,7 @@ class TestProcessParallelResultsEdgeCases:
             )
 
         output = captured.getvalue()
-        assert len(files) == 1
+        assert len(files) == pytest.approx(1)
         assert "Speedup potential" not in output
 
     def test_var_info_formatting(self, temp_output_dir: Path) -> None:
@@ -2324,7 +2324,7 @@ class TestParallelProcessorBatchMethods:
                 results, [0, 1], str(tmp_path), mock_manager, "TEST"
             )
 
-        assert len(files) == 3
+        assert len(files) == pytest.approx(3)
         assert 'Successful: 2/2' in captured.getvalue()
 
     def test_timing_statistics_creation(self, tmp_path) -> None:
@@ -2357,7 +2357,7 @@ class TestParallelProcessorBatchMethods:
         output = captured.getvalue()
         assert 'Timing Breakdown' in output
         assert 'Data Processing' in output
-        assert len(files) == 1
+        assert len(files) == pytest.approx(1)
 
     def test_precipitation_processor_mpi_check(self, tmp_path) -> None:
         """

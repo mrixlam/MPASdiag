@@ -110,8 +110,8 @@ class TestExtractSpatialCoordinates:
         
         lon, lat = MPASGeographicUtils.extract_spatial_coordinates(ds)
         
-        assert len(lon) == 50
-        assert len(lat) == 50
+        assert len(lon) == pytest.approx(50)
+        assert len(lat) == pytest.approx(50)
         assert lon[0] == pytest.approx(90, abs=0.1)
         assert lat[0] == pytest.approx(-10, abs=0.1)
     
@@ -132,8 +132,8 @@ class TestExtractSpatialCoordinates:
         
         lon, lat = MPASGeographicUtils.extract_spatial_coordinates(ds)
         
-        assert len(lon) == 200
-        assert len(lat) == 200
+        assert len(lon) == pytest.approx(200)
+        assert len(lat) == pytest.approx(200)   
     
     def test_extract_coordinates_in_coords(self: "TestExtractSpatialCoordinates", mpas_coordinates, mpas_surface_temp_data) -> None:
         """
@@ -211,8 +211,8 @@ class TestExtractSpatialCoordinates:
         
         lon, lat = MPASGeographicUtils.extract_spatial_coordinates(ds)
         
-        assert lon.ndim == 1
-        assert lat.ndim == 1
+        assert lon.ndim == pytest.approx(1)
+        assert lat.ndim == pytest.approx(1)
         assert len(lon) == n_time * subset_size
         assert len(lat) == n_time * subset_size
     
@@ -265,8 +265,8 @@ class TestExtractSpatialCoordinates:
         assert np.all(lat >= -90.0)
         assert np.all(lat <= 90.0)
         
-        assert lon.ndim == 1
-        assert lat.ndim == 1
+        assert lon.ndim == pytest.approx(1)
+        assert lat.ndim == pytest.approx(1)
 
 
 class TestFilterBySpatialExtent:
@@ -371,7 +371,7 @@ class TestFilterBySpatialExtent:
         )
         
         assert np.all(mask)
-        assert np.sum(np.isnan(filtered.values)) == 0
+        assert np.sum(np.isnan(filtered.values)) == pytest.approx(0)
     
     def test_filter_all_outside(self: "TestFilterBySpatialExtent", mpas_coordinates, mpas_surface_temp_data) -> None:
         """
@@ -721,10 +721,10 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=0.0)
         
-        assert extent[0] == -100
-        assert extent[1] == -90
-        assert extent[2] == 30
-        assert extent[3] == 40
+        assert extent[0] == pytest.approx(-100, abs=1e-5)
+        assert extent[1] == pytest.approx(-90, abs=1e-5)
+        assert extent[2] == pytest.approx(30, abs=1e-5)
+        assert extent[3] == pytest.approx(40, abs=1e-5)
     
     def test_get_extent_all_nan(self: "TestGetExtentFromCoordinates") -> None:
         """
@@ -759,7 +759,7 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=5.0)
         
-        assert extent[0] == -184.0  
+        assert extent[0] == pytest.approx(-184.0)
     
     def test_get_extent_clamping_lon_max(self: "TestGetExtentFromCoordinates") -> None:
         """
@@ -776,7 +776,7 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=5.0)
         
-        assert extent[1] == 184.0  
+        assert extent[1] == pytest.approx(184.0)
     
     def test_get_extent_clamping_lat_min(self: "TestGetExtentFromCoordinates") -> None:
         """
@@ -793,7 +793,7 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=5.0)
         
-        assert extent[2] == -90  
+        assert extent[2] == pytest.approx(-90.0)
     
     def test_get_extent_clamping_lat_max(self: "TestGetExtentFromCoordinates") -> None:
         """
@@ -810,7 +810,7 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=5.0)
         
-        assert extent[3] == 90  
+        assert extent[3] == pytest.approx(90.0)
     
     def test_get_extent_real_mpas_coords(self: "TestGetExtentFromCoordinates", mpas_coordinates) -> None:
         """
@@ -829,7 +829,7 @@ class TestGetExtentFromCoordinates:
         
         extent = MPASGeographicUtils.get_extent_from_coordinates(lon, lat, buffer=0.0)
         
-        assert len(extent) == 4
+        assert len(extent) == pytest.approx(4)
         assert extent[0] <= extent[1]  
         assert extent[2] <= extent[3] 
         
@@ -863,7 +863,7 @@ class TestCalculateSpatialResolution:
         lat = np.array([0])
         
         resolution = MPASGeographicUtils.calculate_spatial_resolution(lon, lat)        
-        assert resolution == 0.0
+        assert resolution == pytest.approx(0.0, abs=1e-5)
     
     def test_calculate_resolution_2_points(self: "TestCalculateSpatialResolution") -> None:
         """
@@ -967,7 +967,7 @@ class TestCalculateSpatialResolution:
         lat = np.array([0, 0, 0, 0])
         
         resolution = MPASGeographicUtils.calculate_spatial_resolution(lon, lat)        
-        assert resolution == 0.0
+        assert resolution == pytest.approx(0.0, abs=1e-5)
     
     def test_calculate_resolution_mixed_distances(self: "TestCalculateSpatialResolution") -> None:
         """

@@ -163,8 +163,8 @@ class TestExtract2DCoordinatesEdgeCases:
             
             lon, lat = processor.extract_2d_coordinates_for_variable('theta')
             
-            assert len(lon) == 100
-            assert len(lat) == 100
+            assert len(lon) == pytest.approx(100)
+            assert len(lat) == pytest.approx(100)
 
 
 class TestLoad3DDataSpatialCoordinates:
@@ -278,7 +278,7 @@ class TestGet3DVariableDataPressureInterpolation:
 
             assert var_data_high is not None
             assert 'level_index' in var_data_high.attrs
-            assert var_data_high.attrs['level_index'] == 0
+            assert var_data_high.attrs['level_index'] == pytest.approx(0, abs=1e-3)
             
             var_data_low = processor.get_3d_variable_data('theta', level=100.0, time_index=0)
 
@@ -307,7 +307,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert hasattr(var_data, 'values')
         assert var_data.values.size > 0
         assert 'level_index' in var_data.attrs
-        assert var_data.attrs['level_index'] == 10
+        assert var_data.attrs['level_index'] == pytest.approx(10, abs=1e-3)
     
     def test_pressure_level_above_surface_fallback(self: "TestGet3DVariableDataPressureInterpolation") -> None:
         """
@@ -330,7 +330,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert hasattr(var_data, 'values')
         assert var_data.values.size > 0
         assert 'level_index' in var_data.attrs
-        assert var_data.attrs['level_index'] == 0
+        assert var_data.attrs['level_index'] == pytest.approx(0, abs=1e-3)
     
     def test_pressure_level_below_top_fallback(self: "TestGet3DVariableDataPressureInterpolation") -> None:
         """
@@ -561,7 +561,7 @@ class TestGetVerticalLevelsEdgeCases:
         levels = processor.get_vertical_levels('theta', return_pressure=True, time_index=0)
 
         assert isinstance(levels, list)
-        assert len(levels) == 5
+        assert len(levels) == pytest.approx(5)
         assert levels == [0, 1, 2, 3, 4]
     
     def test_pressure_from_components_nVertLevelsP1_extension(self: "TestGetVerticalLevelsEdgeCases") -> None:
@@ -628,7 +628,7 @@ class TestGetVerticalLevelsEdgeCases:
         levels = processor.get_vertical_levels('theta', return_pressure=True, time_index=0)
 
         assert isinstance(levels, list)
-        assert len(levels) == 5
+        assert len(levels) == pytest.approx(5)
     
     def test_pressure_from_hybrid_coords_single_good_value(self: "TestGetVerticalLevelsEdgeCases") -> None:
         """
@@ -672,7 +672,7 @@ class TestGetVerticalLevelsEdgeCases:
         levels = processor.get_vertical_levels('theta', return_pressure=True, time_index=0)
 
         assert isinstance(levels, list)
-        assert len(levels) == 5
+        assert len(levels) == pytest.approx(5)
     
     def test_pressure_from_hybrid_coords_no_good_values(self: "TestGetVerticalLevelsEdgeCases") -> None:
         """
@@ -716,7 +716,7 @@ class TestGetVerticalLevelsEdgeCases:
         levels = processor.get_vertical_levels('theta', return_pressure=True, time_index=0)
 
         assert isinstance(levels, list)
-        assert len(levels) == 5
+        assert len(levels) == pytest.approx(5)
     
     def test_pressure_from_hybrid_coords_exception_fallback(self: "TestGetVerticalLevelsEdgeCases") -> None:
         """
@@ -1063,8 +1063,8 @@ class TestExtract2DCoordinatesDataArray:
             assert lon is not None
             assert lat is not None
 
-            assert len(lon.shape) == 1
-            assert len(lat.shape) == 1
+            assert len(lon.shape) == pytest.approx(1)
+            assert len(lat.shape) == pytest.approx(1)
 
 
 class TestPressureException:
@@ -1907,7 +1907,7 @@ class TestGet3DVariableData:
         assert data is not None
         assert hasattr(data, 'values')
         assert data.values.size > 0
-        assert data.attrs['level_index'] == 0
+        assert data.attrs['level_index'] == pytest.approx(0, abs=1e-3)
     
     def test_pressure_level_below_top(self: "TestGet3DVariableData") -> None:
         """
@@ -2248,7 +2248,7 @@ class TestGetVerticalLevels:
         
         levels = self.processor.get_vertical_levels('theta', return_pressure=False)
         
-        assert len(levels) == 55
+        assert len(levels) == pytest.approx(55)
         assert levels == list(range(55))
     
     def test_pressure_from_pressure_variable(self: "TestGetVerticalLevels") -> None:
@@ -2267,7 +2267,7 @@ class TestGetVerticalLevels:
         
         levels = self.processor.get_vertical_levels('theta', return_pressure=True)
         
-        assert len(levels) == 55
+        assert len(levels) == pytest.approx(55)
         assert levels[0] > levels[-1]
     
     def test_pressure_from_components(self: "TestGetVerticalLevels") -> None:
@@ -2286,7 +2286,7 @@ class TestGetVerticalLevels:
         
         levels = self.processor.get_vertical_levels('theta', return_pressure=True)
         
-        assert len(levels) == 55
+        assert len(levels) == pytest.approx(55)
         assert levels[0] > levels[-1]
     
     def test_pressure_from_hybrid_coords(self: "TestGetVerticalLevels") -> None:
@@ -2305,7 +2305,7 @@ class TestGetVerticalLevels:
         
         levels = self.processor.get_vertical_levels('theta', return_pressure=True)
         
-        assert len(levels) == 55
+        assert len(levels) == pytest.approx(55)
     
     def _create_mock_dataset(self: "TestGetVerticalLevels") -> Any:
         """

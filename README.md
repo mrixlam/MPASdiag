@@ -21,9 +21,6 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 ### From GitHub Repository (Recommended)
 
 ```bash
-# Install Git LFS for large file support
-git lfs install
-
 # Clone the repository
 git clone https://github.com/mrixlam/MPASdiag.git
 cd MPASdiag
@@ -454,7 +451,7 @@ mpasdiag.diagnostics
 
 ## Testing
 
-MPASdiag features a comprehensive, modernized test suite with **1500+ tests** achieving **92%+ code coverage**. This is made possible through modular design, dependency injection, and extensive use of mocking for MPAS data. MPASdiag uses `pytest` as the testing framework along with `pytest-cov` for coverage reporting. These tests cover all major components including data processing, diagnostics, visualization, and parallel execution. 
+MPASdiag features a comprehensive, modernized test suite with **1750+ tests** achieving **92%+ code coverage**. This is made possible through modular design, dependency injection, and extensive use of mocking for MPAS data. MPASdiag uses `pytest` as the testing framework along with `pytest-cov` for coverage reporting. These tests cover all major components including data processing, diagnostics, visualization, and parallel execution. 
 
 Here are the available test modules:
 - **`conftest.py`**: Centralized fixtures with mock MPAS data
@@ -624,4 +621,4 @@ If you use this package in your research, please cite:
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: January 1, 2026
+**Last Updated**: March 31, 2026

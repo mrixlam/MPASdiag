@@ -79,7 +79,7 @@ class TestCreatePrecipColormap:
 
         assert isinstance(cmap, mcolors.ListedColormap)
         assert isinstance(levels, list)
-        assert len(levels) == 10
+        assert len(levels) == pytest.approx(10)
         assert 100 in levels 
     
     def test_create_precip_colormap_1h(self: "TestCreatePrecipColormap") -> None:
@@ -95,7 +95,7 @@ class TestCreatePrecipColormap:
         cmap, levels = MPASVisualizationStyle.create_precip_colormap('a01h')
 
         assert isinstance(cmap, mcolors.ListedColormap)
-        assert len(levels) == 10
+        assert len(levels) == pytest.approx(10)
         assert 0.5 in levels  
     
     def test_create_precip_colormap_invalid_string(self: "TestCreatePrecipColormap") -> None:
@@ -311,7 +311,7 @@ class TestGenerateLevelsFromData:
         levels = MPASVisualizationStyle._generate_levels_from_data(data, 'generic_var')
 
         assert levels is not None
-        assert len(levels) == 16  
+        assert len(levels) == pytest.approx(16)
     
     def test_generate_levels_empty_data(self: "TestGenerateLevelsFromData") -> None:
         """
@@ -846,7 +846,7 @@ class TestAdaptiveMarkerSize:
             None, 1000, (12, 10) # type: ignore
         )
         
-        assert size == 5.0  
+        assert size == pytest.approx(5.0)
     
     def test_calculate_marker_size_zero_area(self: "TestAdaptiveMarkerSize") -> None:
         """
@@ -864,7 +864,7 @@ class TestAdaptiveMarkerSize:
             map_extent, 1000, (12, 10)
         )
         
-        assert size == 5.0 
+        assert size == pytest.approx(5.0)
     
     def test_calculate_marker_size_zero_points(self: "TestAdaptiveMarkerSize") -> None:
         """
@@ -882,7 +882,7 @@ class TestAdaptiveMarkerSize:
             map_extent, 0, (12, 10)
         )
         
-        assert size == 5.0 
+        assert size == pytest.approx(5.0)
 
 
 class TestDynamicTickFormatting:
@@ -914,7 +914,7 @@ class TestDynamicTickFormatting:
         """
         ticks = [1.5, 2.5, 3.5, 4.5]        
         result = MPASVisualizationStyle.format_ticks_dynamic(ticks)        
-        assert len(result) == 4
+        assert len(result) == pytest.approx(4)
         assert '.' in result[0]
     
     def test_format_ticks_scientific(self: "TestDynamicTickFormatting") -> None:
@@ -971,7 +971,7 @@ class TestDynamicTickFormatting:
         """
         ticks = [-2.0, -1.0, 0.0, 1.0, 2.0]        
         result = MPASVisualizationStyle.format_ticks_dynamic(ticks)        
-        assert len(result) == 5
+        assert len(result) == pytest.approx(5)
     
     def test_format_ticks_duplicate_labels(self: "TestDynamicTickFormatting") -> None:
         """

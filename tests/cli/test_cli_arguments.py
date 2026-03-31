@@ -48,8 +48,8 @@ class TestArgumentParsing:
         
         config = cli.parse_args_to_config(args)
         
-        assert config.time_start == 0
-        assert config.time_end == 5
+        assert config.time_start == pytest.approx(0)
+        assert config.time_end == pytest.approx(5)
         assert config.batch_mode is True
     
     def test_parse_args_to_config_overlay_mapping(self: "TestArgumentParsing") -> None:
@@ -121,7 +121,7 @@ class TestMainFunctionAndArgumentHandling:
                     with patch.object(cli, 'setup_logging'):
                         with patch.object(cli, 'validate_config', return_value=False):
                             result = cli.main()
-                            assert result == 1
+                            assert result == pytest.approx(1)
     
     def test_main_with_config_file_loading(self: "TestMainFunctionAndArgumentHandling") -> None:
         """
@@ -154,7 +154,7 @@ class TestMainFunctionAndArgumentHandling:
                 with patch.object(cli, 'setup_logging'):
                     with patch.object(cli, 'validate_config', return_value=False):
                         result = cli.main()
-                        assert result == 1
+                        assert result == pytest.approx(1)
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
@@ -177,7 +177,7 @@ class TestMainFunctionAndArgumentHandling:
             with patch.object(cli, 'validate_config', return_value=True):
                 with patch.object(cli, 'run_analysis', return_value=True):
                     result = cli.main()
-                    assert result == 0
+                    assert result == pytest.approx(0)
 
     def test_main_with_direct_args(self: "TestMainFunctionAndArgumentHandling", grid_file, test_data_dir) -> None:
         """
@@ -216,7 +216,7 @@ class TestMainFunctionAndArgumentHandling:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv
@@ -257,7 +257,7 @@ class TestMainFunctionAndArgumentHandling:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv
@@ -284,7 +284,7 @@ class TestMainFunctionAndArgumentHandling:
                 with patch.object(cli, 'run_analysis', side_effect=KeyboardInterrupt()):
                     result = cli.main()
                     
-                    assert result == 130
+                    assert result == pytest.approx(130)
         finally:
             sys.argv = original_argv
     
@@ -309,7 +309,7 @@ class TestMainFunctionAndArgumentHandling:
             with patch.object(cli, 'validate_config', return_value=True):
                 with patch.object(cli, 'run_analysis', side_effect=RuntimeError("Test error")):
                     result = cli.main()                    
-                    assert result == 1
+                    assert result == pytest.approx(1)
         finally:
             sys.argv = original_argv
     
@@ -328,7 +328,7 @@ class TestMainFunctionAndArgumentHandling:
         with patch.object(cli_unified.MPASUnifiedCLI, 'main', return_value=0):
             result = cli_unified.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
 
 
 class TestMainArgumentReorderingAdditional:
@@ -369,7 +369,7 @@ class TestMainArgumentReorderingAdditional:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv
@@ -415,7 +415,7 @@ class TestMainArgumentReorderingAdditional:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             assert os.path.exists(log_file)
             
         finally:
@@ -449,7 +449,7 @@ class TestMainFunctionFallbackParsing:
                 mock_parser_factory.return_value = mock_parser
                 
                 result = cli.main()
-                assert result == 1
+                assert result == pytest.approx(1)
     
     def test_main_exception_without_logger(self: "TestMainFunctionFallbackParsing") -> None:
         """
@@ -473,7 +473,7 @@ class TestMainFunctionFallbackParsing:
                 mock_parser_factory.return_value = mock_parser
                 
                 result = cli.main()
-                assert result == 1
+                assert result == pytest.approx(1)
 
 
 class TestMainArgumentReorderingUnifiedFinal:
@@ -504,7 +504,7 @@ class TestMainArgumentReorderingUnifiedFinal:
                 with patch.object(cli, 'setup_logging'):
                     with patch.object(cli, 'validate_config', return_value=False):
                         result = cli.main()
-                        assert result == 1
+                        assert result == pytest.approx(1)
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
@@ -527,7 +527,7 @@ class TestMainArgumentReorderingUnifiedFinal:
             with patch.object(cli, 'setup_logging'):
                 with patch.object(cli, 'validate_config', return_value=False):
                     result = cli.main()
-                    assert result == 1
+                    assert result == pytest.approx(1)
 
 
 class TestWorkersArgumentIntegration:
@@ -623,7 +623,7 @@ class TestWorkersArgumentIntegration:
         metrics = self.extract_metrics(result.stdout + result.stderr)
         
         if "workers" in metrics:
-            assert metrics["workers"] == 1, f"Worker count wrong: expected 1, got {metrics['workers']}"
+            assert metrics["workers"] == pytest.approx(1), f"Worker count wrong: expected 1, got {metrics['workers']}"
         
         if "speedup" in metrics:
             assert metrics["speedup"] < 1.5, f"Speedup too high for single worker: {metrics['speedup']}x"
@@ -650,7 +650,7 @@ class TestWorkersArgumentIntegration:
         metrics = self.extract_metrics(result.stdout + result.stderr)
         
         if "workers" in metrics:
-            assert metrics["workers"] == 4, f"Worker count wrong: expected 4, got {metrics['workers']}"
+            assert metrics["workers"] == pytest.approx(4), f"Worker count wrong: expected 4, got {metrics['workers']}"
     
     def test_workers_argument_default(self: "TestWorkersArgumentIntegration") -> None:
         """

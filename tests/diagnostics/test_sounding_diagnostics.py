@@ -153,7 +153,7 @@ class TestFindNearestCell:
         lon = np.array([0.0, 10.0, 20.0])
         lat = np.array([0.0, 10.0, 20.0])
         idx = SoundingDiagnostics._find_nearest_cell(lon, lat, 10.0, 10.0)
-        assert idx == 1
+        assert idx == pytest.approx(1)
 
     def test_closest_cell_returned(self: "TestFindNearestCell", diag: SoundingDiagnostics, sample_grid_coords: tuple[np.ndarray, np.ndarray]) -> None:
         """

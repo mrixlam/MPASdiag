@@ -245,7 +245,8 @@ class TestLoadCoordinatesFromDataset:
         cache.load_coordinates_from_dataset(ds, 'test_var')        
         lon, lat = cache.get_coordinates('test_var')
 
-        assert len(lon) == 3
+        assert len(lon) == pytest.approx(3)
+        assert len(lat) == pytest.approx(3)
 
 
 class TestGetCoordinatesError:
@@ -323,7 +324,7 @@ class TestLoadVariableData:
             cached = cache.get_variable_data(var_name, time_index=0)
             assert isinstance(cached, CachedVariable)
             assert cached.var_name == var_name
-            assert cached.time_index == 0
+            assert cached.time_index == pytest.approx(0, abs=1e-3)
     
     def test_load_variable_already_cached(self: "TestLoadVariableData") -> None:
         """
@@ -386,7 +387,7 @@ class TestLoadVariableData:
             cache.load_variable_data(processor.dataset, var_name, time_index=0)
             cached = cache.get_variable_data(var_name, time_index=0)
 
-            assert cached.time_index == 0            
+            assert cached.time_index == pytest.approx(0, abs=1e-3)            
             assert 'Time' not in (cached.data.shape if hasattr(cached.data, 'shape') else [])
     
     def test_load_variable_with_nvertlevels_indexing(self: "TestLoadVariableData") -> None:
@@ -411,7 +412,7 @@ class TestLoadVariableData:
         if var_name:
             cache.load_variable_data(processor.dataset, var_name, time_index=0, level_index=0)            
             cached = cache.get_variable_data(var_name, time_index=0, level_index=0)
-            assert cached.level_index == 0
+            assert cached.level_index == pytest.approx(0, abs=1e-3)
     
     def test_load_variable_with_nvertlevelsp1_indexing(self: "TestLoadVariableData") -> None:
         """
@@ -435,7 +436,7 @@ class TestLoadVariableData:
         if var_name:
             cache.load_variable_data(processor.dataset, var_name, level_index=0)            
             cached = cache.get_variable_data(var_name, level_index=0)
-            assert cached.level_index == 0
+            assert cached.level_index == pytest.approx(0, abs=1e-3)
     
     def test_load_variable_metadata_extraction(self: "TestLoadVariableData") -> None:
         """
@@ -474,7 +475,7 @@ class TestLoadVariableData:
         cache.load_variable_data(processor.dataset, var_names[0])
         cache.load_variable_data(processor.dataset, var_names[1])
         
-        assert len(cache._variables) == 2
+        assert len(cache._variables) == pytest.approx(2)
         
         for _ in range(5):
             cache.get_variable_data(var_names[0])
@@ -556,7 +557,7 @@ class TestGetCacheInfo:
         
         info = cache.get_cache_info()
         
-        assert info['num_variables'] == 2
+        assert info['num_variables'] == pytest.approx(2)
         assert info['most_accessed'] == 'var2'
     
     def test_get_cache_info_empty_cache(self: "TestGetCacheInfo") -> None:
@@ -572,8 +573,8 @@ class TestGetCacheInfo:
         cache = MPASDataCache()        
         info = cache.get_cache_info()
         
-        assert info['num_coordinates'] == 0
-        assert info['num_variables'] == 0
+        assert info['num_coordinates'] == pytest.approx(0)
+        assert info['num_variables'] == pytest.approx(0)
         assert info['most_accessed'] is None
 
 
@@ -593,7 +594,7 @@ class TestEvictLeastAccessed:
         cache = MPASDataCache()
         cache._evict_least_accessed()
         
-        assert len(cache._variables) == 0
+        assert len(cache._variables) == pytest.approx(0)
     
     def test_evict_least_accessed_finds_minimum(self: "TestEvictLeastAccessed") -> None:
         """
@@ -677,12 +678,12 @@ class TestRealDataIntegration:
         assert isinstance(cached_var, CachedVariable)
         
         info = cache.get_cache_info()
-        assert info['num_coordinates'] == 1
-        assert info['num_variables'] == 1
+        assert info['num_coordinates'] == pytest.approx(1)
+        assert info['num_variables'] == pytest.approx(1)
         
         cache.clear()
-        assert len(cache._coordinates) == 0
-        assert len(cache._variables) == 0
+        assert len(cache._coordinates) == pytest.approx(0)
+        assert len(cache._variables) == pytest.approx(0)
     
     def test_global_cache_with_real_data(self: "TestRealDataIntegration") -> None:
         """

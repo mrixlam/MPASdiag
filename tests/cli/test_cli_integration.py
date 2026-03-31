@@ -49,7 +49,7 @@ class TestCLIIntegration:
         with pytest.raises(SystemExit) as exc_info:
             cli.create_main_parser().parse_args(['--help'])
 
-        assert exc_info.value.code == 0
+        assert exc_info.value.code == pytest.approx(0)
 
 
 class TestIntegrationWithRealData:
@@ -281,7 +281,7 @@ class TestIntegrationWithRealData:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv
@@ -322,7 +322,7 @@ class TestIntegrationWithRealData:
             cli = MPASUnifiedCLI()
             result = cli.main()
             
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv
@@ -362,7 +362,7 @@ class TestIntegrationWithRealData:
             
             cli = MPASUnifiedCLI()
             result = cli.main()            
-            assert result == 0
+            assert result == pytest.approx(0)
             
         finally:
             sys.argv = original_argv

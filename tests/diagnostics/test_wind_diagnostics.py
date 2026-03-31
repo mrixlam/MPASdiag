@@ -1089,7 +1089,7 @@ class TestGet3DWindComponents:
         assert isinstance(w, xr.DataArray)
         assert u.shape == (50,)
         assert 'selected_level' in u.attrs
-        assert u.attrs['level_index'] == 5
+        assert u.attrs['level_index'] == pytest.approx(5)
     
     def test_get_3d_wind_components_pressure_level(self: "TestGet3DWindComponents", sample_3d_dataset: xr.Dataset) -> None:
         """
@@ -1145,7 +1145,7 @@ class TestGet3DWindComponents:
             time_index=0
         )
         
-        assert u.attrs['level_index'] == 0
+        assert u.attrs['level_index'] == pytest.approx(0)
     
     def test_get_3d_wind_components_top(self: "TestGet3DWindComponents", sample_3d_dataset: xr.Dataset) -> None:
         """
@@ -1171,7 +1171,7 @@ class TestGet3DWindComponents:
             time_index=0
         )
         
-        assert u.attrs['level_index'] == 9  
+        assert u.attrs['level_index'] == pytest.approx(9) 
     
     def test_get_3d_wind_components_missing_w(self: "TestGet3DWindComponents", sample_3d_dataset: xr.Dataset) -> None:
         """
