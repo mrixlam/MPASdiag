@@ -229,7 +229,13 @@ class MPASSurfacePlotter(MPASVisualizer):
         """
         # Set up the map projection and data CRS using the base visualizer's setup function
         map_proj, data_crs = self.setup_map_projection(lon_min, lon_max, lat_min, lat_max, projection)
-        
+
+        # Mercator cannot project latitudes at ±90° (the math diverges to ±∞). To avoid issues with cartopy when using a Mercator projection, we clamp the latitude bounds to a safe range just below ±90° to ensure that the CRS transformation does not encounter singularities at the poles. 
+        if projection.lower() == 'mercator':
+            _LAT_MERCATOR_MAX = 85.051
+            lat_min = max(lat_min, -_LAT_MERCATOR_MAX)
+            lat_max = min(lat_max,  _LAT_MERCATOR_MAX)
+
         # Initialize the figure and GeoAxes with the specified projection.
         self.fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
         self.ax = plt.axes(projection=map_proj)
