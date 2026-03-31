@@ -470,13 +470,13 @@ class MPASVisualizationStyle:
         central_lat = (lat_min + lat_max) / 2
         
         if projection.lower() == 'platecarree':
-            map_proj = ccrs.PlateCarree(central_longitude=central_lon)
+            map_proj = ccrs.PlateCarree()
         elif projection.lower() == 'mercator':
             map_proj = ccrs.Mercator(central_longitude=central_lon)
         elif projection.lower() == 'lambertconformal':
             map_proj = ccrs.LambertConformal(central_longitude=central_lon, central_latitude=central_lat)
         else:
-            map_proj = ccrs.PlateCarree(central_longitude=central_lon)
+            map_proj = ccrs.PlateCarree()
         
         data_crs = ccrs.PlateCarree()
         
