@@ -96,9 +96,11 @@ def _grid_file_path() -> str:
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
+        return
 
     if _is_lfs_pointer(grid_file):
         pytest.skip("MPAS grid file is a Git LFS pointer (LFS data not pulled)")
+        return
 
     return str(grid_file)
 
@@ -135,8 +137,14 @@ def _find_and_load_2d_processor(data_subdir: str) -> MPAS2DProcessor:
  
     if not data_dir.exists():
         pytest.skip(f"Data directory not found: {data_dir}")
+        return
 
     grid_file = _grid_file_path()
+
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+    
     proc = MPAS2DProcessor(grid_file, verbose=False)
     proc.load_2d_data(str(data_dir), use_pure_xarray=True)
 
@@ -154,6 +162,11 @@ def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarra
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Four 1D numpy arrays `(lon, lat, u, v)` each of length `n` containing flattened coordinates and wind components.
     """
     grid_file = _grid_file_path()
+
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+
     proc = MPAS2DProcessor(grid_file, verbose=False)
 
     ds = xr.Dataset()
@@ -225,6 +238,7 @@ def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rain
 
     if var_name is None:
         pytest.skip(f"No precipitation variable found in diag files. Available: {sorted(available)[:10]}")
+        return
 
     da = proc.get_2d_variable_data(var_name, time_index=0)
     arr = da.values.ravel()[:n]
@@ -255,6 +269,7 @@ def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = (
 
     if var_name is None:
         pytest.skip(f"No surface temperature variable found in diag files. Available: {sorted(available)[:10]}")
+        return
 
     da = proc.get_2d_variable_data(var_name, time_index=0)
     return da.values.ravel()[:n]
@@ -280,7 +295,8 @@ def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "
 
     if u_name is None or v_name is None:
         pytest.skip(f"No suitable wind u/v variables found in diag files. Available: {sorted(available)[:10]}")
-
+        return  
+    
     da_u = proc.get_2d_variable_data(u_name, time_index=0)
     da_v = proc.get_2d_variable_data(v_name, time_index=0)
 
@@ -303,8 +319,14 @@ def load_qv_3d_from_mpasout(n: int = 100, n_levels: int = 10, var_candidates: Tu
 
     if not data_dir.exists():
         pytest.skip(f"MPASOUT data directory not found: {data_dir}")
+        return
 
     grid_file = _grid_file_path()
+
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+
     proc3 = MPAS3DProcessor(grid_file, verbose=False)
     proc3.load_3d_data(str(data_dir))
 
@@ -313,6 +335,7 @@ def load_qv_3d_from_mpasout(n: int = 100, n_levels: int = 10, var_candidates: Tu
 
     if var_name is None:
         pytest.skip(f"No 3D variable found in mpasout files. Available: {sorted(available)[:10]}")
+        return
 
     da = proc3.get_3d_variable_data(var_name, level='surface', time_index=0)
     return da.values.reshape((-1,))[:n]
@@ -384,6 +407,11 @@ def load_mpas_2d_processor(data_subdir: str = "u240k/diag", verbose: bool = Fals
         raise FileNotFoundError(f"Data directory not found: {data_dir}")
     
     grid_file = _grid_file_path()
+
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+
     proc = MPAS2DProcessor(grid_file, verbose=verbose)
     proc.load_2d_data(str(data_dir))
 
@@ -413,6 +441,11 @@ def load_mpas_3d_processor(data_subdir: str = "u240k/mpasout", verbose: bool = F
         raise FileNotFoundError(f"Data directory not found: {data_dir}")
     
     grid_file = _grid_file_path()
+
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+
     proc = MPAS3DProcessor(grid_file, verbose=verbose)
     proc.load_3d_data(str(data_dir), use_pure_xarray=True)
 
@@ -434,6 +467,11 @@ def get_real_mpas_coordinates(n: Union[int, None] = None) -> Tuple[np.ndarray, n
         pytest.skip.Exception: If called during pytest and grid is unavailable.
     """
     grid_file = _grid_file_path()
+    
+    if grid_file is None:
+        pytest.skip("MPAS grid file not available")
+        return
+
     grid_ds = xr.open_dataset(grid_file, decode_times=False)
     
     lon = grid_ds['lonCell'].values

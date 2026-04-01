@@ -36,6 +36,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -76,6 +77,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -116,6 +118,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -158,6 +161,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'mpasout')
         
@@ -202,7 +206,8 @@ class TestBatchAndParallelProcessing:
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-
+            return
+        
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
 
         cli = MPASUnifiedCLI()
@@ -242,6 +247,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -283,6 +289,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -326,6 +333,7 @@ class TestBatchAndParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'mpasout')
         
@@ -376,6 +384,7 @@ class TestParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -415,6 +424,7 @@ class TestParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -454,6 +464,7 @@ class TestParallelProcessing:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         
@@ -498,6 +509,7 @@ class TestBatchProcessingWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -534,6 +546,7 @@ class TestBatchProcessingWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return  
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -570,6 +583,7 @@ class TestBatchProcessingWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -612,6 +626,7 @@ class TestCrossSectionBatchWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -651,6 +666,7 @@ class TestCrossSectionBatchWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -692,6 +708,7 @@ class TestCrossSectionBatchWithoutLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = None  # No logger

@@ -51,8 +51,8 @@ class TestUnitConversion:
         """
         assert float(UnitConverter.convert_units(101325.0, 'Pa', 'hPa')) == pytest.approx(1013.25, abs=0.01)
         assert float(UnitConverter.convert_units(1013.25, 'hPa', 'Pa')) == pytest.approx(101325.0, abs=0.1)
-        assert float(UnitConverter.convert_units(1013.25, 'hPa', 'mb')) == 1013.25
-        assert float(UnitConverter.convert_units(1013.25, 'mb', 'hPa')) == 1013.25
+        assert float(UnitConverter.convert_units(1013.25, 'hPa', 'mb')) == pytest.approx(1013.25, abs=0.01)
+        assert float(UnitConverter.convert_units(1013.25, 'mb', 'hPa')) == pytest.approx(1013.25, abs=0.01)
     
     def test_mixing_ratio_conversions(self: "TestUnitConversion") -> None:
         """
@@ -106,6 +106,7 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
+            return
         
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_array = mpas_surface_temp_data[:subset_size]
@@ -131,6 +132,7 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
+            return
         
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_data = xr.DataArray(mpas_surface_temp_data[:subset_size])
@@ -237,6 +239,7 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
+            return
         
         subset_size = min(50, len(mpas_surface_temp_data))
 

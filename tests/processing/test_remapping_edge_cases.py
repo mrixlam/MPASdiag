@@ -99,8 +99,6 @@ class TestEdgeCasesAndErrorHandling:
         lon, lat, u, v = load_mpas_coords_from_processor(n=200)
         umin = u.min()
         umax = u.max()
-        lon = lon
-        lat = lat
         data = 10.0 + 20.0 * (u - umin) / (umax - umin + 1e-12)
         
         original_min = np.min(data)

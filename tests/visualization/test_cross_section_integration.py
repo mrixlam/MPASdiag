@@ -202,6 +202,7 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.temp_dir = tempfile.mkdtemp()
@@ -309,6 +310,7 @@ class TestRealMPASDataIntegration:
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         processor = mpas_3d_processor
         
@@ -343,6 +345,7 @@ class TestRealMPASDataIntegration:
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         processor = mpas_3d_processor
         
@@ -378,6 +381,7 @@ class TestRealMPASDataIntegration:
         """
         if not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         processor = MPAS3DProcessor(grid_file=GRID_FILE)
         processor.load_3d_data(MPASOUT_DIR)

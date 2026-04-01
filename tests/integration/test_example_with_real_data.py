@@ -76,6 +76,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_coordinates is None:
             pytest.skip("Real MPAS grid data not available")
+            return
         
         lon, lat = mpas_coordinates
         
@@ -103,6 +104,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_2d_processor_diag is None:
             pytest.skip("Real MPAS diagnostic data not available")
+            return
         
         proc = mpas_2d_processor_diag
         
@@ -126,6 +128,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_wind_data is None:
             pytest.skip("Real MPAS wind data not available")
+            return
         
         u, v = mpas_wind_data
         
@@ -153,6 +156,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_precip_data is None:
             pytest.skip("Real MPAS precipitation data not available")
+            return
         
         precip = mpas_precip_data
         
@@ -175,6 +179,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("Real MPAS surface temperature data not available")
+            return
         
         t2m = mpas_surface_temp_data
         
@@ -198,6 +203,7 @@ class TestRealMPASDataLoading:
         """
         if mpas_3d_processor is None:
             pytest.skip("Real MPAS 3D data not available")
+            return
         
         proc = mpas_3d_processor
         
@@ -223,11 +229,13 @@ class TestRealMPASDataLoading:
         """
         if mpas_3d_processor is None:
             pytest.skip("Real MPAS 3D data not available")
+            return
         
         proc = mpas_3d_processor
         
         if 'theta' not in proc.dataset:
             pytest.skip("Theta variable not available in 3D data")
+            return
         
         theta_data = proc.dataset['theta'].isel(Time=0, nVertLevels=0).values
         
@@ -260,6 +268,7 @@ class TestCombiningMultipleFixtures:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("Real MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
         u, v = mpas_wind_data
@@ -285,6 +294,7 @@ class TestCombiningMultipleFixtures:
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("Real MPAS data not available")
+            return
         
         proc = mpas_2d_processor_diag
         lon, lat = mpas_coordinates
@@ -293,6 +303,7 @@ class TestCombiningMultipleFixtures:
         
         if not available_vars:
             pytest.skip("No variables available in 2D processor dataset")
+            return
         
         var_name = available_vars[0]
 
@@ -324,6 +335,7 @@ class TestCombiningMultipleFixtures:
         """
         if mpas_3d_processor is None or mpas_coordinates is None:
             pytest.skip("Real MPAS 3D data not available")
+            return
         
         proc = mpas_3d_processor
         lon, lat = mpas_coordinates
@@ -335,6 +347,7 @@ class TestCombiningMultipleFixtures:
         
         if not available_3d_vars:
             pytest.skip("No 3D variables available in processor dataset")
+            return
         
         var_name = 'theta' if 'theta' in available_3d_vars else available_3d_vars[0]
         var_data = proc.dataset[var_name].isel(Time=0, nVertLevels=0).values
@@ -379,6 +392,7 @@ class TestCombiningMultipleFixtures:
         
         if available_count == 0:
             pytest.skip("No real MPAS data available")
+            return
         
         if mpas_wind_data is not None:
             if mpas_precip_data is not None:
@@ -403,6 +417,7 @@ class TestDataAvailabilityConditional:
         """
         if not mpas_data_available:
             pytest.skip("Real MPAS data not available")
+            return
         
         paths = get_mpas_data_paths()
         assert paths['grid_file'] is not None
@@ -423,6 +438,7 @@ class TestDataAvailabilityConditional:
         """
         if mpas_2d_processor_diag is None:
             pytest.skip("Real MPAS diagnostic data not available")
+            return
         
         dataset = mpas_2d_processor_diag.dataset
         
@@ -448,6 +464,7 @@ class TestDataAvailabilityConditional:
         """
         if not mpas_data_available or mpas_coordinates is None:
             pytest.skip("Real MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
 

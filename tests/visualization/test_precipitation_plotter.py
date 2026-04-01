@@ -79,6 +79,7 @@ class TestUnitConversion:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -272,6 +273,7 @@ class TestContourfPlotting:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -474,6 +476,7 @@ class TestComparisonPlot:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -576,6 +579,7 @@ class TestSavePlot:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -687,6 +691,7 @@ class TestTimestampHandling:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -797,6 +802,7 @@ class TestEdgeCases:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates

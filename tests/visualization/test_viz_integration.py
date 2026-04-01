@@ -101,9 +101,11 @@ class TestRealDataIntegration:
         
         if not os.path.exists(data_dir):
             pytest.skip(f"MPAS data directory not found: {data_dir}")
+            return
 
         if not os.path.exists(grid_file):
             pytest.skip(f"MPAS grid file not found: {grid_file}")
+            return
         
         return {'data_dir': data_dir, 'grid_file': grid_file}
     
@@ -119,6 +121,7 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         processor = mpas_3d_processor
 
@@ -150,6 +153,7 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         processor = mpas_3d_processor
 
@@ -182,6 +186,7 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         processor = mpas_3d_processor
 
@@ -419,6 +424,7 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         n_points = 100
         lon, lat = mpas_coordinates[0][:n_points], mpas_coordinates[1][:n_points]
@@ -452,6 +458,7 @@ class TestMPASVisualizer:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         data = np.hypot(u, v)  
@@ -489,6 +496,7 @@ class TestMPASVisualizer:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         start_time = datetime(2024, 1, 1)
         times = [start_time + timedelta(hours=i) for i in range(24)]
@@ -520,6 +528,7 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
         u, v = mpas_wind_data
@@ -564,6 +573,7 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
         u, v = mpas_wind_data
@@ -630,6 +640,7 @@ class TestPrecipitationMapping:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         n_points = min(100, len(mpas_precip_data))  
         lon, lat = mpas_coordinates[0][:n_points], mpas_coordinates[1][:n_points]
@@ -759,6 +770,7 @@ class TestBatchProcessing:
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         precip_plotter = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
         
@@ -804,6 +816,7 @@ class TestVisualizationIntegration:
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.surface import MPASSurfacePlotter
         
@@ -854,6 +867,7 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.wind import MPASWindPlotter
         
@@ -909,9 +923,11 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if tmp_path is None:
             pytest.skip("Temporary path not available")
+            return
 
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
         
@@ -958,6 +974,7 @@ class TestVisualizationIntegration:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.styling import MPASVisualizationStyle
         
@@ -1003,6 +1020,7 @@ class TestVisualizationIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS 3D data not available")
+            return
         
         try:
             from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
@@ -1037,6 +1055,7 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.surface import MPASSurfacePlotter
         
@@ -1095,6 +1114,7 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.surface import MPASSurfacePlotter
         
@@ -1151,6 +1171,7 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.base_visualizer import MPASVisualizer
         
@@ -1195,6 +1216,7 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         from mpasdiag.visualization.styling import MPASVisualizationStyle
         

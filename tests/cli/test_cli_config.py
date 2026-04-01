@@ -227,6 +227,7 @@ class TestConfigurationAndValidation:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k')  
         cli = MPASUnifiedCLI()

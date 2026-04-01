@@ -140,6 +140,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -172,6 +173,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         
@@ -204,6 +206,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -236,6 +239,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -268,6 +272,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -302,6 +307,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -336,6 +342,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -367,6 +374,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -398,6 +406,7 @@ class TestAnalysisTypeAliases:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 

@@ -196,6 +196,7 @@ class TestMainFunctionAndArgumentHandling:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'diag')
         
@@ -238,6 +239,7 @@ class TestMainFunctionAndArgumentHandling:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'diag')
         
@@ -351,6 +353,7 @@ class TestMainArgumentReorderingAdditional:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'diag')        
         original_argv = sys.argv
@@ -392,6 +395,7 @@ class TestMainArgumentReorderingAdditional:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'diag')
         
@@ -617,6 +621,7 @@ class TestWorkersArgumentIntegration:
 
         if result is None:
             pytest.skip("Test data not available")
+            return
         
         exit_code = result.returncode
 
@@ -644,6 +649,7 @@ class TestWorkersArgumentIntegration:
 
         if result is None:
             pytest.skip("Test data not available")
+            return
         
         exit_code = result.returncode
 
@@ -668,6 +674,7 @@ class TestWorkersArgumentIntegration:
 
         if result is None:
             pytest.skip("Test data not available")
+            return
         
         exit_code = result.returncode
         

@@ -2286,6 +2286,7 @@ class TestParallelPlotFunctionAdditional:
         """
         if not mpas_output_files:
             pytest.skip("No MPAS output files available")
+            return
         
         def mock_plot_function(filepath, output_dir=None):
             """Mock plotting function that checks if file exists."""
@@ -2700,6 +2701,7 @@ class TestWithRealMPASData:
         """
         if not mpas_output_files:
             pytest.skip("No MPAS output files available")
+            return
         
         def load_mpas_file(filepath):
             """Load MPAS file and return basic info."""
@@ -2735,6 +2737,7 @@ class TestWithRealMPASData:
         import os
         if not os.path.exists(grid_file):
             pytest.skip("Grid file not available")
+            return
         
         def extract_grid_info(filepath):
             """Extract basic grid information."""

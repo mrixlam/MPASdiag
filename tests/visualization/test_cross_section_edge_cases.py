@@ -1239,6 +1239,7 @@ class TestAdditionalEdgeCases:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
@@ -1923,7 +1924,7 @@ class TestCrossSectionAxisFormatting:
         ylim = self.plotter.ax.get_ylim()
         vertical_coords_filtered = vertical_coords[vertical_coords <= max_height]
         assert len(vertical_coords_filtered) > 0
-        assert ylim[1] == max_height
+        assert ylim[1] == pytest.approx(max_height, abs=1e-6)
 
     def test_height_m_axis_with_max_height(self) -> None:
         """
@@ -2015,12 +2016,12 @@ class TestCrossSectionBatch:
         """
         import tempfile
         plotter = MPASVerticalCrossSectionPlotter()
-        mock_proc = MagicMock(spec=MPAS3DProcessor)
+        mock_proc = "not_a_processor"
 
         with tempfile.TemporaryDirectory() as tmp_output_dir:
             with pytest.raises(ValueError, match="must be an instance"):
                 plotter.create_batch_cross_section_plots(
-                    mpas_3d_processor=mock_proc,
+                    mpas_3d_processor=mock_proc, # type: ignore
                     output_dir=tmp_output_dir,
                     var_name='theta',
                 start_point=(-110, 30),

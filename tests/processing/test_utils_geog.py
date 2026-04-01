@@ -47,6 +47,7 @@ class TestExtractSpatialCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon))
@@ -76,6 +77,7 @@ class TestExtractSpatialCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon))
@@ -148,6 +150,7 @@ class TestExtractSpatialCoordinates:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS coordinates or temperature data not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon), len(mpas_surface_temp_data))
@@ -196,6 +199,7 @@ class TestExtractSpatialCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon))
@@ -253,6 +257,7 @@ class TestExtractSpatialCoordinates:
         """
         if mock_mpas_mesh is None or 'lonCell' not in mock_mpas_mesh:
             pytest.skip("MPAS mesh data not available")
+            return
         
         lon, lat = MPASGeographicUtils.extract_spatial_coordinates(mock_mpas_mesh)
         
@@ -285,6 +290,7 @@ class TestFilterBySpatialExtent:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS coordinates or temperature data not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon), len(mpas_surface_temp_data))
@@ -349,6 +355,7 @@ class TestFilterBySpatialExtent:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS coordinates or temperature data not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon), len(mpas_surface_temp_data))
@@ -386,6 +393,7 @@ class TestFilterBySpatialExtent:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS coordinates or temperature data not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(100, len(real_lon), len(mpas_surface_temp_data))
@@ -417,6 +425,7 @@ class TestFilterBySpatialExtent:
         """
         if mock_mpas_2d_data is None or 't2m' not in mock_mpas_2d_data:
             pytest.skip("MPAS 2D data not available")
+            return
         
         data = mock_mpas_2d_data['t2m'].isel(Time=0)
         
@@ -509,6 +518,7 @@ class TestNormalizeLongitude:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         lon, _ = mpas_coordinates
         normalized = MPASGeographicUtils.normalize_longitude(lon)
@@ -661,6 +671,7 @@ class TestGetExtentFromCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(50, len(real_lon))
@@ -686,6 +697,7 @@ class TestGetExtentFromCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(50, len(real_lon))
@@ -824,6 +836,7 @@ class TestGetExtentFromCoordinates:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         lon, lat = mpas_coordinates
         
@@ -896,6 +909,7 @@ class TestCalculateSpatialResolution:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(500, len(real_lon))
@@ -919,6 +933,7 @@ class TestCalculateSpatialResolution:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         
@@ -941,6 +956,7 @@ class TestCalculateSpatialResolution:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         real_lon, real_lat = mpas_coordinates
         subset_size = min(50, len(real_lon))
@@ -997,6 +1013,7 @@ class TestCalculateSpatialResolution:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         lon, lat = mpas_coordinates
         
@@ -1115,6 +1132,7 @@ class TestIsGlobalExtent:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS coordinates not available")
+            return
         
         lon, lat = mpas_coordinates
         

@@ -218,6 +218,7 @@ class TestCreateVerticalCrossSectionComplete:
         
         if mpas_3d_processor is None:
             pytest.skip("MPAS 3D data not available")
+            return
         
         self.processor = mpas_3d_processor
         
@@ -623,6 +624,7 @@ class TestVerticalCoordinateConversion:
         
         if mpas_3d_processor is None:
             pytest.skip("MPAS 3D data not available")
+            return
         
         self.processor = mpas_3d_processor
     
@@ -758,6 +760,7 @@ class TestVerticalCoordinateEdgeCases:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 8), dpi=100)
@@ -777,6 +780,7 @@ class TestVerticalCoordinateEdgeCases:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -815,6 +819,7 @@ class TestVerticalCoordinateEdgeCases:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -852,6 +857,7 @@ class TestVerticalCoordinateEdgeCases:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -888,6 +894,7 @@ class TestVerticalCoordinateEdgeCases:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -924,6 +931,7 @@ class TestVerticalCoordinateEdgeCases:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         plotter = MPASVerticalCrossSectionPlotter()
         
@@ -966,6 +974,7 @@ class TestVerticalCoordinateEdgeCasesFinal:
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         self.plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 8))
         self.processor = mpas_3d_processor
@@ -984,7 +993,8 @@ class TestVerticalCoordinateEdgeCasesFinal:
         
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
-
+            return
+        
         num_levels = self.processor.dataset.sizes.get('nVertLevels', 55)
         pressure_with_nan = np.linspace(100000.0, 1000.0, num_levels)
         pressure_with_nan[10:15] = np.nan

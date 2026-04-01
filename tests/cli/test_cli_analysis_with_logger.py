@@ -61,6 +61,7 @@ class TestWindAnalysisTimeFormatting:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
 
@@ -101,6 +102,7 @@ class TestCrossSectionSingleTimeWithLogger:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)
@@ -143,6 +145,7 @@ class TestCrossSectionSingleTimePlotting:
         
         if not os.path.exists('data/grids/x1.10242.static.nc'):
             pytest.skip("Test data not available")
+            return
         
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger('test', verbose=True)

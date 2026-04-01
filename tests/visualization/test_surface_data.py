@@ -45,6 +45,7 @@ class TestDataExtraction:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASSurfacePlotter()
 
@@ -219,6 +220,7 @@ class TestUnitConversion:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates

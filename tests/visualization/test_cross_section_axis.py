@@ -368,6 +368,7 @@ class TestAxisFormattingFinal:
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.processor = mpas_3d_processor

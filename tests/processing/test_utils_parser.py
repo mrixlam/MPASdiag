@@ -165,6 +165,7 @@ class TestParseArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
+            return
         
         data_dir = str(test_data_dir / "u240k" / "diag")
         
@@ -393,6 +394,7 @@ class TestParseSurfaceArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
+            return
         
         data_dir = str(test_data_dir / "u240k" / "diag")
         
@@ -645,6 +647,7 @@ class TestParseWindArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
+            return
         
         data_dir = str(test_data_dir / "u240k" / "diag")
         
@@ -951,6 +954,7 @@ class TestParseCrosssectionArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
+            return
         
         data_dir = str(test_data_dir / "u240k" / "mpasout")
         

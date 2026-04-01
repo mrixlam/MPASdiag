@@ -57,6 +57,7 @@ def load_mpas_processor(verbose: bool = False, use_pure_xarray: bool = True) -> 
     
     if not os.path.exists(paths['grid_file']):
         pytest.skip("MPAS test data not found")
+        return
     
     processor = MPAS2DProcessor(paths['grid_file'], verbose=verbose)
     
@@ -65,6 +66,7 @@ def load_mpas_processor(verbose: bool = False, use_pure_xarray: bool = True) -> 
             processor.load_2d_data(paths['diag_dir'], use_pure_xarray=use_pure_xarray)
         except Exception as e:
             pytest.skip(f"Could not load MPAS data: {e}")
+            return
     
     return processor
 
@@ -86,6 +88,7 @@ class TestMPAS2DProcessorInitialization:
         cls.paths = get_mpas_test_data_paths()
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not available")
+            return
 
     def test_initialization_verbose_true(self: "TestMPAS2DProcessorInitialization") -> None:
         """
@@ -134,6 +137,7 @@ class TestFindDiagnosticFiles:
 
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not available")
+            return
         
         cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=True)
 
@@ -207,6 +211,7 @@ class TestExtract2DCoordinates:
         """
         if not mpas_data_available or mpas_2d_processor_diag is None:
             pytest.skip("MPAS test data not available")
+            return
         
         self.processor = mpas_2d_processor_diag
         self.paths = get_mpas_test_data_paths()
@@ -384,6 +389,7 @@ class TestGet2DVariableData:
         """
         if not mpas_data_available or mpas_2d_processor_diag is None:
             pytest.skip("MPAS test data not available")
+            return
         
         self.processor = mpas_2d_processor_diag
         self.paths = get_mpas_test_data_paths()
@@ -517,6 +523,7 @@ class TestGetAccumulationHours:
 
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not available")
+            return
         
         cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=False)        
         cls.precip_diag = PrecipitationDiagnostics(verbose=False)
@@ -661,6 +668,7 @@ class TestAddSpatialCoordinates:
         """
         if not mpas_data_available or mpas_2d_processor_diag is None:
             pytest.skip("MPAS test data not available")
+            return 
         
         self.processor = mpas_2d_processor_diag
         self.paths = get_mpas_test_data_paths()
@@ -718,6 +726,7 @@ class TestLoad2DData:
 
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not available")
+            return
 
     def test_load_data_returns_self(self: "TestLoad2DData") -> None:
         """
@@ -753,6 +762,7 @@ class TestEdgeCases:
         """
         if not mpas_data_available or mpas_2d_processor_diag is None:
             pytest.skip("MPAS test data not available")
+            return
         
         self.processor = mpas_2d_processor_diag
         self.paths = get_mpas_test_data_paths()
@@ -784,7 +794,6 @@ class TestEdgeCases:
         """
         assert ('latCell' in self.processor.dataset.coords or
                 'latCell' in self.processor.dataset.variables)
-        
 
     def test_variable_data_without_units(self: "TestEdgeCases") -> None:
         """

@@ -41,6 +41,7 @@ class TestLoadCoordinatesFromDataset:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         
@@ -288,6 +289,7 @@ class TestLoadVariableData:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         
@@ -645,6 +647,7 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         

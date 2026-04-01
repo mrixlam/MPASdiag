@@ -414,6 +414,7 @@ class TestCrossSectionWorkflows:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
@@ -458,6 +459,7 @@ class TestCrossSectionWorkflows:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
@@ -503,6 +505,7 @@ class TestCrossSectionWorkflows:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         
@@ -548,6 +551,7 @@ class TestCrossSectionWorkflows:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(test_data_dir / 'u240k' / 'mpasout')
         

@@ -231,6 +231,7 @@ class TestGetVariableStyle:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         vals = u.copy()
@@ -275,6 +276,7 @@ class TestGenerateLevelsFromData:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -301,6 +303,7 @@ class TestGenerateLevelsFromData:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -400,6 +403,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -424,6 +428,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -447,6 +452,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -470,6 +476,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         speed = np.hypot(u, v)
@@ -494,6 +501,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -517,6 +525,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -557,6 +566,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -580,6 +590,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()
@@ -602,6 +613,7 @@ class TestGetVariableSpecificSettings:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         umin = u.min()

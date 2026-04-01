@@ -39,6 +39,7 @@ def mpas_test_data() -> xr.Dataset:
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
+        return
 
     ds = xr.open_dataset(grid_file, decode_times=False)
     return ds

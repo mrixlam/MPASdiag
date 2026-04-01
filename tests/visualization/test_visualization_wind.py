@@ -617,6 +617,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -624,6 +625,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5], mpas_coordinates[1][:5]
@@ -681,6 +683,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -688,6 +691,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS data (first 100 points)
         lon, lat = mpas_coordinates[0][:100], mpas_coordinates[1][:100]
@@ -751,6 +755,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -758,6 +763,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Use real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5].copy(), mpas_coordinates[1][:5].copy()
@@ -820,6 +826,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -827,6 +834,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates reshaped to 2D (2x5 grid)
         lon = mpas_coordinates[0][:10].reshape(2, 5)
@@ -834,6 +842,7 @@ class TestPrepareWindData:
 
         if lon.shape != (2, 5) or lat.shape != (2, 5):
             pytest.skip("MPAS data not available or not in expected shape")
+            return
 
         # Load real MPAS wind data reshaped to 2D (2x5 grid)
         u = mpas_wind_data[0][:10].reshape(2, 5)
@@ -885,6 +894,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -892,6 +902,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Use real MPAS coordinates reshaped to 2D (10x10 grid)
         lon = mpas_coordinates[0][:100].reshape(10, 10)
@@ -899,6 +910,7 @@ class TestPrepareWindData:
 
         if lon.shape != (10, 10) or lat.shape != (10, 10):
             pytest.skip("MPAS data not available or not in expected shape")
+            return
 
         # Load real MPAS wind data reshaped to 2D (10x10 grid)
         u = mpas_wind_data[0][:100].reshape(10, 10)
@@ -950,6 +962,7 @@ class TestPrepareWindData:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -957,6 +970,7 @@ class TestPrepareWindData:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Use real MPAS coordinates and wind data (first 3 points)
         lon_data, lat_data = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -967,6 +981,7 @@ class TestPrepareWindData:
             u_data.shape != (3,) or v_data.shape != (3,)
         ):
             pytest.skip("MPAS data not available or not in expected shape")
+            return
 
         # Wrap in xarray DataArrays
         lon = xr.DataArray(lon_data, dims=['x'])
@@ -1040,6 +1055,7 @@ class TestRenderWindVectors:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Create a figure and GeoAxes
         fig = plt.figure()
@@ -1049,6 +1065,7 @@ class TestRenderWindVectors:
         
         if ax is None:
             pytest.skip("Failed to create GeoAxes for testing")
+            return
         
         if (
             mpas_coordinates is None or mpas_wind_data is None or
@@ -1056,6 +1073,7 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -1088,6 +1106,7 @@ class TestRenderWindVectors:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Create a figure and GeoAxes
         fig = plt.figure()
@@ -1101,6 +1120,7 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -1133,6 +1153,7 @@ class TestRenderWindVectors:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Create a figure and GeoAxes
         fig = plt.figure()
@@ -1146,6 +1167,7 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -1178,6 +1200,7 @@ class TestRenderWindVectors:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Create a figure and GeoAxes
         fig = plt.figure()
@@ -1191,7 +1214,8 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
-
+            return
+        
         # Use real MPAS data to create a small 5x5 grid
         lon_1d = mpas_coordinates[0][:25]
         lat_1d = mpas_coordinates[1][:25]
@@ -1236,6 +1260,7 @@ class TestRenderWindVectors:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Create a figure and GeoAxes
         fig = plt.figure()
@@ -1249,6 +1274,7 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -1280,6 +1306,7 @@ class TestRenderWindVectors:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -1290,6 +1317,7 @@ class TestRenderWindVectors:
             mpas_wind_data[0] is None or mpas_wind_data[1] is None
         ):
             pytest.skip("MPAS data not available")
+            return
 
         # Load real MPAS coordinates (first 3 points)
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
@@ -1351,6 +1379,7 @@ class TestRegridWindComponents:
         # Skip test if grid file is not available
         if not grid_file.exists():
             pytest.skip(f"MPAS grid file not found: {grid_file}")
+            return
 
         # Load MPAS grid data
         ds = xr.open_dataset(grid_file, decode_times=False)
@@ -1423,6 +1452,7 @@ class TestRegridWindComponents:
         # Skip test if grid file is not available
         if not grid_file.exists():
             pytest.skip(f"MPAS grid file not found: {grid_file}")
+            return
 
         # Load MPAS grid data
         ds = xr.open_dataset(grid_file, decode_times=False)
@@ -1508,6 +1538,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -1559,6 +1590,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -1611,6 +1643,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -1671,6 +1704,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Stub renderer so title-setting is exercised on real axes
         calls = {'render': 0}
@@ -1728,6 +1762,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -1782,6 +1817,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -1836,6 +1872,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -1892,6 +1929,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -1989,6 +2027,7 @@ class TestCreateWindPlot:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -2064,6 +2103,7 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -2118,6 +2158,7 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -2176,6 +2217,7 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return 
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -2232,6 +2274,7 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -2304,6 +2347,7 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -2352,6 +2396,7 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -2393,6 +2438,7 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -2430,6 +2476,7 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -2525,6 +2572,7 @@ class TestExtract2DFrom3DWind:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u_100, v_100 = mpas_wind_data
         u_flat = np.tile(u_100, 10)
@@ -2554,6 +2602,7 @@ class TestExtract2DFrom3DWind:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u_100, v_100 = mpas_wind_data
         u_flat = np.tile(u_100, 10)
@@ -2586,6 +2635,7 @@ class TestExtract2DFrom3DWind:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u_100, v_100 = mpas_wind_data
         u_flat = np.tile(u_100, 10)
@@ -2613,6 +2663,7 @@ class TestExtract2DFrom3DWind:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u_100, v_100 = mpas_wind_data
         u_flat = np.tile(u_100, 4)
@@ -2666,6 +2717,7 @@ class TestComputeWindSpeedAndDirection:
         # Skip if MPAS data fixture is not available
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real MPAS wind data for realistic testing
         u, v = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
@@ -2761,6 +2813,7 @@ class TestComputeWindSpeedAndDirection:
         # Skip if MPAS data fixture is not available
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         # Use real MPAS data reshaped to 2D (5x5 grid)
         u_2d = mpas_wind_data[0][:25].reshape(5, 5)
@@ -2841,6 +2894,7 @@ class TestCreateBatchWindPlots:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
 
         # Import pandas and xarray here since they are only needed for this test and to avoid unnecessary imports if MPAS data is not available        
         import pandas as pd

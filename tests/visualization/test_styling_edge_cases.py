@@ -286,6 +286,7 @@ class TestAdditionalMissingLines:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = xr.DataArray(-40.0 + 90.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12))
@@ -326,6 +327,7 @@ class TestAdditionalMissingLines:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 150.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -348,6 +350,7 @@ class TestAdditionalMissingLines:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -370,6 +373,7 @@ class TestAdditionalMissingLines:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         wspd = np.sqrt(u**2 + v**2)
@@ -394,6 +398,7 @@ class TestAdditionalMissingLines:
         """
         if mpas_qv_3d_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         qv_min, qv_max = mpas_qv_3d_data.min(), mpas_qv_3d_data.max()
         data = 20.0 + 70.0 * (mpas_qv_3d_data - qv_min) / (qv_max - qv_min + 1e-12)
@@ -616,6 +621,7 @@ class TestTemperatureLevelGeneration:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_subset = mpas_surface_temp_data[:4]
         t_min, t_max = t_subset.min(), t_subset.max()
@@ -640,6 +646,7 @@ class TestTemperatureLevelGeneration:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = xr.DataArray(10.0 + 18.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12))
@@ -664,6 +671,7 @@ class TestTemperatureLevelGeneration:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = xr.DataArray(0.0 + 40.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12))
@@ -694,6 +702,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = -20.0 + 50.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12)
@@ -715,6 +724,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = 10.0 + 25.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12)
@@ -736,6 +746,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         t_min, t_max = mpas_surface_temp_data.min(), mpas_surface_temp_data.max()
         data = 15.0 + 10.0 * (mpas_surface_temp_data - t_min) / (t_max - t_min + 1e-12)
@@ -757,6 +768,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return 
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 5.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -779,6 +791,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return 
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 10.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -799,6 +812,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return                
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 20.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -819,6 +833,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 30.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -839,6 +854,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_precip_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         p_min, p_max = mpas_precip_data.min(), mpas_precip_data.max()
         data = 0.0 + 50.0 * (mpas_precip_data - p_min) / (p_max - p_min + 1e-12)
@@ -859,6 +875,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -881,6 +898,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -903,6 +921,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -925,6 +944,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         wspd = np.sqrt(u**2 + v**2)
@@ -949,6 +969,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         wspd = np.sqrt(u**2 + v**2)
@@ -973,6 +994,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, v = mpas_wind_data
         wspd = np.sqrt(u**2 + v**2)
@@ -998,6 +1020,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -1020,6 +1043,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         u, _ = mpas_wind_data
         u_min, u_max = u.min(), u.max()
@@ -1042,6 +1066,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_qv_3d_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         qv_min, qv_max = mpas_qv_3d_data.min(), mpas_qv_3d_data.max()
         data = 0.2 + 0.75 * (mpas_qv_3d_data - qv_min) / (qv_max - qv_min + 1e-12)
@@ -1064,6 +1089,7 @@ class TestVariableSpecificSettingsBranches:
         """
         if mpas_qv_3d_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         qv_min, qv_max = mpas_qv_3d_data.min(), mpas_qv_3d_data.max()
         data = 0.0005 + 0.1495 * (mpas_qv_3d_data - qv_min) / (qv_max - qv_min + 1e-12)

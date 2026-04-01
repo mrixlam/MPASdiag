@@ -101,6 +101,7 @@ class TestConditionalTimeDisplay:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
+            return
             
         self.surface_plotter = MPASSurfacePlotter(figsize=(10, 8), dpi=150)
         self.test_time = datetime(2024, 9, 17, 3, 0, 0)

@@ -315,13 +315,23 @@ class TestEdgeCases:
 
 
 class TestIndicesTable:
-    """Verify the _add_indices_table method renders correctly."""
+    """ Verify the _add_indices_table method renders correctly. """
 
     def test_table_with_full_indices(self: "TestIndicesTable",
                                      plotter: MPASSkewTPlotter,
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
                                      sample_indices: dict[str, float]) -> None:
-        """Table should render without error when all indices are present."""
+        """ 
+        This test checks that the _add_indices_table method can render a table of indices on the SkewT diagram when provided with a complete set of indices. The method should be able to display all the indices without errors, and the resulting figure should contain more than one axes (the main plot and the table). This ensures that users can visualize a comprehensive set of indices alongside their SkewT diagram for enhanced analysis.
+
+        Parameters:
+            plotter (MPASSkewTPlotter): The plotter instance provided by the fixture.
+            sample_profile (tuple): A tuple containing synthetic sounding data for pressure, temperature, dewpoint, u-wind, and v-wind.
+            sample_indices (dict): A dictionary containing sample values for various SkewT indices such as CAPE, CIN, LCL pressure and temperature, LFC pressure, and EL pressure.
+
+        Returns:
+            None: The test will pass if the method returns a Figure object with more than one axes without raising exceptions. If the method fails to create the diagram or does not render the table correctly, the test will fail.
+        """
         p, t, td, u, v = sample_profile
         fig, ax = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices)  # type: ignore
@@ -332,7 +342,16 @@ class TestIndicesTable:
     def test_table_with_partial_indices(self: "TestIndicesTable",
                                         plotter: MPASSkewTPlotter,
                                         sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
-        """Table should render gracefully when most indices are None."""
+        """ 
+        This test checks that the _add_indices_table method can render a table of indices on the SkewT diagram when most indices are None. The method should handle missing values gracefully and still produce a valid figure. This ensures that users can visualize a partial set of indices without encountering errors. 
+
+        Parameters:
+            plotter (MPASSkewTPlotter): The plotter instance provided by the fixture.
+            sample_profile (tuple): A tuple containing synthetic sounding data for pressure, temperature, dewpoint, u-wind, and v-wind.
+
+        Returns:
+            None: The test will pass if the method returns a Figure object without raising exceptions. If the method fails to create the diagram or does not render the table correctly, the test will fail.
+        """
         p, t, td, u, v = sample_profile
         sparse = {'cape': 500.0, 'cin': None, 'lcl_pressure': 920.0,
                   'sbcape': None, 'k_index': 28.0}
@@ -344,12 +363,22 @@ class TestIndicesTable:
     def test_table_all_none_no_crash(self: "TestIndicesTable",
                                      plotter: MPASSkewTPlotter,
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
-        """All-None indices should produce a figure without a table."""
+        """
+        This test checks that the _add_indices_table method does not crash when all indices are None. The method should be able to handle a scenario where no indices are available and still produce a valid figure without errors. This ensures that users can visualize their SkewT diagram even if they do not have any indices to display, and that the absence of indices does not interfere with the core functionality of the plotter. 
+
+        Parameters:
+            plotter (MPASSkewTPlotter): The plotter instance provided by the fixture.
+            sample_profile (tuple): A tuple containing synthetic sounding data for pressure, temperature, dewpoint, u-wind, and v-wind.
+
+        Returns:
+            None: The test will pass if the method returns a Figure object without raising exceptions. If the method fails to create the diagram or does not render the table correctly, the test will fail.
+        """
         p, t, td, u, v = sample_profile
-        indices = {k: None for k in ('cape', 'cin', 'lcl_pressure',
-                                      'sbcape', 'k_index', 'bulk_shear_0_6km')}
+        indices = dict.fromkeys(('cape', 'cin', 'lcl_pressure', 'sbcape', 'k_index', 'bulk_shear_0_6km'))
+
         fig, ax = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=indices)  # type: ignore
+
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 

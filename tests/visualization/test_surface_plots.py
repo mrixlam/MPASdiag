@@ -46,6 +46,7 @@ class TestPlotTypes:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
@@ -249,6 +250,7 @@ class TestColormapHandling:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
@@ -475,6 +477,7 @@ class TestColorbarMethod:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -537,6 +540,7 @@ class TestContourPlotting:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates

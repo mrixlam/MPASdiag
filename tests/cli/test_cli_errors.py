@@ -172,6 +172,7 @@ class TestErrorHandlingAndExceptions:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return 
         
         cli = MPASUnifiedCLI()
 

@@ -956,6 +956,7 @@ class TestTimeHandlingAndFormatting:
         """
         if mpas_3d_processor is None:
             pytest.skip("Real MPAS data not available for time handling tests")
+            return
         
         self.processor = mpas_3d_processor
         
@@ -1669,10 +1670,13 @@ class TestVerboseTruncationAndChunking:
         """
         if not os.path.exists(GRID_FILE) or not os.path.isdir(MPASOUT_DIR):
             pytest.skip("Real MPAS grid or mpasout data not available")
+            return
 
         mpasout_files = sorted(glob.glob(os.path.join(MPASOUT_DIR, 'mpasout*.nc')))[:2]
+
         if not mpasout_files:
             pytest.skip("No mpasout files found")
+            return
 
         processor = MPASBaseProcessor(GRID_FILE, verbose=False)
         datetimes = [datetime(2024, 1, i + 1) for i in range(len(mpasout_files))]

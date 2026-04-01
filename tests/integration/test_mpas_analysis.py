@@ -504,6 +504,7 @@ class TestVisualization:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
+            return
             
         with patch('matplotlib.pyplot.figure') as mock_figure:
             mock_fig = Mock()
@@ -535,7 +536,8 @@ class TestVisualization:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
-            
+            return
+        
         with patch('matplotlib.pyplot.subplots') as mock_subplots:
             mock_fig = Mock()
             mock_ax = Mock(spec=GeoAxes)

@@ -391,6 +391,7 @@ class TestComputePrecipitationDifference:
         """
         if mpas_2d_processor_diag is None:
             pytest.skip("MPAS data not available")
+            return 
         
         return mpas_2d_processor_diag.dataset
     

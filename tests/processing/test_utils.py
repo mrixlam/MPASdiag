@@ -351,6 +351,7 @@ class TestDataValidator:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
 
@@ -371,6 +372,7 @@ class TestDataValidator:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
+            return
         
         lon, lat = mpas_coordinates
         
@@ -411,6 +413,7 @@ class TestDataValidator:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
+            return
         
         data = mpas_surface_temp_data[:100]
         result = DataValidator.validate_data_array(data, min_val=200.0, max_val=350.0)

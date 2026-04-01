@@ -73,6 +73,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -110,6 +111,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -147,6 +149,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -186,6 +189,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -223,6 +227,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         cli = MPASUnifiedCLI()
@@ -263,6 +268,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')
         original_argv = sys.argv
@@ -303,6 +309,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')        
         original_argv = sys.argv
@@ -344,6 +351,7 @@ class TestIntegrationWithRealData:
         
         if grid_file is None:
             pytest.skip("Test data files not available")
+            return
         
         data_dir = str(Path(test_data_dir) / 'u240k' / 'diag')        
         original_argv = sys.argv

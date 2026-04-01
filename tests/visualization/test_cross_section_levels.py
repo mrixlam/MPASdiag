@@ -213,6 +213,7 @@ class TestVerticalLevelExtraction:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 8), dpi=100)
@@ -316,6 +317,7 @@ class TestVerticalLevelExtraction:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
+            return
         
         fig, _ = plotter.create_vertical_cross_section(
             processor, var_3d, (0, 0), (90, 80),
@@ -406,6 +408,7 @@ class TestHeightExtraction:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
@@ -506,6 +509,7 @@ class TestVerticalToHeightConversion:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
+            return
         
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
@@ -590,6 +594,7 @@ class TestHeightCoordinates:
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
+            return
         
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.processor = mpas_3d_processor
