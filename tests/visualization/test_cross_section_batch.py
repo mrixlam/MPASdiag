@@ -237,6 +237,7 @@ class TestBatchProcessing:
             results.append(result)
         
         assert len(results) == pytest.approx(2)
+        plt.close('all')
 
 
 class TestBatchProcessingFinal:

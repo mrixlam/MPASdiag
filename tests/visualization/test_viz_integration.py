@@ -24,6 +24,8 @@ import matplotlib.colors as mcolors
 from typing import Generator, Any, Dict
 from datetime import datetime, timedelta
 
+from tests.conftest import mpas_wind_data
+
 matplotlib.use('Agg')
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
@@ -1220,10 +1222,19 @@ class TestVisualizationIntegration:
         
         from mpasdiag.visualization.styling import MPASVisualizationStyle
         
+        if (
+            mpas_coordinates is None or mpas_surface_temp_data is None or
+            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
+            mpas_surface_temp_data[0] is None or mpas_surface_temp_data[1] is None
+        ):
+            pytest.skip("MPAS data not available")
+            return
+        
         lon, lat = mpas_coordinates
 
         if lon is None or lat is None:
             pytest.skip("Longitude or latitude data not available")
+            return
         
         n_points = min(1000, len(mpas_surface_temp_data))
         sample_data = mpas_surface_temp_data[:n_points]
@@ -1241,7 +1252,11 @@ class TestVisualizationIntegration:
         assert precip_cmap is not None
         assert precip_levels is not None
         assert len(precip_levels) > 5
-        
+
+        if lon is None or lat is None:
+            pytest.skip("Longitude or latitude data not available")
+            return      
+            
         extent = [lon.min(), lon.max(), lat.min(), lat.max()]
 
         assert extent[0] < extent[1]  
