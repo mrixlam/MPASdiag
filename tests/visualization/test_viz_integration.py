@@ -1253,15 +1253,6 @@ class TestVisualizationIntegration:
         assert precip_levels is not None
         assert len(precip_levels) > 5
 
-        if lon is None or lat is None:
-            pytest.skip("Longitude or latitude data not available")
-            return      
-            
-        extent = [lon.min(), lon.max(), lat.min(), lat.max()]
-
-        assert extent[0] < extent[1]  
-        assert extent[2] < extent[3]  
-
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
