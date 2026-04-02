@@ -37,7 +37,7 @@ class MPASSkewTPlotter(MPASVisualizer):
     """ Specialized plotter for creating Skew-T Log-P diagrams from MPAS atmospheric sounding data. """
 
     def __init__(self: 'MPASSkewTPlotter', 
-                 figsize: Tuple[float, float] = (9, 12),
+                 figsize: Tuple[float, float] = (9, 14),
                  dpi: int = 150,
                  verbose: bool = True,) -> None:
         """

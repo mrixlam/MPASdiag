@@ -464,7 +464,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     time_str = str(processor_3d.dataset['Time'].values[time_idx])
     safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
-    save_path = os.path.join(output_dir, f"{file_prefix}_{safe_time_str}.png")
+    save_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{safe_time_str}.png")
     
     fig, ax = plotter.create_vertical_cross_section(
         mpas_3d_processor=processor_3d,

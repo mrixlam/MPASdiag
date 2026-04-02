@@ -1555,8 +1555,14 @@ class MPASUnifiedCLI:
 
             sounding_diag = SoundingDiagnostics(verbose=config.verbose)
 
+            show_indices = getattr(config, 'show_indices', False)
+            figsize = config.figure_size
+            
+            if show_indices:
+                figsize = (figsize[0], figsize[1] + 4)
+
             plotter = MPASSkewTPlotter(
-                figsize=config.figure_size,
+                figsize=figsize,
                 dpi=config.dpi,
                 verbose=config.verbose,
             )
@@ -1565,21 +1571,22 @@ class MPASUnifiedCLI:
 
             sounding_lon = getattr(config, 'sounding_lon', 0.0)
             sounding_lat = getattr(config, 'sounding_lat', 0.0)
-            show_indices = getattr(config, 'show_indices', False)
             show_parcel = getattr(config, 'show_parcel', False)
 
             if config.batch_mode:
                 time_dim = 'Time' if 'Time' in processor.dataset.dims else 'time'
                 n_times = processor.dataset.sizes.get(time_dim, 1)
-                time_start = getattr(config, 'time_start', 0)
-                time_end = getattr(config, 'time_end', n_times - 1)
+                time_start = config.time_start if config.time_start is not None else 0
+                time_end = config.time_end if config.time_end is not None else (n_times - 1)
                 created_files = []
 
                 for t_idx in range(time_start, min(time_end + 1, n_times)):
                     profile = sounding_diag.extract_sounding_profile(
                         processor, sounding_lon, sounding_lat, time_index=t_idx,
                     )
+
                     indices = None
+
                     if show_indices:
                         indices = sounding_diag.compute_thermodynamic_indices(
                             profile['pressure'], profile['temperature'], profile['dewpoint'],
@@ -1588,11 +1595,23 @@ class MPASUnifiedCLI:
                             height_m=profile.get('height'),
                         )
 
-                    title = (f"MPAS Skew-T | ({profile['station_lon']:.2f}°, "
-                             f"{profile['station_lat']:.2f}°) | t={t_idx}")
+                    time_str = MPASDateTimeUtils.get_time_info(
+                        processor.dataset, t_idx, verbose=False
+                    )
+
+                    stn_lon = profile['station_lon']
+                    stn_lat = profile['station_lat']
+
+                    lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
+                    lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
+
+                    title = (f"MPAS Skew-T | "
+                             f"{lon_tag}, {lat_tag} | "
+                             f"Valid: {time_str}")
 
                     save_path = os.path.join(
-                        config.output_dir, f"skewt_t{t_idx:04d}.png"
+                        config.output_dir,
+                        f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}"
                     )
 
                     plotter.create_skewt_diagram(
@@ -1606,6 +1625,7 @@ class MPASUnifiedCLI:
                         show_parcel=show_parcel,
                         save_path=save_path,
                     )
+
                     plotter.close_plot()
                     created_files.append(save_path)
 
@@ -1615,7 +1635,9 @@ class MPASUnifiedCLI:
                     processor, sounding_lon, sounding_lat,
                     time_index=config.time_index,
                 )
+
                 indices = None
+
                 if show_indices:
                     indices = sounding_diag.compute_thermodynamic_indices(
                         profile['pressure'], profile['temperature'], profile['dewpoint'],
@@ -1624,11 +1646,25 @@ class MPASUnifiedCLI:
                         height_m=profile.get('height'),
                     )
 
-                title = (f"MPAS Skew-T | ({profile['station_lon']:.2f}°, "
-                         f"{profile['station_lat']:.2f}°) | t={config.time_index}")
+                time_str = MPASDateTimeUtils.get_time_info(
+                    processor.dataset, config.time_index, verbose=False
+                )
 
-                output_name = getattr(config, 'output', None) or 'skewt'
-                save_path = os.path.join(config.output_dir, f"{output_name}.png")
+                stn_lon = profile['station_lon']
+                stn_lat = profile['station_lat']
+
+                lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
+                lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
+
+                title = (f"MPAS Skew-T | "
+                         f"{lon_tag}, {lat_tag} | "
+                         f"Valid: {time_str}")
+
+                output_name = getattr(config, 'output', None) or (
+                    f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}"
+                )
+
+                save_path = os.path.join(config.output_dir, f"{output_name}")
 
                 plotter.create_skewt_diagram(
                     pressure=profile['pressure'],

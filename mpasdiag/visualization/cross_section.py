@@ -597,10 +597,21 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             Optional[np.ndarray]: Array of geometric height values in meters corresponding to the vertical coordinates, or None if extraction fails or variable is unavailable. 
         """
         try:
-            if var_name not in mpas_3d_processor.dataset.data_vars:
+            height_data = None
+
+            if var_name in mpas_3d_processor.dataset.data_vars:
+                height_data = mpas_3d_processor.dataset[var_name].isel(Time=time_index, nCells=0).values
+            elif hasattr(mpas_3d_processor, 'grid_file') and mpas_3d_processor.grid_file:
+                try:
+                    with xr.open_dataset(mpas_3d_processor.grid_file, decode_times=False) as grid_ds:
+                        if var_name in grid_ds.data_vars:
+                            height_data = grid_ds[var_name].isel(nCells=0).values
+                except Exception:
+                    pass
+
+            if height_data is None:
                 return None
-                
-            height_data = mpas_3d_processor.dataset[var_name].isel(Time=time_index, nCells=0).values
+
             height_data = np.asarray(height_data, dtype=float)
             
             if len(height_data) == len(vertical_coords) + 1:
@@ -857,7 +868,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                          extend: str = 'both', 
                                          plot_type: str = 'filled_contour', 
                                          max_height: Optional[float] = None, 
-                                         file_prefix: str = 'mpas_crosssection', 
+                                         file_prefix: str = 'mpas_cross', 
                                          formats: List[str] = ['png']) -> List[str]:
         """
         This method creates vertical cross-section plots for a specified 3D atmospheric variable across all available time steps in the MPAS dataset. It generates a plot for each time step, saving them to the specified output directory with filenames that include the variable name, vertical coordinate type, and valid time information. The method handles various vertical coordinate systems (pressure, height, model levels) and allows for customization of contour levels, colormap, plot type, and maximum height. It includes error handling to ensure that issues with data loading or variable availability are reported clearly, and it provides progress updates during batch processing. The resulting list of created file paths is returned upon completion. 
@@ -932,10 +943,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     title=title
                 )
                 
-                height_suffix = f"_maxh{int(max_height)}km" if max_height else ""
+                height_suffix = f"_maxh_{int(max_height)}km" if max_height else ""
                 output_path = os.path.join(
                     output_dir, 
-                    f"{file_prefix}_vcrd_{vertical_coord}_valid_{time_str}{height_suffix}"
+                    f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{time_str}{height_suffix}"
                 )
                 
                 self.save_plot(output_path, formats=formats)
