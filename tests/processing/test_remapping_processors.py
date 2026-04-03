@@ -36,7 +36,18 @@ class TestMPAS2DProcessor:
             None: Assertions validate import success.
         """
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
-        assert MPAS2DProcessor is not None
+
+        public_methods = [method for method in dir(MPAS2DProcessor) if not method.startswith('_')]
+        expected_methods = [
+            'find_diagnostic_files',
+            'load_2d_data',
+            'add_spatial_coordinates',
+            'extract_2d_coordinates_for_variable',
+            'get_2d_variable_data',
+            'get_available_variables'
+        ]
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in MPAS2DProcessor"
     
     def test_2d_processor_has_base_class(self: "TestMPAS2DProcessor") -> None:
         """
@@ -166,7 +177,19 @@ class TestMPAS3DProcessor:
             None: Assertion validates importability.
         """
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        assert MPAS3DProcessor is not None
+
+        public_methods = [method for method in dir(MPAS3DProcessor) if not method.startswith('_')]
+
+        expected_methods = [
+            'find_mpasout_files',
+            'load_3d_data',
+            'get_3d_variable_data',
+            'get_vertical_levels',
+            'extract_2d_coordinates_for_variable'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in MPAS3DProcessor"
     
     def test_3d_processor_has_base_class(self: "TestMPAS3DProcessor") -> None:
         """

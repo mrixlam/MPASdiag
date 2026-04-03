@@ -37,7 +37,7 @@ class MPASVisualizationStyle:
     """ Comprehensive visualization styling utility class providing variable-specific colormaps, contour levels, and plot appearance parameters for MPAS atmospheric diagnostics. """
     
     @staticmethod
-    def create_precip_colormap(accum: str = "a24h") -> Tuple[mcolors.ListedColormap, List[float]]:
+    def create_precip_colormap(accum: Optional[str] = None) -> Tuple[mcolors.ListedColormap, List[float]]:
         """
         This method creates a discrete colormap and corresponding contour levels for precipitation variables based on the specified accumulation period. It defines a set of visually distinct colors suitable for representing different precipitation intensities, and then determines appropriate contour levels based on the accumulation period identifier (e.g., 'a24h' for 24-hour accumulation, 'a01h' for 1-hour accumulation). The method uses regular expressions to extract the number of hours from the accumulation string and applies heuristic rules to select contour levels that are commonly used in meteorological analyses for different accumulation periods. The resulting colormap and levels can be directly used in plotting functions to visualize precipitation diagnostics from MPAS output with clear differentiation between intensity ranges. 
 

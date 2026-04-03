@@ -12,7 +12,10 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load necessary libraries 
+from dask.sizeof import logger
 import pytest
+import importlib
+import types
 
 
 class TestCLIImports:
@@ -462,13 +465,13 @@ class TestUtilityFunctions:
             None
         """
         from mpasdiag.processing.utils_logger import MPASLogger
-        
+
         logger = MPASLogger('test_logger', verbose=False)
-        assert logger is not None
+        assert isinstance(logger, MPASLogger)
         assert hasattr(logger, 'info')
         assert hasattr(logger, 'warning')
         assert hasattr(logger, 'error')
-    
+
     def test_setup_logger_verbose(self: "TestUtilityFunctions") -> None:
         """
         This test verifies that the `MPASLogger` class respects the `verbose` constructor argument used to enable or disable verbose logging. The test constructs both verbose and quiet logger instances and asserts that the `verbose` attribute matches the provided flag. This ensures that users can control the verbosity of logging output when using the `MPASLogger` utility.
@@ -505,7 +508,6 @@ class TestTypeHints:
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
         sig = inspect.signature(WindDiagnostics.__init__)
-        assert sig is not None
     
     def test_precipitation_diagnostics_has_types(self: "TestTypeHints") -> None:
         """
@@ -521,7 +523,6 @@ class TestTypeHints:
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         
         sig = inspect.signature(PrecipitationDiagnostics.__init__)
-        assert sig is not None
 
 
 if __name__ == '__main__':

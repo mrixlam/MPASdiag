@@ -307,7 +307,19 @@ class TestParallelProcessing:
             None
         """
         from mpasdiag.processing.parallel import MPASParallelManager
-        assert MPASParallelManager is not None
+        
+        public_methods = [method for method in dir(MPASParallelManager) if callable(getattr(MPASParallelManager, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'get_statistics',
+            'set_error_policy',
+            'get_statistics',
+            'barrier',
+            'finalize'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"MPASParallelManager is missing expected method: {method}"
 
     def test_load_balance_strategy_enum_exists(self: "TestParallelProcessing") -> None:
         """
@@ -349,7 +361,6 @@ class TestParallelProcessing:
             None
         """
         from mpasdiag.processing.parallel import TaskResult
-        assert TaskResult is not None
 
     def test_parallel_stats_dataclass_exists(self: "TestParallelProcessing") -> None:
         """
@@ -362,7 +373,6 @@ class TestParallelProcessing:
             None
         """
         from mpasdiag.processing.parallel import ParallelStats
-        assert ParallelStats is not None
 
     def test_task_distributor_class_exists(self: "TestParallelProcessing") -> None:
         """
@@ -375,7 +385,14 @@ class TestParallelProcessing:
             None
         """
         from mpasdiag.processing.parallel import MPASTaskDistributor
-        assert MPASTaskDistributor is not None
+        public_methods = [method for method in dir(MPASTaskDistributor) if callable(getattr(MPASTaskDistributor, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'distribute_tasks'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"MPASTaskDistributor is missing expected method: {method}"
 
     def test_result_collector_class_exists(self: "TestParallelProcessing") -> None:
         """
@@ -388,7 +405,15 @@ class TestParallelProcessing:
             None
         """
         from mpasdiag.processing.parallel import MPASResultCollector
-        assert MPASResultCollector is not None
+        public_methods = [method for method in dir(MPASResultCollector) if callable(getattr(MPASResultCollector, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'gather_results',
+            'compute_statistics'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"MPASResultCollector is missing expected method: {method}"
 
 
 class TestParallelWrappers:
@@ -418,7 +443,14 @@ class TestParallelWrappers:
             None
         """
         from mpasdiag.processing.parallel_wrappers import ParallelPrecipitationProcessor
-        assert ParallelPrecipitationProcessor is not None
+        public_methods = [method for method in dir(ParallelPrecipitationProcessor) if callable(getattr(ParallelPrecipitationProcessor, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'create_batch_precipitation_maps_parallel'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"ParallelPrecipitationProcessor is missing expected method: {method}"
 
     def test_parallel_surface_processor_exists(self: "TestParallelWrappers") -> None:
         """
@@ -431,7 +463,14 @@ class TestParallelWrappers:
             None
         """
         from mpasdiag.processing.parallel_wrappers import ParallelSurfaceProcessor
-        assert ParallelSurfaceProcessor is not None
+        public_methods = [method for method in dir(ParallelSurfaceProcessor) if callable(getattr(ParallelSurfaceProcessor, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'create_batch_surface_maps_parallel'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"ParallelSurfaceProcessor is missing expected method: {method}"
 
     def test_parallel_wind_processor_exists(self: "TestParallelWrappers") -> None:
         """
@@ -444,7 +483,15 @@ class TestParallelWrappers:
             None
         """
         from mpasdiag.processing.parallel_wrappers import ParallelWindProcessor
-        assert ParallelWindProcessor is not None
+        public_methods = [method for method in dir(ParallelWindProcessor) if callable(getattr(ParallelWindProcessor, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'create_batch_wind_plots_parallel'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"ParallelWindProcessor is missing expected method: {method}"
+
 
     def test_parallel_cross_section_processor_exists(self: "TestParallelWrappers") -> None:
         """
@@ -457,7 +504,15 @@ class TestParallelWrappers:
             None
         """
         from mpasdiag.processing.parallel_wrappers import ParallelCrossSectionProcessor
-        assert ParallelCrossSectionProcessor is not None
+
+        public_methods = [method for method in dir(ParallelCrossSectionProcessor) if callable(getattr(ParallelCrossSectionProcessor, method)) and not method.startswith("_")]
+
+        expected_methods = [
+            'create_batch_cross_section_plots_parallel'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"ParallelCrossSectionProcessor is missing expected method: {method}"
 
     def test_auto_batch_processor_function_exists(self: "TestParallelWrappers") -> None:
         """

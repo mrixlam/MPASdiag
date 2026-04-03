@@ -60,7 +60,17 @@ class TestRemapping:
             None: Assertion validates class presence.
         """
         from mpasdiag.processing.remapping import MPASRemapper
-        assert MPASRemapper is not None
+
+        public_methods = [method for method in dir(MPASRemapper) if not method.startswith('_')]
+
+        expected_methods = [
+            'remap', 
+            'remap_dataset', 
+            'build_regridder'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in MPASRemapper class."
     
     def test_remapper_has_init_method(self: "TestRemapping") -> None:
         """

@@ -65,6 +65,8 @@ def create_mock_save_plot():
         Any: A mock `save_plot` method that does nothing when called.
     """
     def mock_save_plot(*args, **kwargs):
+        print("Mock save_plot called with args:", args, "and kwargs:", kwargs)
+        print("This is a mock method. No file will be saved.")
         pass
     return mock_save_plot
 
@@ -1020,14 +1022,22 @@ class TestVisualizationIntegration:
         Returns:
             None: Verified by successful cross-section creation or skip if not available
         """
+        import importlib
+        import types
+
         if mpas_3d_processor is None:
             pytest.skip("MPAS 3D data not available")
             return
         
         try:
-            from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+            cross = importlib.import_module('mpasdiag.visualization.cross_section')
+            assert isinstance(cross, types.ModuleType), "Cross-section module should be importable"
+            assert hasattr(cross, "MPASVerticalCrossSectionPlotter"), "Cross-section plotter class should be defined"
+
+            plotter_class = getattr(cross, "MPASVerticalCrossSectionPlotter")
+            assert isinstance(plotter_class, type), "Cross-section plotter should be a class"
             
-            plotter = MPASVerticalCrossSectionPlotter(figsize=(14, 6), dpi=100)            
+            plotter = plotter_class(figsize=(14, 6), dpi=100)            
             assert plotter is not None
 
             assert hasattr(plotter, 'figsize')

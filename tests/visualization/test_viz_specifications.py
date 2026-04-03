@@ -11,11 +11,11 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load necessary libraries 
+import inspect
 import os
 import sys
 import pytest
 import matplotlib
-
 matplotlib.use('Agg')
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -34,8 +34,17 @@ class TestCrossSectionVisualization:
         Returns:
             None: Verified by asserting the imported module is not None.
         """         
-        from mpasdiag.visualization import cross_section
+        import importlib
+        import types
+        
+        cross_section = importlib.import_module("mpasdiag.visualization.cross_section")
         assert cross_section is not None
+        assert isinstance(cross_section, types.ModuleType)
+        assert hasattr(cross_section, "__file__")
+
+        assert hasattr(cross_section, "MPASVerticalCrossSectionPlotter")
+        plotter_cls = getattr(cross_section, "MPASVerticalCrossSectionPlotter")
+        assert isinstance(plotter_cls, type)
     
     def test_cross_section_plotter_class_exists(self: "TestCrossSectionVisualization") -> None:
         """
@@ -48,7 +57,14 @@ class TestCrossSectionVisualization:
             None: Confirmed by asserting the class symbol is not None.
         """        
         from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-        assert MPASVerticalCrossSectionPlotter is not None
+        assert isinstance(MPASVerticalCrossSectionPlotter, type)
+
+        public_methods = [
+            name for name, member in inspect.getmembers(MPASVerticalCrossSectionPlotter, predicate=inspect.isfunction)
+            if not name.startswith('_')
+        ]
+
+        assert public_methods, "MPASVerticalCrossSectionPlotter should have at least one public method"
 
 
 class TestWindVisualization:
@@ -64,9 +80,17 @@ class TestWindVisualization:
         Returns:
             None: Verified by asserting the imported module is not None.
         """
-        
-        from mpasdiag.visualization import wind
+        import importlib
+        import types
+
+        wind = importlib.import_module("mpasdiag.visualization.wind")
         assert wind is not None
+        assert isinstance(wind, types.ModuleType)
+        assert hasattr(wind, "__file__")
+
+        assert hasattr(wind, "MPASWindPlotter")
+        plotter_cls = getattr(wind, "MPASWindPlotter")
+        assert isinstance(plotter_cls, type)
     
     def test_wind_plotter_class_exists(self: "TestWindVisualization") -> None:
         """
@@ -79,8 +103,14 @@ class TestWindVisualization:
             None: Confirmed by asserting the class symbol is not None.
         """        
         from mpasdiag.visualization.wind import MPASWindPlotter
-        assert MPASWindPlotter is not None
+        assert isinstance(MPASWindPlotter, type)
 
+        public_methods = [
+            name for name, member in inspect.getmembers(MPASWindPlotter, predicate=inspect.isfunction)
+            if not name.startswith('_')
+        ]
+
+        assert public_methods, "MPASWindPlotter should have at least one public method"
 
 class TestSurfaceVisualization:
     """ Test surface plotting functionality. """
@@ -95,9 +125,19 @@ class TestSurfaceVisualization:
         Returns:
             None: Verified by asserting the imported module is not None.
         """        
-        from mpasdiag.visualization import surface
+        import importlib
+        import types
+
+        surface = importlib.import_module("mpasdiag.visualization.surface")
         assert surface is not None
-    
+
+        assert isinstance(surface, types.ModuleType)
+        assert hasattr(surface, "__file__")
+
+        assert hasattr(surface, "MPASSurfacePlotter")
+        plotter_cls = getattr(surface, "MPASSurfacePlotter")
+        assert isinstance(plotter_cls, type)
+        
     def test_surface_plotter_class_exists(self: "TestSurfaceVisualization") -> None:
         """
         This test verifies that the `MPASSurfacePlotter` class is defined and can be imported from the surface visualization module. The existence of this class is essential for implementing surface plotting functionality, and its successful import confirms that it is properly exposed by the module for use in visualization tasks.
@@ -109,7 +149,14 @@ class TestSurfaceVisualization:
             None: Confirmed by asserting the class symbol is not None.
         """        
         from mpasdiag.visualization.surface import MPASSurfacePlotter
-        assert MPASSurfacePlotter is not None
+        assert isinstance(MPASSurfacePlotter, type)
+
+        public_methods = [
+            name for name, _ in inspect.getmembers(MPASSurfacePlotter, predicate=inspect.isfunction)
+            if not name.startswith('_')
+        ]
+
+        assert public_methods, "MPASSurfacePlotter should have at least one public method"
 
 
 class TestPrecipitationVisualization:
@@ -125,8 +172,18 @@ class TestPrecipitationVisualization:
         Returns:
             None: Verified by asserting the imported module is not None.
         """        
-        from mpasdiag.visualization import precipitation
+        import importlib
+        import types
+
+        precipitation = importlib.import_module("mpasdiag.visualization.precipitation")
+
         assert precipitation is not None
+        assert isinstance(precipitation, types.ModuleType)
+        assert hasattr(precipitation, "__file__")
+        assert hasattr(precipitation, "MPASPrecipitationPlotter")
+
+        plotter_cls = getattr(precipitation, "MPASPrecipitationPlotter")
+        assert isinstance(plotter_cls, type)        
     
     def test_precipitation_plotter_class_exists(self: "TestPrecipitationVisualization") -> None:
         """
@@ -139,7 +196,14 @@ class TestPrecipitationVisualization:
             None: Confirmed by asserting the class symbol is not None.
         """        
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-        assert MPASPrecipitationPlotter is not None
+        assert isinstance(MPASPrecipitationPlotter, type)
+
+        public_methods = [
+            name for name, member in inspect.getmembers(MPASPrecipitationPlotter, predicate=inspect.isfunction)
+            if not name.startswith('_')
+        ]
+
+        assert public_methods, "MPASPrecipitationPlotter should have at least one public method"
 
 
 class TestBaseVisualizer:
@@ -155,8 +219,20 @@ class TestBaseVisualizer:
         Returns:
             None: Verified by asserting the module import returns a value.
         """        
+        import numpy as np
         from mpasdiag.visualization import base_visualizer
         assert base_visualizer is not None
+        assert hasattr(base_visualizer, "__file__")
+
+        assert hasattr(base_visualizer, "MPASVisualizer")
+        MPASVisualizer = getattr(base_visualizer, "MPASVisualizer")
+        assert isinstance(MPASVisualizer, type)
+
+        assert hasattr(MPASVisualizer, "convert_to_numpy")
+        arr = MPASVisualizer.convert_to_numpy((1, 2, 3))
+
+        assert isinstance(arr, np.ndarray)
+        assert np.all(arr == np.array([1, 2, 3]))        
     
     def test_base_visualizer_class_exists(self: "TestBaseVisualizer") -> None:
         """
@@ -168,8 +244,18 @@ class TestBaseVisualizer:
         Returns:
             None: Verified via assertion that the class symbol is not None.
         """        
+        import numpy as np
         from mpasdiag.visualization.base_visualizer import MPASVisualizer
-        assert MPASVisualizer is not None
+        assert isinstance(MPASVisualizer, type)
+        assert hasattr(MPASVisualizer, "convert_to_numpy")
+
+        method = getattr(MPASVisualizer, "convert_to_numpy")
+        assert inspect.isfunction(method) or inspect.ismethod(method)
+
+        for data in [(1, 2, 3), [4, 5, 6], np.array([7, 8, 9])]:
+            arr = MPASVisualizer.convert_to_numpy(data)
+            assert isinstance(arr, np.ndarray)
+            assert np.allclose(arr, np.array(data))
 
 
 if __name__ == '__main__':

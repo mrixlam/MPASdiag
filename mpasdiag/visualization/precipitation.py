@@ -72,7 +72,6 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Returns:
             Tuple[mcolors.ListedColormap, List[float]]: A tuple containing the created discrete colormap and a sorted list of contour level values suitable for precipitation plotting. 
         """
-        # Delegate to MPASVisualizationStyle to create a discrete colormap and contour levels based on the specified accumulation period
         return MPASVisualizationStyle.create_precip_colormap(accum)
     
     def _convert_precipitation_units(self: "MPASPrecipitationPlotter",

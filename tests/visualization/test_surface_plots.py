@@ -147,7 +147,7 @@ class TestPlotTypes:
         """
         levels = [float(x) for x in [0, 10, 20, 30]]
 
-        assert levels is not None and len(levels) > 0, "Levels list should not be empty"
+        assert len(levels) > 0, "Levels list should not be empty"
 
         fig, ax = self.plotter.create_surface_map(
             self.lon, self.lat, self.data, 't2m',

@@ -122,7 +122,7 @@ class TestCreatePrecipColormap:
         Returns:
             None: Verified by asserting expected default values are present.
         """
-        cmap, levels = MPASVisualizationStyle.create_precip_colormap(None) # type: ignore
+        cmap, levels = MPASVisualizationStyle.create_precip_colormap(None)
         assert isinstance(cmap, mcolors.ListedColormap)
         assert 100 in levels
     
