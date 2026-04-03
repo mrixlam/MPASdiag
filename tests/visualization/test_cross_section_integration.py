@@ -365,7 +365,7 @@ class TestRealMPASDataIntegration:
         
         ylabel = ax.get_ylabel()
 
-        assert 'evel' in ylabel.lower()  
+        assert 'height' in ylabel.lower()  
         
         plt.close(fig)
     

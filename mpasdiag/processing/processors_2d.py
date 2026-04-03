@@ -12,6 +12,7 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import glob
 import os
 import numpy as np
 import pandas as pd
@@ -94,6 +95,64 @@ class MPAS2DProcessor(MPASBaseProcessor):
         
         return self
 
+    def _find_diag_files_recursive(self: 'MPAS2DProcessor',
+                                    data_dir: str) -> Optional[List[str]]:
+        """
+        This helper method performs a recursive search for diagnostic files in the specified directory using a predefined glob pattern. It looks for files matching the DIAG_GLOB pattern in all subdirectories of the provided data directory. If it finds at least two diagnostic files, it returns a sorted list of their paths; otherwise, it returns None. This method is used as a fallback when direct searches for diagnostic files in the main directory and a "diag" subdirectory do not yield results, ensuring that all possible locations are checked for relevant diagnostic data.
+
+        Parameters:
+            data_dir (str): Directory path to search for MPAS diagnostic files recursively.
+
+        Returns:
+            Optional[List[str]]: A sorted list of file paths to the found diagnostic files if at least two are found; otherwise, None.
+        """
+        files = sorted(glob.glob(os.path.join(data_dir, "**", DIAG_GLOB), recursive=True))
+
+        if len(files) >= 2:
+            if self.verbose:
+                print(f"\nFound {len(files)} diagnostic files (recursive search):")
+                for i, f in enumerate(files[:5]):
+                    print(f"  {i+1}: {os.path.basename(f)}")
+            return files
+
+        return None
+
+    def _find_mpasout_files_fallback(self: 'MPAS2DProcessor',
+                                     data_dir: str) -> List[str]:
+        """
+        This helper method performs a fallback search for MPAS output files (mpasout*.nc) in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for MPAS output files. If no MPAS output files are found after these attempts, it raises a FileNotFoundError with an informative message. The method ensures that at least two MPAS output files are found for temporal analysis and provides detailed logging of the search results when verbose mode is enabled.
+
+        Parameters:
+            data_dir (str): Directory path to search for MPAS output files.
+
+        Returns:
+            List[str]: A sorted list of file paths to the found MPAS output files suitable for 2D analysis.
+        """
+        try:
+            return self._find_files_by_pattern(data_dir, MPASOUT_GLOB, "MPAS output files (mpasout)")
+        except FileNotFoundError:
+            pass
+
+        files = sorted(glob.glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True))
+
+        if not files:
+            raise FileNotFoundError(
+                f"No diagnostic files (diag*.nc) or MPAS output files (mpasout*.nc) found under: {data_dir}\n"
+                f"For precipitation analysis, ensure files contain rainc and rainnc variables."
+            )
+
+        if len(files) < 2:
+            raise ValueError(
+                f"Insufficient MPAS output files for temporal analysis. Found {len(files)}, need at least 2."
+            )
+
+        if self.verbose:
+            print(f"\nFound {len(files)} MPAS output files (recursive search):")
+            for i, f in enumerate(files[:5]):
+                print(f"  {i+1}: {os.path.basename(f)}")
+
+        return files
+
     def find_diagnostic_files(self: 'MPAS2DProcessor', 
                               data_dir: str) -> List[str]:
         """
@@ -108,39 +167,60 @@ class MPAS2DProcessor(MPASBaseProcessor):
         try:
             return self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
         except FileNotFoundError:
-            diag_sub = os.path.join(data_dir, "diag")
-            try:
-                return self._find_files_by_pattern(diag_sub, DIAG_GLOB, "diagnostic files")
-            except FileNotFoundError:
-                files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", DIAG_GLOB), recursive=True))]
-                if files and len(files) >= 2:
-                    if self.verbose:
-                        print(f"\nFound {len(files)} diagnostic files (recursive search):")
-                        for i, f in enumerate(files[:5]):
-                            print(f"  {i+1}: {os.path.basename(f)}")
-                    return files
-                
-                if self.verbose:
-                    print(f"\nNo diagnostic files found, searching for mpasout files...")
-                try:
-                    return self._find_files_by_pattern(data_dir, MPASOUT_GLOB, "MPAS output files (mpasout)")
-                except FileNotFoundError:
-                    mpasout_files = [f for f in sorted(__import__('glob').glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True))]
-                    if not mpasout_files:
-                        raise FileNotFoundError(
-                            f"No diagnostic files (diag*.nc) or MPAS output files (mpasout*.nc) found under: {data_dir}\n"
-                            f"For precipitation analysis, ensure files contain rainc and rainnc variables."
-                        )
+            pass
 
-                    if len(mpasout_files) < 2:
-                        raise ValueError(f"Insufficient MPAS output files for temporal analysis. Found {len(mpasout_files)}, need at least 2.")
+        diag_sub = os.path.join(data_dir, "diag")
+        
+        try:
+            return self._find_files_by_pattern(diag_sub, DIAG_GLOB, "diagnostic files")
+        except FileNotFoundError:
+            pass
 
-                    if self.verbose:
-                        print(f"\nFound {len(mpasout_files)} MPAS output files (recursive search):")
-                        for i, f in enumerate(mpasout_files[:5]):
-                            print(f"  {i+1}: {os.path.basename(f)}")
+        files = self._find_diag_files_recursive(data_dir)
 
-                    return mpasout_files
+        if files:
+            return files
+
+        if self.verbose:
+            print(f"\nNo diagnostic files found, searching for mpasout files...")
+
+        return self._find_mpasout_files_fallback(data_dir)
+
+    _COORD_NAMES_2D: dict = {
+        'nVertices': (['lonVertex', 'lon_vertex', 'longitude_vertex'],
+                      ['latVertex', 'lat_vertex', 'latitude_vertex']),
+        'nCells':    (['lonCell',   'longitude',  'lon'],
+                      ['latCell',   'latitude',   'lat']),
+    }
+
+    @staticmethod
+    def _detect_2d_spatial_dim(sizes: Any) -> str:
+        """
+        This static method detects the spatial dimension for 2D variables based on the provided sizes. It checks for the presence of 'nVertices' and 'nCells' in the sizes and returns the appropriate spatial dimension name. If 'nVertices' is found, it returns 'nVertices'; otherwise, it defaults to 'nCells'. This method is essential for determining the correct coordinate variables to use when extracting spatial information for 2D diagnostic variables, ensuring that the processor can handle both vertex-based and cell-centered data appropriately.
+
+        Parameters:
+            sizes (Any): The sizes of the variable dimensions, typically obtained from an xarray DataArray or Dataset.
+
+        Returns:
+            str: The name of the spatial dimension ('nVertices' or 'nCells') to use for coordinate extraction.
+        """
+        return 'nVertices' if 'nVertices' in sizes else 'nCells'
+
+    def _lookup_2d_coord(self: 'MPAS2DProcessor',
+                         names: List[str]) -> Optional[np.ndarray]:
+        """
+        This helper method looks up coordinate variables in the dataset based on a list of possible names. It iterates through the provided list of names and checks if any of them exist as coordinates or data variables in the dataset. If a matching variable is found, it returns its values as a NumPy array. If none of the names are found, it returns None. This method is crucial for flexibly handling different naming conventions for spatial coordinates in MPAS datasets, allowing the processor to adapt to various dataset structures without requiring hardcoded variable names. 
+
+        Parameters:
+            names (List[str]): A list of possible coordinate variable names to search for.
+
+        Returns:
+            Optional[np.ndarray]: The values of the first found coordinate variable, or None if none are found.
+        """
+        for name in names:
+            if name in self.dataset.coords or name in self.dataset.data_vars:
+                return self.dataset[name].values
+        return None
 
     def extract_2d_coordinates_for_variable(self: 'MPAS2DProcessor', 
                                             var_name: str, 
@@ -157,55 +237,59 @@ class MPAS2DProcessor(MPASBaseProcessor):
         """
         if self.dataset is None:
             raise ValueError("Dataset not loaded. Call load_2d_data() first.")
-            
-        spatial_dim = 'nCells' 
+
+        sizes = data_array.sizes if data_array is not None else (
+            self.dataset[var_name].sizes if var_name in self.dataset else {}
+        )
         
-        if data_array is not None:
-            if 'nVertices' in data_array.sizes:
-                spatial_dim = 'nVertices'
-            elif 'nCells' in data_array.sizes:
-                spatial_dim = 'nCells'
-        elif var_name in self.dataset:
-            if 'nVertices' in self.dataset[var_name].sizes:
-                spatial_dim = 'nVertices'
-            elif 'nCells' in self.dataset[var_name].sizes:
-                spatial_dim = 'nCells'
-        
-        if spatial_dim == 'nVertices':
-            lon_names = ['lonVertex', 'lon_vertex', 'longitude_vertex']
-            lat_names = ['latVertex', 'lat_vertex', 'latitude_vertex']
-        else:  
-            lon_names = ['lonCell', 'longitude', 'lon']
-            lat_names = ['latCell', 'latitude', 'lat']
-        
-        lon_coords = lat_coords = None
-        
-        for name in lon_names:
-            if name in self.dataset.coords or name in self.dataset.data_vars:
-                lon_coords = self.dataset[name].values
-                break
-                
-        for name in lat_names:
-            if name in self.dataset.coords or name in self.dataset.data_vars:
-                lat_coords = self.dataset[name].values
-                break
-                
+        spatial_dim = self._detect_2d_spatial_dim(sizes)
+        lon_names, lat_names = self._COORD_NAMES_2D[spatial_dim]
+
+        lon_coords = self._lookup_2d_coord(lon_names)
+        lat_coords = self._lookup_2d_coord(lat_names)
+
         if lon_coords is None or lat_coords is None:
             available_vars = list(self.dataset.coords.keys()) + list(self.dataset.data_vars.keys())
             raise ValueError(f"Could not find {spatial_dim} coordinates. Available variables: {available_vars}")
-        
+
         if np.nanmax(np.abs(lat_coords)) <= np.pi:
             lat_coords = lat_coords * 180.0 / np.pi
             lon_coords = lon_coords * 180.0 / np.pi
-        
-        lon_coords = lon_coords.ravel()
+
+        lon_coords = ((lon_coords.ravel() + 180) % 360) - 180
         lat_coords = lat_coords.ravel()
-        lon_coords = ((lon_coords + 180) % 360) - 180
-        
+
         if self.verbose:
             print(f"Extracted {spatial_dim} coordinates for {var_name}: {len(lon_coords):,} points")
-        
+
         return lon_coords, lat_coords
+
+    def _log_2d_variable_range(self: 'MPAS2DProcessor',
+                               var_name: str,
+                               var_data: xr.DataArray) -> None:
+        """
+        This helper method logs the range of finite values for a specified 2D variable. It checks if verbose mode is enabled and if the variable data has values. It then flattens the variable data, filters out non-finite values, and calculates the minimum and maximum of the finite values. If finite values are found, it prints the range along with the variable name and its units if available. If no finite values are found, it logs a warning message. This method provides valuable insights into the data being processed, helping users understand the range of values for diagnostic variables and identify potential issues with the data.
+
+        Parameters:
+            var_name (str): Name of the variable for which to log the range.
+            var_data (xr.DataArray): The data array of the variable whose range is to be logged.
+
+        Returns:
+            None
+
+        """
+        if not self.verbose or not hasattr(var_data, 'values'):
+            return
+        
+        finite_values = var_data.values.flatten()
+        finite_values = finite_values[np.isfinite(finite_values)]
+
+        if len(finite_values) > 0:
+            print(f"Variable {var_name} range: {finite_values.min():.3f} to {finite_values.max():.3f}")
+            if hasattr(var_data, 'attrs') and 'units' in var_data.attrs:
+                print(f"Units: {var_data.attrs['units']}")
+        else:
+            print(f"Warning: No finite values found for {var_name}")
 
     def get_2d_variable_data(self: 'MPAS2DProcessor', 
                              var_name: str, 
@@ -222,35 +306,26 @@ class MPAS2DProcessor(MPASBaseProcessor):
         """
         if self.dataset is None:
             raise ValueError("No dataset loaded. Call load_2d_data() first.")
-        
+
         if var_name not in self.dataset.data_vars:
             available_vars = list(self.dataset.data_vars.keys())
             raise ValueError(f"Variable '{var_name}' not found. Available variables: {available_vars}")
-        
-        time_dim, validated_time_index, time_size = MPASDateTimeUtils.validate_time_parameters(self.dataset, time_index, self.verbose)
-        
+
+        time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(
+            self.dataset, time_index, self.verbose
+        )
+
         if self.verbose:
             print(f"Extracting {var_name} data at time index {validated_time_index}")
-        
+
         if self.data_type == 'uxarray':
             var_data = self.dataset[var_name][validated_time_index]
         else:
             var_data = self.dataset[var_name].isel({time_dim: validated_time_index})
-        
+
         if hasattr(var_data, 'compute'):
             var_data = cast(Any, var_data).compute()
-        
-        if self.verbose:
-            if hasattr(var_data, 'values'):
-                data_values = var_data.values.flatten()
-                finite_values = data_values[np.isfinite(data_values)]
 
-                if len(finite_values) > 0:
-                    print(f"Variable {var_name} range: {finite_values.min():.3f} to {finite_values.max():.3f}")
-                    
-                    if hasattr(var_data, 'attrs') and 'units' in var_data.attrs:
-                        print(f"Units: {var_data.attrs['units']}")
-                else:
-                    print(f"Warning: No finite values found for {var_name}")
-        
+        self._log_2d_variable_range(var_name, var_data)
+
         return var_data
