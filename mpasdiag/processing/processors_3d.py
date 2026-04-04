@@ -340,6 +340,54 @@ class MPAS3DProcessor(MPASBaseProcessor):
         mean_pressure = total_pressure.mean(dim=horiz_dims) if horiz_dims else total_pressure
         return np.asarray(mean_pressure.values).ravel()
 
+    def _lerp_variable(self: 'MPAS3DProcessor',
+                       var_name: str,
+                       lower_idx: int,
+                       upper_idx: int,
+                       w: float,
+                       mean_p_vals: np.ndarray,
+                       level: float,
+                       ds_raw: xr.Dataset,
+                       time_dim: str,
+                       time_idx: int,
+                       vertical_dim: str) -> Tuple[int, Optional[xr.DataArray]]:
+        """
+        This helper method performs linear interpolation of the specified variable between two vertical levels based on the provided interpolation weight. It extracts the variable values at the lower and upper bounding levels, computes the interpolated field, and attaches appropriate attributes. If interpolation fails for any reason, it falls back to returning the nearest mean level index. The method returns a tuple containing either the index of the selected level or -1 if interpolation was successful, along with the interpolated DataArray if applicable.
+
+        Parameters:
+            var_name (str): The name of the variable to interpolate.
+            lower_idx (int): The index of the lower bounding level.
+            upper_idx (int): The index of the upper bounding level.
+            w (float): The interpolation weight between the lower and upper levels.
+            mean_p_vals (np.ndarray): The column-mean pressure values for each model level.
+            level (float): The target pressure value for interpolation.
+            ds_raw (xr.Dataset): The raw dataset containing the variable.
+            time_dim (str): The name of the time dimension in the dataset.
+            time_idx (int): The index of the time step to extract.
+            vertical_dim (str): The name of the vertical dimension in the dataset.
+
+        Returns:
+            Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the interpolated DataArray (or None if index-based extraction is used).
+        """
+        var_lower = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: lower_idx})
+        var_upper = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: upper_idx})
+        try:
+            interp_field = (1.0 - w) * var_lower + w * var_upper
+            if hasattr(interp_field, 'compute'):
+                interp_field = cast(Any, interp_field).compute()
+            interp_field.attrs = getattr(var_lower, 'attrs', {})
+            if self.verbose:
+                fin = interp_field.values.flatten()
+                fin = fin[np.isfinite(fin)]
+                if len(fin) > 0:
+                    print(f"Interpolated field range: {fin.min():.3f} to {fin.max():.3f}")
+            return -1, interp_field
+        except Exception:
+            level_idx = int(np.argmin(np.abs(mean_p_vals - level)))
+            if self.verbose:
+                print(f"Interpolation failed, falling back to nearest mean level {level_idx}")
+            return level_idx, None
+
     def _interpolate_at_pressure(self: 'MPAS3DProcessor',
                                  var_name: str,
                                  level: float,
@@ -390,30 +438,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
-        var_lower = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: lower_idx})
-        var_upper = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: upper_idx})
-
-        try:
-            interp_field = (1.0 - w) * var_lower + w * var_upper
-
-            if hasattr(interp_field, 'compute'):
-                interp_field = cast(Any, interp_field).compute()
-
-            interp_field.attrs = getattr(var_lower, 'attrs', {})
-
-            if self.verbose:
-                fin = interp_field.values.flatten()
-                fin = fin[np.isfinite(fin)]
-                if len(fin) > 0:
-                    print(f"Interpolated field range: {fin.min():.3f} to {fin.max():.3f}")
-            return -1, interp_field
-        except Exception:
-            level_idx = int(np.argmin(np.abs(mean_p_vals - level)))
-
-            if self.verbose:
-                print(f"Interpolation failed, falling back to nearest mean level {level_idx}")
-
-            return level_idx, None
+        return self._lerp_variable(
+            var_name, lower_idx, upper_idx, w, mean_p_vals, level,
+            ds_raw, time_dim, time_idx, vertical_dim
+        )
 
     def _resolve_float_level(self: 'MPAS3DProcessor',
                              var_name: str,
@@ -773,6 +801,46 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 print(f"Warning: failed to reconstruct pressure levels from hybrid coefficients: {exc}")
             return None
 
+    def _resolve_pressure_levels(self: 'MPAS3DProcessor',
+                                 var_name: str,
+                                 vertical_dim: str,
+                                 num_levels: int,
+                                 time_dim: str,
+                                 time_idx: int) -> Optional[List[Union[int, float]]]:
+        """
+        This helper method attempts to resolve pressure levels for a given variable by trying multiple methods in order of preference. It first checks for the presence of the 'pressure' variable and attempts to compute mean pressure levels from it. If that fails, it checks for the presence of 'pressure_p' and 'pressure_base' variables and computes pressure levels from their sum. If that also fails, it checks for the presence of 'fzp' and 'surface_pressure' variables and attempts to reconstruct pressure levels from the hybrid coefficients. If all methods fail, it returns None to indicate that pressure levels could not be resolved, allowing the caller to fall back to returning model level indices instead.
+
+        Parameters:
+            var_name (str): The name of the variable for which to resolve pressure levels.
+            vertical_dim (str): The name of the vertical dimension in the dataset.
+            num_levels (int): The expected number of vertical levels based on the dataset.
+            time_dim (str): The name of the time dimension in the dataset.
+            time_idx (int): The index of the time step for which to resolve pressure levels.
+
+        Returns:
+            Optional[List[Union[int, float]]]: A list of pressure levels in Pa if resolved successfully, or None if pressure levels could not be resolved.
+        """
+        if 'pressure' in self.dataset:
+            levels = self._pressure_levels_from_pressure_var(
+                var_name, vertical_dim, num_levels, time_dim, time_idx
+            )
+            if levels is not None:
+                return levels.tolist()
+
+        if 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
+            return self._pressure_levels_from_perturbation(
+                var_name, vertical_dim, num_levels, time_dim, time_idx
+            ).tolist()
+
+        if 'fzp' in self.dataset and 'surface_pressure' in self.dataset:
+            levels = self._pressure_levels_from_hybrid_coeffs(
+                var_name, vertical_dim, num_levels, time_dim, time_idx
+            )
+            if levels is not None:
+                return levels.tolist()
+
+        return None
+
     def get_vertical_levels(self: 'MPAS3DProcessor', 
                             var_name: str, 
                             return_pressure: bool = True, 
@@ -800,25 +868,11 @@ class MPAS3DProcessor(MPASBaseProcessor):
             time_dim, time_idx, _ = MPASDateTimeUtils.validate_time_parameters(
                 self.dataset, time_index, self.verbose
             )
-
-            if 'pressure' in self.dataset:
-                levels = self._pressure_levels_from_pressure_var(
-                    var_name, vertical_dim, num_levels, time_dim, time_idx
-                )
-                if levels is not None:
-                    return levels.tolist()
-
-            if 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
-                return self._pressure_levels_from_perturbation(
-                    var_name, vertical_dim, num_levels, time_dim, time_idx
-                ).tolist()
-
-            if 'fzp' in self.dataset and 'surface_pressure' in self.dataset:
-                levels = self._pressure_levels_from_hybrid_coeffs(
-                    var_name, vertical_dim, num_levels, time_dim, time_idx
-                )
-                if levels is not None:
-                    return levels.tolist()
+            result = self._resolve_pressure_levels(
+                var_name, vertical_dim, num_levels, time_dim, time_idx
+            )
+            if result is not None:
+                return result
 
         level_indices: List[Union[int, float]] = list(range(num_levels))
 
@@ -945,6 +999,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if isinstance(data_3d, xr.DataArray):
             if level_index is not None:
                 return MPAS3DProcessor._extract_xarray_by_index(data_3d, level_index, level_dim)
+            if level_value is None:
+                raise ValueError("Must provide either level_index or level_value")
             return MPAS3DProcessor._extract_xarray_by_value(data_3d, level_value, level_dim, method)
 
         if level_index is None:

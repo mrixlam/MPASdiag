@@ -330,8 +330,89 @@ def mock_mpas_mesh(grid_file) -> xr.Dataset:
         return ds
 
 
+def _build_3d_ds_from_real(ds_real: xr.Dataset,
+                           mock_mpas_mesh: xr.Dataset,
+                           n_cells: int,) -> xr.Dataset:
+    """
+    This helper function constructs a 3D dataset by taking a real MPAS dataset as a template and subsetting it to a manageable size for testing. It ensures that the resulting dataset includes the necessary dimensions (`Time`, `nCells`, `nVertLevels`) and adds any missing mesh variables from the `mock_mpas_mesh` fixture. Additionally, it populates synthetic wind components if they are not present in the original dataset, allowing tests to run with realistic data structures even when certain variables are missing from the mpasout files. 
+    
+    Parameters:
+        ds_real (xr.Dataset): The real MPAS dataset to use as a template.
+        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture, used to provide cell-related variables.
+        n_cells (int): The number of cells to include in the synthetic dataset, typically a subset of the total cells in the mesh.
+
+    Returns:
+        xr.Dataset: An xarray Dataset with `Time` and vertical levels containing synthetic 3D fields suitable for testing processing and plotting routines.
+    """
+    n_cells_subset = min(n_cells, len(ds_real['nCells']))
+    n_time_subset = min(3, len(ds_real['Time']))
+    n_vert = len(ds_real['nVertLevels'])
+
+    ds = ds_real.isel(nCells=slice(0, n_cells_subset), Time=slice(0, n_time_subset))
+
+    mesh_vars_to_add = {
+        var: mock_mpas_mesh[var].isel(nCells=slice(0, n_cells_subset))
+        for var in ['latCell', 'lonCell', 'areaCell', 'xCell', 'yCell', 'zCell']
+        if var not in ds and var in mock_mpas_mesh
+    }
+
+    if mesh_vars_to_add:
+        ds = ds.assign(mesh_vars_to_add)
+
+    shape_3d = (n_time_subset, n_cells_subset, n_vert)
+    dims_3d = ['Time', 'nCells', 'nVertLevels']
+
+    if 'uReconstructZonal' not in ds:
+        ds['uReconstructZonal'] = (dims_3d, np.random.uniform(-30, 30, shape_3d))
+
+    if 'uReconstructMeridional' not in ds:
+        ds['uReconstructMeridional'] = (dims_3d, np.random.uniform(-30, 30, shape_3d))
+
+    if 'temperature' not in ds and 'theta' in ds:
+        ds['temperature'] = ds['theta']
+
+    return ds
+
+
+def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset, 
+                           n_cells: int) -> xr.Dataset:
+    """
+    This helper function constructs a synthetic 3D dataset with the same structure as real mpasout data, including `Time`, `nCells`, and `nVertLevels` dimensions. It populates the dataset with random values for key variables like `pressure`, `theta`, `temperature`, `uReconstructZonal`, `uReconstructMeridional`, `w`, and `rho`. The function also adds time coordinates in a recognizable format. This synthetic dataset allows tests to run in environments without access to real mpasout files while maintaining the expected data structure for processing and plotting tests.
+
+    Parameters:
+        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture, used to provide cell-related variables.
+        n_cells (int): The number of cells to include in the synthetic dataset, typically a subset of the total cells in the mesh.  
+
+    Returns:
+        xr.Dataset: An xarray Dataset with `Time` and vertical levels containing synthetic 3D fields suitable for testing processing and plotting routines.
+    """
+    n_vertical = 55
+    n_time = 3
+    dims_3d = ['Time', 'nCells', 'nVertLevels']
+
+    ds = mock_mpas_mesh.copy()
+    ds = ds.expand_dims({'Time': n_time})
+
+    ds['pressure'] = (dims_3d, np.random.uniform(10000, 101325, (n_time, n_cells, n_vertical)))
+    ds['theta'] = (dims_3d, np.random.uniform(250, 400, (n_time, n_cells, n_vertical)))
+    ds['temperature'] = (dims_3d, np.random.uniform(200, 320, (n_time, n_cells, n_vertical)))
+    ds['uReconstructZonal'] = (dims_3d, np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
+    ds['uReconstructMeridional'] = (dims_3d, np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
+    ds['w'] = (dims_3d, np.random.uniform(-5, 5, (n_time, n_cells, n_vertical)))
+    ds['rho'] = (dims_3d, np.random.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
+
+    ds['xtime'] = (['Time'], [
+        '2024-01-01_00:00:00',
+        '2024-01-01_06:00:00',
+        '2024-01-01_12:00:00',
+    ])
+
+    return ds
+
+
 @pytest.fixture
-def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset, mpas_3d_processor) -> xr.Dataset:
+def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset, 
+                      mpas_3d_processor) -> xr.Dataset:
     """
     This fixture provides real MPAS 3D data from mpasout files when available, which includes theta, pressure, w, and other 3D fields. Since uReconstructZonal and uReconstructMeridional were removed from mpasout files to save space, synthetic wind components are added for tests that require them. For actual wind testing, use mock_mpas_2d_data which has real u10/v10 from diag files.
 
@@ -343,76 +424,16 @@ def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset, mpas_3d_processor) -> xr.Datas
         xr.Dataset: An xarray Dataset with `Time` and vertical levels containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
     """
     n_cells = len(mock_mpas_mesh['nCells'])
-    
+
     if mpas_3d_processor is not None and mpas_3d_processor.dataset is not None:
-        ds_real = mpas_3d_processor.dataset
-        
-        n_cells_subset = min(n_cells, len(ds_real['nCells']))
-        n_time_subset = min(3, len(ds_real['Time']))
-        n_vert = len(ds_real['nVertLevels'])
-        
-        ds = ds_real.isel(nCells=slice(0, n_cells_subset), Time=slice(0, n_time_subset))
-        
-        mesh_vars_to_add = {}
+        return _build_3d_ds_from_real(mpas_3d_processor.dataset, mock_mpas_mesh, n_cells)
 
-        for var in ['latCell', 'lonCell', 'areaCell', 'xCell', 'yCell', 'zCell']:
-            if var not in ds and var in mock_mpas_mesh:
-                mesh_vars_to_add[var] = mock_mpas_mesh[var].isel(nCells=slice(0, n_cells_subset))
-        
-        if mesh_vars_to_add:
-            ds = ds.assign(mesh_vars_to_add)
-        
-        if 'uReconstructZonal' not in ds:
-            ds['uReconstructZonal'] = (['Time', 'nCells', 'nVertLevels'],
-                                       np.random.uniform(-30, 30, (n_time_subset, n_cells_subset, n_vert)))
-
-        if 'uReconstructMeridional' not in ds:
-            ds['uReconstructMeridional'] = (['Time', 'nCells', 'nVertLevels'],
-                                           np.random.uniform(-30, 30, (n_time_subset, n_cells_subset, n_vert)))
-        
-        if 'temperature' not in ds and 'theta' in ds:
-            ds['temperature'] = ds['theta']
-        
-        return ds
-    else:
-        n_vertical = 55
-        n_time = 3
-        
-        ds = mock_mpas_mesh.copy()        
-        ds = ds.expand_dims({'Time': n_time})
-        
-        ds['pressure'] = (['Time', 'nCells', 'nVertLevels'], 
-                         np.random.uniform(10000, 101325, (n_time, n_cells, n_vertical)))
-
-        ds['theta'] = (['Time', 'nCells', 'nVertLevels'], 
-                      np.random.uniform(250, 400, (n_time, n_cells, n_vertical)))
-
-        ds['temperature'] = (['Time', 'nCells', 'nVertLevels'], 
-                            np.random.uniform(200, 320, (n_time, n_cells, n_vertical)))
-
-        ds['uReconstructZonal'] = (['Time', 'nCells', 'nVertLevels'], 
-                                   np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-
-        ds['uReconstructMeridional'] = (['Time', 'nCells', 'nVertLevels'], 
-                                        np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-
-        ds['w'] = (['Time', 'nCells', 'nVertLevels'], 
-                   np.random.uniform(-5, 5, (n_time, n_cells, n_vertical)))
-
-        ds['rho'] = (['Time', 'nCells', 'nVertLevels'], 
-                     np.random.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
-        
-        ds['xtime'] = (['Time'], [
-            '2024-01-01_00:00:00',
-            '2024-01-01_06:00:00',
-            '2024-01-01_12:00:00'
-        ])
-        
-        return ds
+    return _build_3d_ds_synthetic(mock_mpas_mesh, n_cells)
 
 
 @pytest.fixture
-def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset, mpas_2d_processor_diag) -> xr.Dataset:
+def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset, 
+                      mpas_2d_processor_diag) -> xr.Dataset:
     """
     This fixture provides real MPAS 2D diagnostic data from diag files when available, which includes surface variables like t2m, rainnc, u10, v10. Falls back to synthetic data only when real data is unavailable. Uses diag files (not mpasout) for optimal 2D diagnostic coverage.
 

@@ -12,22 +12,22 @@ Date: November 2025
 Version: 1.0.0
 """
 # Load necessary libraries for data handling, plotting, and styling
+import os
+import re
 import numpy as np
 import xarray as xr
+import cartopy.crs as ccrs
+from datetime import datetime
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
+from matplotlib.image import AxesImage
 from matplotlib.colorbar import Colorbar
 from matplotlib.cm import ScalarMappable
 from matplotlib.contour import QuadContourSet
-from matplotlib.collections import PathCollection, QuadMesh, LineCollection
-from matplotlib.image import AxesImage
-import cartopy.crs as ccrs
-import os
-import re
-from datetime import datetime
 from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
+from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
 from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.utils_unit import UnitConverter
@@ -69,9 +69,55 @@ class MPASVisualizationStyle:
 
         cmap = mcolors.ListedColormap(colors)
         return cmap, levels
-    
+
     @staticmethod
-    def get_variable_style(var_name: str, 
+    def _hours_to_accum_period(hours: int) -> str:
+        """
+        This internal method converts a number of hours into a standardized accumulation period key string (e.g., 'a01h' for 1 hour, 'a24h' for 24 hours) that can be used to determine appropriate contour levels for precipitation plotting. It uses conditional logic to map specific hour values to their corresponding accumulation period identifiers, and also includes fallback rules to assign accumulation periods for non-standard hour values based on common meteorological conventions. This allows for flexible handling of various accumulation periods that may be indicated in variable names or metadata when determining styling parameters for precipitation diagnostics.
+
+        Parameters:
+            hours (int): The number of hours representing the accumulation period (e.g., 1, 3, 6, 12, 24).
+
+        Returns:
+            str: A standardized accumulation period key string (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') corresponding to the input number of hours.
+        """
+        if hours == 1:  return 'a01h'
+        if hours == 3:  return 'a03h'
+        if hours == 6:  return 'a06h'
+        if hours == 12: return 'a12h'
+        if hours == 24: return 'a24h'
+        if hours < 3:   return 'a01h'
+        if hours < 6:   return 'a03h'
+        if hours < 12:  return 'a06h'
+        if hours < 24:  return 'a12h'
+        return 'a24h'
+
+    @staticmethod
+    def _resolve_accum_period(var_lower: str) -> str:
+        """
+        This internal method resolves the accumulation period for precipitation variables by analyzing the lower-cased variable name string. It uses regular expressions to search for patterns indicating the number of hours (e.g., '1h', '3h', '6h', '12h', '24h') and maps them to standardized accumulation period keys using the _hours_to_accum_period method. Additionally, it checks for keywords like 'daily' and 'hourly' to assign appropriate accumulation periods when explicit hour values are not present in the variable name. This allows for robust detection of accumulation periods from variable names, which is essential for applying correct styling parameters for precipitation diagnostics in MPAS visualizations. 
+
+        Parameters:
+            var_lower (str): Lower-cased variable name.
+
+        Returns:
+            str: Accumulation period key (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h').
+        """
+        accum_match = re.search(r'(?<!\d)(\d{1,3})h', var_lower)
+
+        if accum_match:
+            return MPASVisualizationStyle._hours_to_accum_period(int(accum_match.group(1)))
+
+        if 'daily' in var_lower:
+            return 'a24h'
+
+        if 'hourly' in var_lower:
+            return 'a01h'
+
+        return 'a01h'
+
+    @staticmethod
+    def get_variable_style(var_name: str,
                            data_array: Optional[xr.DataArray] = None) -> Dict[str, Any]:
         """
         This method retrieves styling parameters for a given MPAS variable name, including colormap, contour levels, and other visual attributes. It uses a predefined mapping of variable names (case-insensitive) to styling configurations, which can include specific colormap choices and level settings based on common meteorological conventions. For precipitation variables, it detects accumulation periods from the variable name and applies the create_precip_colormap method to obtain specialized colormaps and levels. If a data array is provided, the method can also attempt to generate contour levels automatically based on the data's statistical distribution (e.g., using percentiles) if no predefined levels are specified for that variable. The returned dictionary contains all necessary styling parameters that can be directly used in plotting functions to ensure consistent and informative visualizations of MPAS diagnostic variables. 
@@ -191,44 +237,11 @@ class MPASVisualizationStyle:
                            any(precip_key in var_lower for precip_key in ['precip', 'rain', 'snow', 'qpf']))
         
         if is_precipitation:
-            accum_match = re.search(r'(?<!\d)(\d{1,3})h', var_lower)
-            if accum_match:
-                hours = int(accum_match.group(1))
-                if hours == 1:
-                    accum_period = 'a01h'
-                elif hours == 3:
-                    accum_period = 'a03h'
-                elif hours == 6:
-                    accum_period = 'a06h'
-                elif hours == 12:
-                    accum_period = 'a12h'
-                elif hours == 24:
-                    accum_period = 'a24h'
-                else:
-                    if hours < 3:
-                        accum_period = 'a01h'
-                    elif hours < 6:
-                        accum_period = 'a03h'
-                    elif hours < 12:
-                        accum_period = 'a06h'
-                    elif hours < 24:
-                        accum_period = 'a12h'
-                    else:
-                        accum_period = 'a24h'
-            elif 'daily' in var_lower:
-                accum_period = 'a24h'
-            elif 'hourly' in var_lower:
-                accum_period = 'a01h'
-            else:
-                accum_period = 'a01h'
-            
+            accum_period = MPASVisualizationStyle._resolve_accum_period(var_lower)
             cmap, levels = MPASVisualizationStyle.create_precip_colormap(accum_period)
-
             style['colormap'] = cmap
             style['levels'] = levels
-
-            if 'use_precip_colormap' in style:
-                del style['use_precip_colormap']
+            style.pop('use_precip_colormap', None)
         
         if data_array is not None and 'levels' not in style and not is_precipitation:
             try:
@@ -303,10 +316,200 @@ class MPASVisualizationStyle:
             return None
 
     @staticmethod
-    def get_variable_specific_settings(var_name: str, 
+    def _levels_for_temperature(data_min: float, 
+                                data_max: float, 
+                                data_range: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for temperature-like variables. It uses a diverging colormap ('RdYlBu_r') that is commonly used for temperature data to enhance visual contrast between warm and cool values. The method determines the contour levels based on the data range, applying finer spacing for smaller ranges (e.g., 1 degree intervals for ranges less than 20 degrees) and coarser spacing for larger ranges (e.g., 5 degree intervals for ranges greater than 40 degrees). The levels are generated as a list of floats that are evenly spaced within the data range, ensuring that they are appropriate for visualizing the temperature variable effectively. This approach allows for clear differentiation of temperature values in MPAS diagnostic plots while maintaining consistency with meteorological visualization conventions.
+
+        Parameters:
+            data_min (float): The minimum data value for the temperature variable, used to determine the starting point for contour levels.
+            data_max (float): The maximum data value for the temperature variable, used to determine the ending point for contour levels.
+            data_range (float): The range of the data values (data_max - data_min), used to determine the spacing of contour levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name ('RdYlBu_r') and a list of contour levels appropriate for the temperature variable based on the data characteristics.
+        """
+        colormap = 'RdYlBu_r'
+        if data_range > 40:
+            step = 5
+        elif data_range > 20:
+            step = 2
+        else:
+            step = 1
+        levels = [float(x) for x in range(int(data_min // step) * step,
+                                           int(data_max // step) * step + step * 2, step)]
+        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        return colormap, levels
+
+    @staticmethod
+    def _levels_for_precipitation(var_lower: str, 
+                                  data_max: float) -> Tuple[mcolors.ListedColormap, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for precipitation-like variables based on the variable name and maximum data value. It detects the accumulation period from the variable name (e.g., 'a01h' for 1-hour accumulation, 'a24h' for 24-hour accumulation) using pattern matching, and then applies the create_precip_colormap method to obtain a specialized colormap and corresponding contour levels that are commonly used for visualizing precipitation intensity. The method also adjusts the contour levels based on the maximum data value to ensure that the levels are appropriate for the range of precipitation values being visualized, allowing for clear differentiation of precipitation intensities in MPAS diagnostic plots while adhering to meteorological visualization standards.
+
+        Parameters:
+            var_lower (str): The lowercase name of the precipitation variable, used to determine the accumulation period.
+            data_max (float): The maximum data value for the precipitation variable, used to adjust the upper limit of the levels.
+
+        Returns:
+            Tuple[mcolors.ListedColormap, List[float]]: A tuple containing the colormap and a list of contour levels appropriate for the precipitation variable based on the data characteristics.
+        """
+        if any(p in var_lower for p in ['01h', '1h', 'hourly']):
+            accum_period = 'a01h'
+        elif any(p in var_lower for p in ['03h', '3h']):
+            accum_period = 'a03h'
+        elif any(p in var_lower for p in ['06h', '6h']):
+            accum_period = 'a06h'
+        elif '12h' in var_lower:
+            accum_period = 'a12h'
+        elif any(p in var_lower for p in ['24h', 'daily']):
+            accum_period = 'a24h'
+        else:
+            accum_period = 'a24h'
+
+        cmap, levels = MPASVisualizationStyle.create_precip_colormap(accum_period)
+
+        if data_max > 0:
+            levels = [lv for lv in levels if lv <= data_max * 1.2]
+        return cmap, levels
+
+    @staticmethod
+    def _levels_for_pressure(var_lower: str, 
+                             data_min: float, 
+                             data_max: float, 
+                             data_range: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for pressure-like variables based on the variable name and data characteristics. It uses a diverging colormap ('RdBu_r') that is commonly used for pressure data to enhance visual contrast between high and low pressure values. The method determines the contour levels based on the data range, applying finer spacing (e.g., 5 hPa intervals) for smaller ranges (e.g., less than 100 hPa) and coarser spacing (e.g., 500 hPa intervals) for larger ranges (e.g., greater than 1000 hPa). The levels are generated as a list of floats that are evenly spaced within the data range, ensuring that they are appropriate for visualizing the pressure variable effectively. This approach allows for clear differentiation of pressure values in MPAS diagnostic plots while maintaining consistency with meteorological visualization conventions.
+
+        Parameters:
+            var_lower (str): The lowercase name of the pressure variable, used to identify if it is a pressure variable.
+            data_min (float): The minimum data value for the pressure variable, used to determine the starting point for contour levels.
+            data_max (float): The maximum data value for the pressure variable, used to determine the ending point for contour levels.
+            data_range (float): The range of the data values (data_max - data_min), used to determine the spacing of contour levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name ('RdBu_r') and a list of contour levels appropriate for the pressure variable based on the data characteristics.
+        """
+        colormap = 'RdBu_r'
+
+        if 'slp' in var_lower or 'mslp' in var_lower:
+            step = 500 if data_range > 100 else 5
+        else:
+            step = max(100, int(data_range / 20)) if data_range > 1000 else max(10, int(data_range / 15))
+
+        levels = [float(x) for x in range(int(data_min // step) * step,
+                                           int(data_max // step) * step + step * 2, step)]
+
+        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        return colormap, levels
+
+    @staticmethod
+    def _levels_for_wind(data_max: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for wind speed variables based on the maximum data value. It uses a perceptually uniform colormap ('plasma') that is suitable for representing wind speed data, providing clear visual differentiation across a range of values. The method determines the contour levels based on the maximum data value, applying finer spacing (e.g., 0.5 m/s intervals) for lower maximum values (e.g., less than 3 m/s) and coarser spacing (e.g., 10 m/s intervals) for higher maximum values (e.g., greater than 30 m/s). The levels are generated as a list of floats that are appropriate for visualizing the wind speed variable effectively, allowing for clear differentiation of wind speed values in MPAS diagnostic plots while adhering to meteorological visualization standards.
+
+        Parameters:
+            data_max (float): The maximum data value for the wind speed variable, used to determine the appropriate contour levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name ('plasma') and a list of contour levels appropriate for the wind speed variable based on the data characteristics.
+        """
+        colormap = 'plasma'
+        if data_max < 3:
+            raw = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
+        elif data_max < 15:
+            raw = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
+        elif data_max < 30:
+            raw = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
+        else:
+            raw = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+        levels = [lv for lv in raw if lv <= data_max * 1.1]
+        return colormap, levels
+
+    @staticmethod
+    def _levels_for_geopotential(data_min: float, 
+                                 data_max: float, 
+                                 data_range: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for geopotential height variables based on the data characteristics. It uses a colormap ('terrain') that is suitable for representing height data, providing clear visual differentiation across a range of values. The method determines the contour levels based on the data range, applying finer spacing (e.g., 20 m intervals) for smaller ranges (e.g., less than 200 m) and coarser spacing (e.g., 60 m intervals) for larger ranges (e.g., greater than 1000 m). The levels are generated as a list of floats that are evenly spaced within the data range, ensuring that they are appropriate for visualizing the geopotential height variable effectively. This approach allows for clear differentiation of height values in MPAS diagnostic plots while maintaining consistency with meteorological visualization conventions. 
+
+        Parameters:
+            data_min (float): The minimum data value for the geopotential/height variable, used to determine the starting point for contour levels.
+            data_max (float): The maximum data value for the geopotential/height variable, used to determine the ending point for contour levels.
+            data_range (float): The range of the data values (data_max - data_min), used to determine the spacing of contour levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name ('terrain') and a list of contour levels appropriate for the geopotential/height variable based on the data characteristics.
+        """
+        colormap = 'terrain'
+        if data_range > 1000:
+            step = 60 if data_range > 2000 else 30
+        else:
+            step = 20 if data_range > 200 else 10
+        levels = [float(x) for x in range(int(data_min // step) * step,
+                                           int(data_max // step) * step + step * 2, step)]
+        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        return colormap, levels
+
+    @staticmethod
+    def _levels_for_humidity(var_lower: str, 
+                             data_min: float, 
+                             data_max: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a colormap and contour levels specifically tailored for humidity-related variables based on the variable name and data characteristics. It uses a colormap ('BuGn') that is suitable for representing humidity data, providing clear visual differentiation across a range of values. The method determines the contour levels based on the maximum data value, applying finer spacing (e.g., 0.1 intervals) for relative humidity variables that typically range from 0 to 100%, and wider spacing (e.g., logarithmic intervals) for specific humidity or mixing ratio variables that can have a wider range of values. The levels are generated as a list of floats that are appropriate for visualizing the humidity variable effectively, allowing for clear differentiation of humidity values in MPAS diagnostic plots while adhering to meteorological visualization standards.
+
+        Parameters:
+            var_lower (str): The lowercase name of the humidity variable, used to identify if it is a relative humidity variable or a specific humidity/mixing ratio variable.
+            data_min (float): The minimum data value for the humidity variable, used to determine the starting point for contour levels.
+            data_max (float): The maximum data value for the humidity variable, used to determine the ending point for contour levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name ('BuGn') and a list of contour levels appropriate for the humidity variable based on the data characteristics. 
+        """
+        colormap = 'BuGn'
+        if data_max <= 1.1:
+            if 'rh' in var_lower or 'humidity' in var_lower:
+                raw = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+            else:
+                raw = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+        else:
+            raw = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        levels = [lv for lv in raw if data_min <= lv <= data_max]
+        return colormap, levels
+
+    @staticmethod
+    def _levels_default(data_min: float, 
+                        data_max: float, 
+                        data_range: float) -> Tuple[str, List[float]]:
+        """
+        This internal method returns a default colormap and contour levels for variables that do not match specific patterns for temperature, precipitation, pressure, wind speed, geopotential height, or humidity. It uses a general colormap ('viridis') that is suitable for a wide range of variable types, providing clear visual differentiation across a range of values. The method determines the contour levels based on the data range, applying a simple heuristic to create evenly spaced levels within the data range. If the data range is small, it generates more closely spaced levels; if the data range is large, it generates fewer levels with wider spacing. The levels are generated as a list of floats that are appropriate for visualizing the variable effectively, allowing for clear differentiation of values in MPAS diagnostic plots while maintaining a consistent visual style for variables without specific styling rules.
+
+        Parameters:
+            data_min (float): The minimum data value, used to determine the starting point for contour levels.
+            data_max (float): The maximum data value, used to determine the ending point for contour levels.
+            data_range (float): The range of the data, used to calculate the step size for evenly-spaced levels.
+
+        Returns:
+            Tuple[str, List[float]]: A tuple containing the colormap name and a list of contour levels appropriate for the data range.
+
+        """
+        if data_min < 0 and data_max > 0:
+            colormap = 'RdBu_r'
+        elif data_min >= 0:
+            colormap = 'viridis'
+        else:
+            colormap = 'plasma'
+        n_levels = 10
+        step = data_range / n_levels
+        levels = [data_min + i * step for i in range(n_levels + 1)]
+        return colormap, levels
+
+    @staticmethod
+    def get_variable_specific_settings(var_name: str,
                                        data: np.ndarray) -> Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]:
         """
-        This method determines variable-specific colormap and contour levels based on the variable name and its data characteristics. It uses pattern matching on the variable name to identify common meteorological variables (e.g., temperature, precipitation, pressure, wind speed) and applies heuristic rules to select appropriate colormaps and contour levels for each variable type. For temperature variables, it uses a diverging colormap and selects levels based on the data range with finer spacing for smaller ranges. For precipitation variables, it detects accumulation periods from the variable name and applies the create_precip_colormap method to obtain specialized colormaps and levels. For pressure and wind speed variables, it selects colormaps that enhance contrast and chooses levels based on typical value ranges for those variables. If the variable name does not match any specific patterns, it defaults to a general colormap and generates levels based on the data range. The method also includes safeguards to handle cases where the data may be invalid or where the computed range is too narrow to generate meaningful levels. The resulting colormap and levels can be directly used in plotting functions to visualize the variable with appropriate styling based on its characteristics. 
+        This method determines the appropriate colormap and contour levels for a given variable name and its associated data array. It uses pattern matching on the variable name to identify common meteorological variable types (e.g., temperature, precipitation, pressure, wind speed, geopotential height, humidity) and applies specific rules for selecting colormaps and generating contour levels based on the data characteristics. For example, it may use a diverging colormap for temperature variables and a specialized precipitation colormap for precipitation variables, while also adjusting the contour levels based on the data range and distribution. If the variable name does not match any specific patterns, it falls back to a default colormap and generates levels based on the data range. The method returns a tuple containing the selected colormap (either as a string name or a ListedColormap object) and a list of contour levels that are appropriate for visualizing the variable effectively in MPAS diagnostic plots.
 
         Parameters:
             var_name (str): The variable name, used for determining specific styling rules based on common meteorological variable patterns (case-insensitive).
@@ -316,142 +519,45 @@ class MPASVisualizationStyle:
             Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]: A tuple containing the selected colormap (either as a string name or a ListedColormap object) and a list of contour levels appropriate for the variable and its data characteristics. The levels may be None if they could not be generated due to invalid data or insufficient range. 
         """
         var_lower = var_name.lower().strip()
-        
+
         if isinstance(data, xr.DataArray):
             data_values = data.values.flatten()
         else:
             data_values = np.asarray(data).flatten()
-            
+
         valid_data = data_values[np.isfinite(data_values)]
+        
         if len(valid_data) == 0:
             return 'viridis', None
-            
-        data_min, data_max = np.min(valid_data), np.max(valid_data)
-        data_range = data_max - data_min
-        
-        if any(temp_key in var_lower for temp_key in ['temp', 't2m', 'temperature', 'sst']):
-            colormap = 'RdYlBu_r'
-            
-            if data_range > 40:  
-                step = 5
-                levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            elif data_range > 20:  
-                step = 2
-                levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            else:  
-                step = 1
-                levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            
-            levels = [level for level in levels if data_min <= level <= data_max]
-            
-            return colormap, levels
-            
-        elif any(precip_key in var_lower for precip_key in ['precip', 'rain', 'snow', 'qpf']):
-            if any(period in var_lower for period in ['01h', '1h', 'hourly']):
-                accum_period = 'a01h'
-            elif any(period in var_lower for period in ['03h', '3h']):
-                accum_period = 'a03h'
-            elif any(period in var_lower for period in ['06h', '6h']):
-                accum_period = 'a06h'
-            elif any(period in var_lower for period in ['12h']):
-                accum_period = 'a12h'
-            elif any(period in var_lower for period in ['24h', 'daily']):
-                accum_period = 'a24h'
-            else:
-                accum_period = 'a24h'
-            
-            cmap, levels = MPASVisualizationStyle.create_precip_colormap(accum_period)
-            
-            if data_max > 0:
-                levels = [level for level in levels if level <= data_max * 1.2]
-            
-            return cmap, levels
-            
-        elif any(press_key in var_lower for press_key in ['pressure', 'slp', 'mslp', 'pres']):
-            colormap = 'RdBu_r'
-            
-            if 'slp' in var_lower or 'mslp' in var_lower:
-                if data_range > 100:  
-                    step = 500  
-                else:  
-                    step = 5
-            else:
-                if data_range > 1000:
-                    step = max(100, int(data_range / 20))
-                else:
-                    step = max(10, int(data_range / 15))
-            
-            levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            levels = [level for level in levels if data_min <= level <= data_max]
-            
-            return colormap, levels
-            
-        elif any(wind_key in var_lower for wind_key in ['wind', 'wspd', 'speed']):
-            colormap = 'plasma'
-            
-            if data_max < 3: 
-                levels = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
-            elif data_max < 15:  
-                levels = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
-            elif data_max < 30: 
-                levels = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
-            else:  
-                levels = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
-            
-            levels = [level for level in levels if level <= data_max * 1.1]
-            
-            return colormap, levels
-            
-        elif any(geop_key in var_lower for geop_key in ['geopotential', 'height', 'hgt', 'z']):
-            colormap = 'terrain'
-            
-            height_range = data_max - data_min
-            if height_range > 1000:  
-                step = 60 if height_range > 2000 else 30
-                levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            else: 
-                step = 20 if height_range > 200 else 10
-                levels = [float(x) for x in range(int(data_min//step)*step, int(data_max//step)*step + step*2, step)]
-            
-            levels = [level for level in levels if data_min <= level <= data_max]
-            
-            return colormap, levels
-            
-        elif any(humid_key in var_lower for humid_key in ['humidity', 'rh', 'q', 'mixing']):
-            colormap = 'BuGn'
-            
-            if data_max <= 1.1:  
-                if 'rh' in var_lower or 'humidity' in var_lower:
-                    levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-                else:  
-                    levels = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
-            else:  
-                levels = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-            
-            levels = [level for level in levels if data_min <= level <= data_max]
-            
-            return colormap, levels
-            
-        else:
-            if data_min < 0 and data_max > 0:
-                colormap = 'RdBu_r'
-            elif data_min >= 0:
-                colormap = 'viridis'
-            else:
-                colormap = 'plasma'
-            
-            n_levels = 10
-            step = data_range / n_levels
 
-            levels = [data_min + i * step for i in range(n_levels + 1)]
-            
-            return colormap, levels
-    
+        data_min, data_max = float(np.min(valid_data)), float(np.max(valid_data))
+        data_range = data_max - data_min
+
+        if any(k in var_lower for k in ['temp', 't2m', 'temperature', 'sst']):
+            return MPASVisualizationStyle._levels_for_temperature(data_min, data_max, data_range)
+
+        if any(k in var_lower for k in ['precip', 'rain', 'snow', 'qpf']):
+            return MPASVisualizationStyle._levels_for_precipitation(var_lower, data_max)
+
+        if any(k in var_lower for k in ['pressure', 'slp', 'mslp', 'pres']):
+            return MPASVisualizationStyle._levels_for_pressure(var_lower, data_min, data_max, data_range)
+
+        if any(k in var_lower for k in ['wind', 'wspd', 'speed']):
+            return MPASVisualizationStyle._levels_for_wind(data_max)
+
+        if any(k in var_lower for k in ['geopotential', 'height', 'hgt', 'z']):
+            return MPASVisualizationStyle._levels_for_geopotential(data_min, data_max, data_range)
+
+        if any(k in var_lower for k in ['humidity', 'rh', 'q', 'mixing']):
+            return MPASVisualizationStyle._levels_for_humidity(var_lower, data_min, data_max)
+
+        return MPASVisualizationStyle._levels_default(data_min, data_max, data_range)
+
     @staticmethod
-    def setup_map_projection(lon_min: float, 
-                             lon_max: float, 
-                             lat_min: float, 
-                             lat_max: float, 
+    def setup_map_projection(lon_min: float,
+                             lon_max: float,
+                             lat_min: float,
+                             lat_max: float,
                              projection: str = 'PlateCarree') -> Tuple[ccrs.Projection, ccrs.PlateCarree]:
         """
         This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. It calculates the central longitude and latitude from the provided bounds to use as reference points for certain projections (e.g., Mercator, Lambert Conformal). The method supports multiple projection types, including 'PlateCarree', 'Mercator', and 'LambertConformal', and defaults to 'PlateCarree' if an unrecognized projection name is provided. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data). This setup allows for flexible visualization of MPAS diagnostics on different map projections while ensuring that the data is correctly transformed to match the chosen projection. 
@@ -629,6 +735,88 @@ class MPASVisualizationStyle:
         )
 
     @staticmethod
+    def _configure_horizontal_colorbar(cbar: Colorbar, 
+                                       label: Optional[str],
+                                       label_pos: str, 
+                                       tick_labelsize: int,
+                                       labelpad: float) -> None:
+        """
+        This internal method applies label and tick positioning for a horizontal colorbar based on the specified label position ('top' or 'bottom') and tick label size. It attempts to set the label position and tick positions according to the provided parameters, with error handling to ensure that if any issues arise (e.g., due to unsupported configurations), it falls back gracefully without crashing. The method also sets the colorbar label with the specified font size and padding, again with error handling to accommodate different versions of matplotlib or potential issues with label setting. This approach ensures that horizontal colorbars in MPAS diagnostic plots are styled consistently while maintaining robustness against potential configuration issues.
+
+        Parameters:
+            cbar (Colorbar): The Colorbar object to be configured.
+            label (str, optional): The text label for the colorbar. If None, no label will be set.
+            label_pos (str): The position of the colorbar label, either 'top' or 'bottom' for horizontal colorbars.
+            tick_labelsize (int): The font size for the colorbar tick labels, used to determine the label font size as well.
+            labelpad (float): The padding between the colorbar and its label in points.
+
+        Returns:
+            None: This method does not return any value; it modifies the provided Colorbar object in-place by setting the label and tick positions according to the specified parameters, with error handling to ensure robustness against potential issues.
+        """
+        try:
+            cbar.ax.xaxis.set_label_position(cast(Literal['top', 'bottom'], label_pos))
+            ticks_pos = 'bottom' if label_pos == 'top' else 'top'
+            cbar.ax.xaxis.set_ticks_position(ticks_pos)
+        except Exception:
+            pass
+        if label is not None:
+            try:
+                cbar.set_label(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
+            except Exception:
+                cbar.ax.set_xlabel(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
+
+    @staticmethod
+    def _configure_vertical_colorbar(cbar: Colorbar, 
+                                     label: Optional[str],
+                                     label_pos: str, 
+                                     tick_labelsize: int,
+                                     labelpad: float) -> None:
+        """
+        This internal method applies label and tick positioning for a vertical colorbar based on the specified label position ('left' or 'right') and tick label size. It attempts to set the label position and tick positions according to the provided parameters, with error handling to ensure that if any issues arise (e.g., due to unsupported configurations), it falls back gracefully without crashing. The method also sets the colorbar label with the specified font size and padding, again with error handling to accommodate different versions of matplotlib or potential issues with label setting. This approach ensures that vertical colorbars in MPAS diagnostic plots are styled consistently while maintaining robustness against potential configuration issues. 
+
+        Parameters:
+            cbar (Colorbar): The Colorbar object to be configured.
+            label (str, optional): The text label for the colorbar. If None, no label will be set.
+            label_pos (str): The position of the colorbar label, either 'left' or 'right' for vertical colorbars.
+            tick_labelsize (int): The font size for the colorbar tick labels, used to determine the label font size as well.
+            labelpad (float): The padding between the colorbar and its label in points.
+
+        Returns:
+            None: This method does not return any value; it modifies the provided Colorbar object in-place by setting the label and tick positions according to the specified parameters, with error handling to ensure robustness against potential issues.
+        """
+        try:
+            cbar.ax.yaxis.set_label_position(cast(Literal['left', 'right'], label_pos))
+            ticks_pos = 'left' if label_pos == 'right' else 'right'
+            cbar.ax.yaxis.set_ticks_position(ticks_pos)
+        except Exception:
+            pass
+        if label is not None:
+            try:
+                cbar.set_label(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
+            except Exception:
+                cbar.ax.set_ylabel(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
+
+    @staticmethod
+    def _apply_colorbar_formatter(cbar: Colorbar, 
+                                  fmt: Any) -> None:
+        """
+        This internal method applies a custom formatter to the colorbar tick labels based on the provided format specification. It attempts to set the colorbar's formatter using matplotlib's FormatStrFormatter if the provided format is a string, or directly if it is already a formatter object. The method includes error handling to ensure that if any issues arise while setting the formatter (e.g., due to incompatible types or matplotlib versions), it fails gracefully without crashing, allowing the colorbar to retain its default tick formatting. This approach ensures that users can customize the appearance of colorbar tick labels in MPAS diagnostic plots while maintaining robustness against potential configuration issues.
+
+        Parameters:
+            cbar (Colorbar): The Colorbar object to which the formatter will be applied.
+            fmt (str or Any): The format specification for the colorbar tick labels. This can be a string format (e.g., '%d' for integers) or a custom formatter object compatible with matplotlib's colorbar formatting.
+
+        Returns:
+            None: This method does not return any value; it modifies the provided Colorbar object in-place by setting the tick label formatter according to the specified format, with error handling to ensure robustness against potential issues. If the formatter cannot be applied, the colorbar will retain its default tick formatting without crashing the program.
+        """
+        import matplotlib.ticker as mticker
+        try:
+            cbar.formatter = mticker.FormatStrFormatter(fmt) if isinstance(fmt, str) else fmt
+            cbar.update_ticks()
+        except Exception:
+            pass
+
+    @staticmethod
     def add_colorbar(fig: Figure,
                      ax: Optional[Axes],
                      mappable: Union[ScalarMappable, QuadContourSet, PathCollection, QuadMesh, LineCollection, AxesImage, Any],
@@ -673,45 +861,16 @@ class MPASVisualizationStyle:
 
         # Set label and its position based on orientation
         if orientation.lower().startswith('h'):
-            try:
-                pos = cast(Literal['top', 'bottom'], label_pos)
-                cbar.ax.xaxis.set_label_position(pos)
-                ticks_pos = 'bottom' if pos == 'top' else 'top'
-                cbar.ax.xaxis.set_ticks_position(ticks_pos)
-            except Exception:
-                pass
-            if label is not None:
-                try:
-                    cbar.set_label(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
-                except Exception:
-                    cbar.ax.set_xlabel(label, fontsize=max(10, tick_labelsize), labelpad=labelpad)
+            MPASVisualizationStyle._configure_horizontal_colorbar(
+                cbar, label, label_pos, tick_labelsize, labelpad)
         else:
-            try:
-                pos = cast(Literal['left', 'right'], label_pos)
-                cbar.ax.yaxis.set_label_position(pos)
-                ticks_pos = 'left' if pos == 'right' else 'right'
-                cbar.ax.yaxis.set_ticks_position(ticks_pos)
-            except Exception:
-                pass
-            if label is not None:
-                try:
-                    cbar.set_label(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
-                except Exception:
-                    cbar.ax.set_ylabel(label, fontsize=max(8, tick_labelsize), labelpad=labelpad)
+            MPASVisualizationStyle._configure_vertical_colorbar(
+                cbar, label, label_pos, tick_labelsize, labelpad)
 
         cbar.ax.tick_params(labelsize=tick_labelsize)
 
-        # Apply formatter if provided
         if fmt is not None:
-            try:
-                if isinstance(fmt, str):
-                    cbar.formatter = mticker.FormatStrFormatter(fmt)
-                else:
-                    cbar.formatter = fmt
-                cbar.update_ticks()
-            except Exception:
-                # If formatting fails, leave default ticks
-                pass
+            MPASVisualizationStyle._apply_colorbar_formatter(cbar, fmt)
 
         return cbar
 
@@ -839,6 +998,53 @@ class MPASVisualizationStyle:
         return marker_size
 
     @staticmethod
+    def _choose_tick_fmt(t: np.ndarray, 
+                         non_zero_t: np.ndarray) -> str:
+        """
+        This internal method determines the appropriate format string for axis tick labels based on the range and distribution of tick values. It first checks if all ticks are close to integers, in which case it returns a format string with no decimal places. If there are non-zero ticks, it calculates the typical magnitude using the median of the absolute values of the non-zero ticks and selects a format string with an appropriate number of decimal places based on predefined thresholds (e.g., 1 decimal for values between 10 and 100, 2 decimals for values between 0.01 and 10, etc.). If there are no non-zero ticks, it defaults to integer formatting. This method helps ensure that tick labels are formatted in a way that is both informative and visually clean across a wide range of data values in MPAS diagnostic plots.
+
+        Parameters:
+            t (np.ndarray): The array of tick values.
+            non_zero_t (np.ndarray): The array of non-zero tick values.
+
+        Returns:
+            str: The format string for tick labels.
+        """
+        if np.allclose(t, np.round(t), atol=1e-6):
+            return '{:.0f}'
+
+        if len(non_zero_t) == 0:
+            return '{:.0f}'
+
+        typical_magnitude = float(np.median(np.abs(non_zero_t)))
+
+        if typical_magnitude >= 100:  return '{:.0f}'
+        if typical_magnitude >= 10:   return '{:.1f}'
+        if typical_magnitude >= 0.01: return '{:.2f}'
+
+        return '{:.3f}'
+
+    @staticmethod
+    def _resolve_duplicate_labels(fmt: str, 
+                                  ticks: List[float]) -> List[str]:
+        """
+        This method resolves duplicate tick labels by increasing the decimal precision of the format string. It defines a mapping of format strings to their next higher precision version (e.g., '{:.0f}' to '{:.1f}', '{:.1f}' to '{:.2f}', etc.) and applies this upgrade to the provided format string. It then formats the tick values with the upgraded format and checks for duplicates. If duplicates are still present, it falls back to a general format that preserves significant digits (using 'g' formatting) to ensure unique labels. This method is used internally by the dynamic tick formatting logic to ensure that axis tick labels are informative and distinct, even when the initial formatting results in duplicates due to rounding.
+
+        Parameters:
+            fmt (str): The initial format string used for tick labels (e.g., '{:.0f}', '{:.1f}', etc.) that may have resulted in duplicate labels.
+            ticks (List[float]): The list of tick values that are being formatted. This is used to check for duplicates after applying the upgraded format.
+
+        Returns:
+            List[str]: A list of formatted tick label strings with increased precision to resolve duplicates. If duplicates persist even after upgrading the format, it returns a list of labels formatted with 'g' to preserve significant digits and ensure uniqueness. This method helps maintain clarity in axis labeling by ensuring that each tick has a distinct label, even when the tick values are close together.
+        """
+        _next: Dict[str, str] = {'{:.0f}': '{:.1f}', '{:.1f}': '{:.2f}', '{:.2f}': '{:.3f}'}
+        upgraded = _next.get(fmt, fmt)
+        labels = [upgraded.format(x) for x in ticks]
+        if len(set(labels)) < len(labels):
+            labels = [f'{x:g}' for x in ticks]
+        return labels
+
+    @staticmethod
     def format_ticks_dynamic(ticks: List[float]) -> List[str]:
         """
         This method formats axis tick labels dynamically based on the range and distribution of tick values. It first checks for non-zero ticks to determine the maximum and minimum absolute values, which helps decide if scientific notation is needed for very large or small numbers. If the ticks are close to integers, it formats them with no decimal places. For other cases, it assesses the typical magnitude of the ticks to choose an appropriate number of decimal places (e.g., 1 decimal for values between 10 and 100, 2 decimals for values between 1 and 10, etc.). The method also checks for duplicate formatted labels and increases precision if necessary to ensure unique labels. If duplicates persist, it falls back to a general format that preserves significant digits. This adaptive formatting ensures that tick labels are both informative and visually clean across a wide range of data values in MPAS diagnostic plots. 
@@ -852,55 +1058,25 @@ class MPASVisualizationStyle:
         if not ticks:
             return []
 
-        t = np.array(ticks)        
-        non_zero_t = t[t != 0]  
+        t = np.array(ticks)
+        non_zero_t = t[t != 0]
 
         if len(non_zero_t) > 0:
             max_abs = np.max(np.abs(non_zero_t))
             min_abs = np.min(np.abs(non_zero_t))
-            
             if max_abs >= 1e4 or min_abs < 1e-3:
                 return [f'{x:.1e}' for x in ticks]
-        
+
         if len(t) > 1:
             spacings = np.abs(np.diff(np.sort(t)))
             median_spacing = float(np.median(spacings[spacings > 0])) if np.any(spacings > 0) else 0.0
         else:
             median_spacing = 0.0
 
-        if np.allclose(t, np.round(t), atol=1e-6):
-            fmt = '{:.0f}'
-        elif len(non_zero_t) > 0:
-            typical_magnitude = float(np.median(np.abs(non_zero_t)))
-            if typical_magnitude >= 100:
-                fmt = '{:.0f}'
-            elif 10 <= typical_magnitude < 100:
-                fmt = '{:.1f}'
-            elif 1 <= typical_magnitude < 10:
-                fmt = '{:.2f}'
-            elif 0.1 <= typical_magnitude < 1:
-                fmt = '{:.2f}'  
-            elif 0.01 <= typical_magnitude < 0.1:
-                fmt = '{:.2f}'  
-            elif typical_magnitude <= 0.01:
-                fmt = '{:.3f}'
-            else:
-                fmt = '{:.2f}'
-        else:
-            fmt = '{:.0f}'
-
+        fmt = MPASVisualizationStyle._choose_tick_fmt(t, non_zero_t)
         formatted_labels = [fmt.format(x) for x in ticks]
-        
+
         if len(set(formatted_labels)) < len(formatted_labels):
-            if fmt == '{:.0f}':
-                fmt = '{:.1f}'
-            elif fmt == '{:.1f}':
-                fmt = '{:.2f}'
-            elif fmt == '{:.2f}':
-                fmt = '{:.3f}'
-            formatted_labels = [fmt.format(x) for x in ticks]
-            
-            if len(set(formatted_labels)) < len(formatted_labels):
-                formatted_labels = [f'{x:g}' for x in ticks]
-        
+            formatted_labels = MPASVisualizationStyle._resolve_duplicate_labels(fmt, ticks)
+
         return formatted_labels

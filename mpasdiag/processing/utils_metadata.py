@@ -17,6 +17,7 @@ import xarray as xr
 from typing import Optional, Dict, Any, Union, List, Tuple
 
 from mpasdiag.processing.utils_unit import UnitConverter
+
 from .constants import (
     M2_PER_S2, MM, DBZ, KELVIN, M_PER_S, PA, PERCENT,
     METER, M2_PER_S, KG_PER_KG, KG_PER_M3, MICRONS, PER_KG,
@@ -27,6 +28,8 @@ from .constants import (
 class MPASFileMetadata:
     """ Metadata management class for MPAS variable attributes and data processing parameters with centralized registry of variable properties. """
     
+    _3D_NOT_IMPLEMENTED = "3D variable support not yet implemented"
+
     @staticmethod
     def get_variable_metadata(var_name: str, 
                               data_array: Optional[xr.DataArray] = None, 
@@ -831,7 +834,7 @@ class MPASFileMetadata:
         Returns:
             dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 3D visualization. 
         """
-        raise NotImplementedError("3D variable support not yet implemented")
+        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
     
     @staticmethod
     def get_3d_colormap_and_levels(var_name: str, 
@@ -848,7 +851,7 @@ class MPASFileMetadata:
         Returns:
             Tuple[str, Optional[List[float]]]: Tuple containing colormap name and list of contour levels for 3D variable visualization. 
         """
-        raise NotImplementedError("3D variable support not yet implemented")
+        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
     
     @staticmethod
     def plot_3d_variable_slice(data_array: xr.DataArray, 
@@ -869,7 +872,7 @@ class MPASFileMetadata:
         Returns:
             Any: Visualization object (e.g., matplotlib figure or axis) containing the plotted 3D variable slice. 
         """
-        raise NotImplementedError("3D variable support not yet implemented")
+        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
     
     @staticmethod
     def get_available_variables() -> List[str]:

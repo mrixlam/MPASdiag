@@ -312,7 +312,96 @@ class MPASResultCollector:
 
 class MPASParallelManager:
     """ Manages parallel processing of tasks across multiple CPU cores using MPI or multiprocessing backends, with support for load balancing and error handling policies. """
-    
+
+    def _setup_multiprocessing_backend(self: 'MPASParallelManager') -> None:
+        """
+        This method configures the MPASParallelManager instance for parallel execution using Python's multiprocessing module. It sets the backend to 'multiprocessing', determines the number of worker processes to use based on the number of CPU cores (defaulting to one less than the total cores), and initializes attributes related to multiprocessing execution. The method ensures that the parallel manager is ready to execute tasks in parallel using multiprocessing, while also setting up the necessary state for managing task distribution and result collection within a shared-memory environment.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        self.backend = 'multiprocessing'
+        self.rank = 0
+        self.size = self.n_workers or max(1, cpu_count() - 1)
+        self.is_master = True
+        self.comm = None
+        self.distributor = None
+        self.collector = None
+
+    def _setup_serial_backend(self: 'MPASParallelManager') -> None:
+        """
+        This method configures the MPASParallelManager instance for serial execution without parallelization. It sets the backend to 'serial' and initializes attributes to reflect a single-process execution environment. This setup is used when neither MPI nor multiprocessing is available or when the user explicitly chooses to run in serial mode. The method ensures that the parallel manager can still execute tasks sequentially while maintaining a consistent interface for task execution and result handling, albeit without any parallel performance benefits.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        self.backend = 'serial'
+        self.comm = None
+        self.rank = 0
+        self.size = 1
+        self.is_master = True
+        self.distributor = None
+        self.collector = None
+
+    def _setup_mpi_backend(self: 'MPASParallelManager',
+                           load_balance_strategy: Union[str, 'LoadBalanceStrategy'],) -> None:
+        """
+        This method configures the MPASParallelManager instance for parallel execution using MPI. It initializes the MPI communicator, retrieves the rank and size of the MPI processes, and sets up the task distributor and result collector based on the selected load balancing strategy. The method ensures that the parallel manager is ready to execute tasks in parallel across multiple MPI processes, with appropriate handling for task distribution and result collection in a distributed computing environment. If MPI initialization fails, it falls back to configuring the multiprocessing backend. 
+
+        Parameters:
+            load_balance_strategy (Union[str, LoadBalanceStrategy]): The strategy to use for load balancing tasks across MPI processes.
+
+        Returns:
+            None
+        """
+        try:
+            assert MPI_AVAILABLE and MPI is not None, "MPI not available"
+            self.comm = MPI.COMM_WORLD
+            self.rank = self.comm.Get_rank()
+            self.size = self.comm.Get_size()
+
+            if self.size > 1:
+                self.backend = 'mpi'
+                self.is_master = (self.rank == 0)
+
+                if isinstance(load_balance_strategy, str):
+                    load_balance_strategy = LoadBalanceStrategy(load_balance_strategy)
+
+                self.distributor = MPASTaskDistributor(self.comm, load_balance_strategy)
+                self.collector = MPASResultCollector(self.comm)
+            else:
+                self._setup_multiprocessing_backend()
+        except Exception as e:
+            if self.verbose:
+                print(f"MPI initialization failed: {e}")
+                print("Falling back to multiprocessing backend")
+            self._setup_multiprocessing_backend()
+
+    def _log_backend_initialized(self: 'MPASParallelManager') -> None:
+        """
+        This method logs information about the initialized parallel backend and the number of workers or processes being used. It provides feedback to the user about the parallel execution environment that has been set up, including whether MPI or multiprocessing is being used and how many workers are available for processing tasks. This logging is helpful for debugging and performance monitoring, allowing users to confirm that the parallel manager is configured as expected before executing tasks in parallel.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        if self.is_master and self.verbose:
+            if self.backend == 'mpi':
+                print(f"MPASParallelManager initialized in MPI mode with {self.size} processes")
+            elif self.backend == 'multiprocessing':
+                print(f"MPASParallelManager initialized in multiprocessing mode with {self.size} workers")
+            else:
+                print("MPASParallelManager initialized in serial mode")
+
+
     def __init__(self: 'MPASParallelManager', 
                  load_balance_strategy: Union[str, LoadBalanceStrategy] = "dynamic", 
                  verbose: bool = True, 
@@ -334,69 +423,17 @@ class MPASParallelManager:
         self.error_policy = ErrorPolicy.COLLECT
         self.backend = backend
         self.n_workers = n_workers
-        
+
         if backend == 'mpi' or (backend is None and MPI_AVAILABLE):
-            try:
-                assert MPI_AVAILABLE and MPI is not None, "MPI not available"
-                self.comm = MPI.COMM_WORLD
-                self.rank = self.comm.Get_rank()
-                self.size = self.comm.Get_size()
-                
-                if self.size > 1:
-                    self.backend = 'mpi'
-                    self.is_master = (self.rank == 0)
-                    
-                    if isinstance(load_balance_strategy, str):
-                        load_balance_strategy = LoadBalanceStrategy(load_balance_strategy)
-                    
-                    self.distributor = MPASTaskDistributor(self.comm, load_balance_strategy)
-                    self.collector = MPASResultCollector(self.comm)
-                else:
-                    self.backend = 'multiprocessing'
-                    self.rank = 0
-                    self.size = n_workers or max(1, cpu_count() - 1)
-                    self.is_master = True
-                    self.comm = None
-                    self.distributor = None
-                    self.collector = None
-            except Exception as e:
-                if verbose:
-                    print(f"MPI initialization failed: {e}")
-                    print("Falling back to multiprocessing backend")
-                self.backend = 'multiprocessing'
-                self.rank = 0
-                self.size = n_workers or max(1, cpu_count() - 1)
-                self.is_master = True
-                self.comm = None
-                self.distributor = None
-                self.collector = None
+            self._setup_mpi_backend(load_balance_strategy)
         elif backend == 'multiprocessing' or (backend is None and not MPI_AVAILABLE):
-            self.backend = 'multiprocessing'
-            self.rank = 0
-            self.size = n_workers or max(1, cpu_count() - 1)
-            self.is_master = True
-            self.comm = None
-            self.distributor = None
-            self.collector = None
+            self._setup_multiprocessing_backend()
         else:
-            self.backend = 'serial'
-            self.comm = None
-            self.rank = 0
-            self.size = 1
-            self.is_master = True
-            self.distributor = None
-            self.collector = None
-        
+            self._setup_serial_backend()
+
         self.stats = None
-        
-        if self.is_master and self.verbose:
-            if self.backend == 'mpi':
-                print(f"MPASParallelManager initialized in MPI mode with {self.size} processes")
-            elif self.backend == 'multiprocessing':
-                print(f"MPASParallelManager initialized in multiprocessing mode with {self.size} workers")
-            else:
-                print("MPASParallelManager initialized in serial mode")
-    
+        self._log_backend_initialized()
+
     def set_error_policy(self: 'MPASParallelManager', 
                          policy: Union[str, ErrorPolicy]) -> None:
         """
@@ -478,7 +515,77 @@ class MPASParallelManager:
             return all_results
         
         return None
-    
+
+    @staticmethod
+    def _get_mp_context_methods() -> List[str]:
+        """
+        This static method determines the available multiprocessing context methods based on the operating system. It returns a list of context method names that can be used for creating multiprocessing pools. On Windows and macOS, only the 'spawn' method is available, while on other platforms (e.g., Linux), both 'fork' and 'spawn' methods are typically available. This method is used to ensure compatibility with the multiprocessing module across different platforms and to provide fallback options in case one method fails.
+
+        Parameters:
+            None
+
+        Returns:
+            List[str]: A list of multiprocessing context method names to try when creating a multiprocessing pool. 
+        """
+        if sys.platform in ('win32', 'darwin'):
+            return ['spawn']
+        return ['fork', 'spawn']
+
+    def _run_pool_with_fallback(self: 'MPASParallelManager',
+                                task_args: List[Any],) -> List[TaskResult]:
+        """
+        This method attempts to execute the provided task arguments in parallel using a multiprocessing pool. It tries different multiprocessing start methods (fork, spawn) based on the operating system and available options. If multiprocessing fails for any reason (e.g., due to platform limitations or errors in task execution), it falls back to executing the tasks serially. The method ensures that all tasks are executed and that results are collected regardless of the success of multiprocessing, providing robustness in environments where multiprocessing may not be fully supported.
+
+        Parameters:
+            task_args (List[Any]): A list of arguments to be passed to the task wrapper function for each task. Each element in the list should be a tuple containing the necessary information for executing a single task, such as task ID, task data, function to execute, error handling policy, and any additional arguments.
+
+        Returns:
+            List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. The results are returned in the same order as the input task arguments, regardless of whether multiprocessing was successful or if the method had to fall back to serial execution.
+        """
+        ctx_methods = self._get_mp_context_methods()
+
+        for ctx_method in ctx_methods:
+            try:
+                ctx = get_context(ctx_method)
+                with ctx.Pool(processes=self.size) as pool:
+                    return pool.map(_multiprocessing_task_wrapper, task_args)
+            except Exception as e:
+                if self.verbose:
+                    print(f"Multiprocessing with '{ctx_method}' failed: {e}")
+                    if ctx_method != ctx_methods[-1]:
+                        print("Trying next method...")
+                    else:
+                        print("Falling back to serial execution")
+
+        return [_multiprocessing_task_wrapper(args) for args in task_args]
+
+    def _print_mp_statistics(self: 'MPASParallelManager',
+                             stats: 'ParallelStats',
+                             wall_time: float,) -> None:
+        """
+        This method prints detailed statistics about the parallel execution when using the multiprocessing backend. It displays the total number of tasks, how many were completed successfully, how many failed, the success rate, total CPU time spent on all tasks, wall clock time for the entire execution, and the speedup achieved compared to serial execution. This information is crucial for evaluating the performance of the multiprocessing approach and understanding the efficiency of task execution across multiple CPU cores. The statistics help identify any bottlenecks or issues in the parallel processing workflow and provide insights for potential optimizations.
+
+        Parameters:
+            stats (ParallelStats): An object containing aggregated statistics on task execution performance, including total tasks, completed tasks, failed tasks, total execution time, and load imbalance metrics.
+            wall_time (float): The total wall clock time taken for the entire parallel execution.
+
+        Returns:
+            None
+        """
+        print(f"\n{'='*60}")
+        print("PARALLEL EXECUTION STATISTICS")
+        print(f"{'='*60}")
+        print(f"Total tasks:       {stats.total_tasks}")
+        print(f"Completed:         {stats.completed_tasks}")
+        print(f"Failed:            {stats.failed_tasks}")
+        if stats.total_tasks > 0:
+            print(f"Success rate:      {100*stats.completed_tasks/stats.total_tasks:.1f}%")
+        print(f"Total time:        {stats.total_time:.2f} seconds")
+        print(f"Wall time:         {wall_time:.2f} seconds")
+        if wall_time > 0:
+            print(f"Speedup:           {stats.total_time/wall_time:.2f}x")
+        print(f"{'='*60}\n")
+
     def _multiprocessing_map(self: 'MPASParallelManager', 
                              func: Callable, 
                              tasks: List[Any], 
@@ -500,67 +607,26 @@ class MPASParallelManager:
             print(f"\nProcessing {len(tasks)} tasks across {self.size} workers...")
             print("Backend: Python multiprocessing")
             print(f"Error policy: {self.error_policy.value}")
-        
-        start_time = time.time()        
+
+        start_time = time.time()
 
         task_args = [
             (i, task, func, self.error_policy.value, args, kwargs)
             for i, task in enumerate(tasks)
-        ]        
+        ]
 
-        results = None
-        
-        if sys.platform == 'win32':
-            ctx_methods = ['spawn']
-        elif sys.platform == 'darwin':
-            ctx_methods = ['spawn']
-        else:
-            ctx_methods = ['fork', 'spawn']
-        
-        for ctx_method in ctx_methods:
-            try:
-                ctx = get_context(ctx_method)
-                with ctx.Pool(processes=self.size) as pool:
-                    results = pool.map(_multiprocessing_task_wrapper, task_args)
-                break 
-                
-            except Exception as e:
-                if self.verbose:
-                    print(f"Multiprocessing with '{ctx_method}' failed: {e}")
-                    if ctx_method != ctx_methods[-1]:
-                        print("Trying next method...")
-                    else:
-                        print("Falling back to serial execution")
-                
-                if ctx_method == ctx_methods[-1]:
-                    results = [_multiprocessing_task_wrapper(args) for args in task_args]
-        
-        if results is None:
-            results = [_multiprocessing_task_wrapper(args) for args in task_args]
-        
+        results = self._run_pool_with_fallback(task_args)
+
         stats = ParallelStats()
         stats.total_tasks = len(results)
         stats.completed_tasks = sum(1 for r in results if r.success)
         stats.failed_tasks = sum(1 for r in results if not r.success)
         stats.total_time = sum(r.execution_time for r in results)
         self.stats = stats
-        
+
         if self.verbose:
-            wall_time = time.time() - start_time
-            print(f"\n{'='*60}")
-            print("PARALLEL EXECUTION STATISTICS")
-            print(f"{'='*60}")
-            print(f"Total tasks:       {stats.total_tasks}")
-            print(f"Completed:         {stats.completed_tasks}")
-            print(f"Failed:            {stats.failed_tasks}")
-            if stats.total_tasks > 0:
-                print(f"Success rate:      {100*stats.completed_tasks/stats.total_tasks:.1f}%")
-            print(f"Total time:        {stats.total_time:.2f} seconds")
-            print(f"Wall time:         {wall_time:.2f} seconds")
-            if wall_time > 0:
-                print(f"Speedup:           {stats.total_time/wall_time:.2f}x")
-            print(f"{'='*60}\n")
-        
+            self._print_mp_statistics(stats, time.time() - start_time)
+
         return results
     
     def _execute_local_tasks(self: 'MPASParallelManager', 

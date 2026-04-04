@@ -57,7 +57,15 @@ class TestPrecipitationDiagnostics:
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         diag = PrecipitationDiagnostics(verbose=True)
 
-        assert diag is not None
+        public_methods = [method for method in dir(diag) if not method.startswith('_')]
+
+        expected_methods = [
+            'compute_precipitation_difference', 
+            'get_accumulation_hours'            
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in PrecipitationDiagnostics"
         assert diag.verbose is True
     
     def test_compute_total_precipitation(self: "TestPrecipitationDiagnostics", mock_mpas_2d_data: Any) -> None:
@@ -99,7 +107,16 @@ class TestPrecipitationDiagnostics:
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         diag = PrecipitationDiagnostics(verbose=False)
         
-        assert diag is not None
+        public_methods = [method for method in dir(diag) if not method.startswith('_')]
+
+        expected_methods = [
+            'compute_precipitation_difference',
+            'get_accumulation_hours'
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in PrecipitationDiagnostics"
+
         assert diag.verbose is False
     
     def test_analyze_precipitation_statistics(self: "TestPrecipitationDiagnostics", mock_mpas_2d_data: Any) -> None:
@@ -229,9 +246,17 @@ class TestPrecipitationDiagnosticsActual:
         Returns:
             None: Assertions verify presence of the class and its constructor.
         """
-        assert PrecipitationDiagnostics is not None
         assert hasattr(PrecipitationDiagnostics, '__init__')
+        public_methods = [method for method in dir(PrecipitationDiagnostics) if not method.startswith('_')]
+
+        expected_methods = [
+            'compute_precipitation_difference', 
+            'get_accumulation_hours'            
+        ]
     
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in PrecipitationDiagnostics"    
+            
     def test_precipitation_has_methods(self: "TestPrecipitationDiagnosticsActual") -> None:
         """
         This test checks for the presence of expected methods in the `PrecipitationDiagnostics` class. It verifies that the class has an `__init__` method and can be instantiated. This serves as a basic check to ensure that the class has the expected API surface and that it can be used to create diagnostic objects. It is a simple test to confirm that the class definition includes the necessary components for initialization.

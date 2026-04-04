@@ -57,7 +57,18 @@ class TestWindDiagnostics:
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
         diag = WindDiagnostics(verbose=True)
-        assert diag is not None
+        public_methods = [method for method in dir(diag) if not method.startswith('_')]
+
+        expected_methods = [
+            'analyze_wind_components',
+            'compute_wind_direction',
+            'compute_wind_shear',
+            'compute_wind_speed',
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods, f"Expected method '{method}' not found in WindDiagnostics."
+
         assert diag.verbose is True
     
     def test_compute_wind_speed(self: "TestWindDiagnostics", mock_mpas_2d_data) -> None:

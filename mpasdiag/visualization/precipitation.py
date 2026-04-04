@@ -45,7 +45,9 @@ warnings.filterwarnings('ignore', category=RuntimeWarning, module='shapely')
 
 class MPASPrecipitationPlotter(MPASVisualizer):
     """ Specialized plotter for creating professional cartographic visualizations of MPAS precipitation fields with support for multiple accumulation periods, automatic unit conversion, and flexible rendering options. """
-    
+
+    _GEOAXES_MSG = "Axes must be GeoAxes for cartopy plots"
+
     def __init__(self: "MPASPrecipitationPlotter", 
                  figsize: Tuple[float, float] = (10, 14), 
                  dpi: int = 100) -> None:
@@ -72,6 +74,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Returns:
             Tuple[mcolors.ListedColormap, List[float]]: A tuple containing the created discrete colormap and a sorted list of contour level values suitable for precipitation plotting. 
         """
+        # Delegate to MPASVisualizationStyle to create a discrete colormap and contour levels based on the specified accumulation period
         return MPASVisualizationStyle.create_precip_colormap(accum)
     
     def _convert_precipitation_units(self: "MPASPrecipitationPlotter",
@@ -163,7 +166,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         self.ax = plt.axes(projection=map_proj)
 
         # Assert ax is created and of correct type for cartopy plotting before adding features
-        assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
+        assert isinstance(self.ax, GeoAxes), self._GEOAXES_MSG
         
         # Determine if the map is global based on extent to handle dateline issues appropriately
         is_global = (lon_max - lon_min) >= 359.0 and (lat_max - lat_min) >= 179.0
@@ -328,7 +331,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             None
         """
         # Assert ax is created and of correct type for cartopy plotting before adding annotation
-        assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
+        assert isinstance(self.ax, GeoAxes), self._GEOAXES_MSG
 
         # Determine annotation text based on provided time information and accumulation period
         if time_end is not None:
@@ -426,7 +429,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Assert fig and ax are created and of correct type for cartopy plotting
         assert self.fig is not None, "Figure must be created by _setup_precipitation_figure"
         assert self.ax is not None, "Axes must be created by _setup_precipitation_figure"
-        assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
+        assert isinstance(self.ax, GeoAxes), self._GEOAXES_MSG
         
         # Prepare colormap, contour levels, and normalization for precipitation visualization
         cmap, norm, color_levels_sorted = self._prepare_precipitation_colormap(

@@ -90,9 +90,66 @@ class MPASDateTimeUtils:
         return time_dim, time_index, time_size
 
     @staticmethod
-    def get_time_info(dataset: xr.Dataset, 
-                      time_index: int, 
-                      var_context: str = "", 
+    def _extract_time_str(dataset: xr.Dataset, 
+                          time_index: int) -> Optional[str]:
+        """
+        This internal method attempts to extract a formatted time string from the dataset's 'Time' coordinate at the specified time index. It checks for the presence of the 'Time' coordinate and retrieves the corresponding time value at the given index. If the time value can be successfully parsed as a datetime object, it formats it into a string representation (e.g., 'YYYYMMDDTHH') suitable for use in filenames and labels. If the time coordinate is not available or if parsing fails, it returns None to indicate that time information could not be extracted. This method is designed to be used internally by the get_time_info method to provide a consistent approach to extracting and formatting time information from the dataset while handling potential issues gracefully.
+
+        Parameters:
+            dataset (xr.Dataset): MPAS dataset containing 'Time' coordinate for extraction.
+            time_index (int): Zero-based index into the time dimension to extract time information from.
+
+        Returns:
+            Optional[str]: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or None if time coordinate is not available or parsing fails.
+        """
+        if not (hasattr(dataset, 'Time') and len(dataset.Time) > time_index):
+            return None
+
+        time_value = dataset.Time.values[time_index]
+
+        if hasattr(time_value, 'strftime'):
+            return time_value.strftime('%Y%m%dT%H')
+
+        return pd.to_datetime(time_value).strftime('%Y%m%dT%H')
+
+    @staticmethod
+    def _log_time_info(verbose: bool, 
+                       time_index: int, 
+                       time_str: Optional[str],
+                       var_context: str, 
+                       error: Optional[Exception] = None) -> None:
+        """
+        This internal method logs time information to the console based on the provided parameters. If verbose mode is enabled, it outputs the time index and the corresponding formatted time string if available. If the time string is not available due to missing coordinates or parsing errors, it logs a warning message indicating that the time index is being used without specific time information, along with any relevant context about the variable being processed. This method centralizes the logic for logging time-related information and warnings, ensuring consistent messaging across different parts of the code that handle time extraction and formatting.
+
+        Parameters:
+            verbose (bool): Enable verbose output for time information.
+            time_index (int): Zero-based index into the time dimension.
+            time_str (Optional[str]): Formatted time string extracted from dataset, or None if unavailable.
+            var_context (str): Optional context string describing the variable or processing step.
+            error (Optional[Exception]): Optional exception encountered during time extraction.
+
+        Returns:
+            None
+        """
+        if not verbose:
+            return
+
+        if time_str is not None:
+            ctx = f" (using variable: {var_context})" if var_context else ""
+            print(f"Time index {time_index} corresponds to: {time_str}{ctx}")
+        elif error is not None:
+            ctx = (f" (could not parse time: {error}, using variable: {var_context})"
+                   if var_context else f" (could not parse time: {error})")
+            print(f"Using time index {time_index}{ctx}")
+        else:
+            ctx = (f" (time coordinate not available, using variable: {var_context})"
+                   if var_context else " (time coordinate not available)")
+            print(f"Using time index {time_index}{ctx}")
+
+    @staticmethod
+    def get_time_info(dataset: xr.Dataset,
+                      time_index: int,
+                      var_context: str = "",
                       verbose: bool = True) -> str:
         """
         This method retrieves and formats time information from the dataset for a specific time index to be used in labeling and filenames. It checks for the presence of a 'Time' coordinate and attempts to extract the corresponding time value at the specified index. If the time value can be successfully parsed as a datetime object, it formats it into a string representation (e.g., 'YYYYMMDDTHH') suitable for use in filenames and labels. If the time coordinate is not available or if parsing fails, it falls back to returning a string in the format 'time_{index}' to ensure that some form of time information is always provided. The method also provides verbose output to inform users about the extracted time information or any issues encountered during extraction and parsing, including the context of the variable being processed if provided. This utility helps maintain consistent and informative labeling of outputs based on temporal information, even in cases where time data may be missing or malformed. 
@@ -107,28 +164,11 @@ class MPASDateTimeUtils:
             str: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or fallback string 'time_{index}' if time coordinate is not available or parsing fails. 
         """
         try:
-            if hasattr(dataset, 'Time') and len(dataset.Time) > time_index:
-                time_value = dataset.Time.values[time_index]
-                if hasattr(time_value, 'strftime'):
-                    time_str = time_value.strftime('%Y%m%dT%H')
-                else:
-                    time_dt = pd.to_datetime(time_value)
-                    time_str = time_dt.strftime('%Y%m%dT%H')
-                
-                if verbose:
-                    context_msg = f" (using variable: {var_context})" if var_context else ""
-                    print(f"Time index {time_index} corresponds to: {time_str}{context_msg}")
-                
-                return time_str
-            else:
-                if verbose:
-                    context_msg = f" (time coordinate not available, using variable: {var_context})" if var_context else " (time coordinate not available)"
-                    print(f"Using time index {time_index}{context_msg}")
-                return f"time_{time_index}"
+            time_str = MPASDateTimeUtils._extract_time_str(dataset, time_index)
+            MPASDateTimeUtils._log_time_info(verbose, time_index, time_str, var_context)
+            return time_str if time_str is not None else f"time_{time_index}"
         except Exception as e:
-            if verbose:
-                context_msg = f" (could not parse time: {e}, using variable: {var_context})" if var_context else f" (could not parse time: {e})"
-                print(f"Using time index {time_index}{context_msg}")
+            MPASDateTimeUtils._log_time_info(verbose, time_index, None, var_context, error=e)
             return f"time_{time_index}"
 
     @staticmethod

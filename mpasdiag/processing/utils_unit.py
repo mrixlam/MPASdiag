@@ -14,7 +14,7 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import Union, Tuple, Dict, Any
+from typing import Union, Tuple, Dict, Any, Optional
 
 from .constants import (
     MM_PER_HR, MM_PER_DAY, DBZ, KELVIN, M_PER_S, PA, PERCENT,
@@ -182,7 +182,28 @@ class UnitConverter:
         return unit_map.get(unit.lower(), unit)
 
     @staticmethod
-    def get_display_units(variable_name: str, 
+    def _preferred_unit_for_match(current_unit: str, 
+                                  preferred_unit: str) -> Optional[str]:
+        """
+        This helper method checks if the current unit can be converted to the preferred unit and returns the preferred unit if conversion is possible, otherwise returns None. It first checks if the current unit is already the preferred unit, in which case it returns the preferred unit directly. If not, it attempts to perform a test conversion using the convert_units method with a dummy value (e.g., 1.0) to verify if the conversion between the current unit and preferred unit is supported. If the conversion is successful, it returns the preferred unit; if a ValueError is raised indicating that the conversion is not supported, it returns None. This method is used within get_display_units to determine whether to use the preferred display unit or fall back to the original unit based on conversion compatibility.
+
+        Parameters:
+            current_unit (str): The current unit of the variable, used to check if conversion to the preferred unit is possible (e.g., 'K', 'Pa').
+            preferred_unit (str): The preferred display unit for the variable, used to check if conversion from the current unit is possible (e.g., '°C', 'hPa').
+
+        Returns:
+            Optional[str]: The preferred unit if conversion from the current unit is possible, or None if conversion is not supported.
+        """
+        if current_unit == preferred_unit:
+            return preferred_unit
+        try:
+            UnitConverter.convert_units(1.0, current_unit, preferred_unit)
+            return preferred_unit
+        except ValueError:
+            return None
+
+    @staticmethod
+    def get_display_units(variable_name: str,
                           current_unit: str) -> str:
         """
         This method determines the preferred display unit for a given MPAS variable based on its name and current unit, following meteorological conventions for visualization. It uses a predefined mapping of variable name patterns to preferred display units (e.g., 't2m' maps to '°C', 'mslp' maps to 'hPa') to identify the appropriate unit for visualization. The method first normalizes the current unit string using the _normalize_unit_string helper method, then checks if the variable name matches any of the patterns in the mapping. If a match is found and the current unit differs from the preferred display unit, it attempts to convert between the units using the convert_units method to ensure compatibility. If conversion is successful, it returns the preferred display unit; otherwise, it falls back to returning the original current unit. This utility ensures that MPAS variables are displayed in intuitive and standardized units for analysis and visualization while maintaining accurate unit handling. 
@@ -228,24 +249,14 @@ class UnitConverter:
 
         for var_pattern, preferred_unit in display_unit_preferences.items():
             if var_pattern.lower() == var_name_lower:
-                if current_unit != preferred_unit:
-                    try:
-                        UnitConverter.convert_units(1.0, current_unit, preferred_unit)
-                        return preferred_unit
-                    except ValueError:
-                        pass
-                return preferred_unit
-        
+                result = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
+                return result if result is not None else preferred_unit
+
         for var_pattern, preferred_unit in display_unit_preferences.items():
             if len(var_pattern) > 2 and var_pattern.lower() in var_name_lower:
-                if current_unit != preferred_unit:
-                    try:
-                        UnitConverter.convert_units(1.0, current_unit, preferred_unit)
-                        return preferred_unit
-                    except ValueError:
-                        pass
-                return preferred_unit
-        
+                result = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
+                return result if result is not None else preferred_unit
+
         return current_unit
 
     @staticmethod

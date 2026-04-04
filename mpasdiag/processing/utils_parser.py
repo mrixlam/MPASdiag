@@ -18,6 +18,8 @@ from typing import Any
 
 from .utils_config import MPASConfig
 
+_BATCH_MODE_HELP = 'Process all time steps in batch mode'
+
 
 class ArgumentParser:
     """ Command-line argument parser factory utilities for MPAS analysis workflows with pre-configured parsers for different diagnostic types. """
@@ -100,7 +102,7 @@ Examples:
                                choices=['uxarray', 'xarray'],
                                help='Data processing backend')
         proc_group.add_argument('--batch-all', action='store_true',
-                               help='Process all time steps in batch mode')
+                               help=_BATCH_MODE_HELP)
         proc_group.add_argument('--time-index', type=int,
                                help='Specific time index to process')
         proc_group.add_argument('--parallel', action='store_true',
@@ -249,7 +251,7 @@ Examples:
         proc_group.add_argument('--quiet', '-q', action='store_true',
                                 help='Suppress output messages')
         proc_group.add_argument('--batch-all', action='store_true',
-                                help='Process all time steps in batch mode')
+                                help=_BATCH_MODE_HELP)
         proc_group.add_argument('--grid-resolution', type=int,
                                 help='Grid resolution (number of points per axis) for contour interpolation. If not set, an adaptive heuristic is used (default: adaptive)')
         proc_group.add_argument('--grid-resolution-deg', type=float,
@@ -381,7 +383,7 @@ Examples:
         parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
         proc_group = parser.add_argument_group('Processing')
         proc_group.add_argument('--batch-all', action='store_true',
-                               help='Process all time steps in batch mode')
+                               help=_BATCH_MODE_HELP)
 
         return parser
 

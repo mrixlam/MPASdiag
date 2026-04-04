@@ -38,7 +38,7 @@ class TestCrossSectionVisualization:
         import types
         
         cross_section = importlib.import_module("mpasdiag.visualization.cross_section")
-        assert cross_section is not None
+
         assert isinstance(cross_section, types.ModuleType)
         assert hasattr(cross_section, "__file__")
 
@@ -84,7 +84,7 @@ class TestWindVisualization:
         import types
 
         wind = importlib.import_module("mpasdiag.visualization.wind")
-        assert wind is not None
+
         assert isinstance(wind, types.ModuleType)
         assert hasattr(wind, "__file__")
 
@@ -129,7 +129,6 @@ class TestSurfaceVisualization:
         import types
 
         surface = importlib.import_module("mpasdiag.visualization.surface")
-        assert surface is not None
 
         assert isinstance(surface, types.ModuleType)
         assert hasattr(surface, "__file__")
@@ -177,7 +176,6 @@ class TestPrecipitationVisualization:
 
         precipitation = importlib.import_module("mpasdiag.visualization.precipitation")
 
-        assert precipitation is not None
         assert isinstance(precipitation, types.ModuleType)
         assert hasattr(precipitation, "__file__")
         assert hasattr(precipitation, "MPASPrecipitationPlotter")

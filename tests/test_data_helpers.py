@@ -151,6 +151,28 @@ def _find_and_load_2d_processor(data_subdir: str) -> MPAS2DProcessor:
     return proc
 
 
+def _to_degrees_wrapped(lon: np.ndarray, 
+                        lat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    This helper function takes longitude and latitude arrays, checks if they are in radians (based on their maximum absolute values), converts them to degrees if necessary, and wraps longitudes to the [-180, 180] range. This ensures that coordinate data is in a consistent format for testing, regardless of how it is stored in the original MPAS grid file. 
+
+    Parameters:
+        lon (np.ndarray): Array of longitudes in radians.
+        lat (np.ndarray): Array of latitudes in radians.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Arrays of longitudes and latitudes in degrees, with longitudes wrapped to [-180, 180].
+    """
+    if np.nanmax(np.abs(lon)) <= 2 * np.pi + 1e-6:
+        lon = np.degrees(lon)
+
+    if np.nanmax(np.abs(lat)) <= np.pi / 2 + 1e-6:
+        lat = np.degrees(lat)
+
+    lon = ((lon + 180.0) % 360.0) - 180.0
+    return lon, lat
+
+
 def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     This helper constructs a minimal dataset with `nCells` and enriches it via `MPAS2DProcessor.add_spatial_coordinates` to retrieve real grid coordinates when available. Wind components are sourced from diag files through the processor; if diag values are missing the function synthesizes deterministic u/v fields based on the coordinates.
@@ -176,27 +198,13 @@ def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarra
     if 'lonCell' in ds and 'latCell' in ds:
         lon = ds['lonCell'].values.ravel()[:n]
         lat = ds['latCell'].values.ravel()[:n]
-
-        if np.nanmax(np.abs(lon)) <= 2 * np.pi + 1e-6:
-            lon = np.degrees(lon)
-
-        if np.nanmax(np.abs(lat)) <= np.pi / 2 + 1e-6:
-            lat = np.degrees(lat)
-
-        lon = ((lon + 180.0) % 360.0) - 180.0
+        lon, lat = _to_degrees_wrapped(lon, lat)
     else:
         grid_ds = xr.open_dataset(grid_file, decode_times=False)
 
         lon_all = grid_ds['lonCell'].values
         lat_all = grid_ds['latCell'].values
-
-        if np.nanmax(np.abs(lon_all)) <= 2 * np.pi + 1e-6:
-            lon_all = np.degrees(lon_all)
-
-        if np.nanmax(np.abs(lat_all)) <= np.pi / 2 + 1e-6:
-            lat_all = np.degrees(lat_all)
-
-        lon_all = ((lon_all + 180.0) % 360.0) - 180.0
+        lon_all, lat_all = _to_degrees_wrapped(lon_all, lat_all)
 
         if lon_all.size >= n:
             lon = lon_all[:n]

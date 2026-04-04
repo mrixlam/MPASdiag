@@ -486,9 +486,6 @@ class TestUtilityFunctions:
         
         logger_verbose = MPASLogger('test_verbose', verbose=True)
         logger_quiet = MPASLogger('test_quiet', verbose=False)
-        
-        assert logger_verbose is not None
-        assert logger_quiet is not None
 
 
 class TestTypeHints:

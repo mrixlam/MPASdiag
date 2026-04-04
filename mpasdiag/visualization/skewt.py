@@ -37,7 +37,7 @@ class MPASSkewTPlotter(MPASVisualizer):
     """ Specialized plotter for creating Skew-T Log-P diagrams from MPAS atmospheric sounding data. """
 
     def __init__(self: 'MPASSkewTPlotter', 
-                 figsize: Tuple[float, float] = (9, 14),
+                 figsize: Tuple[float, float] = (9, 12),
                  dpi: int = 150,
                  verbose: bool = True,) -> None:
         """
@@ -110,16 +110,71 @@ class MPASSkewTPlotter(MPASVisualizer):
 
         return fig, ax
 
-    def _create_metpy_skewt(self: 'MPASSkewTPlotter', 
-                            p: np.ndarray, 
-                            t: np.ndarray, 
+    @staticmethod
+    def _plot_wind_barbs(skew: Any, 
+                         p_u: Any, 
+                         u_wind: Optional[np.ndarray], 
+                         v_wind: Optional[np.ndarray]) -> None:
+        """
+        This static method plots wind barbs on the Skew-T diagram if both zonal and meridional wind components are provided. It converts the wind components from knots to the appropriate units for plotting and uses MetPy's plot_barbs function to add the wind barbs at the corresponding pressure levels. The method checks for the presence of both u_wind and v_wind before attempting to plot, ensuring that it only adds wind barbs when complete wind data is available. This method is typically called during the Skew-T diagram creation process after plotting the temperature and dew point profiles, and before adding any parcel profiles or thermodynamic overlays.
+
+        Parameters:
+            skew (Any): The SkewT object from MetPy on which to plot the wind barbs.
+            p_u (Any): Pressure levels with units for plotting.
+            u_wind (Optional[np.ndarray]): Zonal wind component in knots.
+            v_wind (Optional[np.ndarray]): Meridional wind component in knots.
+
+        Returns:
+            None
+        """
+        if u_wind is not None and v_wind is not None:
+            u_u = np.asarray(u_wind, dtype=np.float64) * munits.knots
+            v_u = np.asarray(v_wind, dtype=np.float64) * munits.knots
+            skew.plot_barbs(p_u, u_u, v_u)
+
+    def _plot_parcel_profile(self: 'MPASSkewTPlotter', 
+                             skew: Any, 
+                             p_u: Any,
+                             t_u: Any, 
+                             td_u: Any,
+                             indices: Optional[Dict[str, Optional[float]]]) -> None:
+        """
+        This private method calculates and plots the lifted parcel profile on the Skew-T diagram based on the surface conditions defined by the temperature and dew point at the lowest pressure level. It uses MetPy's parcel_profile function to compute the temperature of a parcel lifted from the surface through the atmosphere, and then plots this profile as a dashed line on the Skew-T diagram. If indices for CAPE and CIN are provided, it also shades the areas of positive CAPE and negative CIN accordingly. The method includes error handling to catch any exceptions that may occur during the parcel profile calculation or plotting, and it will print a warning message if verbose mode is enabled. This method is typically called during the Skew-T diagram creation process after plotting the main temperature and dew point profiles, and before adding any thermodynamic overlays or level markers.
+
+        Parameters:
+            skew (Any): The SkewT object from MetPy on which to plot the parcel profile.
+            p_u (Any): Pressure levels with units for plotting.
+            t_u (Any): Temperature profile with units for plotting.
+            td_u (Any): Dew point profile with units for plotting.
+            indices (Optional[Dict[str, Optional[float]]]): Dictionary of thermodynamic indices for CAPE/CIN shading.
+
+        Returns:
+            None
+        """
+        try:
+            prof = mpcalc.parcel_profile(p_u, t_u[0], td_u[0]).to('degC')
+            skew.plot(p_u, prof, 'k--', linewidth=1.5, label='Parcel')
+            if indices is not None:
+                cape_val = indices.get('cape')
+                cin_val = indices.get('cin')
+                if cape_val is not None and cape_val > 0:
+                    skew.shade_cape(p_u, t_u, prof)
+                if cin_val is not None and cin_val < 0:
+                    skew.shade_cin(p_u, t_u, prof)
+        except Exception as exc:
+            if self.verbose:
+                print(f"Warning: parcel profile plotting failed: {exc}")
+
+    def _create_metpy_skewt(self: 'MPASSkewTPlotter',
+                            p: np.ndarray,
+                            t: np.ndarray,
                             td: np.ndarray, 
                             u_wind: Optional[np.ndarray], 
                             v_wind: Optional[np.ndarray], 
                             show_parcel: bool, 
                             indices: Optional[Dict[str, Optional[float]]],) -> Tuple[Figure, Axes]:
         """
-        This private method creates a Skew-T Log-P diagram using MetPy's SkewT class. It takes in pressure, temperature, dew point, and optional wind data, and plots the temperature and dew point profiles on the Skew-T diagram. If wind data is provided, it adds wind barbs to the plot. If the show_parcel flag is set to True, it calculates and plots the lifted parcel profile based on the surface conditions. The method also adds thermodynamic reference lines and level markers based on provided indices for CAPE/CIN shading. The resulting figure is returned along with the Axes object for further customization. 
+        This private method creates the Skew-T diagram using MetPy's SkewT class. It takes the pressure, temperature, dew point, and optional wind data, converts them to the appropriate units, and plots the temperature and dew point profiles on the Skew-T diagram. It also calls helper methods to plot wind barbs, the lifted parcel profile, and thermodynamic overlays such as dry adiabats, moist adiabats, and mixing ratio lines. If indices for CAPE/CIN are provided, it adds level markers for LCL, LFC, and EL. The method sets the axes limits and legend before returning the Figure and Axes objects. This method is typically called by the main create_skewt_diagram method after preparing the input data. 
 
         Parameters: 
             p (np.ndarray): Pressure levels in hPa.
@@ -143,27 +198,10 @@ class MPASSkewTPlotter(MPASVisualizer):
         skew.plot(p_u, t_u, 'r', linewidth=2, label='Temperature')
         skew.plot(p_u, td_u, 'g', linewidth=2, label='Dewpoint')
 
-        if u_wind is not None and v_wind is not None:
-            u = np.asarray(u_wind, dtype=np.float64)
-            v = np.asarray(v_wind, dtype=np.float64)
-            u_u = u * munits.knots
-            v_u = v * munits.knots
-            skew.plot_barbs(p_u, u_u, v_u)
+        self._plot_wind_barbs(skew, p_u, u_wind, v_wind)
 
         if show_parcel:
-            try:
-                prof = mpcalc.parcel_profile(p_u, t_u[0], td_u[0]).to('degC')
-                skew.plot(p_u, prof, 'k--', linewidth=1.5, label='Parcel')
-                if indices is not None:
-                    cape_val = indices.get('cape')
-                    cin_val = indices.get('cin')
-                    if cape_val is not None and cape_val > 0:
-                        skew.shade_cape(p_u, t_u, prof)
-                    if cin_val is not None and cin_val < 0:
-                        skew.shade_cin(p_u, t_u, prof)
-            except Exception as exc:
-                if self.verbose:
-                    print(f"Warning: parcel profile plotting failed: {exc}")
+            self._plot_parcel_profile(skew, p_u, t_u, td_u, indices)
 
         self._add_thermodynamic_overlays(skew)
 
@@ -290,7 +328,7 @@ class MPASSkewTPlotter(MPASVisualizer):
         headers = ['Parcel / Instability', 'Moisture / Thermo', 'Shear / Severe']
 
         # Create axes for the table below the main plot
-        table_ax = fig.add_axes([0.05, 0.01, 0.90, 0.14])
+        table_ax = fig.add_axes((0.05, 0.01, 0.90, 0.14))
         table_ax.axis('off')
 
         cell_text = [[col_parcel[i], col_moisture[i], col_shear[i]]

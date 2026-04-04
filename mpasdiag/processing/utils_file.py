@@ -212,6 +212,32 @@ class FileManager:
             return MPASConfig()
     
     @staticmethod
+    def _find_diag_files(data_dir: str) -> List[str]:
+        """
+        This internal method searches for diagnostic files in the specified data directory using a predefined glob pattern (DIAG_GLOB). It first looks for files directly in the provided data directory, then checks common subdirectories such as "diag" and "mpasout". If no files are found in these locations, it performs a recursive search through all subdirectories. The method returns a list of matching file paths. This utility is used by the validate_input_files method to ensure that the necessary diagnostic files are present in the expected locations before processing. By centralizing this file searching logic, it promotes consistency in how diagnostic files are located across different parts of the MPAS diagnostic codebase.
+
+        Parameters:
+            data_dir (str): Path to the data directory to search for diagnostic files, can be absolute or relative.
+
+        Returns:
+            List[str]: List of file paths matching the diagnostic glob pattern, or an empty list if no files are found.
+        """
+        files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=False)
+
+        if not files:
+            diag_sub = os.path.join(data_dir, 'diag')
+            mpasout_sub = os.path.join(data_dir, 'mpasout')
+            files = FileManager.find_files(diag_sub, DIAG_GLOB, recursive=False)
+
+            if not files:
+                files = FileManager.find_files(mpasout_sub, DIAG_GLOB, recursive=False)
+
+        if not files:
+            files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=True)
+
+        return files
+
+    @staticmethod
     def validate_input_files(config: MPASConfig) -> bool:
         """
         This method performs validation checks on the input files specified in the configuration object. It verifies that the grid file exists, that the data directory exists and is a directory, and that the data directory contains diagnostic files matching the expected glob pattern. If any of these checks fail, it collects error messages and prints them to the console, returning False to indicate that validation failed. If all checks pass, it returns True to indicate that the input files are valid and ready for processing. This utility is crucial for ensuring that the necessary input files are present and correctly specified before running MPAS diagnostic processing workflows, helping to prevent errors later in the processing due to missing or misconfigured input files. By centralizing the validation logic in this method, it promotes consistency in how input files are checked across different parts of the codebase. 
@@ -237,15 +263,7 @@ class FileManager:
             errors.append(f"Data path is not a directory: {config.data_dir}")
 
         if getattr(config, "data_dir", None) and os.path.exists(config.data_dir):
-            data_files = FileManager.find_files(config.data_dir, DIAG_GLOB, recursive=False)
-            if not data_files:
-                diag_sub = os.path.join(config.data_dir, 'diag')
-                mpasout_sub = os.path.join(config.data_dir, 'mpasout')
-                data_files = FileManager.find_files(diag_sub, DIAG_GLOB, recursive=False)
-                if not data_files:
-                    data_files = FileManager.find_files(mpasout_sub, DIAG_GLOB, recursive=False)
-            if not data_files:
-                data_files = FileManager.find_files(config.data_dir, DIAG_GLOB, recursive=True)
+            data_files = FileManager._find_diag_files(config.data_dir)
             if not data_files:
                 errors.append(f"No diagnostic files found in: {config.data_dir}")
 

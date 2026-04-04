@@ -21,6 +21,9 @@ from typing import List, Optional, Tuple, Any, Dict
 import numpy as np
 import pandas as pd
 
+_COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
+_PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
+
 try:
     from .data_cache import MPASDataCache, get_global_cache
 except ImportError:
@@ -701,13 +704,13 @@ class ParallelPrecipitationProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
             
-            print("Pre-loading coordinates into cache...")
+            print(_PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
                 print(f"Coordinates cached for variable: {var_name}")
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print("Workers will extract coordinates individually")
+                print(_COORDS_FALLBACK_MSG)
             
             worker_kwargs = {
                 'processor': processor,
@@ -836,13 +839,13 @@ class ParallelSurfaceProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
             
-            print("Pre-loading coordinates into cache...")
+            print(_PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
                 print(f"Coordinates cached for variable: {var_name}")
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print("Workers will extract coordinates individually")
+                print(_COORDS_FALLBACK_MSG)
             
             worker_kwargs = {
                 'processor': processor,
@@ -883,7 +886,74 @@ class ParallelSurfaceProcessor:
 
 class ParallelWindProcessor:
     """ This class provides static methods for parallel processing of wind vector plots and visualizations using MPI-based distributed processing. """
-    
+
+    @staticmethod
+    def _build_wind_worker_kwargs(processor: MPAS2DProcessor,
+                                  is_mpi_mode: bool,
+                                  output_dir: str,
+                                  lon_min: float, lon_max: float,
+                                  lat_min: float, lat_max: float,
+                                  u_variable: str, v_variable: str,
+                                  plot_type: str, subsample: int,
+                                  scale: Optional[float], show_background: bool,
+                                  grid_resolution: Optional[float],
+                                  regrid_method: str,
+                                  formats: List[str]) -> Dict[str, Any]:
+        """
+        This helper method constructs the keyword arguments dictionary to be passed to the wind worker function based on whether MPI mode is being used or not. It ensures that the necessary information for data processing and plotting is included in the kwargs, and handles the setup of a shared data cache for multiprocessing mode to optimize performance. The method checks for required attributes in MPI mode and raises informative errors if they are missing, while in multiprocessing mode it attempts to pre-load coordinates into the cache for faster access by worker processes.
+
+        Parameters:
+            processor (MPAS2DProcessor): The processor instance containing the dataset and grid information.
+            is_mpi_mode (bool): Flag indicating whether MPI mode is being used for parallel execution.
+            output_dir (str): Directory path where output files will be saved.
+            lon_min (float): Minimum longitude for plot spatial extent in degrees.
+            lon_max (float): Maximum longitude for plot spatial extent in degrees.
+            lat_min (float): Minimum latitude for plot spatial extent in degrees.
+            lat_max (float): Maximum latitude for plot spatial extent in degrees.
+            u_variable (str): Name of the u-component wind variable in the dataset.
+            v_variable (str): Name of the v-component wind variable in the dataset.
+            plot_type (str): Type of wind plot to create ('barbs' or 'quiver').
+            subsample (int): Subsampling factor for wind vectors to reduce plot density.
+            scale (Optional[float]): Scaling factor for wind vector lengths, None for automatic scaling.
+            show_background (bool): Whether to include a background color field representing wind speed.
+            grid_resolution (Optional[float]): Grid spacing in degrees for interpolation of background field, None for adaptive resolution.
+            regrid_method (str): Interpolation method for background field - 'nearest', 'linear', or 'cubic'.
+            formats (List[str]): List of output formats to save (e.g., ['png', 'pdf']).
+
+        Returns:
+            Dict[str, Any]: Dictionary of keyword arguments to be passed to the wind worker function, containing either 'grid_file' and 'data_dir' for MPI mode, or 'processor' and 'cache' for multiprocessing mode, along with all necessary parameters for plotting.
+        """
+        shared = {
+            'output_dir': output_dir,
+            'lon_min': lon_min, 'lon_max': lon_max,
+            'lat_min': lat_min, 'lat_max': lat_max,
+            'u_variable': u_variable, 'v_variable': v_variable,
+            'plot_type': plot_type, 'subsample': subsample,
+            'scale': scale, 'show_background': show_background,
+            'grid_resolution': grid_resolution, 'regrid_method': regrid_method,
+            'file_prefix': 'mpas_wind', 'formats': formats,
+        }
+
+        if is_mpi_mode:
+            if not hasattr(processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            return {**shared, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
+
+        cache = MPASDataCache(max_variables=5)
+        print(_PRELOAD_COORDS_MSG)
+        
+        try:
+            cache.load_coordinates_from_dataset(processor.dataset, u_variable)
+            print(f"Coordinates cached for variable: {u_variable}")
+        except Exception as e:
+            print(f"Warning: Could not pre-load coordinates into cache: {e}")
+            print(_COORDS_FALLBACK_MSG)
+        return {**shared, 'processor': processor, 'cache': cache}
+
     @staticmethod
     def create_batch_wind_plots_parallel(processor: MPAS2DProcessor, 
                                          output_dir: str, 
@@ -946,65 +1016,14 @@ class ParallelWindProcessor:
         manager.set_error_policy('collect')
         
         is_mpi_mode = manager.backend == 'mpi'
-        
-        if is_mpi_mode:
-            if not hasattr(processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
-            
-            worker_kwargs = {
-                'grid_file': processor.grid_file,
-                'data_dir': processor.data_dir,
-                'output_dir': output_dir,
-                'lon_min': lon_min,
-                'lon_max': lon_max,
-                'lat_min': lat_min,
-                'lat_max': lat_max,
-                'u_variable': u_variable,
-                'v_variable': v_variable,
-                'plot_type': plot_type,
-                'subsample': subsample,
-                'scale': scale,
-                'show_background': show_background,
-                'grid_resolution': grid_resolution,
-                'regrid_method': regrid_method,
-                'file_prefix': 'mpas_wind',
-                'formats': formats
-            }
-        else:
-            cache = MPASDataCache(max_variables=5)
-            
-            print("Pre-loading coordinates into cache...")
-            try:
-                cache.load_coordinates_from_dataset(processor.dataset, u_variable)
-                print(f"Coordinates cached for variable: {u_variable}")
-            except Exception as e:
-                print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print("Workers will extract coordinates individually")
-            
-            worker_kwargs = {
-                'processor': processor,
-                'cache': cache,
-                'output_dir': output_dir,
-                'lon_min': lon_min,
-                'lon_max': lon_max,
-                'lat_min': lat_min,
-                'lat_max': lat_max,
-                'u_variable': u_variable,
-                'v_variable': v_variable,
-                'plot_type': plot_type,
-                'subsample': subsample,
-                'scale': scale,
-                'show_background': show_background,
-                'grid_resolution': grid_resolution,
-                'regrid_method': regrid_method,
-                'file_prefix': 'mpas_wind',
-                'formats': formats
-            }
-        
+
+        worker_kwargs = ParallelWindProcessor._build_wind_worker_kwargs(
+            processor, is_mpi_mode,
+            output_dir, lon_min, lon_max, lat_min, lat_max,
+            u_variable, v_variable, plot_type, subsample,
+            scale, show_background, grid_resolution, regrid_method, formats
+        )
+
         worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
         os.makedirs(output_dir, exist_ok=True)
@@ -1032,7 +1051,41 @@ class ParallelWindProcessor:
 
 class ParallelCrossSectionProcessor:
     """ This class provides static methods for parallel processing of vertical cross-section plots and visualizations using MPI-based distributed processing. """
-    
+
+    @staticmethod
+    def _collect_cross_section_results(results: List[Any],
+                                       time_indices: List[int],
+                                       output_dir: str) -> List[str]:
+        """
+        This helper function processes the results returned by parallel worker functions for cross-section plotting, aggregates timing metrics, counts successes and failures, and generates a comprehensive report summarizing the outcomes of the parallel processing operation. It collects successfully generated file paths, computes timing statistics for data processing, plotting, and saving phases, and retrieves overall parallel execution statistics from the manager to provide insights into performance and efficiency. The function prints a detailed report to the console with status counts, timing breakdowns, and potential speedup information based on the collected results.
+
+        Parameters:
+            results (List[Any]): List of results returned by parallel worker functions, where each result is expected to be a dictionary containing 'files', 'timings', and 'time_str'.
+            time_indices (List[int]): List of time indices that were processed in parallel, used for reporting purposes.
+            output_dir (str): Directory path where output files were saved, used for reporting the location of generated files.
+        
+        Returns:
+            List[str]: List of successfully created file paths aggregated from the results.
+        """
+        created_files: List[str] = []
+        successful = 0
+        failed = 0
+
+        for result in results:
+            if result.success:
+                created_files.extend(result.result)
+                successful += 1
+            else:
+                failed += 1
+                print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
+
+        print("\nBatch processing completed:")
+        print(f"  Successful: {successful}/{len(time_indices)}")
+        print(f"  Failed: {failed}/{len(time_indices)}")
+        print(f"  Created {len(created_files)} files in: {output_dir}")
+
+        return created_files
+
     @staticmethod
     def create_batch_cross_section_plots_parallel(mpas_3d_processor: MPAS3DProcessor, 
                                                   var_name: str, 
@@ -1150,22 +1203,9 @@ class ParallelCrossSectionProcessor:
         results = manager.parallel_map(_cross_section_worker, worker_args)
         
         if manager.is_master and results is not None:
-            created_files = []
-            successful = sum(1 for r in results if r.success)
-            failed = sum(1 for r in results if not r.success)
-            
-            for result in results:
-                if result.success:
-                    created_files.extend(result.result)
-                else:
-                    print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
-            
-            print("\nBatch processing completed:")
-            print(f"  Successful: {successful}/{len(time_indices)}")
-            print(f"  Failed: {failed}/{len(time_indices)}")
-            print(f"  Created {len(created_files)} files in: {output_dir}")
-            
-            return created_files
+            return ParallelCrossSectionProcessor._collect_cross_section_results(
+                results, time_indices, output_dir
+            )
         
         return None
 

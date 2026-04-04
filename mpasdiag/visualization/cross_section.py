@@ -563,6 +563,36 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         return var_da, time_dim, vert_dim
 
+    @staticmethod
+    def _extract_level_data(var_da: xr.DataArray, 
+                            isel_dict: Dict[str, int],
+                            expected_ncells: int) -> np.ndarray:
+        """
+        This static method extracts the data values for a specific vertical level from the variable's DataArray using the provided indexing dictionary. It first selects the appropriate slice of the DataArray based on the time and vertical indices specified in isel_dict. If the resulting level_data has a 'compute' method (e.g., if it's a Dask array), it computes it to get the actual data values. The method then checks if the extracted data is in a compatible format (either an xarray DataArray or a numpy array) and converts it to a numpy array if necessary. Finally, it verifies that the extracted data has the expected shape (1D array with length equal to the number of cells) before returning the data values for interpolation along the cross-section path.
+
+        Parameters:
+            var_da (xr.DataArray): The data array for the variable being plotted, containing the 3D data from which to extract the level data.
+            isel_dict (Dict[str, int]): A dictionary specifying the indices for time and vertical dimensions to select the appropriate slice of the DataArray for the desired vertical level.
+            expected_ncells (int): The expected number of cells in the extracted level data, used to validate the shape of the resulting data array.
+
+        Returns:
+            np.ndarray: A 1D array of data values for the specified vertical level, with length equal to the number of cells, ready for interpolation along the cross-section path.
+        """
+        level_data = var_da.isel(isel_dict)
+
+        if hasattr(level_data, 'compute'):
+            level_data = level_data.compute()
+
+        data_values = level_data.values if hasattr(level_data, 'values') else np.asarray(level_data)
+
+        if data_values.ndim != 1 or data_values.shape[0] != expected_ncells:
+            raise ValueError(
+                f"Level extraction produced shape {data_values.shape}, "
+                f"expected ({expected_ncells},)"
+            )
+
+        return data_values
+
     def _interpolate_all_levels(self: 'MPASVerticalCrossSectionPlotter',
                                 var_da: xr.DataArray,
                                 vertical_levels: np.ndarray,
@@ -605,18 +635,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     continue
 
                 isel_dict[vert_dim] = level_idx
-                level_data = var_da.isel(isel_dict)
-
-                if hasattr(level_data, 'compute'):
-                    level_data = level_data.compute()
-
-                data_values = level_data.values if hasattr(level_data, 'values') else np.asarray(level_data)
-
-                if data_values.ndim != 1 or data_values.shape[0] != lon_coords.shape[0]:
-                    raise ValueError(
-                        f"Level extraction produced shape {data_values.shape}, "
-                        f"expected ({lon_coords.shape[0]},)"
-                    )
+                data_values = self._extract_level_data(var_da, isel_dict, lon_coords.shape[0])
                 
                 cross_section_data[level_idx, :] = self._interpolate_along_path(
                     lon_coords, lat_coords, data_values, path_lons, path_lats
@@ -1026,7 +1045,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
     def _apply_standard_pressure_ticks(self: 'MPASVerticalCrossSectionPlotter',
                                        vertical_coords: np.ndarray,) -> None:
         """
-        This internal method applies standard meteorological pressure levels as major tick marks on the y-axis of the vertical cross-section plot when using pressure coordinates. It first checks if the axes have been created, then it defines a list of standard pressure levels commonly used in meteorology (e.g., 1000 hPa, 850 hPa, etc.). It determines which of these standard levels fall within the range of the provided vertical coordinate values and applies them as major ticks on the y-axis. The method also includes a custom formatter to display pressure values appropriately, using integer formatting for values greater than or equal to 1 hPa and decimal formatting for smaller values. Error handling is included to ensure that tick application does not fail if certain styling features are unavailable, providing a robust setup for clear visualization of pressure levels along the cross-section.
+        This internal method applies standard meteorological pressure levels as major ticks on the y-axis of the vertical cross-section plot when using pressure coordinates. It first checks if the axes have been created, then it defines a list of standard pressure levels commonly used in meteorology (e.g., 1000 hPa, 850 hPa, etc.). It determines which of these standard levels fall within the range of the provided vertical coordinate values and sets those as major ticks on the y-axis. The method also includes a custom formatter to display tick labels appropriately based on their magnitude (e.g., integers for values >= 1 and two decimal places for smaller values). Error handling is included to ensure that tick formatting does not fail if certain styling features are unavailable, providing a robust setup for clear visualization of pressure levels along the cross-section.
 
         Parameters:
             vertical_coords (np.ndarray): Array of vertical coordinate values representing pressure levels, used to determine which standard pressure levels to apply as ticks on the y-axis.
@@ -1034,7 +1053,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             None: Modifies self.ax y-axis properties directly without returning a value.
         """
-        assert self.ax is not None, "Axes must be created before applying ticks"
+        if self.ax is None:
+            return
 
         try:
             from matplotlib.ticker import FixedLocator, FuncFormatter

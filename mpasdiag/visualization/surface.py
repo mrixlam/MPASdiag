@@ -39,7 +39,31 @@ from .styling import MPASVisualizationStyle
 
 class MPASSurfacePlotter(MPASVisualizer):
     """ Specialized plotter for creating professional cartographic visualizations of MPAS 2D/3D surface variables. """
-    
+
+    _TIME_FMT = '%Y%m%dT%H'
+
+    @staticmethod
+    def _apply_level_index_slice(data: Union[np.ndarray, xr.DataArray], 
+                                 level_index: int) -> Union[np.ndarray, xr.DataArray]:
+        """
+        This helper function applies slicing to the input data based on the specified level index. It handles both 2D and 3D data arrays, extracting the appropriate slice corresponding to the given level index. For 2D data, it assumes that the vertical dimension is the second dimension and slices accordingly. For 3D data, it slices along the vertical dimension while preserving any additional horizontal dimensions, and if there are more than 2 dimensions after slicing, it further reduces it to a 2D array by taking the first horizontal slice. If the data has fewer than 2 dimensions, it returns the data as is since there is no vertical dimension to slice. This function ensures that we can extract a consistent 2D surface-level slice from input data that may have varying numbers of dimensions, which is essential for creating surface plots. Debug print statements can be included to confirm the slicing process and the resulting shape of the extracted data, which can assist in troubleshooting and verifying that the correct slice of data is being used for visualization.
+
+        Parameters:
+            data (Union[np.ndarray, xr.DataArray]): Input data array that may be 2D or 3D.
+            level_index (int): Index of the vertical level to extract (e.g., 0 for surface).
+
+        Returns:
+            Union[np.ndarray, xr.DataArray]: Extracted 2D slice of data corresponding to the specified level index.
+        """
+        if data.ndim == 2:
+            return data[:, level_index]
+        elif data.ndim == 3:
+            sliced = data[:, level_index, ...]
+            if sliced.ndim > 1:
+                sliced = sliced[..., 0]
+            return sliced
+        return data
+
     def _extract_2d_from_multidimensional(self: "MPASSurfacePlotter",
                                           data: Union[np.ndarray, xr.DataArray],
                                           level_index: Optional[int],
@@ -65,25 +89,17 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         # Extract the appropriate 2D slice based on level_index or level_value, defaulting to surface level if neither is provided. 
         if level_index is not None:
-            if data.ndim == 2:
-                data = data[:, level_index]
-            elif data.ndim == 3:
-                data = data[:, level_index, ...]
-                if data.ndim > 1:
-                    data = data[..., 0]
+            data = self._apply_level_index_slice(data, level_index)
             print(f"Extracted 2D data using level_index={level_index}")
-        elif level_value is not None:
-            # Default to surface level (not yet implementing pressure level selection)
-            data = data[:, -1] if data.ndim == 2 else data[:, -1, ...]
-            if data.ndim > 1:
-                data = data[..., 0]
-            print(f"Extracted 2D data using surface level (level_value={level_value} not yet implemented)")
         else:
-            # Default to surface level
+            # Default to surface level (level_value selection not yet implemented)
             data = data[:, -1] if data.ndim == 2 else data[:, -1, ...]
             if data.ndim > 1:
                 data = data[..., 0]
-            print("Extracted 2D data using surface level (default)")
+            if level_value is not None:
+                print(f"Extracted 2D data using surface level (level_value={level_value} not yet implemented)")
+            else:
+                print("Extracted 2D data using surface level (default)")
         
         # Flatten the remaining dimensions to 1D for plotting and convert to numpy array
         if data.ndim > 1:
@@ -92,7 +108,26 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         # Convert to numpy array if it's still an xarray DataArray and return
         return self.convert_to_numpy(data)
-    
+
+    @staticmethod
+    def _coerce_converted_data(converted: Any) -> np.ndarray:
+        """
+        This helper function takes the output from a unit conversion operation, which may be an xarray DataArray, a numpy array, or a scalar value, and coerces it into a numpy array format suitable for plotting. It checks the type of the converted data and extracts the underlying values if it's an xarray DataArray, returns it directly if it's already a numpy array, or converts it to a numpy array if it's a scalar or another type. This ensures that regardless of the return type from the unit conversion process, we end up with a consistent numpy array format for subsequent plotting steps. Debug print statements can be included to confirm the type of the converted data and the resulting shape of the numpy array, which can assist in troubleshooting and verifying that the unit conversion is producing data in the expected format for visualization.
+
+        Parameters:
+            converted (Any): The output from a unit conversion operation, which may be an xarray DataArray, a numpy array, or a scalar value.
+
+        Returns:
+            np.ndarray: The converted data coerced into a numpy array format suitable for plotting.
+        """
+        if isinstance(converted, xr.DataArray):
+            return converted.values
+        
+        if isinstance(converted, np.ndarray):
+            return converted
+
+        return np.asarray(converted)
+
     def _extract_and_convert_units(self: "MPASSurfacePlotter",
                                    data: np.ndarray,
                                    var_name: str,
@@ -143,14 +178,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                     data, cast(str, original_unit or ""), display_unit
                 )
                 # Ensure the converted data is a numpy array regardless of the input type
-                if isinstance(converted_data, xr.DataArray):
-                    data = converted_data.values
-                # Handle the case where conversion returns a scalar value (e.g., for unitless variables) by converting it to a numpy array with the same shape as the original data
-                elif isinstance(converted_data, np.ndarray):
-                    data = converted_data
-                # If the conversion returns a scalar value, we create a numpy array filled with that value and the same shape as the original data 
-                else:
-                    data = np.asarray(converted_data)
+                data = self._coerce_converted_data(converted_data)
                 print(f"Converted {var_name} from {original_unit} to {display_unit}")
             except ValueError as e:
                 print(f"Warning: Could not convert {var_name} from {original_unit} to {display_unit}: {e}")
@@ -292,7 +320,31 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the map projection, data CRS, and the computed filter bounds for both plotting and data selection to be used in subsequent steps of the plotting process.
         return (map_proj, data_crs, filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
                 filter_lon_min_data, filter_lon_max_data, filter_lat_min_data, filter_lat_max_data)
-    
+
+    def _build_boundary_norm(self: "MPASSurfacePlotter", 
+                             levels: Optional[List[float]], 
+                             cmap_obj: mcolors.Colormap) -> Optional[mcolors.Normalize]:
+        """
+        This helper function constructs a BoundaryNorm instance for the colormap based on the provided contour levels. It first checks if valid levels are provided (i.e., a non-empty list of finite values) and then creates a list of bounds that includes the minimum level, all the sorted levels, and an additional upper bound that is one unit above the maximum level to ensure proper mapping of colors. The BoundaryNorm is then created using these bounds and the number of colors in the colormap, with clipping enabled to handle values outside the specified levels. If no valid levels are provided, the function returns None to indicate that default normalization should be used for continuous colormaps. Debug print statements can be included to confirm the construction of the BoundaryNorm and the bounds used, which can assist in troubleshooting and verifying that the correct normalization is being applied to the plot based on the provided levels.
+
+        Parameters:
+            levels (Optional[List[float]]): Optional list of contour levels that may influence the construction of the BoundaryNorm.
+            cmap_obj (mcolors.Colormap): Colormap object for which the BoundaryNorm is being constructed, used to determine the number of colors.
+
+        Returns:
+            Optional[mcolors.Normalize]: A BoundaryNorm instance if valid levels are provided, otherwise None to indicate default normalization should be used.
+        """
+        try:
+            if levels is not None:
+                color_levels_sorted = sorted(set([v for v in levels if np.isfinite(v)]))
+                if color_levels_sorted:
+                    last_bound = max(color_levels_sorted) + 1
+                    bounds = [min(color_levels_sorted)] + color_levels_sorted + [last_bound]
+                    return BoundaryNorm(bounds, ncolors=cmap_obj.N, clip=True)
+        except Exception:
+            pass
+        return None
+
     def _create_colormap_normalization(self: "MPASSurfacePlotter",
                                        colormap: str,
                                        levels: Optional[List[float]],
@@ -332,16 +384,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             vmax = clim_max if clim_max is not None else float(np.nanmax(data))
             norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         else:
-            try:
-                # If contour levels are provided, we create a BoundaryNorm that maps the specified levels to the colormap. 
-                if levels is not None:
-                    color_levels_sorted = sorted(set([v for v in levels if np.isfinite(v)]))
-                    if color_levels_sorted:
-                        last_bound = max(color_levels_sorted) + 1
-                        bounds = [min(color_levels_sorted)] + color_levels_sorted + [last_bound]
-                        norm = BoundaryNorm(bounds, ncolors=cmap_obj.N, clip=True)
-            except Exception:
-                norm = None
+            norm = self._build_boundary_norm(levels, cmap_obj)
         
         return cmap_obj, norm
     
@@ -499,13 +542,13 @@ class MPASSurfacePlotter(MPASVisualizer):
             title = f"MPAS {var_metadata['long_name']}"
             if time_stamp:
                 # If a timestamp is provided, we format it as 'YYYYMMDDTHH' and append it to the title with a 'Valid Time:' prefix for clarity. 
-                time_str = time_stamp.strftime('%Y%m%dT%H')
+                time_str = time_stamp.strftime(self._TIME_FMT)
                 title += f" | Valid Time: {time_str}"
                 time_in_title = True
         else:
             if time_stamp:
                 # If a custom title is provided, we check if the formatted timestamp is already included in the title to avoid redundant time annotations
-                time_str = time_stamp.strftime('%Y%m%dT%H')
+                time_str = time_stamp.strftime(self._TIME_FMT)
                 time_in_title = (time_str in title or 'Valid Time:' in title or 'Valid:' in title)
         
         # Return the final title string and the flag indicating whether the timestamp is already included in the title 
@@ -689,7 +732,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         # Add timestamp annotation if not in title
         if time_stamp and not time_in_title:
-            time_str = time_stamp.strftime('%Y%m%dT%H')
+            time_str = time_stamp.strftime(self._TIME_FMT)
             self.ax.text(
                 0.02, 0.98, f'Valid: {time_str}',
                 transform=self.ax.transAxes,
@@ -796,6 +839,57 @@ class MPASSurfacePlotter(MPASVisualizer):
             dataset=dataset
         )
 
+    def _infer_overlay_units(self: "MPASSurfacePlotter",
+                             var_name: str,
+                             overlay_data: np.ndarray) -> Optional[str]:
+        """
+        This helper function attempts to infer the original units of the overlay data based on the variable name and mean value of the data if explicit units are not provided in the surface_config. It uses common conventions in variable naming (e.g., 'mslp' or 'pressure' for pressure fields, 't2m' or 'temp' for temperature fields) along with typical value ranges to make an educated guess about the units. For example, if the variable name suggests it is a pressure field and the mean value is greater than 50,000, it may infer that the units are Pascals (Pa). If the variable name suggests it is a temperature field and the mean value is greater than 100, it may infer that the units are Kelvin (K). If it cannot confidently infer the units based on these heuristics, it returns None, indicating that unit conversion may not be possible without explicit information. Debug print statements can be included to log the inferred units or the reasoning behind why certain units were inferred based on the variable name and data values, which can assist in troubleshooting and verifying that unit inference is working as intended based on common conventions.
+
+        Parameters:
+            var_name (str): Variable name used for inferring units based on naming conventions.
+            overlay_data (np.ndarray): The overlay data array for which units are being inferred, used to calculate mean values for heuristic inference.
+
+        Returns:
+            Optional[str]: The inferred original units of the overlay data (e.g., 'Pa', 'K') or None if units cannot be confidently inferred.
+        """
+        data_mean = np.nanmean(overlay_data)
+
+        if 'mslp' in var_name.lower() or 'pressure' in var_name.lower():
+            if data_mean > 50000:
+                return 'Pa'
+            
+        elif 't2m' in var_name.lower() or 'temp' in var_name.lower():
+            if data_mean > 100:
+                return 'K'
+            
+        return None
+
+    def _apply_overlay_unit_conversion(self: "MPASSurfacePlotter",
+                                       overlay_data: np.ndarray,
+                                       var_name: str,
+                                       original_units: str) -> np.ndarray:
+        """
+        This helper function applies unit conversion to the overlay data if the original units can be determined (either through explicit configuration or inference) and if they differ from the display units determined by the UnitConverter. It uses the UnitConverter to convert the overlay data from its original units to the display units for consistency with the main plot. If the conversion is successful, it logs the conversion for debugging purposes. If a ValueError occurs during conversion (e.g., due to incompatible units), it catches the exception and logs a warning without interrupting the plotting process, allowing the overlay to be plotted with its original units if conversion fails. The function returns the overlay data array, which may have been converted to display units if conversion was successful, or left unchanged if conversion was not possible. Debug print statements can be included to confirm when unit conversion is applied and to log any warnings if conversion fails, which can assist in troubleshooting and verifying that unit conversion is being handled correctly based on the inputs provided.
+
+        Parameters:
+            overlay_data (np.ndarray): The overlay data array to be converted.
+            var_name (str): Variable name used for determining display units.
+            original_units (str): The original units of the overlay data.
+
+        Returns:
+            np.ndarray: The overlay data array converted to display units, if conversion was possible.
+        """
+        display_units = UnitConverter.get_display_units(var_name, original_units)
+        if original_units != display_units:
+            try:
+                overlay_data = self.convert_to_numpy(
+                    UnitConverter.convert_units(overlay_data, original_units, display_units)
+                )
+                print(f"Converted overlay {var_name} from {original_units} to {display_units}")
+            except ValueError as e:
+                print(f"Warning: Could not convert overlay {var_name} from {original_units} to {display_units}: {e}")
+        return overlay_data
+
     def _prepare_overlay_data(self: "MPASSurfacePlotter",
                               overlay_data: np.ndarray,
                               lon: np.ndarray,
@@ -816,28 +910,14 @@ class MPASSurfacePlotter(MPASVisualizer):
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered longitude, latitude, and overlay data arrays containing only valid points for plotting.
         """
         original_units = surface_config.get('original_units', None)
-        
-        # If original units are not explicitly provided, we attempt to infer them based on the variable name
+
+        # If original units are not explicitly provided in the surface_config, we attempt to infer them
         if original_units is None:
-            data_mean = np.nanmean(overlay_data)
-            if 'mslp' in var_name.lower() or 'pressure' in var_name.lower():
-                if data_mean > 50000:
-                    original_units = 'Pa'
-            elif 't2m' in var_name.lower() or 'temp' in var_name.lower():
-                if data_mean > 100:
-                    original_units = 'K'
-        
-        # If we have determined original units, we attempt to convert the overlay data to display units using the UnitConverter, and log the conversion for debugging purposes.
+            original_units = self._infer_overlay_units(var_name, overlay_data)
+
+        # If original units are determined, we apply unit conversion to the overlay data
         if original_units:
-            display_units = UnitConverter.get_display_units(var_name, original_units)
-            if original_units != display_units:
-                try:
-                    overlay_data = self.convert_to_numpy(
-                        UnitConverter.convert_units(overlay_data, original_units, display_units)
-                    )
-                    print(f"Converted overlay {var_name} from {original_units} to {display_units}")
-                except ValueError as e:
-                    print(f"Warning: Could not convert overlay {var_name} from {original_units} to {display_units}: {e}")
+            overlay_data = self._apply_overlay_unit_conversion(overlay_data, var_name, original_units)
         
         # Handle 3D data by extracting 2D slice for surface-level visualization
         if overlay_data.ndim > 1:
@@ -1222,7 +1302,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 # For each time step, we attempt to extract the variable data and coordinates, create a surface map, and save the plot. 
                 if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
                     time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
-                    time_str = time_end.strftime('%Y%m%dT%H')
+                    time_str = time_end.strftime(self._TIME_FMT)
                 else:
                     time_end = None
                     time_str = f"t{time_idx:03d}"

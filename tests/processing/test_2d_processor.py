@@ -101,7 +101,18 @@ class TestMPAS2DProcessorInitialization:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=True)
-        assert processor is not None
+        public_methods = [method for method in dir(processor) if not method.startswith('_')]
+
+        expected_methods = [
+            'find_diagnostic_files',
+            'extract_spatial_coordinates',
+            'get_2d_variable_data',
+            'normalize_longitude',
+        ]
+
+        for method in expected_methods:
+            assert method in public_methods
+
         assert processor.verbose
 
     def test_initialization_verbose_false(self: "TestMPAS2DProcessorInitialization") -> None:
@@ -115,7 +126,22 @@ class TestMPAS2DProcessorInitialization:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=False)
-        assert processor is not None
+        public_methods = [method for method in dir(processor) if not method.startswith('_')]
+
+        expected_methods = [
+            'add_spatial_coordinates',
+            'extract_2d_coordinates_for_variable',
+            'extract_spatial_coordinates',
+            'filter_by_spatial_extent',
+            'find_diagnostic_files',
+            'get_2d_variable_data',
+            'get_available_variables',
+            'normalize_longitude',
+        ]
+        
+        for method in expected_methods:
+            assert method in public_methods
+
         assert not processor.verbose
 
 

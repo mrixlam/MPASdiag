@@ -375,6 +375,29 @@ class MPASBaseProcessor:
         # Return the combined xarray.Dataset and the string identifier 'xarray' 
         return combined_ds, 'xarray'
 
+    def _discover_data_files(self: "MPASBaseProcessor", 
+                             data_dir: str) -> List[str]:
+        """
+        This helper method discovers the relevant data files in the specified directory using custom finder methods if available or a default glob pattern. It first checks if the class has a method named `find_diagnostic_files` and if it is callable, in which case it uses that method to find diagnostic files. If not, it checks for a method named `find_mpasout_files` and uses it if available. If neither custom finder method is present, it falls back to using the `_find_files_by_pattern` method with a default glob pattern defined by `DIAG_GLOB` to search for diagnostic files in the specified directory. This approach allows for flexible file discovery based on the specific needs of different processors while still providing a robust default mechanism for finding files when custom methods are not defined. The method returns a list of file paths that were discovered for loading.
+
+        Parameters:
+            data_dir (str): Absolute path to the directory containing the data files to discover.
+
+        Returns:
+            List[str]: A list of file paths that were discovered using the appropriate method for finding diagnostic files in the specified directory, ready for validation and loading.
+        """
+        finder = getattr(self, 'find_diagnostic_files', None)
+
+        if callable(finder):
+            return cast(List[str], finder(data_dir))
+
+        finder2 = getattr(self, 'find_mpasout_files', None)
+
+        if callable(finder2):
+            return cast(List[str], finder2(data_dir))
+
+        return self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
+
     def _load_data(self: "MPASBaseProcessor", 
                    data_dir: str, 
                    use_pure_xarray: bool = False,
@@ -394,26 +417,7 @@ class MPASBaseProcessor:
         Returns:
             Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is the loaded dataset (either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds), and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray'). 
         """
-        # Initialize a variable to hold the list of data files that will be loaded
-        data_files: List[str]
-
-        # Specify the file discovery method for diagnostic files
-        finder = getattr(self, 'find_diagnostic_files', None)
-
-        # Find the data files using the appropriate method
-        if callable(finder):
-            # Find all the available diagnostic files in the specified directory using the custom finder method 
-            data_files = cast(List[str], finder(data_dir))
-        else:
-            # Specify the file discovery method for mpasout files
-            finder2 = getattr(self, 'find_mpasout_files', None)
-
-            if callable(finder2):
-                # Find all the available mpasout files in the specified directory using the custom finder method
-                data_files = cast(List[str], finder2(data_dir))
-            else:
-                # If neither custom finder method is defined, fall back to the default glob pattern matching for diagnostic files in the specified directory.
-                data_files = self._find_files_by_pattern(data_dir, DIAG_GLOB, "diagnostic files")
+        data_files = self._discover_data_files(data_dir)
         
         # Parse datetimes from the filenames of the discovered data files using the MPASDateTimeUtils utility
         file_datetimes = MPASDateTimeUtils.parse_file_datetimes(data_files, self.verbose)
