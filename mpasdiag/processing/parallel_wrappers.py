@@ -67,7 +67,8 @@ def _setup_processor_and_cache(kwargs: Dict[str, Any]) -> Tuple[Any, Optional[MP
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
         processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        processor = processor.load_2d_data(kwargs['data_dir'])
+        variables = kwargs.get('variables', None)
+        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
         return processor, None
     return kwargs['processor'], kwargs.get('cache', None)
 
@@ -185,7 +186,7 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
         plot_start = time.time()
 
-        _, _ = plotter.create_precipitation_map(
+        fig, ax = plotter.create_precipitation_map(
             lon, lat, precip_data.values,
             lon_min, lon_max, lat_min, lat_max,
             title=title,
@@ -265,7 +266,8 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
         processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        processor = processor.load_2d_data(kwargs['data_dir'])
+        variables = kwargs.get('variables', None)
+        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
         cache = None
     else:
         processor = kwargs['processor']
@@ -310,7 +312,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     plot_start = time.time()
     
-    _, _ = plotter.create_surface_map(
+    fig, ax = plotter.create_surface_map(
         lon=lon,
         lat=lat,
         data=var_data.values,
@@ -375,7 +377,8 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
         from mpasdiag.processing.processors_2d import MPAS2DProcessor
         processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        processor = processor.load_2d_data(kwargs['data_dir'])
+        variables = kwargs.get('variables', None)
+        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
         cache = None
     else:
         processor = kwargs['processor']
@@ -432,7 +435,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     plotter = MPASWindPlotter(figsize=(12, 10))    
     plot_start = time.time()
 
-    _, _ = plotter.create_wind_plot(
+    fig, ax = plotter.create_wind_plot(
         lon, lat, u_data.values, v_data.values,
         lon_min, lon_max, lat_min, lat_max,
         plot_type=plot_type,
@@ -490,7 +493,8 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
         processor_3d = MPAS3DProcessor(kwargs['grid_file'], verbose=False)
-        processor_3d = processor_3d.load_3d_data(kwargs['data_dir'])
+        variables = kwargs.get('variables', None)
+        processor_3d = processor_3d.load_3d_data(kwargs['data_dir'], variables=variables)
     else:
         processor_3d = kwargs['processor']  
 
@@ -522,7 +526,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
     save_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{safe_time_str}.png")
     
-    fig, _ = plotter.create_vertical_cross_section(
+    fig, ax = plotter.create_vertical_cross_section(
         mpas_3d_processor=processor_3d,
         var_name=var_name,
         start_point=(start_lon, start_lat),
@@ -751,6 +755,7 @@ class ParallelPrecipitationProcessor:
                 'lat_min': lat_min,
                 'lat_max': lat_max,
                 'var_name': var_name,
+                'variables': [var_name],
                 'accum_period': accum_period,
                 'plot_type': plot_type,
                 'grid_resolution': grid_resolution,
@@ -893,6 +898,7 @@ class ParallelSurfaceProcessor:
                 'lat_min': lat_min,
                 'lat_max': lat_max,
                 'var_name': var_name,
+                'variables': [var_name],
                 'plot_type': plot_type,
                 'file_prefix': file_prefix,
                 'formats': formats,
@@ -997,6 +1003,7 @@ class ParallelWindProcessor:
             'lon_min': lon_min, 'lon_max': lon_max,
             'lat_min': lat_min, 'lat_max': lat_max,
             'u_variable': u_variable, 'v_variable': v_variable,
+            'variables': [u_variable, v_variable],
             'plot_type': plot_type, 'subsample': subsample,
             'scale': scale, 'show_background': show_background,
             'grid_resolution': grid_resolution, 'regrid_method': regrid_method,
@@ -1235,6 +1242,7 @@ class ParallelCrossSectionProcessor:
                 'end_lat': end_point[1],
                 'end_lon': end_point[0],
                 'var_name': var_name,
+                'variables': [var_name],
                 'file_prefix': file_prefix,
                 'formats': formats,
                 'custom_title': None,

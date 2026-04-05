@@ -109,14 +109,26 @@ class MPAS3DProcessor(MPASBaseProcessor):
             raise ValueError(DATASET_NOT_LOADED_3D_MSG)
 
         try:
-            with xr.open_dataset(self.grid_file, decode_times=False) as grid_ds:
-                sizes = data_array.sizes if data_array is not None else (
-                    self.dataset[var_name].sizes if var_name in self.dataset else {}
-                )
-
-                spatial_dim = self._detect_spatial_dim(sizes)
-                lon_names, lat_names = self._COORD_NAMES.get(spatial_dim, self._COORD_NAMES['nCells'])
-
+            # Determine which coordinate variables we need before opening the grid file
+            sizes = data_array.sizes if data_array is not None else (
+                self.dataset[var_name].sizes if var_name in self.dataset else {}
+            )
+            spatial_dim = self._detect_spatial_dim(sizes)
+            lon_names, lat_names = self._COORD_NAMES.get(spatial_dim, self._COORD_NAMES['nCells'])
+            needed_vars = list(lon_names) + list(lat_names)
+            
+            # Build drop_variables list to avoid loading unneeded grid data
+            open_kwargs: dict = {'decode_times': False}
+            try:
+                with xr.open_dataset(self.grid_file, decode_times=False) as probe:
+                    all_vars = list(probe.data_vars)
+                drop = [v for v in all_vars if v not in needed_vars]
+                if drop:
+                    open_kwargs['drop_variables'] = drop
+            except Exception:
+                pass
+            
+            with xr.open_dataset(self.grid_file, **open_kwargs) as grid_ds:
                 lon_coords = self._lookup_coord(grid_ds, lon_names)
                 lat_coords = self._lookup_coord(grid_ds, lat_names)
 
@@ -193,7 +205,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
     def load_3d_data(self: 'MPAS3DProcessor', 
                      data_dir: str, 
                      use_pure_xarray: bool = False, 
-                     reference_file: str = "") -> 'MPAS3DProcessor':
+                     reference_file: str = "",
+                     variables: Optional[List[str]] = None) -> 'MPAS3DProcessor':
         """
         This method loads 3D atmospheric data from MPAS output files in the specified directory. It uses the find_mpasout_files method to locate the relevant files, then loads them into an xarray Dataset using either the pure xarray backend or UXarray based on the use_pure_xarray flag. The method applies appropriate chunking for efficient loading of 3D data and handles time coordinate ordering using an optional reference file. After loading, it adds spatial coordinates to the dataset using the add_spatial_coordinates method. The loaded dataset and its type are stored as attributes of the processor for use in subsequent processing steps. The method returns a self reference to allow for method chaining. 
 
@@ -201,6 +214,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             data_dir (str): Directory path containing MPAS output files to load.
             use_pure_xarray (bool): If True, uses pure xarray for loading; if False, uses UXarray for potentially faster loading (default: False).
             reference_file (str): Optional file path to use as a reference for time coordinate ordering (default: "").
+            variables (Optional[List[str]]): List of variable names to retain. If provided, only these variables are loaded from data files to reduce memory usage (default: None).
 
         Returns:
             MPAS3DProcessor: Returns self reference after loading the dataset and adding spatial coordinates. 
@@ -214,7 +228,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
             use_pure_xarray, 
             reference_file,
             chunks=chunks_3d,
-            data_type_label="3D"
+            data_type_label="3D",
+            variables=variables
         )
         
         if hasattr(dataset, 'data_vars'):  
@@ -935,7 +950,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         Parameters:
             data_3d (xr.DataArray): The 3D xarray DataArray from which to extract the slice.
-            level_value (float): The coordinate value along the vertical dimension to extract.
+            level_value (Optional[float]): The coordinate value along the vertical dimension to extract.
             level_dim (str): The name of the vertical dimension in the DataArray.
             method (str): The interpolation method to use ('nearest' or 'linear').
 

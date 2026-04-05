@@ -383,7 +383,20 @@ class SoundingDiagnostics:
         Returns:
             Tuple[np.ndarray, np.ndarray]: Longitude and latitude arrays in degrees.
         """
-        with xr.open_dataset(processor.grid_file, decode_times=False) as grid_ds:
+        # Only load lon/lat coordinate variables from the grid file
+        _SOUNDING_COORD_NAMES = ['lonCell', 'longitude', 'lon', 'latCell', 'latitude', 'lat']
+        open_kwargs: dict = {'decode_times': False}
+
+        try:
+            with xr.open_dataset(processor.grid_file, decode_times=False) as probe:
+                all_vars = list(probe.data_vars)
+            drop = [v for v in all_vars if v not in _SOUNDING_COORD_NAMES]
+            if drop:
+                open_kwargs['drop_variables'] = drop
+        except Exception:
+            pass
+        
+        with xr.open_dataset(processor.grid_file, **open_kwargs) as grid_ds:
             # Check for common longitude variable names and extract the longitude array
             for lon_name in ('lonCell', 'longitude', 'lon'):
                 if lon_name in grid_ds.coords or lon_name in grid_ds.data_vars:

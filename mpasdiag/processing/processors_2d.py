@@ -62,14 +62,16 @@ class MPAS2DProcessor(MPASBaseProcessor):
     def load_2d_data(self: 'MPAS2DProcessor', 
                      data_dir: str, 
                      use_pure_xarray: bool = False, 
-                     reference_file: str = "") -> 'MPAS2DProcessor':
+                     reference_file: str = "",
+                     variables: Optional[List[str]] = None) -> 'MPAS2DProcessor':
         """
         This method loads 2D diagnostic data from the specified directory, utilizing either the pure xarray backend or the UXarray backend based on the provided flag. It first identifies the relevant diagnostic files in the directory, then loads them into a combined dataset while adding necessary spatial coordinates. The method ensures that the loaded dataset is properly enriched with spatial information for subsequent analysis and visualization. By returning self, it allows for method chaining in processing workflows that require multiple operations on the loaded dataset. 
 
         Parameters:
             data_dir (str): Directory path to search for MPAS diagnostic files.
             use_pure_xarray (bool): If True, uses the pure xarray backend for loading data; otherwise, uses UXarray (default: False).
-            reference_file (str): Optional path to a reference file for loading data, if required by the backend (default: ""). 
+            reference_file (str): Optional path to a reference file for loading data, if required by the backend (default: "").
+            variables (Optional[List[str]]): List of variable names to retain. If provided, only these variables are loaded from data files to reduce memory usage (default: None). 
 
         Returns:
             MPAS2DProcessor: The instance of the processor with the loaded dataset ready for analysis and visualization. 
@@ -83,7 +85,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
             use_pure_xarray, 
             reference_file,
             chunks=chunks_2d,
-            data_type_label="2D"
+            data_type_label="2D",
+            variables=variables
         )
         
         if hasattr(dataset, 'data_vars'):  

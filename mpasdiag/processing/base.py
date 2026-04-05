@@ -191,26 +191,34 @@ class MPASBaseProcessor:
     def _load_multifile_dataset(self: "MPASBaseProcessor", 
                                 data_files: List[str], 
                                 file_datetimes: List[datetime],
-                                open_chunks: dict) -> xr.Dataset:
+                                open_chunks: dict,
+                                drop_variables: Optional[List[str]] = None) -> xr.Dataset:
         """
         This helper method loads and combines multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. It uses `xr.open_mfdataset` to read the specified data files, combining them along the Time dimension using a nested concatenation strategy. The provided `open_chunks` configuration is applied when opening the files to ensure that chunking is compatible with the concatenation process. After loading, it assigns the provided datetime objects as the Time coordinates in the combined dataset and sorts the dataset by the Time coordinate to ensure temporal ordering. The resulting combined dataset is lazily loaded with chunking applied for efficient handling of large MPAS datasets, and it is returned for use in subsequent processing steps. 
 
         Parameters:
             data_files (List[str]): Ordered list of data files to load and combine into a single dataset.
             file_datetimes (List[datetime]): Datetimes corresponding to each file, used for assigning Time coordinates in the combined dataset.
-            open_chunks (dict): Chunking configuration to use when opening files with `xr.open_mfdataset`, typically including only the Time dimension to ensure proper concatenation. 
+            open_chunks (dict): Chunking configuration to use when opening files with `xr.open_mfdataset`, typically including only the Time dimension to ensure proper concatenation.
+            drop_variables (Optional[List[str]]): List of variable names to exclude from loading, reducing memory usage (default: None). 
 
         Returns:
             xr.Dataset: A combined xarray.Dataset containing data from all specified files, with Time coordinates assigned and sorted, and chunking applied for efficient memory usage. 
         """
-        # Read data files into a single xarray.Dataset using open_mfdataset with the specified chunking strategy for efficient memory usage. 
-        combined_ds = xr.open_mfdataset(
-            data_files,
+        # Build kwargs for open_mfdataset
+        mf_kwargs: Dict[str, Any] = dict(
             combine='nested',
             concat_dim='Time',
             chunks=open_chunks,
-            parallel=False
+            parallel=False,
         )
+
+        # If a list of variables to drop is provided, include it in the kwargs 
+        if drop_variables:
+            mf_kwargs['drop_variables'] = drop_variables
+        
+        # Read data files into a single xarray.Dataset using open_mfdataset with the specified chunking strategy for efficient memory usage. 
+        combined_ds = xr.open_mfdataset(data_files, **mf_kwargs)
         
         # Assign the provided datetime objects as the Time coordinates in the combined dataset
         combined_ds = combined_ds.assign_coords(Time=pd.to_datetime(file_datetimes))
@@ -279,7 +287,8 @@ class MPASBaseProcessor:
                               open_chunks: dict, 
                               full_chunks: Optional[dict], 
                               use_pure_xarray: bool, 
-                              data_type_label: str) -> Tuple[Any, str]:
+                              data_type_label: str,
+                              drop_variables: Optional[List[str]] = None) -> Tuple[Any, str]:
         """
         This helper method implements the primary loading strategy for MPAS datasets, which attempts to load and combine multiple files into a single dataset using either pure xarray or UXarray based on the `use_pure_xarray` flag. It first loads the files into a combined xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. If `use_pure_xarray` is True, it returns the combined xarray.Dataset directly without UXarray wrapping. If `use_pure_xarray` is False, it creates a UXarray dataset by wrapping the combined xarray.Dataset with the unstructured grid information extracted from the grid file. The method also includes diagnostic feedback in verbose mode about the loading process and the resulting dataset structure, and it sets the instance attributes for the loaded dataset and data type based on the successful loading strategy. This primary loading approach is designed to leverage UXarray's capabilities when possible while still allowing for a pure xarray fallback when requested by the user. 
 
@@ -289,13 +298,14 @@ class MPASBaseProcessor:
             open_chunks (dict): Chunking configuration to use when opening files with `xr.open_mfdataset`, typically including only the Time dimension to ensure proper concatenation. 
             full_chunks (Optional[dict]): Full chunk mapping for rechunking after loading, which may include all specified chunks for memory optimization.
             use_pure_xarray (bool): Flag to force pure xarray backend instead of UXarray for simplified processing without unstructured grid support.
-            data_type_label (str): Human-readable label for the data type being loaded (used in verbose output messages). 
+            data_type_label (str): Human-readable label for the data type being loaded (used in verbose output messages).
+            drop_variables (Optional[List[str]]): List of variable names to exclude from loading (default: None). 
 
         Returns:
             Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds, and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray'). 
         """
         # Load and combine multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. 
-        combined_ds = self._load_multifile_dataset(data_files, file_datetimes, open_chunks)
+        combined_ds = self._load_multifile_dataset(data_files, file_datetimes, open_chunks, drop_variables=drop_variables)
 
         # Apply full chunking to the combined dataset after loading to optimize memory usage for downstream processing. 
         combined_ds = self._apply_chunking(combined_ds, full_chunks)
@@ -340,7 +350,8 @@ class MPASBaseProcessor:
                                data_files: List[str], 
                                file_datetimes: List[datetime], 
                                full_chunks: Optional[dict], 
-                               data_type_label: str) -> Tuple[Any, str]:
+                               data_type_label: str,
+                               drop_variables: Optional[List[str]] = None) -> Tuple[Any, str]:
         """
         This helper method implements the fallback loading strategy for MPAS datasets, which attempts to load and combine multiple files into a single xarray.Dataset using a more conservative approach that is compatible with a wider range of file formats and system configurations. It uses a fallback chunking strategy that applies 1 time step per chunk when opening files to maximize compatibility with different file structures and concatenation requirements. After loading the combined dataset, it applies the full chunking strategy for memory optimization. The method also includes diagnostic feedback in verbose mode about the loading process and the resulting dataset structure, and it sets the instance attributes for the loaded dataset and data type based on the successful loading strategy. This fallback loading approach is designed to provide a robust alternative when the primary loading strategy fails, ensuring that users can still access their data for analysis even if UXarray loading is not possible. 
 
@@ -349,6 +360,7 @@ class MPASBaseProcessor:
             file_datetimes (List[datetime]): Datetimes corresponding to each file, used for assigning Time coordinates in the combined dataset.
             full_chunks (Optional[dict]): Full chunk mapping for rechunking after loading, which may include all specified chunks for memory optimization.
             data_type_label (str): Human-readable label for the data type being loaded (used in verbose output messages).
+            drop_variables (Optional[List[str]]): List of variable names to exclude from loading (default: None).
 
         Returns:
             Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is an xarray.Dataset loaded using the fallback strategy, and data_type_identifier is the string 'xarray' to indicate that the dataset is a plain xarray.Dataset without UXarray wrapping. 
@@ -357,7 +369,7 @@ class MPASBaseProcessor:
         fallback_chunks = {'Time': 1}
 
         # Load and combine multiple files into a single xarray.Dataset using the fallback chunking strategy
-        combined_ds = self._load_multifile_dataset(data_files, file_datetimes, fallback_chunks)
+        combined_ds = self._load_multifile_dataset(data_files, file_datetimes, fallback_chunks, drop_variables=drop_variables)
 
         # Optimize memory usage for the fallback dataset by applying the full chunking strategy after loading
         combined_ds = self._apply_chunking(combined_ds, full_chunks)
@@ -403,7 +415,8 @@ class MPASBaseProcessor:
                    use_pure_xarray: bool = False,
                    reference_file: str = "", 
                    chunks: Optional[dict] = None, 
-                   data_type_label: str = "data") -> Tuple[Any, str]:
+                   data_type_label: str = "data",
+                   variables: Optional[List[str]] = None) -> Tuple[Any, str]:
         """
         This method implements a robust loading workflow for MPAS datasets that includes multiple strategies and fallbacks to ensure that data can be loaded successfully under a variety of conditions. It first discovers the relevant data files in the specified directory using custom finder methods if available or a default glob pattern. It then parses datetimes from the filenames to assign proper Time coordinates in the dataset. The method prepares chunking configurations for both opening files and for full rechunking after loading based on the provided `chunks` argument or defaults. It attempts the primary loading strategy, which uses either pure xarray or UXarray based on the `use_pure_xarray` flag, and if that fails, it falls back to a more conservative xarray loading approach with a different chunking strategy. If both multi-file loading strategies fail, it attempts to load a single file as a final fallback. Throughout the process, it provides diagnostic feedback in verbose mode about the loading steps and the resulting dataset structure, and it sets instance attributes for the loaded dataset and data type based on the successful loading strategy. This method is designed to maximize the chances of successfully loading MPAS datasets while providing clear feedback to users about the loading process and any issues encountered. 
 
@@ -412,7 +425,8 @@ class MPASBaseProcessor:
             use_pure_xarray (bool): Flag to force pure xarray backend instead of UXarray for simplified processing without unstructured grid support (default: False).
             reference_file (str): Optional absolute path to a specific reference file for single-file loading if multi-file loading fails, or an empty string to indicate that the first file from the discovered data files should be used as the fallback (default: "").
             chunks (Optional[dict]): Custom chunking strategy dictionary with dimension names as keys and chunk sizes as values, or None for default chunking (default: None).
-            data_type_label (str): Human-readable label for the type of data being loaded (e.g., "Diagnostic data" or "Model output") used in verbose output messages (default: "data"). 
+            data_type_label (str): Human-readable label for the type of data being loaded (e.g., "Diagnostic data" or "Model output") used in verbose output messages (default: "data").
+            variables (Optional[List[str]]): List of variable names to retain. If provided, all other data variables are dropped at load time to reduce memory usage (default: None). 
 
         Returns:
             Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is the loaded dataset (either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds), and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray'). 
@@ -425,11 +439,25 @@ class MPASBaseProcessor:
         # Specify the chunking configuration for opening files and for full rechunking based on the provided `chunks` argument or defaults.
         open_chunks, full_chunks = self._prepare_chunking_config(chunks)
         
+        # Compute list of variables to drop if a selective variable list was provided
+        drop_variables = None
+
+        if variables is not None:
+            try:
+                with xr.open_dataset(data_files[0]) as probe:
+                    all_data_vars = list(probe.data_vars)
+                keep = set(variables)
+                drop_variables = [v for v in all_data_vars if v not in keep]
+                if self.verbose and drop_variables:
+                    print(f"Selective loading: keeping {len(keep)} variable(s), dropping {len(drop_variables)} from data files")
+            except Exception:
+                drop_variables = None
+        
         # Attempt primary loading strategy
         try:
             return self._attempt_primary_load(
                 data_files, file_datetimes, open_chunks, full_chunks, 
-                use_pure_xarray, data_type_label
+                use_pure_xarray, data_type_label, drop_variables=drop_variables
             )
         except Exception as e:
             if self.verbose:
@@ -439,7 +467,7 @@ class MPASBaseProcessor:
             # Attempt fallback loading strategy
             try:
                 return self._attempt_fallback_load(
-                    data_files, file_datetimes, full_chunks, data_type_label
+                    data_files, file_datetimes, full_chunks, data_type_label, drop_variables=drop_variables
                 )
             except Exception as e2:
                 if self.verbose:
@@ -697,17 +725,30 @@ class MPASBaseProcessor:
         
         return lon_coords_normalized, lat_coords_flat
     
-    def _load_grid_file(self: "MPASBaseProcessor") -> xr.Dataset:
+    def _load_grid_file(self: "MPASBaseProcessor",
+                       needed_vars: Optional[List[str]] = None) -> xr.Dataset:
         """
-        This helper method loads the grid file specified by `self.grid_file` using xarray, which contains the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information. It opens the grid file dataset in lazily-loaded mode without decoding times, allowing for efficient access to the grid metadata without loading the entire dataset into memory. The method returns the loaded grid file dataset, which can be used for extracting spatial coordinates and other grid-related information needed for processing MPAS datasets with unstructured grids. If verbose mode is enabled, it also prints a message indicating that the grid file was loaded successfully along with a list of the variables contained in the grid file dataset. 
+        This helper method loads the grid file specified by `self.grid_file` using xarray, which contains the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information. It opens the grid file dataset in lazily-loaded mode without decoding times, allowing for efficient access to the grid metadata without loading the entire dataset into memory. When `needed_vars` is provided, only those variables are retained from the grid file, significantly reducing memory usage for large grids. The method returns the loaded grid file dataset, which can be used for extracting spatial coordinates and other grid-related information needed for processing MPAS datasets with unstructured grids. If verbose mode is enabled, it also prints a message indicating that the grid file was loaded successfully along with a list of the variables contained in the grid file dataset. 
 
         Parameters:
-            None
+            needed_vars (Optional[List[str]]): List of variable names to retain from the grid file. If None, all variables are loaded (default: None).
 
         Returns:
             xr.Dataset: The xarray.Dataset loaded from the grid file, containing the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information. 
         """
-        grid_file_ds = xr.open_dataset(self.grid_file, decode_times=False)
+        open_kwargs: Dict[str, Any] = {'decode_times': False}
+        
+        if needed_vars is not None:
+            try:
+                with xr.open_dataset(self.grid_file, decode_times=False) as probe:
+                    all_vars = list(probe.data_vars)
+                drop = [v for v in all_vars if v not in needed_vars]
+                if drop:
+                    open_kwargs['drop_variables'] = drop
+            except Exception:
+                pass
+        
+        grid_file_ds = xr.open_dataset(self.grid_file, **open_kwargs)
         
         if self.verbose:
             print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")
@@ -813,7 +854,7 @@ class MPASBaseProcessor:
         """
         try:
             # Load the grid file dataset to access spatial variables and coordinate information
-            grid_file_ds = self._load_grid_file()
+            grid_file_ds = self._load_grid_file(needed_vars=spatial_vars)
 
             # Prepare coordinate mappings for dimensions that exist in the combined dataset to add index coordinates (e.g., nCells, nVertices) for easier indexing and plotting.
             coords_to_add = self._prepare_dimension_coordinates(combined_ds, dimensions_to_add)
