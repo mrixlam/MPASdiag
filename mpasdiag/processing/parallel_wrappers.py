@@ -15,6 +15,7 @@ Version: 1.0.0
 import matplotlib
 matplotlib.use('Agg')  
 
+import gc
 import os
 import time
 from typing import List, Optional, Tuple, Any, Dict
@@ -224,6 +225,9 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         if cache is not None:
             result['cache_info'] = cache.get_cache_info()
 
+        del precip_data, lon, lat, plotter
+        gc.collect()
+
         return result
 
     except Exception as e:
@@ -294,8 +298,8 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             lon, lat = processor.extract_spatial_coordinates()
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
-            except:
-                pass 
+            except Exception:
+                pass
     else:
         lon, lat = processor.extract_spatial_coordinates()
     
@@ -349,6 +353,9 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     if cache is not None:
         result['cache_info'] = cache.get_cache_info()
+    
+    del var_data, lon, lat, plotter
+    gc.collect()
     
     return result
 
@@ -407,7 +414,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, u_variable)
-            except:
+            except Exception:
                 pass
     else:
         lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
@@ -461,6 +468,9 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     if cache is not None:
         result['cache_info'] = cache.get_cache_info()
+    
+    del u_data, v_data, lon, lat, plotter
+    gc.collect()
     
     return result
 
@@ -537,6 +547,10 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
                 save_kwargs['pil_kwargs'] = {'compress_level': 1}
             fig.savefig(output_file, **save_kwargs)
             output_files.append(output_file)
+    
+    plotter.close_plot()
+    del plotter
+    gc.collect()
     
     timings['saving'] = time.time() - save_start
     timings['total'] = time.time() - start_time
@@ -641,6 +655,8 @@ def _process_parallel_results(results: List[Any],
             print(f"  Load imbalance: {100*stats.load_imbalance:.1f}%")
     
     print(f"{'='*70}\n")
+    
+    del all_timings, timing_stats
     
     return created_files
 
@@ -789,10 +805,15 @@ class ParallelPrecipitationProcessor:
         )
         
         if manager.is_master and results is not None:
-            return _process_parallel_results(
+            created = _process_parallel_results(
                 results, time_indices, output_dir, manager, "PRECIPITATION"
             )
+            del results, manager
+            gc.collect()
+            return created
         
+        del results, manager
+        gc.collect()
         return None
 
 
@@ -920,10 +941,15 @@ class ParallelSurfaceProcessor:
         
         if manager.is_master and results is not None:
             var_info = f"Variable: {var_name}, Plot type: {plot_type}"
-            return _process_parallel_results(
+            created = _process_parallel_results(
                 results, time_indices, output_dir, manager, "SURFACE", var_info
             )
+            del results, manager
+            gc.collect()
+            return created
         
+        del results, manager
+        gc.collect()
         return None
 
 
@@ -1085,10 +1111,15 @@ class ParallelWindProcessor:
         
         if manager.is_master and results is not None:
             var_info = f"U: {u_variable}, V: {v_variable}, Plot type: {plot_type}"
-            return _process_parallel_results(
+            created = _process_parallel_results(
                 results, time_indices, output_dir, manager, "WIND", var_info
             )
+            del results, manager
+            gc.collect()
+            return created
         
+        del results, manager
+        gc.collect()
         return None
 
 
@@ -1246,10 +1277,15 @@ class ParallelCrossSectionProcessor:
         results = manager.parallel_map(_cross_section_worker, worker_args)
         
         if manager.is_master and results is not None:
-            return ParallelCrossSectionProcessor._collect_cross_section_results(
+            created = ParallelCrossSectionProcessor._collect_cross_section_results(
                 results, time_indices, output_dir
             )
+            del results, manager
+            gc.collect()
+            return created
         
+        del results, manager
+        gc.collect()
         return None
 
 

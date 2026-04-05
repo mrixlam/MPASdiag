@@ -12,6 +12,7 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import gc
 import warnings
 import numpy as np
 import pandas as pd
@@ -231,9 +232,11 @@ class MPASVisualizer:
             None: Closes self.fig if it exists and resets self.fig and self.ax to None. 
         """
         if self.fig is not None:
+            self.fig.clf()
             plt.close(self.fig)
             self.fig = None
             self.ax = None
+            gc.collect()
     
     def create_time_series_plot(self: "MPASVisualizer",
                               times: List[datetime],

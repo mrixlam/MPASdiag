@@ -12,6 +12,7 @@ Date: November 2025
 Version: 1.0.0
 """
 # Load standard libraries
+import gc
 import os
 import sys
 import time
@@ -505,6 +506,9 @@ class MPASParallelManager:
         local_results = self._execute_local_tasks(func, local_tasks, *args, **kwargs)
         all_results = self.collector.gather_results(local_results)
         
+        del local_results
+        gc.collect()
+        
         if self.is_master:
             assert all_results is not None, "Results should not be None on master"
             self.stats = self.collector.compute_statistics(all_results)
@@ -626,6 +630,9 @@ class MPASParallelManager:
 
         if self.verbose:
             self._print_mp_statistics(stats, time.time() - start_time)
+
+        del task_args
+        gc.collect()
 
         return results
     

@@ -35,12 +35,14 @@ class MPASDataCache:
     """ Thread-safe data cache for MPAS diagnostic processing with support for multiprocessing. """
     
     def __init__(self: "MPASDataCache", 
-                 max_variables: int = 10) -> None:
+                 max_variables: int = 10,
+                 max_coordinates: int = 10) -> None:
         """
-        This constructor initializes the MPASDataCache instance with empty dictionaries for coordinates, variables, grid data, and metadata. It also sets up a lock for thread safety and initializes an access count dictionary to track variable usage for eviction purposes. The max_variables parameter controls how many variables can be cached simultaneously before evicting the least accessed one to manage memory usage. This constructor prepares the cache for use in storing and retrieving data during MPAS diagnostic processing. 
+        This constructor initializes the MPASDataCache instance with empty dictionaries for coordinates, variables, grid data, and metadata. It also sets up a lock for thread safety and initializes access count tracking for eviction policies. The maximum number of variables and coordinate sets to cache can be configured through the parameters, allowing for memory management when caching large datasets. The cache is designed to be used in multiprocessing contexts by implementing custom pickling behavior that allows the lock to be recreated in worker processes, enabling shared access to cached data without serialization issues. 
 
         Parameters:
-            max_variables (int): Maximum number of variables to cache before evicting least accessed (default: 10). 
+            max_variables (int): Maximum number of variables to cache before evicting least accessed (default: 10).
+            max_coordinates (int): Maximum number of coordinate sets to cache before evicting least accessed (default: 10).
 
         Returns:
             None
@@ -51,6 +53,7 @@ class MPASDataCache:
         self._grid_data: Dict[str, np.ndarray] = {}  
         self._metadata: Dict[str, Dict[str, Any]] = {}
         self.max_variables = max_variables
+        self.max_coordinates = max_coordinates
         self._access_count: Dict[str, int] = {}
     
     def _get_lock(self: "MPASDataCache") -> threading.RLock:
@@ -145,6 +148,10 @@ class MPASDataCache:
             
             # Normalize longitude to [-180, 180] range
             lon = ((lon + 180) % 360) - 180
+            
+            # Evict least accessed coordinates if at capacity
+            if len(self._coordinates) >= self.max_coordinates:
+                self._evict_least_accessed_coordinates()
             
             self._coordinates[cache_key] = (lon, lat)
             print(f"Cached coordinates for '{cache_key}': {len(lon)} points")
@@ -341,6 +348,30 @@ class MPASDataCache:
             self._access_count.pop(least_accessed, None)
             print(f"Evicted variable '{least_accessed}' from cache "
                   f"({evicted.data.nbytes / 1024 / 1024:.2f} MB freed)")
+
+    def _evict_least_accessed_coordinates(self: "MPASDataCache") -> None:
+        """
+        This internal method implements a simple eviction policy to remove the least accessed coordinate set from the cache when the maximum number of cached coordinates is exceeded. It identifies the coordinate key with the lowest access count, removes it from the _coordinates cache and the _access_count tracking, and prints a message indicating which coordinate set was evicted.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        if not self._coordinates:
+            return
+        
+        coord_keys = set(self._coordinates.keys())
+        coord_access = {k: self._access_count.get(k, 0) for k in coord_keys}
+        least_accessed = min(coord_access.items(), key=lambda x: x[1])[0]
+        
+        evicted_lon, evicted_lat = self._coordinates.pop(least_accessed)
+        self._access_count.pop(least_accessed, None)
+        mem_freed = (evicted_lon.nbytes + evicted_lat.nbytes) / 1024 / 1024
+        
+        print(f"Evicted coordinates '{least_accessed}' from cache "
+              f"({mem_freed:.2f} MB freed)")
 
 
 _global_cache: Optional[MPASDataCache] = None
