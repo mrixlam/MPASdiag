@@ -20,6 +20,7 @@ import time
 from typing import List, Optional, Tuple, Any, Dict
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 _COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
 _PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
@@ -52,6 +53,73 @@ except ImportError:
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
 
+def _setup_processor_and_cache(kwargs: Dict[str, Any]) -> Tuple[Any, Optional[MPASDataCache]]:
+    """
+    This helper function sets up the processor and cache for a worker function based on the provided keyword arguments. It checks if 'grid_file' and 'data_dir' are present in kwargs to determine if it should create a new MPAS2DProcessor instance and load data directly within the worker, which is useful for multiprocessing where objects need to be picklable. If these keys are not present, it assumes that a processor instance and an optional cache object have been passed in kwargs and returns them directly. This design allows for flexibility in how the worker functions can be executed in parallel, supporting both multiprocessing with independent data loading and MPI-based parallelism with shared processor instances and caches.
+
+    Parameters:
+        kwargs (Dict[str, Any]): Dictionary of keyword arguments that may contain 'grid_file', 'data_dir', 'processor', and 'cache' keys to determine how to set up the processor and cache for the worker function.
+    
+    Returns:
+        Tuple[Any, Optional[MPASDataCache]]: A tuple containing the processor instance (which may be a newly created MPAS2DProcessor or an existing processor passed in kwargs) and an optional MPASDataCache instance if provided in kwargs. If 'grid_file' and 'data_dir' are used to create a new processor, the cache will be returned as None since it is not shared across processes in that case.
+    """
+    if 'grid_file' in kwargs and 'data_dir' in kwargs:
+        from mpasdiag.processing.processors_2d import MPAS2DProcessor
+        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
+        processor = processor.load_2d_data(kwargs['data_dir'])
+        return processor, None
+    return kwargs['processor'], kwargs.get('cache', None)
+
+
+def _extract_precip_coordinates(processor: Any, 
+                                cache: Optional[MPASDataCache], 
+                                var_name: str, 
+                                cache_hits: Dict[str, bool]) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    This helper function extracts longitude and latitude coordinates for a given variable name using the provided processor and cache. It first checks if the cache is available and attempts to retrieve the coordinates from the cache, updating the cache_hits dictionary accordingly. If the coordinates are not found in the cache, it uses the processor to extract the 2D coordinates for the specified variable. If a cache is being used, it also attempts to load the coordinates into the cache from the processor's dataset for future use by other workers. This function abstracts away the logic of coordinate retrieval and caching, allowing worker functions to easily obtain spatial coordinates while tracking cache performance.
+
+    Parameters:
+        processor (Any): The processor instance used to extract coordinates if not found in cache.
+        cache (Optional[MPASDataCache]): The cache object to retrieve or store coordinates.
+        var_name (str): The name of the variable for which to extract coordinates.
+        cache_hits (Dict[str, bool]): Dictionary to track cache hit status for coordinates.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Longitude and latitude arrays for the specified variable.
+    """
+    if cache is not None:
+        try:
+            lon, lat = cache.get_coordinates(var_name)
+            cache_hits['coordinates'] = True
+            return lon, lat
+        except KeyError:
+            lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
+            try:
+                cache.load_coordinates_from_dataset(processor.dataset, var_name)
+            except Exception:
+                pass
+            return lon, lat
+    return processor.extract_2d_coordinates_for_variable(var_name)
+
+
+def _get_time_str(dataset: xr.Dataset, 
+                  time_idx: int) -> Tuple[str, Optional[pd.Timestamp]]:
+    """
+    This helper function generates a formatted time string for a given time index from the dataset's Time coordinate. It checks if the Time coordinate exists and if the specified time index is within bounds. If valid, it converts the time value to a pandas Timestamp, formats it as 'YYYYMMDDTHH', and returns both the formatted string and the original Timestamp. If the Time coordinate is not available or the index is out of bounds, it returns a default string in the format 'tXXX' where XXX is the zero-padded time index, along with None for the Timestamp. This function provides a consistent way to generate time strings for file naming and plot titles while also optionally returning the original time value for further use in plotting or diagnostics.
+
+    Parameters:
+        dataset (xr.Dataset): The xarray Dataset containing the Time coordinate.
+        time_idx (int): The index of the time step for which to generate the time string.
+
+    Returns:
+        Tuple[str, Optional[pd.Timestamp]]: A tuple containing the formatted time string and the original Timestamp object if available, or None if the Time coordinate is not valid.
+    """
+    if hasattr(dataset, 'Time') and len(dataset.Time) > time_idx:
+        time_end = pd.Timestamp(dataset.Time.values[time_idx])
+        return time_end.strftime('%Y%m%dT%H'), time_end
+    return f"t{time_idx:03d}", None
+
+
 def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
     This worker function executes precipitation diagnostic processing and plotting for a single timestep with comprehensive timing metrics. It serves as a picklable entry point for parallel processing of precipitation diagnostics across multiple timesteps using a shared data cache. The function extracts spatial coordinates, computes precipitation differences, generates visualizations with the MPASPrecipitationPlotter, and saves outputs in specified formats. It measures execution time for data extraction, plotting operations, and file writing while tracking cache hit statistics for performance analysis. 
@@ -64,15 +132,8 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     """
     try:
         time_idx, kwargs = args
-        
-        if 'grid_file' in kwargs and 'data_dir' in kwargs:
-            from mpasdiag.processing.processors_2d import MPAS2DProcessor
-            processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-            processor = processor.load_2d_data(kwargs['data_dir'])
-            cache = None  # Each rank uses its own local coordinates
-        else:
-            processor = kwargs['processor']
-            cache = kwargs.get('cache', None)
+
+        processor, cache = _setup_processor_and_cache(kwargs)
 
         output_dir = kwargs['output_dir']
         lon_min = kwargs['lon_min']
@@ -88,48 +149,30 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         custom_title_template = kwargs.get('custom_title_template')
         colormap = kwargs.get('colormap')
         levels = kwargs.get('levels')
-        
+
         start_time = time.time()
         timings = {}
         cache_hits = {'coordinates': False, 'data': False}
-        
-        data_start = time.time()
-        
-        if cache is not None:
-            try:
-                lon, lat = cache.get_coordinates(var_name)
-                cache_hits['coordinates'] = True
-            except KeyError:
-                lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
-                try:
-                    cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                except:
-                    pass
-        else:
-            lon, lat = processor.extract_2d_coordinates_for_variable(var_name)
-        
-        precip_diag = PrecipitationDiagnostics(verbose=False)
 
+        data_start = time.time()
+
+        lon, lat = _extract_precip_coordinates(processor, cache, var_name, cache_hits)
+
+        precip_diag = PrecipitationDiagnostics(verbose=False)
         precip_data = precip_diag.compute_precipitation_difference(
-            processor.dataset, 
-            time_idx, 
-            var_name, 
+            processor.dataset,
+            time_idx,
+            var_name,
             accum_period,
             data_type=processor.data_type or 'UXarray'
         )
-        
-        time_end = None
 
-        if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
-            time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
-            time_str = time_end.strftime('%Y%m%dT%H')
-        else:
-            time_str = f"t{time_idx:03d}"
-        
+        time_str, time_end = _get_time_str(processor.dataset, time_idx)
+
         timings['data_processing'] = time.time() - data_start
-        
+
         plotter = MPASPrecipitationPlotter(figsize=(10, 14))
-        
+
         if custom_title_template:
             title = custom_title_template.format(
                 var_name=var_name.upper(),
@@ -138,10 +181,10 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             )
         else:
             title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
-        
+
         plot_start = time.time()
 
-        fig, ax = plotter.create_precipitation_map(
+        _, _ = plotter.create_precipitation_map(
             lon, lat, precip_data.values,
             lon_min, lon_max, lat_min, lat_max,
             title=title,
@@ -155,34 +198,34 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             var_name=var_name
         )
 
-        timings['plotting'] = time.time() - plot_start        
+        timings['plotting'] = time.time() - plot_start
         save_start = time.time()
 
         output_path = os.path.join(
             output_dir,
             f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}"
         )
-        
+
         plotter.save_plot(output_path, formats=formats)
         plotter.close_plot()
-        
+
         output_files = [f"{output_path}.{fmt}" for fmt in formats]
 
-        timings['saving'] = time.time() - save_start        
+        timings['saving'] = time.time() - save_start
         timings['total'] = time.time() - start_time
-        
+
         result = {
             'files': output_files,
             'timings': timings,
             'time_str': time_str,
             'cache_hits': cache_hits
         }
-        
+
         if cache is not None:
             result['cache_info'] = cache.get_cache_info()
-        
+
         return result
-    
+
     except Exception as e:
         import traceback
         time_idx = args[0] if args else 'unknown'
@@ -263,7 +306,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     plot_start = time.time()
     
-    fig, ax = plotter.create_surface_map(
+    _, _ = plotter.create_surface_map(
         lon=lon,
         lat=lat,
         data=var_data.values,
@@ -382,7 +425,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     plotter = MPASWindPlotter(figsize=(12, 10))    
     plot_start = time.time()
 
-    fig, ax = plotter.create_wind_plot(
+    _, _ = plotter.create_wind_plot(
         lon, lat, u_data.values, v_data.values,
         lon_min, lon_max, lat_min, lat_max,
         plot_type=plot_type,
@@ -469,7 +512,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
     save_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{safe_time_str}.png")
     
-    fig, ax = plotter.create_vertical_cross_section(
+    fig, _ = plotter.create_vertical_cross_section(
         mpas_3d_processor=processor_3d,
         var_name=var_name,
         start_point=(start_lon, start_lat),

@@ -400,7 +400,7 @@ class TestSpatialCoordinatesAndFiltering:
             'latCell': xr.DataArray(np.array([-np.pi/4, 0, np.pi/4, np.pi/2]), dims=['nCells'])
         })
         
-        lon, lat = self.processor.extract_spatial_coordinates()
+        _, lat = self.processor.extract_spatial_coordinates()
         
         assert np.max(np.abs(lat)) > np.pi
         assert np.max(lat) == pytest.approx(90.0, abs=1e-5)
@@ -1256,7 +1256,7 @@ class TestVisualizerOperations:
         times = [datetime(2024, 1, 1, i) for i in range(3)]
         values = [100.0, 200.0, 300.0]
         
-        fig, ax = self.visualizer.create_time_series_plot(
+        _, ax = self.visualizer.create_time_series_plot(
             times, values, 
             title="Custom Title",
             ylabel="Custom Y",
@@ -1296,7 +1296,7 @@ class TestVisualizerOperations:
             None
         """
         data = np.logspace(0, 3, 1000)  # 1 to 1000        
-        fig, ax = self.visualizer.create_histogram(data, log_scale=True)        
+        _, ax = self.visualizer.create_histogram(data, log_scale=True)        
         assert ax.get_yscale() == 'log'
     
 
@@ -1313,7 +1313,7 @@ class TestVisualizerOperations:
         data = np.linspace(-3, 3, 500)
         bins = np.linspace(-3, 3, 10)
         
-        fig, ax = self.visualizer.create_histogram(data, bins=bins)
+        fig, _ = self.visualizer.create_histogram(data, bins=bins)
         
         assert fig is not None
     
@@ -1329,7 +1329,7 @@ class TestVisualizerOperations:
             None
         """
         data = np.array([np.nan, np.inf, -np.inf])
-        fig, ax = self.visualizer.create_histogram(data)
+        fig, _ = self.visualizer.create_histogram(data)
         assert fig is not None
 
     def test_extract_2d_from_3d_by_value(self: "TestVisualizerOperations") -> None:
@@ -1411,7 +1411,7 @@ class TestWindVisualization:
         Returns:
             None
         """
-        fig, ax = self.visualizer.create_wind_plot(
+        fig, _ = self.visualizer.create_wind_plot(
             self.lon, self.lat, self.u, self.v,
             -120, -80, 30, 50,
             show_background=True,
@@ -1432,7 +1432,7 @@ class TestWindVisualization:
         """
         lon, lat, u, v = load_mpas_coords_from_processor(n=1000)
         
-        fig, ax = self.visualizer.create_wind_plot(
+        fig, _ = self.visualizer.create_wind_plot(
             lon, lat, u, v,
             -120, -80, 30, 50,
             subsample=0  
@@ -1450,7 +1450,7 @@ class TestWindVisualization:
         Returns:
             None
         """
-        fig, ax = self.visualizer.create_wind_plot(
+        fig, _ = self.visualizer.create_wind_plot(
             self.lon, self.lat, self.u, self.v,
             -120, -80, 30, 50,
             subsample=5
@@ -1470,7 +1470,7 @@ class TestWindVisualization:
         """
         time_stamp = datetime(2024, 1, 15, 12, 0)
         
-        fig, ax = self.visualizer.create_wind_plot(
+        _, ax = self.visualizer.create_wind_plot(
             self.lon, self.lat, self.u, self.v,
             -120, -80, 30, 50,
             time_stamp=time_stamp
@@ -1490,7 +1490,7 @@ class TestWindVisualization:
         Returns:
             None
         """
-        fig, ax = self.visualizer.create_wind_plot(
+        _, ax = self.visualizer.create_wind_plot(
             self.lon, self.lat, self.u, self.v,
             -120, -80, 30, 50,
             title="Custom Wind Title"
@@ -1508,7 +1508,7 @@ class TestWindVisualization:
         Returns:
             None
         """
-        fig, ax = self.visualizer.create_wind_plot(
+        fig, _ = self.visualizer.create_wind_plot(
             self.lon, self.lat, self.u, self.v,
             -120, -80, 30, 50,
             plot_type='arrows',

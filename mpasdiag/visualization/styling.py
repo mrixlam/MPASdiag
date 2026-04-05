@@ -18,7 +18,6 @@ import numpy as np
 import xarray as xr
 import cartopy.crs as ccrs
 from datetime import datetime
-import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
@@ -30,7 +29,6 @@ from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
 from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
 from ..processing.utils_metadata import MPASFileMetadata
-from ..processing.utils_unit import UnitConverter
 
 
 class MPASVisualizationStyle:
@@ -851,8 +849,6 @@ class MPASVisualizationStyle:
         Returns:
             Optional[Colorbar]: The created Colorbar object if the colorbar was successfully added, or None if the necessary parameters were not provided. This allows for further customization of the colorbar after creation if needed. 
         """
-        import matplotlib.ticker as mticker
-
         if fig is None or ax is None or mappable is None:
             return
 

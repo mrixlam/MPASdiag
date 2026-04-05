@@ -17,19 +17,17 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from scipy.spatial import KDTree 
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from math import radians, degrees, sin, cos, atan2, sqrt, asin
-from scipy.spatial import KDTree 
 from typing import Tuple, Optional, List, Dict, Any, Union, cast
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
-from ..processing.processors_3d import MPAS3DProcessor
 from ..processing.utils_unit import UnitConverter
+from ..processing.processors_3d import MPAS3DProcessor
 from ..processing.utils_metadata import MPASFileMetadata
 
 
@@ -485,7 +483,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return vertical_levels, vertical_coord
         except Exception as e:
             print(f"Warning: Could not get vertical levels, using indices: {e}")
-            sizes = mpas_3d_processor.dataset[var_name].sizes
+            _ = mpas_3d_processor.dataset[var_name].sizes
             n_levels = (
                 mpas_3d_processor.dataset.sizes.get('nVertLevels')
                 or mpas_3d_processor.dataset.sizes.get('nVertLevelsP1')
@@ -816,7 +814,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         ])
         
         tree = KDTree(grid_points)
-        distances, indices = tree.query(path_points)
+        _, indices = tree.query(path_points)
         
         return grid_data_valid[indices]
 
@@ -942,10 +940,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         except Exception:
             return None
     
-    # ------------------------------------------------------------------
-    # Helpers for _convert_vertical_to_height
-    # ------------------------------------------------------------------
-
     def _try_extract_height_km(self: 'MPASVerticalCrossSectionPlotter',
                                mpas_3d_processor: MPAS3DProcessor,
                                time_index: int,

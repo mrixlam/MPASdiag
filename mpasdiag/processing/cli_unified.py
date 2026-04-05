@@ -1586,7 +1586,7 @@ class MPASUnifiedCLI:
         """
         time_str = MPASDateTimeUtils.get_time_info(processor.dataset, config.time_index, verbose=False)
         
-        fig, ax = plotter.create_vertical_cross_section(
+        _, _ = plotter.create_vertical_cross_section(
             mpas_3d_processor=processor,
             time_index=config.time_index,
             title=config.title or f"MPAS Vertical Cross-Section | Variable: {config.variable} | Valid: {time_str}",

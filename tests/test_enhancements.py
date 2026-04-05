@@ -187,7 +187,7 @@ class TestConditionalTimeDisplay:
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
             
-            fig, ax = self.surface_plotter.create_surface_map(
+            _, _ = self.surface_plotter.create_surface_map(
                 lon=self.lon, lat=self.lat, data=self.data,
                 var_name='t2m',
                 lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
@@ -215,7 +215,7 @@ class TestConditionalTimeDisplay:
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
             
-            fig, ax = self.surface_plotter.create_surface_map(
+            _, _ = self.surface_plotter.create_surface_map(
             lon=self.lon, lat=self.lat, data=self.data,
             var_name='t2m',
             lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,

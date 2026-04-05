@@ -25,7 +25,6 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import FuncFormatter
 from typing import Tuple, Optional, List, Union, Any, cast, Dict
 
 # Import MPASdiag modules for configuration, data processing, remapping, and visualization
@@ -33,7 +32,7 @@ from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon_with_masking
+from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
 from .styling import MPASVisualizationStyle
 
 
@@ -698,7 +697,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         
         # Set up the map projection, figure, and axes, and determine the appropriate extent for plotting while avoiding dateline artifacts for global plots. 
         (
-            map_proj, data_crs,
+            _, data_crs,
             filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
             filter_lon_min_data, filter_lon_max_data, filter_lat_min_data, filter_lat_max_data
         ) = self._setup_map_extent_and_features(lon_min, lon_max, lat_min, lat_max, projection)
@@ -923,7 +922,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         if overlay_data.ndim > 1:
             level_index = surface_config.get('level_index', None)
             overlay_data = overlay_data[:, level_index] if level_index is not None else overlay_data[:, -1]
-            print(f"Extracted 2D overlay data from multi-dimensional array")
+            print("Extracted 2D overlay data from multi-dimensional array")
         
         # Filter valid data points by checking for finite values in the overlay data and corresponding longitude and latitude arrays
         valid_mask = np.isfinite(overlay_data) & np.isfinite(lon) & np.isfinite(lat)
@@ -1315,7 +1314,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 title = f"MPAS Surface Map | Var: {var_name.upper()} | Valid: {time_str} | Type: {plot_type.title()}"
 
                 # Create the surface map for the current time step using the extracted data and coordinates, and the specified plotting parameters 
-                fig, ax = self.create_surface_map(
+                _, _ = self.create_surface_map(
                     lon, lat, var_data.values, var_name,
                     lon_min, lon_max, lat_min, lat_max,
                     title=title,

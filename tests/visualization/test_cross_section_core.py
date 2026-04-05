@@ -368,7 +368,7 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -389,7 +389,7 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -410,7 +410,7 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -431,7 +431,7 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -453,7 +453,7 @@ class TestCreateVerticalCrossSectionComplete:
         """
         levels = np.linspace(240, 300, 13)
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -496,7 +496,7 @@ class TestCreateVerticalCrossSectionComplete:
         """
         save_path = os.path.join(self.temp_dir, "cross_section.png")
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        _, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),

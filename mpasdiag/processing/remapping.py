@@ -272,7 +272,7 @@ class MPASRemapper:
             raise ImportError("xESMF is required for regridding. Install with: conda install -c conda-forge xesmf")
 
         self.regridder = xe.Regridder(source_grid, target_grid, **regridder_kwargs)  
-        print(f"Regridder built successfully")
+        print("Regridder built successfully")
         
         return self.regridder
     
@@ -400,7 +400,7 @@ class MPASRemapper:
         if lat_max is None:
             lat_max = float(min(90.0, np.max(lat_deg) + buffer))
         
-        print(f"Creating intermediate 2D structured grid:")
+        print("Creating intermediate 2D structured grid:")
         print(f"  Lon range: [{lon_min:.2f}, {lon_max:.2f}]°")
         print(f"  Lat range: [{lat_min:.2f}, {lat_max:.2f}]°")
         print(f"  Resolution: {intermediate_resolution}°")
@@ -448,7 +448,7 @@ class MPASRemapper:
         structured_data.attrs['grid_conversion'] = 'unstructured_to_structured_kdtree'
         structured_data.attrs['intermediate_resolution'] = intermediate_resolution
         
-        print(f"✓ Converted to 2D structured grid with bounds (ready for conservative remapping)")
+        print("✓ Converted to 2D structured grid with bounds (ready for conservative remapping)")
         
         return structured_data, structured_grid
     
@@ -596,7 +596,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
     
-    print(f"  Original MPAS data statistics [Global Statistics]:")
+    print("  Original MPAS data statistics [Global Statistics]:")
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
         warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
@@ -669,7 +669,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
 
     sum_ratio = float(result.sum()) / data_sum
 
-    print(f"  Remapped data statistics [Statistics over Target Grid]:")
+    print("  Remapped data statistics [Statistics over Target Grid]:")
     print(f"    Min: {float(result.min()):.4f}, Max: {float(result.max()):.4f}")
     print(f"    Mean: {float(result.mean()):.4f}, Median: {float(result.median()):.4f}")
     print(f"    Std: {float(result.std()):.4f}, Sum: {float(result.sum()):.4f}")
@@ -980,7 +980,7 @@ if __name__ == '__main__':
         print("  conda install -c conda-forge xesmf")
     else:
         print("\nxESMF is available")
-        print(f"Supported methods: bilinear, conservative, conservative_normed, patch, nearest_s2d, nearest_d2s")
+        print("Supported methods: bilinear, conservative, conservative_normed, patch, nearest_s2d, nearest_d2s")
         print("\nExample usage:")
         print("""
 from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon

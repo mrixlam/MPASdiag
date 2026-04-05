@@ -12,7 +12,6 @@ Date: November 2025
 Version: 1.0.0
 """
 
-import os
 import warnings
 import numpy as np
 import pandas as pd
@@ -23,8 +22,6 @@ import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
 from cartopy.mpl.geoaxes import GeoAxes
-from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import FuncFormatter
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
@@ -310,7 +307,7 @@ class MPASVisualizer:
                 except Exception:
                     bins_arg = list(bins)
 
-            n, bins, patches = self.ax.hist(valid_data, bins=bins_arg, alpha=0.7,  
+            _, bins, _ = self.ax.hist(valid_data, bins=bins_arg, alpha=0.7,  
                                           edgecolor='black', linewidth=0.5)
             
             mean_val = float(np.mean(valid_data))

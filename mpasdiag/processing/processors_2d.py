@@ -182,7 +182,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
             return files
 
         if self.verbose:
-            print(f"\nNo diagnostic files found, searching for mpasout files...")
+            print("\nNo diagnostic files found, searching for mpasout files...")
 
         return self._find_mpasout_files_fallback(data_dir)
 

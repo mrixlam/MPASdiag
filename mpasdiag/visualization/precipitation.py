@@ -26,15 +26,13 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import BoundaryNorm
-from matplotlib.ticker import FuncFormatter
-from typing import Tuple, Optional, List, Any, Union, Dict, cast
+from typing import Tuple, Optional, List, Any, Union, Dict
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 # Import relevant MPASdiag modules for visualization and processing
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
 from ..processing.utils_unit import UnitConverter
-from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.remapping import remap_mpas_to_latlon_with_masking
 from ..diagnostics.precipitation import PrecipitationDiagnostics
 
@@ -424,7 +422,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         precip_data, unit_label = self._convert_precipitation_units(precip_data, data_array, var_name)
         
         # Setup figure, axes, projection, and geographic features for precipitation map
-        map_proj, data_crs = self._setup_precipitation_figure(lon_min, lon_max, lat_min, lat_max, projection)
+        _, data_crs = self._setup_precipitation_figure(lon_min, lon_max, lat_min, lat_max, projection)
         
         # Assert fig and ax are created and of correct type for cartopy plotting
         assert self.fig is not None, "Figure must be created by _setup_precipitation_figure"
@@ -1134,7 +1132,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             title = f"MPAS Precipitation | PlotType: {plot_type.upper()} | VarType: {var_name.upper()} | Valid Time: {time_str}"
         
         # Create precipitation map for this time step
-        fig, ax = self.create_precipitation_map(
+        _, _ = self.create_precipitation_map(
             lon, lat, precip_data.values,
             lon_min, lon_max, lat_min, lat_max,
             title=title,

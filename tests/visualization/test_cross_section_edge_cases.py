@@ -446,7 +446,7 @@ class TestAdditionalCoverage:
         with patch('mpasdiag.visualization.cross_section.MPASFileMetadata.get_variable_metadata',
                    side_effect=Exception("Metadata error")):
             
-            fig, ax = self.plotter.create_vertical_cross_section(
+            fig, _ = self.plotter.create_vertical_cross_section(
                 mpas_3d_processor=mock_processor,
                 var_name="theta",
                 start_point=(-100, 30),
@@ -473,7 +473,7 @@ class TestAdditionalCoverage:
             return_value=np.array([100000, -100, 0, 50000, 30000])
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -502,7 +502,7 @@ class TestAdditionalCoverage:
         with patch('mpasdiag.visualization.cross_section.MPASVisualizationStyle.get_variable_style') as mock_style:
             mock_style.return_value = {'colormap': 'coolwarm', 'levels': np.linspace(250, 300, 11)}
             
-            fig, ax = self.plotter.create_vertical_cross_section(
+            fig, _ = self.plotter.create_vertical_cross_section(
                 mpas_3d_processor=mock_processor,
                 var_name="theta",
                 start_point=(-100, 30),
@@ -528,7 +528,7 @@ class TestAdditionalCoverage:
         with patch('mpasdiag.visualization.cross_section.MPASVisualizationStyle.get_variable_style',
                    side_effect=Exception("Style error")):
             
-            fig, ax = self.plotter.create_vertical_cross_section(
+            fig, _ = self.plotter.create_vertical_cross_section(
                 mpas_3d_processor=mock_processor,
                 var_name="theta",
                 start_point=(-100, 30),
@@ -551,7 +551,7 @@ class TestAdditionalCoverage:
         """
         mock_processor = self._create_basic_processor()
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -576,7 +576,7 @@ class TestAdditionalCoverage:
         """
         mock_processor = self._create_basic_processor()
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -604,7 +604,7 @@ class TestAdditionalCoverage:
             return_value=np.linspace(100000, 10000, 10)
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -636,7 +636,7 @@ class TestAdditionalCoverage:
         self.plotter.fig = Mock()
         self.plotter.verbose = True
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -676,7 +676,7 @@ class TestAdditionalCoverage:
             side_effect=Exception("Level extraction failed")
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -703,7 +703,7 @@ class TestAdditionalCoverage:
             side_effect=Exception("Extraction failed")
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -743,7 +743,7 @@ class TestAdditionalCoverage:
             return_value=np.arange(10)
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -770,7 +770,7 @@ class TestAdditionalCoverage:
             return_value=np.random.rand(100)
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -797,7 +797,7 @@ class TestAdditionalCoverage:
             side_effect=Exception("Data extraction failed")
         )
         
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             mpas_3d_processor=mock_processor,
             var_name="theta",
             start_point=(-100, 30),
@@ -818,7 +818,7 @@ class TestAdditionalCoverage:
         Returns:
             None
         """
-        lons, lats, dists = self.plotter._generate_great_circle_path(
+        lons, _, dists = self.plotter._generate_great_circle_path(
             start_point=(-100, 30),
             end_point=(-100, 30), 
             num_points=50
@@ -857,7 +857,7 @@ class TestAdditionalCoverage:
         Returns:
             None
         """
-        lons, lats, dists = self.plotter._generate_great_circle_path(
+        lons, lats, _ = self.plotter._generate_great_circle_path(
             start_point=(-100, 30),
             end_point=(-90, 40),
             num_points=50
@@ -1011,7 +1011,7 @@ class TestAdditionalCoverage:
         mock_processor.dataset = ds
         coords = np.linspace(100000, 10000, 10)
         
-        result, coord_type = self.plotter._convert_vertical_to_height(
+        _, coord_type = self.plotter._convert_vertical_to_height(
             coords, 'pressure', mock_processor, 0
         )
         
@@ -1040,7 +1040,7 @@ class TestAdditionalCoverage:
         mock_processor.dataset = ds
         coords = np.arange(10)
         
-        result, coord_type = self.plotter._convert_vertical_to_height(
+        _, coord_type = self.plotter._convert_vertical_to_height(
             coords, 'model_levels', mock_processor, 0
         )
         
@@ -1272,7 +1272,7 @@ class TestAdditionalEdgeCases:
             var = _find_3d_var(processor)
             assert var is not None, "No 3D variable found in processor dataset"
 
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, var, (-100, 30), (-90, 40),
                 max_height=0.1,  
                 display_vertical='height'
@@ -1308,7 +1308,7 @@ class TestAdditionalEdgeCases:
             var = _find_3d_var(processor)
             assert var is not None, "No 3D variable found in processor dataset"
             
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, var, (-100, 30), (-90, 40),
                 display_vertical='pressure'
             )
@@ -1425,7 +1425,7 @@ class TestCrossSectionPathValidation:
         Returns:
             None
         """
-        lons, lats, dists = self.plotter._generate_great_circle_path(
+        lons, _, dists = self.plotter._generate_great_circle_path(
             start_point=(-100, 35),
             end_point=(-100, 35),
             num_points=5

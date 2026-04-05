@@ -927,7 +927,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
     @staticmethod
     def _extract_xarray_by_value(data_3d: xr.DataArray,
-                                 level_value: float,
+                                 level_value: Optional[float],
                                  level_dim: str,
                                  method: str) -> np.ndarray:
         """
@@ -999,8 +999,6 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if isinstance(data_3d, xr.DataArray):
             if level_index is not None:
                 return MPAS3DProcessor._extract_xarray_by_index(data_3d, level_index, level_dim)
-            if level_value is None:
-                raise ValueError("Must provide either level_index or level_value")
             return MPAS3DProcessor._extract_xarray_by_value(data_3d, level_value, level_dim, method)
 
         if level_index is None:

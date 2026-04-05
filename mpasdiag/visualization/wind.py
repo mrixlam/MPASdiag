@@ -26,11 +26,8 @@ from typing import Optional, Dict, Any, Tuple, Union, List
 
 # Import MPASdiag modules for configuration, data processing, remapping, and visualization
 from mpasdiag.processing.utils_unit import UnitConverter
-from mpasdiag.processing.utils_geog import MPASGeographicUtils
-from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
 from mpasdiag.visualization.styling import MPASVisualizationStyle
 
 
@@ -85,9 +82,6 @@ class MPASWindPlotter(MPASVisualizer):
         map_lon_range = lon_max - lon_min
         map_lat_range = lat_max - lat_min
 
-        # Calculate map area in square degrees and figure area in square inches
-        map_area = map_lon_range * map_lat_range
-        
         # Calculate figure area in square inches for density estimation
         fig_width, fig_height = figsize
         fig_area = fig_width * fig_height
@@ -986,7 +980,7 @@ class MPASWindPlotter(MPASVisualizer):
             lon, lat = processor.extract_2d_coordinates_for_variable(u_variable, u_data)
 
             # Create the wind plot for the current time index using the extracted data and specified parameters
-            fig, ax = self.create_wind_plot(
+            _, _ = self.create_wind_plot(
                 lon, lat, u_data.values, v_data.values,
                 lon_min, lon_max, lat_min, lat_max,
                 plot_type=plot_type,

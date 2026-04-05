@@ -23,6 +23,9 @@ from unittest.mock import Mock
 from typing import Dict, Any, Optional, Tuple, Generator
 
 
+_GRID_FILE = 'data/grids/x1.10242.static.nc'
+
+
 def _is_lfs_pointer(filepath: Path) -> bool:
     """
     This helper function checks if the given file is a Git LFS pointer file by reading its header and looking for the characteristic LFS signature. It returns True if the file is an LFS pointer, which indicates that the actual data is not present locally and may need to be fetched from the remote repository. This is important for tests that rely on sample data files, as it allows them to skip gracefully when the data is not available in the local environment. 
@@ -334,15 +337,15 @@ def _build_3d_ds_from_real(ds_real: xr.Dataset,
                            mock_mpas_mesh: xr.Dataset,
                            n_cells: int,) -> xr.Dataset:
     """
-    This helper function constructs a 3D dataset by taking a real MPAS dataset as a template and subsetting it to a manageable size for testing. It ensures that the resulting dataset includes the necessary dimensions (`Time`, `nCells`, `nVertLevels`) and adds any missing mesh variables from the `mock_mpas_mesh` fixture. Additionally, it populates synthetic wind components if they are not present in the original dataset, allowing tests to run with realistic data structures even when certain variables are missing from the mpasout files. 
-    
+    This helper function constructs a 3D dataset from real mpasout data when available. It subsets the data to a manageable size for testing, adds necessary mesh variables from the provided mock mesh if they are missing, and ensures that required 3D fields like `uReconstructZonal` and `uReconstructMeridional` are present by adding synthetic values if they were removed from the original mpasout files. This allows tests to use real data when possible while maintaining compatibility with test cases that expect certain variables to be present.
+
     Parameters:
-        ds_real (xr.Dataset): The real MPAS dataset to use as a template.
-        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture, used to provide cell-related variables.
-        n_cells (int): The number of cells to include in the synthetic dataset, typically a subset of the total cells in the mesh.
+        ds_real (xr.Dataset): The original 3D dataset loaded from mpasout files.
+        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture to provide geometry variables if missing.
+        n_cells (int): The number of cells to subset for testing.
 
     Returns:
-        xr.Dataset: An xarray Dataset with `Time` and vertical levels containing synthetic 3D fields suitable for testing processing and plotting routines.
+        xr.Dataset: An xarray Dataset containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
     """
     n_cells_subset = min(n_cells, len(ds_real['nCells']))
     n_time_subset = min(3, len(ds_real['Time']))
@@ -377,14 +380,14 @@ def _build_3d_ds_from_real(ds_real: xr.Dataset,
 def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset, 
                            n_cells: int) -> xr.Dataset:
     """
-    This helper function constructs a synthetic 3D dataset with the same structure as real mpasout data, including `Time`, `nCells`, and `nVertLevels` dimensions. It populates the dataset with random values for key variables like `pressure`, `theta`, `temperature`, `uReconstructZonal`, `uReconstructMeridional`, `w`, and `rho`. The function also adds time coordinates in a recognizable format. This synthetic dataset allows tests to run in environments without access to real mpasout files while maintaining the expected data structure for processing and plotting tests.
+    This helper function constructs a fully synthetic 3D dataset with the necessary structure and variables for testing when real mpasout data is not available. It uses the provided mock mesh for geometry variables and generates random values for 3D fields such as `pressure`, `theta`, `temperature`, `uReconstructZonal`, `uReconstructMeridional`, `w`, and `rho`. The resulting dataset includes a `Time` dimension and vertical levels, allowing tests to exercise processing and plotting routines that expect real MPAS 3D data structure.
 
     Parameters:
-        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture, used to provide cell-related variables.
-        n_cells (int): The number of cells to include in the synthetic dataset, typically a subset of the total cells in the mesh.  
+        mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture to provide geometry variables.
+        n_cells (int): The number of cells to include in the synthetic dataset.
 
     Returns:
-        xr.Dataset: An xarray Dataset with `Time` and vertical levels containing synthetic 3D fields suitable for testing processing and plotting routines.
+        xr.Dataset: An xarray Dataset containing synthetic 3D fields with `Time` and vertical levels.
     """
     n_vertical = 55
     n_time = 3
@@ -424,10 +427,8 @@ def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset,
         xr.Dataset: An xarray Dataset with `Time` and vertical levels containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
     """
     n_cells = len(mock_mpas_mesh['nCells'])
-
     if mpas_3d_processor is not None and mpas_3d_processor.dataset is not None:
         return _build_3d_ds_from_real(mpas_3d_processor.dataset, mock_mpas_mesh, n_cells)
-
     return _build_3d_ds_synthetic(mock_mpas_mesh, n_cells)
 
 
@@ -585,7 +586,7 @@ def mock_config() -> Dict[str, Any]:
     """
     return {
         'input': {
-            'invariant_file': 'data/grids/x1.10242.static.nc',
+            'invariant_file': _GRID_FILE,
             'data_dir': 'data/u240k/mpasout',
             'diag_dir': 'data/u240k/diag',
         },
@@ -620,7 +621,7 @@ def mock_cli_args() -> Any:
     """
     class Args:
         def __init__(self):
-            self.invariant_file = 'data/grids/x1.10242.static.nc'
+            self.invariant_file = _GRID_FILE
             self.data_dir = 'data/u240k/mpasout'
             self.output_dir = 'output/test'
             self.variable = 'temperature'
@@ -646,7 +647,7 @@ def mock_processor() -> Mock:
         Mock: A `unittest.mock.Mock` object configured with minimal mesh attributes and flags used by tests.
     """
     processor = Mock()
-    processor.invariant_file = 'data/grids/x1.10242.static.nc'
+    processor.invariant_file = _GRID_FILE
     processor.mesh_data = Mock()
     processor.mesh_data.latCell = Mock()
     processor.mesh_data.lonCell = Mock()
