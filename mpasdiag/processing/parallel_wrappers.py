@@ -26,6 +26,7 @@ import xarray as xr
 _COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
 _PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
 
+
 try:
     from .data_cache import MPASDataCache, get_global_cache
 except ImportError:
@@ -54,6 +55,68 @@ except ImportError:
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
 
+_PRECIP_REQUIRED_VARS = {
+    'total': ['rainc', 'rainnc'],
+    'rainc': ['rainc'],
+    'rainnc': ['rainnc'],
+}
+
+_CROSS_SECTION_AUX_VARS = [
+    'pressure', 'pressure_p', 'pressure_base',
+    'zgrid', 'height', 'fzp', 'surface_pressure',
+]
+
+_rank_processor_cache: Dict[str, Any] = {}
+
+
+def _get_or_create_2d_processor(kwargs: Dict[str, Any]) -> Any:
+    """ 
+    This helper function retrieves or creates a 2D processor instance based on the provided keyword arguments. It constructs a cache key using the grid file, data directory, and optionally the list of variables to ensure that each unique combination corresponds to a single processor instance in the cache. If the processor for the given key does not exist in the cache, it creates a new MPAS2DProcessor instance, loads the 2D data from the specified directory, and stores it in the cache before returning it. This design allows for efficient reuse of processor instances across multiple worker functions that may require access to the same data, while also supporting multiprocessing scenarios where each worker may need to create its own processor instance if they cannot share state.
+
+    Parameters:
+        kwargs (Dict[str, Any]): Dictionary of keyword arguments that must include 'grid_file' and 'data_dir', and may optionally include 'variables' which is a list of variable names to load. 
+
+    Returns:
+        Any: An instance of MPAS2DProcessor that has loaded the specified data, either retrieved from the cache or newly created if it was not already present.
+    """
+    grid_file = kwargs['grid_file']
+    data_dir = kwargs['data_dir']
+    variables = kwargs.get('variables', None)
+
+    cache_key = f"2d|{grid_file}|{data_dir}|{tuple(sorted(variables)) if variables else None}"
+
+    if cache_key not in _rank_processor_cache:
+        from mpasdiag.processing.processors_2d import MPAS2DProcessor
+        processor = MPAS2DProcessor(grid_file, verbose=False)
+        processor = processor.load_2d_data(data_dir, variables=variables)
+        _rank_processor_cache[cache_key] = processor
+    return _rank_processor_cache[cache_key]
+
+
+def _get_or_create_3d_processor(kwargs: Dict[str, Any]) -> Any:
+    """ 
+    This helper function retrieves or creates a 3D processor instance based on the provided keyword arguments. It constructs a cache key using the grid file, data directory, and optionally the list of variables to ensure that each unique combination corresponds to a single processor instance in the cache. If the processor for the given key does not exist in the cache, it creates a new MPAS3DProcessor instance, loads the 3D data from the specified directory, and stores it in the cache before returning it. This design allows for efficient reuse of processor instances across multiple worker functions that may require access to the same 3D data, while also supporting multiprocessing scenarios where each worker may need to create its own processor instance if they cannot share state.
+
+    Parameters:
+        kwargs (Dict[str, Any]): Dictionary of keyword arguments that must include 'grid_file' and 'data_dir', and may optionally include 'variables' which is a list of variable names to load. 
+
+    Returns:
+        Any: An instance of MPAS3DProcessor that has loaded the specified data, either retrieved from the cache or newly created if it was not already present.
+    """
+    grid_file = kwargs['grid_file']
+    data_dir = kwargs['data_dir']
+    variables = kwargs.get('variables', None)
+
+    cache_key = f"3d|{grid_file}|{data_dir}|{tuple(sorted(variables)) if variables else None}"
+
+    if cache_key not in _rank_processor_cache:
+        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        processor = MPAS3DProcessor(grid_file, verbose=False)
+        processor = processor.load_3d_data(data_dir, variables=variables)
+        _rank_processor_cache[cache_key] = processor
+    return _rank_processor_cache[cache_key]
+
+
 def _setup_processor_and_cache(kwargs: Dict[str, Any]) -> Tuple[Any, Optional[MPASDataCache]]:
     """
     This helper function sets up the processor and cache for a worker function based on the provided keyword arguments. It checks if 'grid_file' and 'data_dir' are present in kwargs to determine if it should create a new MPAS2DProcessor instance and load data directly within the worker, which is useful for multiprocessing where objects need to be picklable. If these keys are not present, it assumes that a processor instance and an optional cache object have been passed in kwargs and returns them directly. This design allows for flexibility in how the worker functions can be executed in parallel, supporting both multiprocessing with independent data loading and MPI-based parallelism with shared processor instances and caches.
@@ -65,10 +128,7 @@ def _setup_processor_and_cache(kwargs: Dict[str, Any]) -> Tuple[Any, Optional[MP
         Tuple[Any, Optional[MPASDataCache]]: A tuple containing the processor instance (which may be a newly created MPAS2DProcessor or an existing processor passed in kwargs) and an optional MPASDataCache instance if provided in kwargs. If 'grid_file' and 'data_dir' are used to create a new processor, the cache will be returned as None since it is not shared across processes in that case.
     """
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
-        from mpasdiag.processing.processors_2d import MPAS2DProcessor
-        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        variables = kwargs.get('variables', None)
-        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
+        processor = _get_or_create_2d_processor(kwargs)
         return processor, None
     return kwargs['processor'], kwargs.get('cache', None)
 
@@ -264,10 +324,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     time_idx, kwargs = args
     
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
-        from mpasdiag.processing.processors_2d import MPAS2DProcessor
-        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        variables = kwargs.get('variables', None)
-        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
+        processor = _get_or_create_2d_processor(kwargs)
         cache = None
     else:
         processor = kwargs['processor']
@@ -375,10 +432,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     time_idx, kwargs = args
     
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
-        from mpasdiag.processing.processors_2d import MPAS2DProcessor
-        processor = MPAS2DProcessor(kwargs['grid_file'], verbose=False)
-        variables = kwargs.get('variables', None)
-        processor = processor.load_2d_data(kwargs['data_dir'], variables=variables)
+        processor = _get_or_create_2d_processor(kwargs)
         cache = None
     else:
         processor = kwargs['processor']
@@ -491,10 +545,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     time_idx, kwargs = args
     
     if 'grid_file' in kwargs and 'data_dir' in kwargs:
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        processor_3d = MPAS3DProcessor(kwargs['grid_file'], verbose=False)
-        variables = kwargs.get('variables', None)
-        processor_3d = processor_3d.load_3d_data(kwargs['data_dir'], variables=variables)
+        processor_3d = _get_or_create_3d_processor(kwargs)
     else:
         processor_3d = kwargs['processor']  
 
@@ -599,6 +650,10 @@ def _process_parallel_results(results: List[Any],
     
     for result in results:
         if result.success:
+            if 'error' in result.result:
+                failed += 1
+                print(f"Failed time index {time_indices[result.task_id]}: {result.result['error']}")
+                continue
             created_files.extend(result.result['files'])
             successful += 1
             
@@ -755,7 +810,7 @@ class ParallelPrecipitationProcessor:
                 'lat_min': lat_min,
                 'lat_max': lat_max,
                 'var_name': var_name,
-                'variables': [var_name],
+                'variables': _PRECIP_REQUIRED_VARS.get(var_name, [var_name]),
                 'accum_period': accum_period,
                 'plot_type': plot_type,
                 'grid_resolution': grid_resolution,
@@ -1154,7 +1209,11 @@ class ParallelCrossSectionProcessor:
 
         for result in results:
             if result.success:
-                created_files.extend(result.result)
+                if isinstance(result.result, dict) and 'error' in result.result:
+                    failed += 1
+                    print(f"Failed time index {time_indices[result.task_id]}: {result.result['error']}")
+                    continue
+                created_files.extend(result.result.get('files', []) if isinstance(result.result, dict) else result.result)
                 successful += 1
             else:
                 failed += 1
@@ -1242,7 +1301,7 @@ class ParallelCrossSectionProcessor:
                 'end_lat': end_point[1],
                 'end_lon': end_point[0],
                 'var_name': var_name,
-                'variables': [var_name],
+                'variables': [var_name] + _CROSS_SECTION_AUX_VARS,
                 'file_prefix': file_prefix,
                 'formats': formats,
                 'custom_title': None,

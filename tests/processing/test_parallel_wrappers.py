@@ -2185,7 +2185,8 @@ class TestMPIModeBranches:
             'custom_title': None, 'colormap': None, 'levels': None,
         })
 
-        with patch('mpasdiag.processing.processors_2d.MPAS2DProcessor') as mock_cls, \
+        with patch('mpasdiag.processing.parallel_wrappers._rank_processor_cache', new={}), \
+             patch('mpasdiag.processing.processors_2d.MPAS2DProcessor') as mock_cls, \
              patch('mpasdiag.processing.parallel_wrappers.MPASSurfacePlotter') as mock_plotter_cls:
             mock_cls.return_value = mock_proc
             mock_plotter = MagicMock()
