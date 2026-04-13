@@ -37,6 +37,7 @@ class MPASLogger:
         Returns:
             None: Initializes the logger instance with the specified configuration for handling log messages. 
         """
+        self.verbose = verbose
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
         

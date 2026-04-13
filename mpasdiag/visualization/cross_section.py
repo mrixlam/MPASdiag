@@ -23,8 +23,6 @@ from matplotlib.axes import Axes
 from math import radians, degrees, sin, cos, atan2, sqrt, asin
 from scipy.spatial import KDTree 
 from typing import Tuple, Optional, List, Dict, Any, Union, cast
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
@@ -505,7 +503,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return vertical_levels, vertical_coord
         except Exception as e:
             print(f"Warning: Could not get vertical levels, using indices: {e}")
-            sizes = mpas_3d_processor.dataset[var_name].sizes
             n_levels = (
                 mpas_3d_processor.dataset.sizes.get('nVertLevels')
                 or mpas_3d_processor.dataset.sizes.get('nVertLevelsP1')
@@ -986,7 +983,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Optional[Tuple[np.ndarray, str]]: A tuple containing the extracted height values in kilometers and the string 'height_km' if extraction is successful, or None if extraction fails for both variable names.
         """
-        print(f"[DEBUG _try_extract_height_km] Attempting to extract geometric height from dataset")
+        print("[DEBUG _try_extract_height_km] Attempting to extract geometric height from dataset")
         try:
             for var in ('zgrid', 'height'):
                 print(f"[DEBUG _try_extract_height_km] Trying variable '{var}'...")
@@ -1001,7 +998,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     print(f"[DEBUG _try_extract_height_km] '{var}' not found or extraction failed")
         except Exception as e:
             print(f"[DEBUG _try_extract_height_km] Exception: {e}")
-        print(f"[DEBUG _try_extract_height_km] No geometric height found, will fall back to barometric approximation")
+        print("[DEBUG _try_extract_height_km] No geometric height found, will fall back to barometric approximation")
         return None
 
     @staticmethod
@@ -1068,20 +1065,20 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             pressure_pa = vertical_coords.astype(float).copy()
 
             # DEBUG: input pressure values
-            print(f"[DEBUG _pressure_to_height_approx] Input pressure values:")
+            print("[DEBUG _pressure_to_height_approx] Input pressure values:")
             print(f"[DEBUG _pressure_to_height_approx]   dtype={pressure_pa.dtype}, shape={pressure_pa.shape}")
             print(f"[DEBUG _pressure_to_height_approx]   min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
 
             if np.nanmax(pressure_pa) < 10000:  # Likely in hPa
-                print(f"[DEBUG _pressure_to_height_approx]   max < 10000 => treating as hPa, multiplying by 100")
+                print("[DEBUG _pressure_to_height_approx]   max < 10000 => treating as hPa, multiplying by 100")
                 pressure_pa = pressure_pa * 100.0
             else:
-                print(f"[DEBUG _pressure_to_height_approx]   max >= 10000 => treating as Pa (no conversion)")
+                print("[DEBUG _pressure_to_height_approx]   max >= 10000 => treating as Pa (no conversion)")
 
             min_positive = 1.0
 
             if np.any(pressure_pa <= 0) or np.any(~np.isfinite(pressure_pa)):
-                print(f"[DEBUG _pressure_to_height_approx]   WARNING: non-positive/non-finite values detected, clipping")
+                print("[DEBUG _pressure_to_height_approx]   WARNING: non-positive/non-finite values detected, clipping")
                 if self.verbose:
                     print(
                         "Warning: pressure levels contained non-positive or non-finite values; "
@@ -1090,7 +1087,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 pressure_pa = np.where(np.isfinite(pressure_pa), pressure_pa, min_positive)
                 pressure_pa = np.clip(pressure_pa, min_positive, None)
 
-            print(f"[DEBUG _pressure_to_height_approx]   Using US Standard Atmosphere 1976 (piecewise, 5 layers)")
+            print("[DEBUG _pressure_to_height_approx]   Using US Standard Atmosphere 1976 (piecewise, 5 layers)")
             print(f"[DEBUG _pressure_to_height_approx]   pressure_pa after processing: min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
 
             height_m = self._std_atm_pressure_to_height(pressure_pa)
@@ -1126,25 +1123,25 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         print(f"[DEBUG _convert_vertical_to_height] vertical_coords: shape={vertical_coords.shape}, min={np.nanmin(vertical_coords):.4f}, max={np.nanmax(vertical_coords):.4f}")
 
         if vertical_coord_type == 'height':
-            print(f"[DEBUG _convert_vertical_to_height] Path: direct height -> dividing by 1000 for km")
+            print("[DEBUG _convert_vertical_to_height] Path: direct height -> dividing by 1000 for km")
             return vertical_coords / 1000.0, 'height_km'
 
         if vertical_coord_type == 'pressure':
-            print(f"[DEBUG _convert_vertical_to_height] Path: pressure -> trying geometric height first, then barometric approx")
+            print("[DEBUG _convert_vertical_to_height] Path: pressure -> trying geometric height first, then barometric approx")
             result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
             if result is not None:
-                print(f"[DEBUG _convert_vertical_to_height] Using extracted geometric height")
+                print("[DEBUG _convert_vertical_to_height] Using extracted geometric height")
                 return result
-            print(f"[DEBUG _convert_vertical_to_height] Falling back to barometric approximation")
+            print("[DEBUG _convert_vertical_to_height] Falling back to barometric approximation")
             return self._pressure_to_height_approx(vertical_coords)
 
-        print(f"[DEBUG _convert_vertical_to_height] Path: modlev -> trying geometric height")
+        print("[DEBUG _convert_vertical_to_height] Path: modlev -> trying geometric height")
         result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
 
         if result is not None:
             return result
         
-        print(f"[DEBUG _convert_vertical_to_height] No height conversion possible, returning raw model levels")
+        print("[DEBUG _convert_vertical_to_height] No height conversion possible, returning raw model levels")
         return vertical_coords, 'modlev'
 
     def _apply_standard_pressure_ticks(self: 'MPASVerticalCrossSectionPlotter',

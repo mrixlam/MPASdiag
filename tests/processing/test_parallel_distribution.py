@@ -17,7 +17,6 @@ from typing import Generator
 from unittest.mock import Mock, MagicMock
 
 from mpasdiag.processing.parallel import (
-    MPASParallelManager,
     LoadBalanceStrategy,
     TaskResult,
     MPASTaskDistributor,

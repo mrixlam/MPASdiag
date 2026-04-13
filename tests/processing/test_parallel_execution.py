@@ -10,12 +10,11 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
-import sys
 import time
 import pytest
 import matplotlib.pyplot as plt
 from typing import List, Generator
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 from mpasdiag.processing.parallel import (
     MPASParallelManager,

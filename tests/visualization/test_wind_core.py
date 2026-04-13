@@ -11,18 +11,13 @@ Date: February 2026
 Version: 1.0.0
 """
 # Standard library imports
-import os
 import sys
 import pytest
-import shutil
-import tempfile
 
 # Third-party imports
 import numpy as np
 import xarray as xr
 from pathlib import Path
-from datetime import datetime
-from typing import Generator, cast
 
 # Import mocking tools for isolating tests
 from unittest.mock import MagicMock
@@ -30,13 +25,11 @@ from unittest.mock import MagicMock
 # Set matplotlib backend for headless testing
 import matplotlib
 matplotlib.use('Agg')
-from cartopy import crs as ccrs
 
 # Matplotlib imports for plotting
 import matplotlib.pyplot as plt
 
 # Cartopy imports for geographic plotting
-from cartopy.mpl.geoaxes import GeoAxes
 
 # Import the MPASWindPlotter to be tested
 from mpasdiag.visualization.wind import MPASWindPlotter
@@ -148,7 +141,8 @@ class TestCalculateOptimalSubsample:
     
     # ------------------ Test Small Dataset Scenarios ------------------
 
-    def test_subsample_small_dataset(self: "TestCalculateOptimalSubsample", plotter: MPASWindPlotter) -> None:
+    def test_subsample_small_dataset(self: "TestCalculateOptimalSubsample", 
+                                     plotter: MPASWindPlotter) -> None:
         """
         This test verifies that for a small dataset (e.g., 1000 points) with a moderate geographic extent, the `calculate_optimal_subsample` method returns a subsample factor of 1, indicating that no subsampling is needed. It checks both 'barbs' and 'arrows' plot types to ensure consistent behavior across different vector representations. This test confirms that the method correctly identifies when the input data is already at an appropriate density for plotting without any reduction, which is crucial for maintaining visual clarity in smaller datasets.
 
@@ -185,7 +179,8 @@ class TestCalculateOptimalSubsample:
     
     # ------------------ Test Large Dataset Scenarios ------------------
 
-    def test_subsample_large_dataset(self: "TestCalculateOptimalSubsample", plotter: MPASWindPlotter) -> None:
+    def test_subsample_large_dataset(self: "TestCalculateOptimalSubsample", 
+                                     plotter: MPASWindPlotter) -> None:
         """
         This test checks that for a large dataset (e.g., 100,000 points) covering a global extent, the `calculate_optimal_subsample` method returns subsample factors greater than 1, indicating that subsampling is necessary to reduce vector density for clear visualization. It verifies that the returned subsample factors do not exceed the configured maximum cap (50) and that the relationship between 'barbs' and 'arrows' subsampling is maintained (i.e., barb subsample should not be less than arrow subsample, and arrow subsample should be at most double the barb subsample). This test ensures that the method effectively manages high-density data while adhering to constraints designed to maintain visual clarity.
 
@@ -230,7 +225,8 @@ class TestCalculateOptimalSubsample:
 
     # ------------------ Test Custom Parameter Scenarios ------------------    
 
-    def test_subsample_custom_figsize(self: "TestCalculateOptimalSubsample", plotter: MPASWindPlotter) -> None:
+    def test_subsample_custom_figsize(self: "TestCalculateOptimalSubsample", 
+                                      plotter: MPASWindPlotter) -> None:
         """
         This test verifies that the `calculate_optimal_subsample` method responds to changes in the `figsize` parameter. A larger figure size should allow for a lower subsample factor (i.e., more vectors can be plotted without overcrowding), while a smaller figure size should require a higher subsample factor to maintain visual clarity. The test checks that the subsample factor returned for a larger figure is less than or equal to that of a smaller figure, confirming that the method appropriately adjusts its calculations based on the available plotting area.
 
@@ -269,7 +265,8 @@ class TestCalculateOptimalSubsample:
 
     # ------------------ Test Custom Target Density ------------------
 
-    def test_subsample_custom_target_density(self: "TestCalculateOptimalSubsample", plotter: MPASWindPlotter) -> None:
+    def test_subsample_custom_target_density(self: "TestCalculateOptimalSubsample", 
+                                             plotter: MPASWindPlotter) -> None:
         """
         This test checks that the `calculate_optimal_subsample` method responds to changes in the `target_density` parameter. A lower target density should result in a higher subsample factor (i.e., fewer vectors plotted), while a higher target density should allow for a lower subsample factor (i.e., more vectors plotted). The test verifies that as the target density increases, the returned subsample factor decreases, confirming that the method adjusts its calculations based on the desired vector density for visualization.
 
@@ -326,7 +323,8 @@ class TestCalculateOptimalSubsample:
         
     # ------------------ Test Maximum Cap Enforcement ------------------
 
-    def test_subsample_maximum_cap(self: "TestCalculateOptimalSubsample", plotter: MPASWindPlotter) -> None:
+    def test_subsample_maximum_cap(self: "TestCalculateOptimalSubsample", 
+                                   plotter: MPASWindPlotter) -> None:
         """
         This test verifies that the `calculate_optimal_subsample` method enforces the configured maximum cap on subsample factors. For extremely dense datasets, the method should return subsample factors that do not exceed the maximum limit (e.g., 50). The test checks that even when the input data is so dense that it would normally require a very high subsample factor, the returned value is capped at the maximum. Additionally, it ensures that the relationship between 'barbs' and 'arrows' subsampling is maintained within this capped scenario. This test confirms that the method effectively prevents excessive subsampling that could lead to overly sparse visualizations, while still adhering to the constraints designed to maintain visual clarity.
 
@@ -405,7 +403,8 @@ class TestConvertToNumpy:
 
     # ------------------ Test Various Input Types ------------------
 
-    def test_convert_numpy_array(self: "TestConvertToNumpy", plotter: MPASWindPlotter) -> None:
+    def test_convert_numpy_array(self: "TestConvertToNumpy", 
+                                 plotter: MPASWindPlotter) -> None:
         """
         This test verifies that when a NumPy array is passed to the `convert_to_numpy` method, it is returned unchanged. The method should recognize that the input is already a NumPy array and simply return it without modification. The test checks that the returned object is the same as the input array (i.e., not a copy), and that its shape and dtype match the original. This ensures that the method efficiently handles NumPy arrays without unnecessary conversions, which is important for performance when working with large datasets.
 
@@ -436,7 +435,8 @@ class TestConvertToNumpy:
 
     # ------------------ Test xarray.DataArray Input ------------------
     
-    def test_convert_xarray_dataarray(self: "TestConvertToNumpy", plotter: MPASWindPlotter) -> None:
+    def test_convert_xarray_dataarray(self: "TestConvertToNumpy", 
+                                      plotter: MPASWindPlotter) -> None:
         """
         This test verifies that when an `xarray.DataArray` is passed to the `convert_to_numpy` method, it is converted to a NumPy ndarray by extracting its `.values` attribute. The test checks that the returned array has the same shape and dtype as the original data, and that it matches both the original data and the `.values` attribute of the DataArray. This ensures that the method correctly handles xarray DataArray inputs, which is important for interoperability with xarray-based workflows.
 
@@ -470,7 +470,8 @@ class TestConvertToNumpy:
 
     # ------------------ Test Dask-like Object Input ------------------    
 
-    def test_convert_dask_array(self: "TestConvertToNumpy", plotter: MPASWindPlotter) -> None:
+    def test_convert_dask_array(self: "TestConvertToNumpy", 
+                                plotter: MPASWindPlotter) -> None:
         """
         This test simulates a dask-like object with a `.compute()` method and ensures it is invoked during conversion. The test checks that the returned array matches the output of the `.compute()` method and that the method is called exactly once. This ensures that the `convert_to_numpy` method correctly handles dask-like objects, which is important for interoperability with dask-based workflows.
 
@@ -512,7 +513,8 @@ class TestConvertToNumpy:
 
     # ------------------ Test List Input ------------------
 
-    def test_convert_list_to_array(self: "TestConvertToNumpy", plotter: MPASWindPlotter) -> None:
+    def test_convert_list_to_array(self: "TestConvertToNumpy", 
+                                   plotter: MPASWindPlotter) -> None:
         """
         This test verifies that when a list is passed to the `convert_to_numpy` method, it is converted to a NumPy array using `np.asarray()`. The test checks that the returned array has the same shape and dtype as the original list (after conversion), and that it matches the original list's contents. Additionally, it confirms that the returned object is a NumPy array and not the original list, ensuring that the method correctly handles list inputs by converting them to arrays for consistent downstream processing.
 
@@ -545,7 +547,8 @@ class TestConvertToNumpy:
 
     # ------------------ Test Exception Handling ------------------     
 
-    def test_convert_exception_handling(self: "TestConvertToNumpy", plotter: MPASWindPlotter) -> None:
+    def test_convert_exception_handling(self: "TestConvertToNumpy", 
+                                        plotter: MPASWindPlotter) -> None:
         """
         This test verifies that if an object does not have a `.values` attribute and is not directly convertible to a NumPy array, the `convert_to_numpy` method falls back to using `np.asarray()`. The test uses a custom `BadArray` class that raises an exception when `.values` is accessed. The test checks that the method successfully converts the object to a NumPy array using `np.asarray()`, and that the returned array has the expected shape and dtype. This ensures that the method is robust against unexpected input types and can still produce a usable NumPy array even when certain attributes are missing.
 

@@ -13,18 +13,14 @@ Version: 1.0.0
 import os
 import io
 import pytest
-import shutil
-import tempfile
-import builtins
 import numpy as np
 import pandas as pd
 import xarray as xr
 from pathlib import Path
 from contextlib import redirect_stdout
-from typing import Any, List, Dict, Generator
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
-from mpasdiag.processing.parallel import ParallelStats, TaskResult, MPASParallelManager
+from mpasdiag.processing.parallel import TaskResult
 from mpasdiag.processing.parallel_wrappers import (
     _precipitation_worker,
     _surface_worker,
@@ -37,10 +33,6 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelCrossSectionProcessor,
     auto_batch_processor
 )
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
 from tests.test_data_helpers import assert_expected_public_methods
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -98,10 +90,6 @@ class TestImportErrorHandling:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel_wrappers import ParallelPrecipitationProcessor
-        from mpasdiag.processing.parallel_wrappers import ParallelSurfaceProcessor
-        from mpasdiag.processing.parallel_wrappers import ParallelWindProcessor
-        from mpasdiag.processing.parallel_wrappers import ParallelCrossSectionProcessor
         from mpasdiag.processing.parallel_wrappers import PrecipitationDiagnostics
 
         precip_plotter = ParallelPrecipitationProcessor()
@@ -680,8 +668,6 @@ class TestProcessParallelResultsFailures:
         mock_stats.load_imbalance = 0.05  
         mock_manager.get_statistics.return_value = mock_stats
         
-        import io
-        from contextlib import redirect_stdout        
         f = io.StringIO()
 
         with redirect_stdout(f):

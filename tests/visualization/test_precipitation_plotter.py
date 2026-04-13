@@ -28,7 +28,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
-from cartopy.mpl.geoaxes import GeoAxes
 from unittest.mock import Mock, MagicMock, patch
 
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics

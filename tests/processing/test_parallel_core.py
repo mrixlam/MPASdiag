@@ -13,21 +13,14 @@ Version: 1.0.0
 # Load necessary libraries and modules for testing
 import time
 import pytest
-from pathlib import Path
-import matplotlib.pyplot as plt
-from typing import List, Generator
 from unittest.mock import Mock, MagicMock, patch
 
 from mpasdiag.processing.parallel import (
     MPASParallelManager,
     ErrorPolicy,
     LoadBalanceStrategy,
-    TaskResult,
-    ParallelStats,
     MPASTaskDistributor,
-    MPASResultCollector,
-    _multiprocessing_task_wrapper,
-    parallel_plot
+    MPASResultCollector
 )
 
 from tests.test_data_helpers import assert_expected_public_methods
@@ -332,7 +325,6 @@ class TestParallelProcessing:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import LoadBalanceStrategy
         assert hasattr(LoadBalanceStrategy, 'STATIC')
         assert hasattr(LoadBalanceStrategy, 'DYNAMIC')
 
@@ -361,7 +353,6 @@ class TestParallelProcessing:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import TaskResult
 
     def test_parallel_stats_dataclass_exists(self: "TestParallelProcessing") -> None:
         """
@@ -373,7 +364,6 @@ class TestParallelProcessing:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import ParallelStats
 
     def test_task_distributor_class_exists(self: "TestParallelProcessing") -> None:
         """
@@ -385,7 +375,6 @@ class TestParallelProcessing:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import MPASTaskDistributor
         assert_expected_public_methods(MPASTaskDistributor, 'MPASTaskDistributor')
 
     def test_result_collector_class_exists(self: "TestParallelProcessing") -> None:
@@ -398,7 +387,6 @@ class TestParallelProcessing:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import MPASResultCollector
         assert_expected_public_methods(MPASResultCollector, 'MPASResultCollector')
 
 class TestParallelWrappers:

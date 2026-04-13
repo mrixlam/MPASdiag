@@ -24,7 +24,6 @@ import matplotlib.colors as mcolors
 from typing import Generator, Any, Dict
 from datetime import datetime, timedelta
 
-from tests.conftest import mpas_wind_data
 
 matplotlib.use('Agg')
 
@@ -37,7 +36,7 @@ from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-def create_mock_create_map(plotter) -> Any:
+def create_mock_create_map(plotter: Any) -> Any:
     """
     This function creates a mock `create_map` method that simulates the behavior of setting up a map projection and returns a simple figure and axes. The mock method generates a new matplotlib figure and axes, assigns the figure to the plotter's `_current_fig` attribute, and returns the figure and axes objects. This allows tests to verify that the `create_map` method is called and that it produces valid plotting objects without needing to rely on actual map projection logic or external dependencies. By using this mock, tests can focus on the downstream effects of map creation without being affected by the complexities of geospatial plotting.
 
@@ -71,7 +70,7 @@ def create_mock_save_plot():
     return mock_save_plot
 
 
-def create_mock_close_plot(plotter) -> Any:
+def create_mock_close_plot(plotter: Any) -> Any:
     """
     This function creates a mock `close_plot` method that simulates the behavior of closing a plot. The mock method closes all matplotlib figures when called, allowing tests to verify that the `close_plot` method is invoked without affecting other tests or leaving open figures. This helps maintain a clean testing environment and prevents resource leaks during automated testing.
 
@@ -113,7 +112,8 @@ class TestRealDataIntegration:
         
         return {'data_dir': data_dir, 'grid_file': grid_file}
     
-    def test_variable_style_with_real_precip_data(self: "TestRealDataIntegration", mpas_3d_processor) -> None:
+    def test_variable_style_with_real_precip_data(self: "TestRealDataIntegration", 
+                                                  mpas_3d_processor: Any) -> None:
         """
         This integration test verifies that the `get_variable_style` method of `MPASVisualizationStyle` returns appropriate styling information when provided with real precipitation data from an MPAS dataset. The test checks that the returned style dictionary contains expected keys such as 'colormap' and 'levels', and that the colormap is a valid matplotlib colormap object. By using real MPAS data, this test ensures that the styling logic can handle actual data structures and values, which is critical for producing accurate and visually meaningful precipitation plots in operational use. The test will skip if the `mpas_3d_processor` fixture does not provide the necessary data, ensuring that it only runs in environments where real MPAS data is available.
 
@@ -145,7 +145,8 @@ class TestRealDataIntegration:
         except Exception as e:
             pytest.skip(f"Could not load MPAS data: {e}")
     
-    def test_variable_specific_settings_with_real_temperature(self: "TestRealDataIntegration", mpas_3d_processor) -> None:
+    def test_variable_specific_settings_with_real_temperature(self: "TestRealDataIntegration", 
+                                                              mpas_3d_processor: Any) -> None:
         """
         This integration test verifies that the `get_variable_specific_settings` method of `MPASVisualizationStyle` returns appropriate colormap and level settings when provided with real temperature data from an MPAS dataset. The test checks that the returned colormap and levels are reasonable and suitable for visualizing temperature fields. By using real MPAS data, this test ensures that the variable-specific settings logic can handle actual data structures and values, which is critical for producing accurate and visually meaningful temperature plots in operational use. The test will skip if the `mpas_3d_processor` fixture does not provide the necessary data, ensuring that it only runs in environments where real MPAS data is available.
 
@@ -178,7 +179,8 @@ class TestRealDataIntegration:
         except Exception as e:
             pytest.skip(f"Could not load MPAS data: {e}")
     
-    def test_adaptive_marker_with_real_coordinates(self: "TestRealDataIntegration", mpas_3d_processor) -> None:
+    def test_adaptive_marker_with_real_coordinates(self: "TestRealDataIntegration", 
+                                                   mpas_3d_processor: Any) -> None:
         """
         This integration test verifies that the `calculate_adaptive_marker_size` method of `MPASVisualizationStyle` returns a valid marker size when provided with real coordinate data from an MPAS dataset. The test extracts longitude and latitude arrays from the `mpas_3d_processor` fixture and computes the geographic extent. It then checks that the calculated marker size falls within a reasonable range, ensuring that the adaptive sizing logic can handle actual data distributions. The test will skip if the `mpas_3d_processor` fixture does not provide the necessary data, ensuring that it only runs in environments where real MPAS data is available.
 
@@ -285,7 +287,9 @@ class TestMPASVisualizer:
         """
         return MPASSurfacePlotter(figsize=(8, 6), dpi=100)
     
-    def test_initialization(self: "TestMPASVisualizer", temp_dir: str, visualizer: MPASVisualizer) -> None:
+    def test_initialization(self: "TestMPASVisualizer", 
+                            temp_dir: str, 
+                            visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `MPASVisualizer` class initializes with the expected default properties for figure size, DPI, and that the figure and axes references are initially set to None. By confirming that the visualizer instance has the correct configuration upon initialization, this test ensures that the constructor of the `MPASVisualizer` class is functioning correctly and that the object is in a consistent state before any plotting methods are called. This is important for preventing issues later in the visualization workflow where uninitialized properties could lead to errors.
 
@@ -300,7 +304,8 @@ class TestMPASVisualizer:
         assert visualizer.fig is None
         assert visualizer.ax is None
     
-    def test_create_precip_colormap(self: "TestMPASVisualizer", visualizer: MPASVisualizer) -> None:
+    def test_create_precip_colormap(self: "TestMPASVisualizer", 
+                                    visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `create_precip_colormap` method of `MPASVisualizer` generates valid colormap and levels for different precipitation types. The test checks that the method returns a non-None colormap object and a list of levels for both 'a01h' and 'a24h' precipitation types. Additionally, it confirms that the levels for 'a24h' are greater than those for 'a01h', which is expected due to the longer accumulation period. By validating the colormap creation with real precipitation types, this test ensures that the visualization style logic can produce appropriate color mappings for different precipitation datasets, which is critical for accurate and visually meaningful precipitation plots.
 
@@ -323,7 +328,8 @@ class TestMPASVisualizer:
         assert cmap_24h is not None
         assert max(levels_24h) > max(levels)
     
-    def test_format_coordinates(self: "TestMPASVisualizer", visualizer: MPASVisualizer) -> None:
+    def test_format_coordinates(self: "TestMPASVisualizer", 
+                                visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `format_latitude` and `format_longitude` methods of `MPASVisualizer` correctly format latitude and longitude values into human-readable strings with appropriate directional indicators (N/S for latitude and E/W for longitude). The test checks various cases including positive and negative latitudes and longitudes, ensuring that the formatting logic correctly identifies the hemisphere and formats the values with degree symbols. By confirming that coordinate formatting produces expected string outputs, this test ensures that axis labels and annotations in visualizations will be clear and informative for users interpreting geographic data.
 
@@ -345,7 +351,8 @@ class TestMPASVisualizer:
         lon_str = visualizer.format_longitude(-105.0, None)
         assert lon_str == "105.0°W"
     
-    def test_format_ticks_dynamic(self: "TestMPASVisualizer", visualizer: MPASVisualizer) -> None:
+    def test_format_ticks_dynamic(self: "TestMPASVisualizer", 
+                                  visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `_format_ticks_dynamic` method of `MPASVisualizer` produces appropriate string representations for diverse numeric ranges including normal integers (1-5), small decimals (0.1-0.5), very small values (1e-5), very large values (1e5), zero values, and meteorological quantities like vorticity (5e-6). The formatting applies scientific notation for extreme magnitudes while using decimal notation for moderate ranges maintaining readability. Test cases verify specific format strings ensuring consistent decimal places (0.10, 0.20) and proper exponent notation (1.0e-05, 1.0e+05). This adaptive formatting capability improves colorbar and axis label readability across diverse data scales from microscale vorticity to synoptic pressure fields.
 
@@ -393,7 +400,8 @@ class TestMPASVisualizer:
         for f in formatted:
             assert 'e-' in f  
     
-    def test_setup_map_projection(self: "TestMPASVisualizer", visualizer: MPASVisualizer) -> None:
+    def test_setup_map_projection(self: "TestMPASVisualizer", 
+                                  visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `setup_map_projection` method of `MPASVisualizer` successfully creates map projection and data coordinate reference system (CRS) objects for specified geographic extents and projection types. The test checks that valid map projection objects are returned for both 'PlateCarree' and 'Mercator' projections when given a reasonable geographic extent. By confirming that the method produces non-None projection objects, this test ensures that the visualization workflow can proceed to create maps with correct geospatial referencing, which is essential for accurate representation of MPAS data on geographic plots.
 
@@ -416,7 +424,10 @@ class TestMPASVisualizer:
 
         assert map_proj_merc is not None
     
-    def test_create_simple_scatter_plot(self: "TestMPASVisualizer", surface_plotter: MPASSurfacePlotter, mpas_coordinates, mpas_wind_data) -> None:
+    def test_create_simple_scatter_plot(self: "TestMPASVisualizer", 
+                                        surface_plotter: MPASSurfacePlotter, 
+                                        mpas_coordinates: Any, 
+                                        mpas_wind_data: Any) -> None:
         """
         This test verifies that the `create_simple_scatter_plot` method of `MPASSurfacePlotter` successfully generates a scatter plot with synthetic data and a custom colormap. The test generates 100 random points with longitude (100-110°E), latitude (-5 to 5°N), and data values (0-50) then confirms successful scatter plot creation. The test checks that figure and axes objects are non-None and match the plotter's stored references, ensuring proper object management. Scatter plot creation provides a foundation for visualizing irregular spatial data without requiring gridding or interpolation. This basic plotting capability supports exploratory data analysis and quick visualization of MPAS unstructured grid data before more sophisticated cartographic rendering.
 
@@ -450,7 +461,9 @@ class TestMPASVisualizer:
         plt.close(fig)
 
     
-    def test_create_histogram(self: "TestMPASVisualizer", visualizer: MPASVisualizer, mpas_wind_data) -> None:
+    def test_create_histogram(self: "TestMPASVisualizer", 
+                              visualizer: MPASVisualizer, 
+                              mpas_wind_data: Any) -> None:
         """
         This test verifies that the `create_histogram` method of `MPASVisualizer` successfully generates histograms with customizable binning and scale options for statistical data distribution visualization. The test uses real MPAS wind data and generates a histogram with 30 bins plus custom labels for axes and title. The test checks that figure and axes objects are non-None for both linear and logarithmic y-axis scales, ensuring proper handling of diverse data distributions. Histogram functionality enables exploratory data analysis revealing distribution characteristics including central tendency, spread, and skewness. This statistical visualization capability supports quality control workflows where data distribution assessment guides subsequent processing decisions and identifies potential data quality issues.
 
@@ -488,7 +501,9 @@ class TestMPASVisualizer:
         plt.close(fig)
         plt.close(fig_log)
 
-    def test_create_time_series_plot(self: "TestMPASVisualizer", visualizer: MPASVisualizer, mpas_wind_data) -> None:
+    def test_create_time_series_plot(self: "TestMPASVisualizer", 
+                                     visualizer: MPASVisualizer, 
+                                     mpas_wind_data: Any) -> None:
         """
         This test verifies that the `create_time_series_plot` method of `MPASVisualizer` successfully generates time series plots with datetime x-axis and custom labeling for temporal data visualization. The test generates 24 hourly time points starting January 1, 2024, with random precipitation values (0-20 mm) then creates a time series plot with custom axis labels and title. The test checks that figure and axes objects are non-None, confirming that matplotlib datetime handling works correctly with visualizer methods. Time series plotting supports operational meteorology workflows displaying model forecast evolution, verification time series, and temporal precipitation accumulation. This temporal visualization capability enables analysis of forecast skill, diurnal cycles, and time-dependent meteorological phenomena.
 
@@ -520,7 +535,11 @@ class TestMPASVisualizer:
 
         plt.close(fig)
     
-    def test_save_plot(self: "TestMPASVisualizer", surface_plotter: MPASSurfacePlotter, temp_dir: str, mpas_coordinates, mpas_wind_data) -> None:
+    def test_save_plot(self: "TestMPASVisualizer", 
+                       surface_plotter: MPASSurfacePlotter, 
+                       temp_dir: str, 
+                       mpas_coordinates: Any, 
+                       mpas_wind_data: Any) -> None:
         """
         This test verifies that the `save_plot` method of `MPASSurfacePlotter` successfully writes matplotlib figures to disk files in specified formats. The test creates a simple scatter plot with real MPAS data then saves the figure to a temporary directory in PNG format, verifying that the output file exists at the expected path. The save operation demonstrates the complete visualization workflow from plot creation through file persistence. File format specification supports diverse output requirements including PNG for presentations, PDF for publications, and SVG for web applications. This file saving capability enables automated figure generation workflows where plots export to disk for documentation, reporting, and archival purposes.
 
@@ -550,7 +569,9 @@ class TestMPASVisualizer:
 
         plt.close(surface_plotter.fig)
 
-    def test_save_plot_no_figure(self: "TestMPASVisualizer", temp_dir: str, visualizer: MPASVisualizer) -> None:
+    def test_save_plot_no_figure(self: "TestMPASVisualizer", 
+                                 temp_dir: str, 
+                                 visualizer: MPASVisualizer) -> None:
         """
         This test verifies that the `save_plot` method of `MPASVisualizer` correctly handles attempts to save plots before figure creation by raising a descriptive AssertionError. The test checks that the method rejects save operations without prior plot creation, providing informative feedback to prevent silent failures or cryptic exceptions. Defensive validation ensures that method preconditions are checked before file I/O operations, preventing corrupted output files. This error detection capability improves code robustness and user experience by providing immediate actionable feedback for workflow errors.
 
@@ -565,7 +586,10 @@ class TestMPASVisualizer:
         with pytest.raises(AssertionError, match="Figure must be created before saving"):
             visualizer.save_plot(output_path)
     
-    def test_close_plot(self: "TestMPASVisualizer", surface_plotter: MPASSurfacePlotter, mpas_coordinates, mpas_wind_data) -> None:
+    def test_close_plot(self: "TestMPASVisualizer", 
+                        surface_plotter: MPASSurfacePlotter, 
+                        mpas_coordinates: Any, 
+                        mpas_wind_data: Any) -> None:
         """
         This test verifies that the `close_plot` method of `MPASSurfacePlotter` correctly handles plot cleanup by clearing figure and axes references, preventing memory leaks in batch processing workflows. The test creates a scatter plot, confirms the figure reference is not None, then calls `close_plot` and validates that the figure and axes attributes are reset to None. The cleanup operation closes matplotlib figure objects, releasing memory resources and preventing the accumulation of unused figures. Proper cleanup supports long-running batch workflows generating hundreds of plots without exhausting system memory. This resource management capability ensures that visualization operations scale efficiently to large-scale operational forecasting workflows requiring extensive plot generation.
 
@@ -631,7 +655,9 @@ class TestPrecipitationMapping:
         return MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
     
     @pytest.fixture
-    def precip_data(self: "TestPrecipitationMapping", mpas_coordinates, mpas_precip_data) -> Dict[str, Any]:
+    def precip_data(self: "TestPrecipitationMapping", 
+                    mpas_coordinates: Any, 
+                    mpas_precip_data: Any) -> Dict[str, Any]:
         """
         This fixture prepares precipitation data for testing the precipitation mapping functionality. It extracts longitude and latitude arrays from the provided `mpas_coordinates` and uses the `mpas_precip_data` to create a dictionary containing 'lon', 'lat', and 'precip' keys. The fixture checks for the availability of the necessary MPAS data and gracefully skips tests if the data is not available. By providing this fixture, tests that require precipitation data can easily access a structured dataset without needing to repeat data preparation code in each test function, ensuring consistency and reducing redundancy.
 
@@ -652,7 +678,9 @@ class TestPrecipitationMapping:
         
         return {'lon': lon, 'lat': lat, 'precip': precip}
     
-    def test_create_precipitation_map(self: "TestPrecipitationMapping", visualizer: MPASPrecipitationPlotter, precip_data: Dict[str, Any]) -> None:
+    def test_create_precipitation_map(self: "TestPrecipitationMapping", 
+                                      visualizer: MPASPrecipitationPlotter, 
+                                      precip_data: Dict[str, Any]) -> None:
         """
         This test verifies that the `create_precipitation_map` method of `MPASPrecipitationPlotter` successfully generates a precipitation map using real MPAS data. The test checks that the method returns valid figure and axes objects when provided with longitude, latitude, and precipitation data, along with specified geographic extents and a title. By confirming that the map creation process completes without errors and produces non-None figure and axes, this test ensures that the core functionality of visualizing precipitation data on a map is working correctly with real MPAS datasets. This is critical for operational use where accurate and visually meaningful precipitation maps are essential for analysis and decision-making.
 
@@ -681,7 +709,9 @@ class TestPrecipitationMapping:
 
         plt.close('all')
     
-    def test_create_precipitation_map_invalid_data(self: "TestPrecipitationMapping", visualizer: MPASPrecipitationPlotter, precip_data: Dict[str, Any]) -> None:
+    def test_create_precipitation_map_invalid_data(self: "TestPrecipitationMapping", 
+                                                   visualizer: MPASPrecipitationPlotter, 
+                                                   precip_data: Dict[str, Any]) -> None:
         """
         This test verifies that the `create_precipitation_map` method of `MPASPrecipitationPlotter` can handle invalid data gracefully without crashing. The test introduces NaN values into the precipitation data to simulate missing or corrupted data points, then attempts to create a precipitation map. The test checks that the method still returns valid figure and axes objects, ensuring that the visualization process can proceed even when some data points are invalid. This robustness is important for operational use where real-world datasets may contain gaps or errors, and the ability to visualize available data without failure is critical for analysis and decision-making.
 
@@ -710,7 +740,9 @@ class TestPrecipitationMapping:
         finally:
             plt.close('all')
     
-    def test_custom_colormap_and_levels(self: "TestPrecipitationMapping", visualizer: MPASPrecipitationPlotter, precip_data: Dict[str, Any]) -> None:
+    def test_custom_colormap_and_levels(self: "TestPrecipitationMapping", 
+                                        visualizer: MPASPrecipitationPlotter, 
+                                        precip_data: Dict[str, Any]) -> None:
         """
         This test verifies that the `create_precipitation_map` method of `MPASPrecipitationPlotter` can accept custom colormap and levels for precipitation visualization. The test defines a custom set of precipitation levels and uses a different colormap (e.g., 'plasma') to create a precipitation map. It checks that the method returns valid figure and axes objects, ensuring that the customization options for colormap and levels are functioning correctly. This flexibility allows users to tailor the visual representation of precipitation data to specific preferences or requirements, enhancing the interpretability and aesthetic quality of the resulting maps.
 
@@ -760,7 +792,10 @@ class TestBatchProcessing:
         shutil.rmtree(temp_dir, ignore_errors=True)
         plt.close('all')
     
-    def test_batch_processing_mock(self: "TestBatchProcessing", temp_dir: str, mpas_2d_processor_diag, mpas_coordinates) -> None:
+    def test_batch_processing_mock(self: "TestBatchProcessing", 
+                                   temp_dir: str, 
+                                   mpas_2d_processor_diag: Any, 
+                                   mpas_coordinates: Any) -> None:
         """
         This test verifies the batch processing workflow of the `MPASPrecipitationPlotter` class for creating multiple precipitation maps using real MPAS data. The test mocks the `create_precipitation_map`, `save_plot`, and `close_plot` methods to simulate the batch processing without actually generating files or plots. It checks that the `create_batch_precipitation_maps` method can be called with real MPAS diagnostic data and coordinates, and that it returns a list of created file paths. By confirming that the batch processing logic can execute with real MPAS data inputs, this test ensures that the workflow for generating multiple precipitation maps is functioning correctly, which is essential for operational use where large numbers of plots may need to be generated efficiently.
 
@@ -801,12 +836,10 @@ class TestBatchProcessing:
 class TestVisualizationIntegration:
     """ Tests for integration of visualization components using real MPAS data to create surface maps, wind plots, and precipitation maps. """
     
-    def test_create_surface_map_with_real_data(
-        self: "TestVisualizationIntegration",
-        mpas_2d_processor_diag,
-        mpas_coordinates,
-        tmp_path
-    ) -> None:
+    def test_create_surface_map_with_real_data(self: "TestVisualizationIntegration",
+                                               mpas_2d_processor_diag: Any,
+                                               mpas_coordinates: Any,
+                                               tmp_path: Any) -> None:
         """
         This test verifies the integration of the `MPASSurfacePlotter` class with real MPAS data to create a surface map visualization. The test checks that the `create_surface_map` method can successfully generate a surface map using real MPAS grid coordinates and simulated pressure data, and that the resulting figure and axes objects are valid. It also tests the complete workflow of saving the generated plot to a temporary directory and verifying that the output file is created successfully. By confirming that the surface map creation and file saving processes work correctly with real MPAS data inputs, this test ensures that the visualization components are properly integrated and functional for operational use.
         
@@ -852,12 +885,10 @@ class TestVisualizationIntegration:
         
         plotter.close_plot()
     
-    def test_create_wind_plot_with_real_data(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates,
-        mpas_wind_data,
-        tmp_path
-    ) -> None:
+    def test_create_wind_plot_with_real_data(self: "TestVisualizationIntegration",
+                                             mpas_coordinates: Any,
+                                             mpas_wind_data: Any,
+                                             tmp_path: Any) -> None:
         """
         This test verifies the integration of the `MPASWindPlotter` class with real MPAS data to create a wind plot visualization. The test checks that the `create_wind_plot` method can successfully generate a wind plot using real MPAS grid coordinates and wind component data, and that the resulting figure and axes objects are valid. It also tests the complete workflow of saving the generated plot to a temporary directory and verifying that the output file is created successfully. Additionally, the test validates that the calculated wind speeds from the u and v components are within reasonable ranges, ensuring that the visualization accurately represents the underlying data. By confirming that the wind plot creation and file saving processes work correctly with real MPAS data inputs, this test ensures that the visualization components are properly integrated and functional for operational use.
         
@@ -908,12 +939,10 @@ class TestVisualizationIntegration:
         assert (tmp_path / "wind_plot_integration.png").exists()
         plotter.close_plot()
     
-    def test_precipitation_map_with_real_coordinates(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates,
-        mpas_precip_data,
-        tmp_path
-    ) -> None:
+    def test_precipitation_map_with_real_coordinates(self: "TestVisualizationIntegration",
+                                                     mpas_coordinates: Any,
+                                                     mpas_precip_data: Any,
+                                                     tmp_path: Any) -> None:
         """
         This test verifies the integration of the `MPASPrecipitationPlotter` class with real MPAS grid coordinates and precipitation data to create a precipitation map visualization. The test checks that the `create_precipitation_map` method can successfully generate a precipitation map using real MPAS data, and that the resulting figure and axes objects are valid. It also tests the complete workflow of saving the generated plot to a temporary directory and verifying that the output file is created successfully. By confirming that the precipitation map creation and file saving processes work correctly with real MPAS data inputs, this test ensures that the visualization components are properly integrated and functional for operational use.
         
@@ -963,10 +992,8 @@ class TestVisualizationIntegration:
 
         plotter.close_plot()
     
-    def test_variable_styling_with_real_data(
-        self: "TestVisualizationIntegration",
-        mpas_wind_data
-    ) -> None:
+    def test_variable_styling_with_real_data(self: "TestVisualizationIntegration",
+                                             mpas_wind_data: Any) -> None:
         """
         This test verifies that the variable styling functionality in the visualization module correctly applies appropriate colormaps and levels based on real MPAS wind data. The test checks that the styling logic can handle realistic data ranges and variable types, ensuring that the visual representation of wind speed and related variables is accurate and visually meaningful. By confirming that the styling parameters are correctly determined for real MPAS data, this test ensures that the visualization components can produce effective and informative plots for operational use.
         
@@ -1007,11 +1034,9 @@ class TestVisualizationIntegration:
         assert 'levels' in temp_style
         assert temp_style['colormap'] == 'RdYlBu_r'
     
-    def test_cross_section_with_real_3d_data(
-        self: "TestVisualizationIntegration",
-        mpas_3d_processor,
-        tmp_path
-    ) -> None:
+    def test_cross_section_with_real_3d_data(self: "TestVisualizationIntegration",
+                                             mpas_3d_processor: Any,
+                                             tmp_path: Any) -> None:
         """
         This test verifies the integration of the `MPASVerticalCrossSectionPlotter` class with real MPAS 3D atmospheric data to create a vertical cross-section visualization. The test checks that the cross-section plotter can be instantiated and that it has the necessary attributes for figure size and DPI settings. By confirming that the cross-section plotting functionality is available and properly configured, this test ensures that users can create vertical cross-section visualizations using real MPAS 3D data, which is essential for analyzing atmospheric structure and processes in operational meteorology.
         
@@ -1048,12 +1073,10 @@ class TestVisualizationIntegration:
         finally:
             plt.close('all')
     
-    def test_batch_plotting_workflow(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates,
-        mpas_wind_data,
-        tmp_path
-    ) -> None:
+    def test_batch_plotting_workflow(self: "TestVisualizationIntegration",
+                                     mpas_coordinates: Any,
+                                     mpas_wind_data: Any,
+                                     tmp_path: Any) -> None:
         """
         This test verifies the batch plotting workflow for creating multiple surface maps with real MPAS data. The test simulates a time series of wind speed data by creating multiple plots with varying data values, saving each plot to a temporary directory, and verifying that all expected output files are created successfully. By confirming that the batch plotting process can handle real MPAS data inputs and produce multiple plots without errors, this test ensures that the visualization components can support operational workflows that require generating large numbers of plots efficiently.
         
@@ -1107,12 +1130,10 @@ class TestVisualizationIntegration:
             assert f.exists()
             assert f.stat().st_size > 0
     
-    def test_multi_variable_overlay(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates,
-        mpas_wind_data,
-        tmp_path
-    ) -> None:
+    def test_multi_variable_overlay(self: "TestVisualizationIntegration",
+                                    mpas_coordinates: Any,
+                                    mpas_wind_data: Any,
+                                    tmp_path: Any) -> None:
         """
         This test verifies the ability to create multi-variable overlay plots using real MPAS data, combining surface maps with wind vector overlays. The test checks that the `create_surface_map` method can accept wind overlay parameters and successfully generate a plot that includes both a scalar field (e.g., pressure) and vector field (wind) using real MPAS coordinates and wind data. It also tests the complete workflow of saving the generated plot to a temporary directory and verifying that the output file is created successfully. By confirming that multi-variable overlay plotting works correctly with real MPAS data inputs, this test ensures that users can create complex visualizations that integrate multiple meteorological variables for comprehensive analysis.
         
@@ -1168,10 +1189,8 @@ class TestVisualizationIntegration:
         assert (tmp_path / "overlay_integration.png").exists()
         plotter.close_plot()
     
-    def test_coordinate_transformation_accuracy(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates
-    ) -> None:
+    def test_coordinate_transformation_accuracy(self: "TestVisualizationIntegration",
+                                                mpas_coordinates: Any) -> None:
         """
         This test verifies the accuracy of coordinate transformations in the visualization module when using real MPAS grid coordinates. The test checks that the `setup_map_projection` method can correctly establish map projections based on the geographic extent of the provided MPAS coordinates, and that the resulting map projection and data coordinate reference system (CRS) are valid. By confirming that the coordinate transformation logic can handle real MPAS data inputs and produce appropriate map projections, this test ensures that visualizations will be geographically accurate and properly aligned with the underlying data, which is essential for operational meteorological analysis and decision-making.
         
@@ -1211,11 +1230,9 @@ class TestVisualizationIntegration:
         assert -90 <= lat.min() <= 90
         assert -90 <= lat.max() <= 90
     
-    def test_adaptive_visualization_parameters(
-        self: "TestVisualizationIntegration",
-        mpas_coordinates,
-        mpas_surface_temp_data
-    ) -> None:
+    def test_adaptive_visualization_parameters(self: "TestVisualizationIntegration",
+                                               mpas_coordinates: Any,
+                                               mpas_surface_temp_data: Any) -> None:
         """
         This test verifies that the visualization module can adaptively determine appropriate styling parameters, such as colormaps and levels, based on real MPAS surface temperature data. The test checks that the level generation logic can produce reasonable levels for visualizing temperature data, and that the colormap selection is suitable for the variable type. By confirming that the adaptive styling functionality works correctly with real MPAS data inputs, this test ensures that visualizations will be both accurate and visually effective, enhancing the interpretability of the resulting plots for operational meteorological analysis.
         

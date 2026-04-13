@@ -28,8 +28,6 @@ from matplotlib.axes import Axes
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from typing import Tuple, Optional, List, Any, Union, Sequence, cast
 
-from ..processing.utils_unit import UnitConverter
-from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.processors_3d import MPAS3DProcessor
 from ..processing.remapping import remap_mpas_to_latlon_with_masking
 from .styling import MPASVisualizationStyle

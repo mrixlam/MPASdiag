@@ -14,7 +14,7 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import Tuple, Optional
+from typing import Tuple
 
 
 class MPASGeographicUtils:

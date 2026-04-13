@@ -10,23 +10,19 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
-import os
-import sys
 import pytest
-import shutil
-import tempfile
 import numpy as np
 import xarray as xr
 from pathlib import Path
 from datetime import datetime
-from typing import Generator, cast
-from unittest.mock import MagicMock, Mock, patch
+from typing import cast
 import matplotlib
 matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
 from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag.visualization.wind import MPASWindPlotter
+from tests.visualization.wind_test_helpers import require_wind_fixtures
 from tests.test_data_helpers import fake_render_factory
 
 
@@ -233,10 +229,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -289,10 +282,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -346,10 +336,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Stub renderer to confirm it is called
         calls = {'render': 0}
@@ -411,10 +398,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Stub renderer so title-setting is exercised on real axes
         calls = {'render': 0}
@@ -473,10 +457,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -532,10 +513,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -591,10 +569,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -652,10 +627,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
@@ -761,10 +733,7 @@ class TestCreateWindPlot:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
         # Use real headless plotting instead of monkeypatching plt.subplots
         _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})

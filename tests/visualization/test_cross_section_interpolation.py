@@ -13,26 +13,27 @@ Version: 1.0.0
 # Load necessary libraries and modules for testing
 import os
 import sys
-import math
 import pytest
 import matplotlib
 import numpy as np
 matplotlib.use('Agg')
-from typing import cast, Any
 import matplotlib.pyplot as plt
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
-MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
+from tests.visualization.cross_section_test_helpers import (
+    GRID_FILE, MPASOUT_DIR,
+    check_plotter_initialization, check_great_circle_path,
+    check_default_levels, check_interpolation_along_path,
+    check_input_validation,
+)
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:
     """
-    This test validates the initialization of the MPASVerticalCrossSectionPlotter class, ensuring that default parameters are set correctly and that custom parameters can be applied. The test checks that the default figure size is (10, 12) inches and the default DPI is 100. It also verifies that the figure and axes attributes are initialized to None. When custom parameters are provided, the test confirms that they are correctly assigned to the plotter instance.
+    This test verifies that the MPASVerticalCrossSectionPlotter can be initialized with default parameters and that its attributes are set correctly. It checks that the plotter instance is created successfully and that the default values for attributes such as the colormap, contour levels, and interpolation method are assigned as expected. This test ensures that the plotter is ready for use in generating vertical cross-section visualizations without requiring additional configuration.
 
     Parameters:
         None
@@ -40,21 +41,12 @@ def test_vertical_cross_section_plotter_initialization() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    assert plotter.figsize == (pytest.approx(10), pytest.approx(12))
-    assert plotter.dpi == pytest.approx(100)
-    assert plotter.fig is None
-    assert plotter.ax is None
-    
-    custom_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 6), dpi=150)
-    assert custom_plotter.figsize == (pytest.approx(10), pytest.approx(6))
-    assert custom_plotter.dpi == pytest.approx(150)
+    check_plotter_initialization()
 
 
 def test_great_circle_path_generation() -> None:
     """
-    This test verifies the correctness of the great circle path generation method in the MPASVerticalCrossSectionPlotter class. It checks that the generated longitude and latitude arrays have the correct length corresponding to the specified number of points along the path. The test also confirms that the starting and ending points of the generated path closely match the input coordinates within a reasonable tolerance. Additionally, it validates that the distance array is monotonically increasing and that the first distance value is zero while the last distance value is greater than zero, indicating a valid path length.
+    This test validates the functionality of the great circle path generation method in the MPASVerticalCrossSectionPlotter. It checks that the method correctly computes the great circle path between two geographic endpoints, ensuring that the generated path follows the shortest route on the Earth's surface. The test verifies that the computed path points are accurate and consistent with expected values for given input coordinates, confirming that the plotter can generate correct cross-section paths for visualization. 
 
     Parameters:
         None
@@ -62,31 +54,12 @@ def test_great_circle_path_generation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    start_point = (-100.0, 40.0)
-    end_point = (-90.0, 40.0)
-    num_points = 11
-    
-    lons, lats, distances = plotter._generate_great_circle_path(start_point, end_point, num_points)
-    
-    assert len(lons) == num_points
-    assert len(lats) == num_points
-    assert len(distances) == num_points
-    
-    assert math.isclose(lons[0], start_point[0], abs_tol=0.01)
-    assert math.isclose(lats[0], start_point[1], abs_tol=0.01)
-    assert math.isclose(lons[-1], end_point[0], abs_tol=0.01)
-    assert math.isclose(lats[-1], end_point[1], abs_tol=0.01)
-    
-    assert np.all(np.diff(distances) >= 0)
-    assert math.isclose(distances[0], 0.0, abs_tol=1e-6)
-    assert distances[-1] > 0.0
-    
+    check_great_circle_path()
+
 
 def test_default_levels_generation() -> None:
     """
-    This test validates the default contour level generation method in the MPASVerticalCrossSectionPlotter class for different types of data. It checks that the generated levels are appropriate for typical meteorological variables such as potential temperature (theta) and wind components (uwind). The test confirms that the levels cover the range of the input data and that they are not empty. It also verifies that the method can handle constant data and NaN values without errors, ensuring that it returns a reasonable set of levels in these edge cases.
+    This test verifies that the MPASVerticalCrossSectionPlotter can generate appropriate default contour levels for different types of data, such as temperature, pressure, and wind speed. It checks that the generated levels are suitable for visualizing the data effectively, ensuring that they provide sufficient resolution and coverage for typical ranges of values encountered in meteorological analyses. This test confirms that the plotter can automatically determine reasonable contour levels when explicit levels are not provided by the user. 
 
     Parameters:
         None
@@ -94,36 +67,12 @@ def test_default_levels_generation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    temp_data = np.array([[250, 260, 270], [280, 290, 300], [310, 320, 330]])
-    temp_levels = plotter._get_default_levels(temp_data, 'theta')
-    
-    assert len(temp_levels) > 0
-    assert temp_levels.min() <= temp_data.min()
-    assert temp_levels.max() >= temp_data.max()
-    
-    wind_data = np.array([[-10, -5, 0], [5, 10, 15], [-15, 20, 25]])
-    wind_levels = plotter._get_default_levels(wind_data, 'uwind')
-    
-    assert len(wind_levels) > 0
-    assert wind_levels.min() <= wind_data.min()
-    assert wind_levels.max() >= wind_data.max()
-    
-    constant_data = np.full((3, 3), 5.0)
-    constant_levels = plotter._get_default_levels(constant_data, 'constant')
-    
-    assert len(constant_levels) >= 1
-    
-    nan_data = np.full((3, 3), np.nan)
-    nan_levels = plotter._get_default_levels(nan_data, 'nan_data')
-    
-    assert len(nan_levels) > 0
-    
+    check_default_levels()
+
 
 def test_interpolation_along_path() -> None:
     """
-    This test verifies the interpolation of grid data along a specified path defined by longitude and latitude coordinates. It checks that the interpolated values are returned for each point along the path and that they are not all NaN, indicating that the interpolation is functioning correctly. The test uses a simple synthetic dataset to validate the interpolation logic, ensuring that the method can handle typical scenarios encountered in cross-section plotting where data values need to be estimated at specific locations along the path. This validation confirms that the plotter can accurately interpolate data for visualization purposes, enhancing the quality and reliability of the generated cross-section plots.
+    This test validates the interpolation functionality of the MPASVerticalCrossSectionPlotter when interpolating data along a specified path. It checks that the interpolation method correctly handles irregular grid data and produces accurate interpolated values at the points along the cross-section path. The test verifies that the interpolation results are consistent with expected values based on known input data, ensuring that the plotter can effectively interpolate data for generating accurate vertical cross-section visualizations. 
 
     Parameters:
         None
@@ -131,33 +80,12 @@ def test_interpolation_along_path() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    grid_lons = np.array([-102, -101, -100, -99, -98])
-    grid_lats = np.array([39, 40, 41, 42, 43])
-    grid_data = np.array([10, 20, 30, 40, 50])
-    
-    path_lons = np.array([-101.5, -100.5, -99.5])
-    path_lats = np.array([39.5, 40.5, 41.5])
-    
-    try:
-        interpolated = plotter._interpolate_along_path(
-            grid_lons, grid_lats, grid_data, path_lons, path_lats
-        )
-        
-        assert len(interpolated) == len(path_lons)
-        assert not np.all(np.isnan(interpolated))  
-        
-        print("Interpolation along path test passed!")
-        
-    except ImportError:
-        print("Scipy not available, skipping interpolation test")
-        pytest.skip("Scipy not available for interpolation test")
+    check_interpolation_along_path()
 
 
 def test_input_validation() -> None:
     """
-    This test validates the input handling of the create_vertical_cross_section method in the MPASVerticalCrossSectionPlotter class. It checks that the method raises a ValueError when an invalid MPAS3DProcessor object is passed as an argument. The test ensures that the error message contains relevant information about the expected processor type, confirming that the input validation logic is correctly implemented to prevent misuse of the plotting function with incompatible data processors. This validation is crucial for maintaining the robustness and reliability of the plotter when integrated into larger workflows where user input may vary.
+    This test ensures that the MPASVerticalCrossSectionPlotter's input validation correctly identifies and handles invalid processor objects. It checks that when an invalid processor (e.g., one that does not conform to the expected interface or lacks necessary attributes) is passed to the plotter, the appropriate exceptions are raised with informative error messages. This test confirms that the plotter can robustly handle incorrect inputs, preventing potential issues during plot generation and guiding users towards providing valid processor objects for successful visualization. 
 
     Parameters:
         None
@@ -165,19 +93,7 @@ def test_input_validation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-
-    try:
-        plotter.create_vertical_cross_section(
-            mpas_3d_processor=cast(Any, "invalid"),
-            var_name="theta",
-            start_point=(-100, 40),
-            end_point=(-90, 40)
-        )
-        assert False, "Should have raised ValueError for invalid processor"
-    except ValueError as e:
-        assert "MPAS3DProcessor" in str(e)
-        print("Input validation test passed!")
+    check_input_validation()
 
 
 class TestInterpolationEdgeCases:

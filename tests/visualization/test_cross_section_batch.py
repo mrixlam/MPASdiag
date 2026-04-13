@@ -12,25 +12,24 @@ Version: 1.0.0
 """
 # Load standard libraries and testing frameworks
 import os
-import sys
-import math
 import shutil
 import pytest
 import tempfile
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from typing import cast, Any, Generator
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from typing import Generator, Any
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
-MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
+from tests.visualization.cross_section_test_helpers import (
+    check_default_levels, 
+    check_input_validation,
+    check_great_circle_path,
+    check_plotter_initialization, 
+    check_interpolation_along_path,
+)
 
 
 def test_vertical_cross_section_plotter_initialization() -> None:
@@ -43,16 +42,7 @@ def test_vertical_cross_section_plotter_initialization() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    assert plotter.figsize == (pytest.approx(10), pytest.approx(12))
-    assert plotter.dpi == pytest.approx(100)
-    assert plotter.fig is None
-    assert plotter.ax is None
-    
-    custom_plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 6), dpi=150)
-    assert custom_plotter.figsize == (pytest.approx(10), pytest.approx(6))
-    assert custom_plotter.dpi == pytest.approx(150)
+    check_plotter_initialization()
 
 
 def test_great_circle_path_generation() -> None:
@@ -65,28 +55,7 @@ def test_great_circle_path_generation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    start_point = (-100.0, 40.0)
-    end_point = (-90.0, 40.0)
-    num_points = 11
-    
-    lons, lats, distances = plotter._generate_great_circle_path(start_point, end_point, num_points)
-    
-    assert len(lons) == num_points
-    assert len(lats) == num_points
-    assert len(distances) == num_points
-    
-    assert math.isclose(lons[0], start_point[0], abs_tol=0.01)
-    assert math.isclose(lats[0], start_point[1], abs_tol=0.01)
-    assert math.isclose(lons[-1], end_point[0], abs_tol=0.01)
-    assert math.isclose(lats[-1], end_point[1], abs_tol=0.01)
-    
-    assert np.all(np.diff(distances) >= 0)
-    assert math.isclose(distances[0], 0.0, abs_tol=1e-6)
-    assert distances[-1] > 0.0
-    
-    print("Great circle path generation test passed!")
+    check_great_circle_path()
 
 
 def test_default_levels_generation() -> None:
@@ -99,33 +68,7 @@ def test_default_levels_generation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    temp_data = np.array([[250, 260, 270], [280, 290, 300], [310, 320, 330]])
-    temp_levels = plotter._get_default_levels(temp_data, 'theta')
-    
-    assert len(temp_levels) > 0
-    assert temp_levels.min() <= temp_data.min()
-    assert temp_levels.max() >= temp_data.max()
-    
-    wind_data = np.array([[-10, -5, 0], [5, 10, 15], [-15, 20, 25]])
-    wind_levels = plotter._get_default_levels(wind_data, 'uwind')
-    
-    assert len(wind_levels) > 0
-    assert wind_levels.min() <= wind_data.min()
-    assert wind_levels.max() >= wind_data.max()
-    
-    constant_data = np.full((3, 3), 5.0)
-    constant_levels = plotter._get_default_levels(constant_data, 'constant')
-    
-    assert len(constant_levels) >= 1
-    
-    nan_data = np.full((3, 3), np.nan)
-    nan_levels = plotter._get_default_levels(nan_data, 'nan_data')
-    
-    assert len(nan_levels) > 0
-    
-    print("Default levels generation test passed!")
+    check_default_levels()
 
 
 def test_interpolation_along_path() -> None:
@@ -138,28 +81,7 @@ def test_interpolation_along_path() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    
-    grid_lons = np.array([-102, -101, -100, -99, -98])
-    grid_lats = np.array([39, 40, 41, 42, 43])
-    grid_data = np.array([10, 20, 30, 40, 50])
-    
-    path_lons = np.array([-101.5, -100.5, -99.5])
-    path_lats = np.array([39.5, 40.5, 41.5])
-    
-    try:
-        interpolated = plotter._interpolate_along_path(
-            grid_lons, grid_lats, grid_data, path_lons, path_lats
-        )
-        
-        assert len(interpolated) == len(path_lons)
-        assert not np.all(np.isnan(interpolated))  
-        
-        print("Interpolation along path test passed!")
-        
-    except ImportError:
-        print("Scipy not available, skipping interpolation test")
-        pytest.skip("Scipy not available for interpolation test")
+    check_interpolation_along_path()
 
 
 def test_input_validation() -> None:
@@ -172,25 +94,41 @@ def test_input_validation() -> None:
     Returns:
         None
     """
-    plotter = MPASVerticalCrossSectionPlotter()
-    try:
-        plotter.create_vertical_cross_section(
-            mpas_3d_processor=cast(Any, "invalid"),
-            var_name="theta",
-            start_point=(-100, 40),
-            end_point=(-90, 40)
-        )
-        assert False, "Should have raised ValueError for invalid processor"
-    except ValueError as e:
-        assert "MPAS3DProcessor" in str(e)
-        print("Input validation test passed!")
+    check_input_validation()
 
+
+def failing_on_first_call(self: MPASVerticalCrossSectionPlotter, 
+                          *args, 
+                          **kwargs) -> Any:
+    """
+    This helper function simulates a failure on the first call to create_vertical_cross_section by raising an exception, while allowing subsequent calls to succeed. It uses an instance attribute to track the number of times it has been called and raises an exception only on the first call. On subsequent calls, it checks for the presence of the original create_vertical_cross_section method (which should have been saved before patching) and calls it with the provided arguments. If the original method is not found, it raises a RuntimeError. This function is designed to test the batch processing function's ability to handle exceptions gracefully without crashing the entire batch process.
+
+    Parameters:
+        *args: Positional arguments to be passed to the original create_vertical_cross_section method.
+        **kwargs: Keyword arguments to be passed to the original create_vertical_cross_section method.
+
+    Returns:
+        Any: The return value from the original create_vertical_cross_section method on subsequent calls after the first call raises an exception.
+    """
+    if not hasattr(self, '_failing_call_count'):
+        self._failing_call_count = 0
+
+    self._failing_call_count += 1
+
+    if self._failing_call_count == 1:
+        raise Exception("Test error")
+
+    if hasattr(self, '_original_create_vertical_cross_section'):
+        return self._original_create_vertical_cross_section(*args, **kwargs)
+
+    raise RuntimeError("Original create_vertical_cross_section not set on instance.")
 
 class TestBatchProcessing:
     """ Tests for batch cross-section processing. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestBatchProcessing", mpas_3d_processor: MPAS3DProcessor) -> Generator[None, None, None]:
+    def setup_method(self: "TestBatchProcessing", 
+                     mpas_3d_processor: MPAS3DProcessor) -> Generator[None, None, None]:
         """
         This fixture sets up the MPASVerticalCrossSectionPlotter and a mock MPAS3DProcessor for use in batch processing tests. It initializes the plotter and processor before each test and ensures that all matplotlib figures are closed after the test to prevent resource leaks. The fixture is automatically applied to all test methods in the TestBatchProcessing class, providing a consistent testing environment for validating batch cross-section processing functionality.
 
@@ -244,7 +182,8 @@ class TestBatchProcessingFinal:
     """ Tests for batch cross-section processing with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestBatchProcessingFinal", mpas_3d_processor) -> Generator[None, None, None]:
+    def setup_method(self: "TestBatchProcessingFinal", 
+                     mpas_3d_processor: "MPAS3DProcessor") -> Generator[None, None, None]:
         """
         This fixture sets up the MPASVerticalCrossSectionPlotter and a real MPAS3DProcessor for use in batch processing tests. It initializes the plotter and processor before each test and ensures that all matplotlib figures are closed after the test to prevent resource leaks. The fixture is automatically applied to all test methods in the TestBatchProcessingFinal class, providing a consistent testing environment for validating batch cross-section processing functionality.
 
@@ -277,17 +216,10 @@ class TestBatchProcessingFinal:
             None
         """
         processor = self.processor
-        
+
         original_create = self.plotter.create_vertical_cross_section
-        call_count = [0]
-        
-        def failing_on_first_call(*args, **kwargs):
-            call_count[0] += 1
-            if call_count[0] == 1:
-                raise Exception("Test error")
-            return original_create(*args, **kwargs)
-        
-        self.plotter.create_vertical_cross_section = failing_on_first_call
+        self.plotter.create_vertical_cross_section = failing_on_first_call.__get__(self.plotter, type(self.plotter))
+
         try:
             files = self.plotter.create_batch_cross_section_plots(
                 processor, self.temp_dir, 'theta',
@@ -296,7 +228,7 @@ class TestBatchProcessingFinal:
             )
         finally:
             self.plotter.create_vertical_cross_section = original_create
-        
+
         assert files is not None
     
     def test_batch_processing_multiple_formats(self: "TestBatchProcessingFinal") -> None:

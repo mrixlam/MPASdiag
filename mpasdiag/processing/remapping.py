@@ -12,11 +12,10 @@ Date: November 2025
 Version: 1.0.0
 """
 
-import os
 import numpy as np
 import xarray as xr
 from pathlib import Path
-from typing import Optional, Union, Dict, List, Tuple, Any, TYPE_CHECKING
+from typing import Optional, Union, List, Tuple, TYPE_CHECKING
 import warnings
 
 if TYPE_CHECKING:
@@ -618,9 +617,6 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     print(f"  Latitude: [{lat_min:.2f}, {lat_max:.2f}]° at {resolution}° spacing")
     
     lon_2d, lat_2d = np.meshgrid(target_lons, target_lats)
-    
-    lon_range = lon_max - lon_min
-    is_global = lon_range > 180
     
     if method == 'nearest':
         source_points = np.column_stack([lon_deg, lat_deg])

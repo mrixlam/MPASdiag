@@ -10,23 +10,15 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
-import os
-import sys
 import pytest
-import shutil
-import tempfile
 import numpy as np
 import xarray as xr
-from pathlib import Path
-from datetime import datetime
-from typing import Generator, cast
-from unittest.mock import MagicMock, Mock, patch
 import matplotlib
 matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
-from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag.visualization.wind import MPASWindPlotter
+from tests.visualization.wind_test_helpers import require_wind_fixtures
 
 
 class TestPrepareWindData:
@@ -64,18 +56,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Load real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5], mpas_coordinates[1][:5]
@@ -133,18 +114,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Load real MPAS data (first 100 points)
         lon, lat = mpas_coordinates[0][:100], mpas_coordinates[1][:100]
@@ -208,18 +178,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Use real MPAS data (first 5 points)
         lon, lat = mpas_coordinates[0][:5].copy(), mpas_coordinates[1][:5].copy()
@@ -282,18 +241,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Load real MPAS coordinates reshaped to 2D (2x5 grid)
         lon = mpas_coordinates[0][:10].reshape(2, 5)
@@ -353,18 +301,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Use real MPAS coordinates reshaped to 2D (10x10 grid)
         lon = mpas_coordinates[0][:100].reshape(10, 10)
@@ -424,18 +361,7 @@ class TestPrepareWindData:
         Returns:
             None: Assertion-based test; raises on failure.
         """
-        # Skip if MPAS data fixtures are not available
-        if mpas_coordinates is None or mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        if (
-            mpas_coordinates is None or mpas_wind_data is None or
-            mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-            mpas_wind_data[0] is None or mpas_wind_data[1] is None
-        ):
-            pytest.skip("MPAS data not available")
-            return
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
 
         # Use real MPAS coordinates and wind data (first 3 points)
         lon_data, lat_data = mpas_coordinates[0][:3], mpas_coordinates[1][:3]

@@ -12,37 +12,22 @@ Version: 1.0.0
 """
 # Load necessary libraries and modules for testing
 import os
-import io
 import pytest
 import shutil
 import tempfile
-import builtins
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pathlib import Path
-from contextlib import redirect_stdout
-from typing import Any, List, Dict, Generator
-from unittest.mock import Mock, MagicMock, patch
+from typing import Generator
+from unittest.mock import Mock
 
-from mpasdiag.processing.parallel import ParallelStats, TaskResult, MPASParallelManager
 from mpasdiag.processing.parallel_wrappers import (
     _precipitation_worker,
     _surface_worker,
     _wind_worker,
-    _cross_section_worker,
-    _process_parallel_results,
-    ParallelPrecipitationProcessor,
-    ParallelSurfaceProcessor,
-    ParallelWindProcessor,
-    ParallelCrossSectionProcessor,
-    auto_batch_processor
+    _cross_section_worker
 )
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
 from tests.test_data_helpers import assert_expected_public_methods
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')

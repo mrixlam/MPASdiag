@@ -20,7 +20,7 @@ import numpy as np
 import xarray as xr
 from typing import Any
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from tests.test_data_helpers import get_mpas_data_paths, check_mpas_data_available, load_mpas_3d_processor, assert_expected_public_methods

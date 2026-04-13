@@ -11,7 +11,6 @@ Date: February 2026
 Version: 1.0.0
 """
 import os
-import io
 import pytest
 import shutil
 import tempfile
@@ -20,16 +19,11 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from pathlib import Path
-from contextlib import redirect_stdout
-from typing import Any, List, Dict, Generator
-from unittest.mock import Mock, MagicMock, patch
+from typing import Any, List, Generator
+from unittest.mock import Mock
 
 from mpasdiag.processing.parallel import ParallelStats, TaskResult, MPASParallelManager
 from mpasdiag.processing.parallel_wrappers import (
-    _precipitation_worker,
-    _surface_worker,
-    _wind_worker,
-    _cross_section_worker,
     _process_parallel_results,
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
@@ -37,10 +31,6 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelCrossSectionProcessor,
     auto_batch_processor
 )
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
 from tests.test_data_helpers import assert_expected_public_methods
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -103,7 +93,6 @@ class TestProcessParallelResults:
             )
         ]
         
-        from mpasdiag.processing.parallel import ParallelStats
         mock_stats = ParallelStats()
         mock_stats.total_time = 1.0
         mock_stats.load_imbalance = 0.1
@@ -151,7 +140,6 @@ class TestProcessParallelResults:
             )
         ]
         
-        from mpasdiag.processing.parallel import ParallelStats
         mock_stats = ParallelStats()
 
         mock_stats.total_time = 1.0
@@ -599,7 +587,6 @@ class TestAutoBatchProcessor:
         Returns:
             None
         """
-        import builtins
         real_import = builtins.__import__
         
         def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
@@ -767,18 +754,4 @@ def mpas_diag_files(test_data_dir: Path) -> List[str]:
     return []
 
 
-@pytest.fixture
-def temp_output_dir() -> Generator[Path, None, None]:
-    """
-    This fixture creates a temporary directory for test outputs and yields its Path object to the test. After the test completes, it ensures that the temporary directory is removed to clean up resources. This allows tests to write output files without affecting the actual filesystem and guarantees that no residual files remain after testing. 
-
-    Parameters:
-        None
-
-    Returns:
-        Generator[Path, None, None]: Yields a Path object pointing to a temporary directory for test outputs. The directory is removed after the test completes.
-    """
-    temp_dir = tempfile.mkdtemp()
-    yield Path(temp_dir)
-    shutil.rmtree(temp_dir, ignore_errors=True)
 

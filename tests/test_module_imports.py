@@ -12,10 +12,7 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load necessary libraries 
-from dask.sizeof import logger
 import pytest
-import importlib
-import types
 
 
 class TestCLIImports:
@@ -486,40 +483,8 @@ class TestUtilityFunctions:
         
         logger_verbose = MPASLogger('test_verbose', verbose=True)
         logger_quiet = MPASLogger('test_quiet', verbose=False)
-
-
-class TestTypeHints:
-    """ This class contains tests that verify the presence of type hints in key diagnostic classes such as `WindDiagnostics` and `PrecipitationDiagnostics`. """
-    
-    def test_wind_diagnostics_has_types(self: "TestTypeHints") -> None:
-        """
-        This test verifies that the `WindDiagnostics.__init__` method is introspectable and has a signature, which implies that type hints are present if they are defined. The test uses `inspect.signature` to ensure that reflection works for type hint checks performed in CI or by static analysis tools. This helps maintain code quality and consistency in type annotations across the codebase.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        import inspect
-        from mpasdiag.diagnostics.wind import WindDiagnostics
-        
-        sig = inspect.signature(WindDiagnostics.__init__)
-    
-    def test_precipitation_diagnostics_has_types(self: "TestTypeHints") -> None:
-        """
-        This test verifies that the `PrecipitationDiagnostics.__init__` method is introspectable and has a signature, which implies that type hints are present if they are defined. The test uses `inspect.signature` to ensure that reflection works for type hint checks performed in CI or by static analysis tools. This helps maintain code quality and consistency in type annotations across the codebase.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        import inspect
-        from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-        
-        sig = inspect.signature(PrecipitationDiagnostics.__init__)
+        assert logger_verbose.verbose is True
+        assert logger_quiet.verbose is False
 
 
 if __name__ == '__main__':

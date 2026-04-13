@@ -28,7 +28,6 @@ from matplotlib.contour import QuadContourSet
 from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
 from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
-from ..processing.utils_metadata import MPASFileMetadata
 
 
 class MPASVisualizationStyle:
@@ -79,15 +78,33 @@ class MPASVisualizationStyle:
         Returns:
             str: A standardized accumulation period key string (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') corresponding to the input number of hours.
         """
-        if hours == 1:  return 'a01h'
-        if hours == 3:  return 'a03h'
-        if hours == 6:  return 'a06h'
-        if hours == 12: return 'a12h'
-        if hours == 24: return 'a24h'
-        if hours < 3:   return 'a01h'
-        if hours < 6:   return 'a03h'
-        if hours < 12:  return 'a06h'
-        if hours < 24:  return 'a12h'
+        if hours == 1:
+            return 'a01h'
+
+        if hours == 3:
+            return 'a03h'
+
+        if hours == 6:
+            return 'a06h'
+
+        if hours == 12:
+            return 'a12h'
+
+        if hours == 24:
+            return 'a24h'
+
+        if hours < 3:
+            return 'a01h'
+
+        if hours < 6:
+            return 'a03h'
+
+        if hours < 12:
+            return 'a06h'
+
+        if hours < 24:
+            return 'a12h'
+
         return 'a24h'
 
     @staticmethod
@@ -127,8 +144,6 @@ class MPASVisualizationStyle:
         Returns:
             Dict[str, Any]: A dictionary containing styling parameters such as 'colormap', 'levels', 'norm_type', 'alpha', and 'interpolation' that can be used for plotting the specified variable. 
         """
-        metadata = MPASFileMetadata.get_variable_metadata(var_name, data_array)
-        
         style_configs = {
             'olrtoa': {'colormap': 'inferno', 'extend': 'both'},
             
@@ -1014,9 +1029,14 @@ class MPASVisualizationStyle:
 
         typical_magnitude = float(np.median(np.abs(non_zero_t)))
 
-        if typical_magnitude >= 100:  return '{:.0f}'
-        if typical_magnitude >= 10:   return '{:.1f}'
-        if typical_magnitude >= 0.01: return '{:.2f}'
+        if typical_magnitude >= 100:
+            return '{:.0f}'
+
+        if typical_magnitude >= 10:
+            return '{:.1f}'
+
+        if typical_magnitude >= 0.01:
+            return '{:.2f}'
 
         return '{:.3f}'
 
@@ -1062,12 +1082,6 @@ class MPASVisualizationStyle:
             min_abs = np.min(np.abs(non_zero_t))
             if max_abs >= 1e4 or min_abs < 1e-3:
                 return [f'{x:.1e}' for x in ticks]
-
-        if len(t) > 1:
-            spacings = np.abs(np.diff(np.sort(t)))
-            median_spacing = float(np.median(spacings[spacings > 0])) if np.any(spacings > 0) else 0.0
-        else:
-            median_spacing = 0.0
 
         fmt = MPASVisualizationStyle._choose_tick_fmt(t, non_zero_t)
         formatted_labels = [fmt.format(x) for x in ticks]

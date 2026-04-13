@@ -20,7 +20,6 @@ matplotlib.use('Agg')
 from unittest.mock import patch
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
-from cartopy.mpl.geoaxes import GeoAxes
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
@@ -32,7 +31,9 @@ class TestPlotTypes:
     """ Tests for different plot types and rendering options. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestPlotTypes", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def setup_method(self: "TestPlotTypes", 
+                     mpas_coordinates: tuple, 
+                     mpas_surface_temp_data: np.ndarray) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and loads real MPAS data for testing various plot types. It prepares the longitude, latitude, and surface temperature data arrays, and computes the extent bounds for plotting based on the actual coordinate values. If the MPAS data is not available, it gracefully skips the tests that depend on it.
 
@@ -236,7 +237,9 @@ class TestColormapHandling:
     """ Tests for colormap and normalization. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestColormapHandling", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def setup_method(self: "TestColormapHandling", 
+                     mpas_coordinates: tuple, 
+                     mpas_surface_temp_data: np.ndarray) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and loads real MPAS data for testing colormap handling and normalization. It prepares longitude, latitude, and surface temperature data arrays, and computes the extent bounds for plotting based on the actual coordinate values. If the MPAS data is not available, it gracefully skips the tests that depend on it.
 
@@ -463,7 +466,9 @@ class TestColorbarMethod:
         self.plotter = MPASSurfacePlotter()
         self.extent_bounds = (-100, -90, 30, 40)
     
-    def test_colorbar_with_metadata(self: "TestColorbarMethod", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def test_colorbar_with_metadata(self: "TestColorbarMethod", 
+                                    mpas_coordinates: tuple, 
+                                    mpas_surface_temp_data: np.ndarray) -> None:
         """
         This test verifies that the colorbar creation method correctly uses metadata to generate appropriate labels and formatting for the colorbar. It uses real MPAS data to create a scatter plot and checks that the resulting Figure includes a colorbar with the expected label derived from the metadata (e.g., "2m Temperature (K)"). The test asserts that a Figure is returned, confirming that the colorbar is created successfully with metadata-driven labeling.
 
@@ -526,7 +531,9 @@ class TestContourPlotting:
     """ Tests for contour plotting methods. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestContourPlotting", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def setup_method(self: "TestContourPlotting", 
+                     mpas_coordinates: tuple, 
+                     mpas_surface_temp_data: np.ndarray) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and loads real MPAS data for testing contour plotting methods. It prepares longitude, latitude, and surface temperature data arrays, and computes the extent bounds for plotting based on the actual coordinate values. If the MPAS data is not available, it gracefully skips the tests that depend on it.
 

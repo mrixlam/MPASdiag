@@ -13,16 +13,14 @@ Version: 1.0.0
 """
 # Load standard libraries
 import gc
-import os
 import sys
 import time
 import warnings
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum
-from multiprocessing import Pool, cpu_count, get_context
-from functools import partial
+from multiprocessing import cpu_count, get_context
 
 try:
     from mpi4py import MPI
@@ -162,8 +160,6 @@ class MPASTaskDistributor:
         Returns:
             List[Tuple[int, Any]]: List of (task_id, task) tuples assigned to this worker based on the load balancing strategy. 
         """
-        n_tasks = len(tasks)
-        
         if self.strategy == LoadBalanceStrategy.STATIC:
             return self._static_distribution(tasks)
         elif self.strategy == LoadBalanceStrategy.DYNAMIC:

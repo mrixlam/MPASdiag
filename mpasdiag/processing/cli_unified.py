@@ -23,7 +23,6 @@ from pathlib import Path
 from .utils_config import MPASConfig
 from .utils_logger import MPASLogger
 from .utils_monitor import PerformanceMonitor
-from .utils_validator import DataValidator
 from .processors_2d import MPAS2DProcessor
 from .processors_3d import MPAS3DProcessor
 
@@ -31,8 +30,7 @@ from .parallel_wrappers import (
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
     ParallelWindProcessor,
-    ParallelCrossSectionProcessor,
-    auto_batch_processor
+    ParallelCrossSectionProcessor
 )
 
 from .constants import DIAG_GLOB, MPASOUT_GLOB, PERFORMANCE_MONITOR_MSG
@@ -42,7 +40,6 @@ try:
     from ..visualization.precipitation import MPASPrecipitationPlotter
     from ..visualization.surface import MPASSurfacePlotter
     from ..visualization.cross_section import MPASVerticalCrossSectionPlotter
-    from ..visualization.base_visualizer import MPASVisualizer
     from ..visualization.wind import MPASWindPlotter
     from ..diagnostics.precipitation import PrecipitationDiagnostics
     from ..diagnostics.sounding import SoundingDiagnostics
@@ -52,7 +49,6 @@ except ImportError:
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
         from mpasdiag.visualization.surface import MPASSurfacePlotter
         from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-        from mpasdiag.visualization.base_visualizer import MPASVisualizer
         from mpasdiag.visualization.wind import MPASWindPlotter
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
@@ -61,7 +57,6 @@ except ImportError:
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
         from mpasdiag.visualization.surface import MPASSurfacePlotter
         from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-        from mpasdiag.visualization.base_visualizer import MPASVisualizer
         from mpasdiag.visualization.wind import MPASWindPlotter
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
@@ -969,7 +964,6 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if the configuration passes all validation checks and is considered valid for execution, False if any validation errors are detected that require user correction before execution can continue.
         """
-        validator = DataValidator()
         errors = []
         
         self._validate_file_path(config.grid_file, "Grid file", errors)
@@ -1880,19 +1874,14 @@ class MPASUnifiedCLI:
             
             processor = MPAS2DProcessor(config.grid_file, verbose=config.verbose)
             processor = processor.load_2d_data(config.data_dir)
-            dataset = processor.dataset
             
             os.makedirs(config.output_dir, exist_ok=True)
             
             if config.overlay_type == 'precip_wind':
-                precip_plotter = MPASPrecipitationPlotter(figsize=config.figure_size, dpi=config.dpi)
-                wind_plotter = MPASWindPlotter(figsize=config.figure_size, dpi=config.dpi)
-                
                 if self.logger:
                     self.logger.info("Creating precipitation + wind overlay")
             
             elif config.overlay_type == 'temp_pressure':
-                surface_plotter = MPASSurfacePlotter(figsize=config.figure_size, dpi=config.dpi)
                 if self.logger:
                     self.logger.info("Creating temperature + pressure overlay")
             

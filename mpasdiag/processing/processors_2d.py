@@ -15,7 +15,6 @@ Version: 1.0.0
 import glob
 import os
 import numpy as np
-import pandas as pd
 import xarray as xr
 from typing import List, Tuple, Any, Optional, cast
 

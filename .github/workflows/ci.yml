@@ -133,6 +133,9 @@ jobs:
         echo "Installing test dependencies..." | tee -a "${LOG_FILE}"
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
+        echo "Installing ruff..." | tee -a "${LOG_FILE}"
+        pip install ruff 2>&1 | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
         echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
         pip install -e . 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
@@ -156,6 +159,16 @@ jobs:
         python -c "import xesmf; print('xesmf imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
     
+    - name: Lint with ruff
+      shell: bash -l {0}
+      run: |
+        echo "=== Running ruff check ===" | tee -a "${LOG_FILE}"
+        ruff check mpasdiag/ tests/ 2>&1 | tee -a "${LOG_FILE}"
+        RUFF_EXIT_CODE=${PIPESTATUS[0]}
+        echo "ruff exit code: ${RUFF_EXIT_CODE}" | tee -a "${LOG_FILE}"
+        echo "" | tee -a "${LOG_FILE}"
+        exit ${RUFF_EXIT_CODE}
+
     - name: Run tests with pytest
       shell: bash -l {0}
       run: |
@@ -251,7 +264,7 @@ jobs:
     
     - name: Install linting tools
       run: |
-        pip install flake8 black mypy
+        pip install flake8 black mypy ruff
     
     - name: Run flake8
       run: |
@@ -262,3 +275,7 @@ jobs:
       run: |
         black --check mpasdiag/ tests/
       continue-on-error: true
+
+    - name: Lint with ruff
+      run: |
+        ruff check mpasdiag/ tests/

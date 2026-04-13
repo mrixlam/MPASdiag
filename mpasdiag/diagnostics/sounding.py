@@ -22,10 +22,10 @@ from typing import TYPE_CHECKING, Dict, Any, Optional, Tuple, cast
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.processing.base import MPASBaseProcessor
-from mpasdiag.processing.constants import P0_REF_PA, KAPPA, Rv_OVER_Rd, EPSILON_RD_RV
+from mpasdiag.processing.constants import P0_REF_PA, KAPPA, EPSILON_RD_RV
 
 if TYPE_CHECKING:
-    import metpy.calc as _mpcalc_t
+    pass
 
 _mpcalc: Optional[ModuleType] = None
 _munits: Any = None
@@ -683,8 +683,7 @@ class SoundingDiagnostics:
             h_u = np.asarray(height_m, dtype=np.float64) * _units.m
 
             # Convert pressure to MetPy units for the shear calculations
-            p = pressure_hpa * _units.hPa            
-            T = None 
+            p = pressure_hpa * _units.hPa
         
         # Catch any exceptions that occur during the wind unit setup and skip shear-related calculations if it fails
         except Exception as exc:

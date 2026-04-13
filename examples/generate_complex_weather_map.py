@@ -13,13 +13,8 @@ Version: 1.0.0
 """
 # Load standard libraries
 import os
-import glob
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import Tuple, Union
 
 # Load relevant MPASdiag modules 
-from mpasdiag.processing import UnitConverter
 from mpasdiag.processing import MPAS2DProcessor
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_config import MPASConfig

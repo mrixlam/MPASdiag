@@ -13,7 +13,6 @@ Version: 1.0.0
 """
 # Import standard libraries
 import os
-import re
 import sys
 import glob
 import warnings

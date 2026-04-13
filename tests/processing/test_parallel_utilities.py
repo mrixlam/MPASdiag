@@ -12,7 +12,6 @@ Version: 1.0.0
 """
 import time
 import pytest
-import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import List
 from unittest.mock import Mock, MagicMock, patch
@@ -21,7 +20,6 @@ from mpasdiag.processing.parallel import (
     MPASParallelManager,
     TaskResult,
     ParallelStats,
-    MPASResultCollector,
     _multiprocessing_task_wrapper,
     parallel_plot,
 )

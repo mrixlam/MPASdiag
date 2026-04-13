@@ -12,16 +12,15 @@ Date: November 2025
 Version: 1.0.0
 """
 
-import numpy as np
 import xarray as xr
-from typing import Optional, Dict, Any, Union, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple
 
 from mpasdiag.processing.utils_unit import UnitConverter
 
 from .constants import (
     M2_PER_S2, MM, DBZ, KELVIN, M_PER_S, PA, PERCENT,
     METER, M2_PER_S, KG_PER_KG, KG_PER_M2, KG_PER_M3, KG_PER_M_PER_S,
-    MICRONS, PER_KG, M3_PER_M3, J_PER_KG, PER_S, G_PER_KG, W_PER_M2, NOUNIT
+    MICRONS, PER_KG, M3_PER_M3, J_PER_KG, PER_S, W_PER_M2, NOUNIT
 )
 
 

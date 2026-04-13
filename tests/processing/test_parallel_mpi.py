@@ -11,15 +11,13 @@ Date: February 2026
 Version: 1.0.0
 """
 import pytest
-import matplotlib.pyplot as plt
-from typing import List, Generator
+from typing import List
 from unittest.mock import Mock, MagicMock, patch
 
 from mpasdiag.processing.parallel import (
     MPASParallelManager,
     LoadBalanceStrategy,
     TaskResult,
-    ParallelStats,
     MPASTaskDistributor,
     MPASResultCollector,
 )

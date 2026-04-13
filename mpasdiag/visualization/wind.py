@@ -78,10 +78,6 @@ class MPASWindPlotter(MPASVisualizer):
         if figsize is None:
             figsize = self.figsize
         
-        # Calculate map extent in degrees to understand spatial density of data points
-        map_lon_range = lon_max - lon_min
-        map_lat_range = lat_max - lat_min
-
         # Calculate figure area in square inches for density estimation
         fig_width, fig_height = figsize
         fig_area = fig_width * fig_height
@@ -243,7 +239,7 @@ class MPASWindPlotter(MPASVisualizer):
             )
             
             # Add a colorbar for streamlines to indicate wind speed values corresponding to streamline colors
-            cbar = MPASVisualizationStyle.add_colorbar(
+            MPASVisualizationStyle.add_colorbar(
                 plt.gcf(), ax, strm.lines,
                 label='Wind Speed [m s$^{-1}$]', orientation='horizontal',
                 fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=10, label_pos='top', tick_labelsize=10

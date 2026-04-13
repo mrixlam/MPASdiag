@@ -11,21 +11,17 @@ Date: February 2026
 Version: 1.0.0
 """
 import os
-import sys
 import pytest
 import shutil
 import tempfile
 import numpy as np
 import xarray as xr
-from pathlib import Path
-from datetime import datetime
-from typing import Generator, cast
-from unittest.mock import MagicMock, Mock, patch
+from typing import Generator
+from unittest.mock import MagicMock
 import matplotlib
 matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
-from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag.visualization.wind import MPASWindPlotter
 from tests.test_data_helpers import fake_render_factory
 

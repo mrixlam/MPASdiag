@@ -25,9 +25,9 @@ import xarray as xr
 
 
 try:
-    from .data_cache import MPASDataCache, get_global_cache
+    from .data_cache import MPASDataCache, get_global_cache  # noqa: F401
 except ImportError:
-    from mpasdiag.processing.data_cache import MPASDataCache, get_global_cache
+    from mpasdiag.processing.data_cache import MPASDataCache, get_global_cache  # noqa: F401
 
 try:
     from .parallel import MPASParallelManager
@@ -438,7 +438,6 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     show_background = kwargs.get('show_background', False)
     grid_resolution = kwargs.get('grid_resolution', None)
     regrid_method = kwargs.get('regrid_method', 'linear')
-    file_prefix = kwargs['file_prefix']
     formats = kwargs['formats']
     
     start_time = time.time()
@@ -544,7 +543,6 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     var_name = kwargs['var_name']
     file_prefix = kwargs['file_prefix']
     formats = kwargs['formats']
-    custom_title = kwargs.get('custom_title')
     colormap = kwargs.get('colormap')
     levels = kwargs.get('levels')
     vertical_coord = kwargs.get('vertical_coord', 'pressure')

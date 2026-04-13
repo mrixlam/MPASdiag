@@ -15,7 +15,8 @@ Version: 1.0.0
 __version__ = "1.0.0"
 
 from mpasdiag.visualization.styling import MPASVisualizationStyle
-from mpasdiag.visualization.base_visualizer import MPASVisualizer, UnitConverter
+from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_plot
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter

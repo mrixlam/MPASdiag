@@ -14,7 +14,6 @@ Version: 1.0.0
 
 import argparse
 import textwrap
-from typing import Any
 
 from .utils_config import MPASConfig
 

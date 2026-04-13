@@ -17,7 +17,6 @@ import sys
 import pytest
 import tempfile
 import numpy as np
-import xarray as xr
 from typing import Any
 from pathlib import Path
 from unittest.mock import MagicMock, patch

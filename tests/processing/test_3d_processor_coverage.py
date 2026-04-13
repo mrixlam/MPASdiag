@@ -11,9 +11,6 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
-
-import os
-import glob
 import pytest
 import numpy as np
 import xarray as xr
@@ -269,7 +266,7 @@ class TestLerpVariable:
             tuple: A tuple containing the processor, dataset, and mean pressure array.
         """
         proc = _make_processor(verbose=verbose)
-        n_cells, n_vert = 5, 4
+        n_cells, _ = 5, 4
 
         ds = xr.Dataset({
             "theta": (["Time", "nCells", "nVertLevels"],
@@ -590,7 +587,7 @@ class TestSetLevelAttrs:
         )
 
         assert "selected_level" in var_data.attrs
-        assert var_data.attrs["selected_level"] == 85000.0
+        assert var_data.attrs["selected_level"] == pytest.approx(85000.0)
         assert "actual_pressure_level" in var_data.attrs
 
     def test_int_level_does_not_set_actual_pressure(self: "TestSetLevelAttrs") -> None:

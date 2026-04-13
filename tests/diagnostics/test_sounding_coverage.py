@@ -22,7 +22,6 @@ from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 try:
-    import metpy.calc as _mpc
     from metpy.units import units as _mpu
     HAS_METPY_TEST = True
 except ImportError:
@@ -1007,7 +1006,6 @@ class TestLoadGridCoordinates:
         """
         diag = SoundingDiagnostics(verbose=False)
         ds = _synthetic_mpas_data(n_cells=5, n_vert=8)
-        proc = _make_mock_proc(ds, tmp_path)
 
         original_open = xr.open_dataset
 
@@ -1032,7 +1030,7 @@ class TestLoadGridCoordinates:
 
         with patch("xarray.open_dataset", side_effect=patched_open):
             proc2 = _make_mock_proc(ds, tmp_path, prefix="grid_probe_fail")
-            lon, lat = diag._load_grid_coordinates(proc2)
+            lon, _ = diag._load_grid_coordinates(proc2)
 
         assert lon is not None
 

@@ -13,19 +13,15 @@ Version: 1.0.0
 # Load necessary libraries and modules for testing
 import os
 import sys
-import math
 import pytest
-import shutil
 import tempfile
 import matplotlib
 import numpy as np
 import xarray as xr
-import pandas as pd
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from typing import cast, Any, Generator, Union
+from typing import Generator, Union
 from unittest.mock import Mock, MagicMock, patch
-from tests.test_data_helpers import load_mpas_mesh
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 from mpasdiag.processing.processors_3d import MPAS3DProcessor

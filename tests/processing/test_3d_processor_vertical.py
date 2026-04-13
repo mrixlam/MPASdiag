@@ -12,95 +12,23 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load standard libraries
-import os
-import sys
 import pytest
-import tempfile
 import numpy as np
 import xarray as xr
 from typing import Any
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from tests.test_data_helpers import get_mpas_data_paths, check_mpas_data_available, load_mpas_3d_processor, assert_expected_public_methods
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
-GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
+from tests.test_data_helpers import (
+    load_mpas_3d_processor, 
+    assert_expected_public_methods
+)
 
-
-def make_getitem(mapping: dict, 
-                 default: Any = None) -> Any:
-    """
-    This function returns a __getitem__ side_effect function for a given mapping. It allows for flexible mocking of xarray Datasets or DataArrays by returning values based on the provided mapping dictionary. If a key is not found in the mapping, it returns a default value (which can be a MagicMock if not specified), enabling tests to simulate various dataset configurations and variable access patterns.
-    
-    Parameters:
-        mapping (dict): A dictionary mapping keys to values.
-        default (Any): The default value to return if the key is not found.
-
-    Returns:
-        Any: A function suitable for use as a __getitem__ side_effect.
-    """
-    def _getitem(key: str) -> Any:
-        return mapping.get(key, MagicMock() if default is None else default)
-    return _getitem
-
-
-def make_contains(keys: Any) -> Any:
-    """
-    This function returns a __contains__ side_effect function for a given collection of keys. It allows for flexible mocking of the __contains__ method in xarray Datasets or DataArrays by checking if a key is present in the provided collection. This is useful for simulating the presence or absence of variables or coordinates in a dataset during testing. 
-
-    Parameters:
-        keys (Any): A collection of keys to check against.
-
-    Returns:
-        Any: A function suitable for use as a __contains__ side_effect.
-    """
-    key_set = set(keys)
-    def _contains(key: str) -> bool:
-        return key in key_set
-    return _contains
-
-
-def make_grid_getitem(lon_values: Any, 
-                      lat_values: Any) -> Any:
-    """
-    This function returns a __getitem__ side_effect function that provides longitude and latitude values based on the key. It checks if the key contains 'lon' or 'lat' (case-insensitive) and returns a mock coordinate object with the corresponding values. This is particularly useful for testing the coordinate extraction logic in MPAS3DProcessor when working with grid datasets. 
-
-    Parameters:
-        lon_values (Any): The longitude values to return for keys containing 'lon'.
-        lat_values (Any): The latitude values to return for keys containing 'lat'.
-
-    Returns:
-        Any: A function suitable for use as a __getitem__ side_effect.
-    """
-    def _getitem(key: str) -> Any:
-        mock_coord = MagicMock()
-        mock_coord.values = lon_values if 'lon' in key.lower() else lat_values
-        return mock_coord
-    return _getitem
-
-
-def make_getitem_with_raise(raise_key: str, 
-                            exc: Exception, 
-                            default: Any = None) -> Any:
-    """
-    This function returns a __getitem__ side_effect function that raises a specified exception when a particular key is accessed. For all other keys, it returns a default value (which can be a MagicMock if not specified). This is useful for testing the error handling logic in MPAS3DProcessor when certain expected variables or coordinates are missing or inaccessible in the dataset. 
-
-    Parameters:
-        raise_key (str): The key for which the exception should be raised.
-        exc (Exception): The exception to raise when the raise_key is accessed.
-        default (Any): The default value to return if the key is not the raise_key.
-
-    Returns:
-        Any: A function suitable for use as a __getitem__ side_effect.
-    """
-    def _getitem(key: str) -> Any:
-        if key == raise_key:
-            raise exc
-        return MagicMock() if default is None else default
-    return _getitem
+from tests.processing.mock_dataset_helpers import (
+    make_getitem, 
+    make_contains, 
+)
 
 
 class TestGetVerticalLevels:
