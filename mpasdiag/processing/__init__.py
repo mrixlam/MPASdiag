@@ -21,7 +21,7 @@ from .utils_geog import MPASGeographicUtils
 from .utils_datetime import MPASDateTimeUtils
 from .utils_config import MPASConfig
 from .utils_logger import MPASLogger
-from .utils_file import FileManager
+from .utils_file import FileManager, print_system_info
 from .utils_validator import DataValidator
 from .utils_monitor import PerformanceMonitor
 from .utils_parser import ArgumentParser
@@ -54,6 +54,7 @@ __all__ = [
     'MPASConfig',
     'MPASLogger',
     'FileManager',
+    'print_system_info',
     'DataValidator',
     'PerformanceMonitor',
     'ArgumentParser',

@@ -48,20 +48,6 @@ class TestCLIEntryPoint:
 class TestUnifiedCLI:
     """ Tests for the `MPASUnifiedCLI` class and its associated parser construction in `mpasdiag.processing.cli_unified`. """
 
-    def test_import_cli_unified(self: "TestUnifiedCLI") -> None:
-        """
-        This test verifies that the `cli_unified` module can be imported and that it contains the expected `main` function and `MPASUnifiedCLI` class. This ensures that the unified CLI implementation is correctly defined and accessible within the package.
-
-        Parameters:
-            self (TestUnifiedCLI): The test instance.
-
-        Returns:
-            None: Raises on assertion failure.
-        """
-        from mpasdiag.processing import cli_unified
-        assert hasattr(cli_unified, 'main')
-        assert hasattr(cli_unified, 'MPASUnifiedCLI')
-
     def test_cli_class_initialization(self: "TestUnifiedCLI") -> None:
         """
         This test checks that an instance of `MPASUnifiedCLI` can be created without errors and that its initial attributes are set to `None` as expected. This verifies that the class constructor initializes the object state correctly, which is important for the subsequent setup and execution of CLI commands.

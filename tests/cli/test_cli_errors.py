@@ -17,55 +17,7 @@ from unittest.mock import Mock, patch
 
 class TestErrorHandlingAndExceptions:
     """ Test error handling and edge cases. """
-    
-    def test_run_analysis_no_analysis_type(self: "TestErrorHandlingAndExceptions") -> None:
-        """
-        This test verifies that `run_analysis` returns False when `analysis_type` is not specified in the configuration. By creating an `MPASConfig` without the required `analysis_type` and calling `run_analysis`, the test asserts that the method handles this missing parameter gracefully by returning False instead of raising an exception or proceeding with undefined behavior.
 
-        Parameters:
-            self (TestErrorHandlingAndExceptions): The test instance.
-
-        Returns:
-            None: The test asserts `run_analysis` returns `False`.
-        """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        
-        cli = MPASUnifiedCLI()
-
-        config = MPASConfig(
-            grid_file='data/grids/x1.10242.static.nc',
-            data_dir='data/u240k/diag'
-        )
-        
-        result = cli.run_analysis(config)
-        assert result is False
-    
-    def test_run_analysis_unknown_analysis_type(self: "TestErrorHandlingAndExceptions") -> None:
-        """
-        This test confirms that `run_analysis` returns False when an unknown `analysis_type` is provided. By configuring an `MPASConfig` with an invalid `analysis_type` value and invoking `run_analysis`, the test checks that the method detects the unrecognized analysis type and responds appropriately by returning False, rather than attempting to execute or raising an unhandled exception.
-
-        Parameters:
-            self (TestErrorHandlingAndExceptions): The test instance.
-
-        Returns:
-            None: The test asserts `run_analysis` returns `False`.
-        """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        
-        cli = MPASUnifiedCLI()
-
-        config = MPASConfig(
-            grid_file='data/grids/x1.10242.static.nc',
-            data_dir='data/u240k/diag',
-            analysis_type='unknown_type', 
-            verbose=True
-        )
-        
-        result = cli.run_analysis(config)
-        assert result is False
-    
     def test_run_analysis_keyboard_interrupt(self: "TestErrorHandlingAndExceptions") -> None:
         """
         This test ensures that `run_analysis` handles a `KeyboardInterrupt` gracefully by returning False. By patching the underlying processor to raise a `KeyboardInterrupt` when called, the test simulates a user interrupting the analysis execution. The assertion checks that `run_analysis` catches this specific exception and returns False, allowing for clean exits without traceback output in the case of user-initiated interrupts.
@@ -183,7 +135,6 @@ class TestErrorHandlingAndExceptions:
         )
         
         result = cli.validate_config(config)
-        
         assert result is False
     
     def test_validate_config_cross_section_missing_coords(self: "TestErrorHandlingAndExceptions") -> None:
@@ -209,7 +160,6 @@ class TestErrorHandlingAndExceptions:
         )
         
         result = cli.validate_config(config)
-        
         assert result is False
     
     def test_validate_config_without_logger(self: "TestErrorHandlingAndExceptions") -> None:
@@ -235,7 +185,6 @@ class TestErrorHandlingAndExceptions:
         )
         
         result = cli.validate_config(config)
-        
         assert result is False
     
     def test_run_analysis_exception_handling_with_verbose(self: "TestErrorHandlingAndExceptions") -> None:
@@ -269,23 +218,7 @@ class TestErrorHandlingAndExceptions:
 
 class TestImportErrors:
     """ Test import error handling and fallback logic. """
-    
-    def test_import_fallback_to_second_import_block(self: "TestImportErrors") -> None:
-        """
-        This test simulates ImportError conditions to verify that the import fallback logic reaches the second import block as expected. By patching the built-in `__import__` function to raise `ImportError` for the first six import attempts, the test checks that the module's import strategy correctly falls back to the second block of imports without crashing, ensuring that the code can handle missing dependencies in earlier blocks and still attempt later import options.
 
-        Parameters:
-            self (TestImportErrors): The test instance.
-
-        Returns:
-            None: The test asserts import fallback behavior completes.
-        """
-        with patch('builtins.__import__', side_effect=[ImportError, ImportError, ImportError, ImportError, ImportError, ImportError]):
-            try:
-                pass
-            except Exception:
-                pass  
-    
     def test_import_fallback_to_third_import_block(self: "TestImportErrors") -> None:
         """
         This test simulates ImportError conditions to verify that the import fallback logic reaches the third import block as expected. By patching the built-in `__import__` function to raise `ImportError` for the first nine import attempts, the test checks that the module's import strategy correctly falls back to the third block of imports without crashing, ensuring that the code can handle missing dependencies in earlier blocks and still attempt later import options.

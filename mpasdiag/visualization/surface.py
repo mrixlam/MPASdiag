@@ -1438,6 +1438,49 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Return the figure and axes containing the scatter plot for further manipulation or saving by the caller
         return self.fig, self.ax
 
+    def plot_3d_variable_slice(self: "MPASSurfacePlotter",
+                               data_array: xr.DataArray,
+                               lon: np.ndarray,
+                               lat: np.ndarray,
+                               level: Union[int, float],
+                               var_name: str, 
+                               title: Optional[str] = None,) -> Tuple[Figure, Axes]:
+        """
+        Creates a global horizontal slice map of a 3D MPAS atmospheric variable at a specified model level. The method selects the given level by integer index from the nVertLevels dimension, retrieves the registered colormap and contour levels for the variable from the metadata registry, applies unit conversion, and delegates to create_surface_map to produce a filled contour plot over a global extent. This is the primary entry point for quickly generating a publication-ready map of any 3D field (e.g. qv, theta, relhum, refl10cm) at a chosen model level without manually managing colormaps or coordinate extraction.
+
+        Parameters:
+            data_array (xr.DataArray): 3D DataArray with a nVertLevels dimension, typically the result of isel(Time=t) on a loaded MPAS3DProcessor dataset.
+            lon (np.ndarray): 1D or 2D array of cell-center longitude coordinates matching the spatial dimension of data_array.
+            lat (np.ndarray): 1D or 2D array of cell-center latitude coordinates matching the spatial dimension of data_array.
+            level (Union[int, float]): Model level index (0 = surface, nVertLevels-1 = model top). Converted to int before use.
+            var_name (str): Variable name used for metadata lookup (colormap, levels, long_name, units).
+            title (Optional[str]): Optional title for the plot. If not provided, a default title based on the variable metadata will be used.
+
+        Returns:
+            Tuple[Figure, Axes]: Matplotlib figure and axes objects containing the rendered slice map.
+        """
+        level_idx = int(level)
+        slice_2d = data_array.isel(nVertLevels=level_idx)
+
+        metadata = MPASFileMetadata.get_3d_variable_metadata(var_name, slice_2d, level=level)
+        colormap, levels = MPASFileMetadata.get_3d_colormap_and_levels(var_name, data_array, level=level)
+        default_title = f"{metadata.get('long_name', var_name)} — Model Level {level_idx}"
+
+        return self.create_surface_map(
+            lon=lon.flatten() if hasattr(lon, 'flatten') else lon,
+            lat=lat.flatten() if hasattr(lat, 'flatten') else lat,
+            data=slice_2d.values.flatten(),
+            var_name=var_name,
+            lon_min=-180.0,
+            lon_max=180.0,
+            lat_min=-90.0,
+            lat_max=90.0,
+            title=title if title is not None else default_title,
+            plot_type='contourf',
+            colormap=colormap,
+            levels=levels,
+            level_index=level_idx,
+        )
 
 def create_surface_plot(lon: np.ndarray,
                         lat: np.ndarray,

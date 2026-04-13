@@ -572,7 +572,7 @@ class TestVerticalToHeightConversion:
         model_coords = np.arange(20)
         
         height, coord_type = self.plotter._convert_vertical_to_height(
-            model_coords, 'model_levels', processor, 0
+            model_coords, 'modlev', processor, 0
         )
         
         assert height is not None

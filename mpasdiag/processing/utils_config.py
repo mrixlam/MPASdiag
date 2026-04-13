@@ -88,7 +88,7 @@ class MPASConfig:
     vertical_coord: str = "pressure"
     num_points: int = 100
     max_height: Optional[float] = None
-    plot_style: str = "filled_contour"
+    plot_style: str = "contourf"
     extend: str = "both"
     
     overlay_type: Optional[str] = None

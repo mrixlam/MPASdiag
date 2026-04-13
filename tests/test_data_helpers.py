@@ -24,7 +24,179 @@ from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 
-def load_mpas_mesh(nx: int = 10, ny: int = 10) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+EXPECTED_PUBLIC_METHODS = {
+    'MPASBaseProcessor': [
+        'extract_spatial_coordinates',
+        'filter_by_spatial_extent',
+        'get_available_variables',
+        'get_time_info',
+        'normalize_longitude',
+        'parse_file_datetimes',
+        'validate_files',
+        'validate_geographic_extent',
+        'validate_time_parameters',
+    ],
+    'MPAS2DProcessor': [
+        'add_spatial_coordinates',
+        'extract_2d_coordinates_for_variable',
+        'extract_spatial_coordinates',
+        'filter_by_spatial_extent',
+        'find_diagnostic_files',
+        'get_2d_variable_data',
+        'get_available_variables',
+        'load_2d_data',
+        'normalize_longitude',
+    ],
+    'MPAS3DProcessor': [
+        'add_spatial_coordinates',
+        'extract_2d_coordinates_for_variable',
+        'extract_2d_from_3d',
+        'extract_spatial_coordinates',
+        'find_mpasout_files',
+        'get_3d_variable_data',
+        'get_available_3d_variables',
+        'get_available_variables',
+        'get_vertical_levels',
+        'load_3d_data',
+        'normalize_longitude',
+    ],
+    'MPASBaseVisualizer': [
+        'add_regional_features',
+        'add_timestamp_and_branding',
+        'calculate_adaptive_marker_size',
+        'close_plot',
+        'convert_to_numpy',
+        'create_histogram',
+        'create_time_series_plot',
+        'create_wind_plot',
+        'format_latitude',
+        'format_longitude',
+        'get_variable_specific_settings',
+        'save_plot',
+        'setup_map_projection',
+    ],
+    'MPASSurfacePlotter': [
+        'add_surface_overlay',
+        'close_plot',
+        'create_batch_surface_maps',
+        'create_simple_scatter_plot',
+        'create_surface_map',
+        'get_surface_colormap_and_levels',
+        'save_plot',
+        'setup_map_projection',
+    ],
+    'MPASWindPlotter': [
+        'add_wind_overlay',
+        'calculate_optimal_subsample',
+        'close_plot',
+        'compute_wind_speed_and_direction',
+        'create_batch_wind_plots',
+        'create_wind_plot',
+        'save_plot',
+        'setup_map_projection',
+    ],
+    'MPASPrecipitationPlotter': [
+        'add_precipitation_overlay',
+        'apply_style',
+        'close_plot',
+        'create_batch_precipitation_maps',
+        'create_precip_colormap',
+        'create_precipitation_comparison_plot',
+        'create_precipitation_map',
+        'save_plot',
+        'setup_map_projection',
+    ],
+    'MPASSkewTPlotter': [
+        'close_plot',
+        'create_skewt_diagram',
+        'save_plot',
+    ],
+    'MPASCrossSectionPlotter': [
+        'close_plot',
+        'create_batch_cross_section_plots',
+        'create_vertical_cross_section',
+        'save_plot',
+        'setup_map_projection',
+    ],
+    'PrecipitationDiagnostics': [
+        'compute_precipitation_difference',
+        'get_accumulation_hours',
+    ],
+    'WindDiagnostics': [
+        'analyze_wind_components',
+        'compute_wind_direction',
+        'compute_wind_shear',
+        'compute_wind_speed',
+        'get_2d_wind_components',
+        'get_3d_variable_at_level',
+        'get_3d_wind_components',
+    ],
+    'SoundingDiagnostics': [
+        'compute_dewpoint_from_mixing_ratio',
+        'compute_thermodynamic_indices',
+        'extract_sounding_profile',
+        'potential_to_actual_temperature',
+    ],
+    'MPASParallelManager': [
+        'set_error_policy',
+        'parallel_map', 
+        'get_statistics', 
+        'barrier',
+        'finalize',
+    ],
+    'MPASDataCache': [
+        'load_coordinates_from_dataset',
+        'get_coordinates', 
+        'load_variable_data',
+        'get_variable_data',
+        'get_cache_info',
+    ],
+    'ParallelPrecipitationProcessor': [
+        'create_batch_precipitation_maps_parallel',
+    ], 
+    'ParallelWindProcessor': [
+        'create_batch_wind_plots_parallel',
+    ],
+    'ParallelSurfaceProcessor': [
+        'create_batch_surface_maps_parallel',
+    ],
+    'ParallelCrossSectionProcessor': [
+        'create_batch_cross_section_plots_parallel',
+    ],
+    'MPASTaskDistributor': [
+        'distribute_tasks',
+    ],
+    'MPASResultCollector': [
+        'gather_results',
+        'compute_statistics',
+    ],
+}
+
+
+def assert_expected_public_methods(instance: object, 
+                                   class_key: str) -> None:
+    """
+    Assert that *instance* exposes every public method listed for *class_key*
+    in the ``EXPECTED_PUBLIC_METHODS`` registry.
+
+    Parameters:
+        instance: An instance of the class under test.
+        class_key (str): Key into ``EXPECTED_PUBLIC_METHODS``.
+
+    Raises:
+        AssertionError: If any expected method is missing from the instance.
+        KeyError: If *class_key* is not registered.
+    """
+    expected = EXPECTED_PUBLIC_METHODS[class_key]
+    public = [m for m in dir(instance) if not m.startswith('_')]
+    missing = [m for m in expected if m not in public]
+    assert not missing, (
+        f"{class_key} instance is missing public methods: {missing}"
+    )
+
+
+def load_mpas_mesh(nx: int = 10, 
+                   ny: int = 10) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     This function loads the MPAS grid file to extract longitude and latitude values, converts them to degrees if necessary, and normalizes longitudes to the [-180, 180] range. It then creates a regular 2D meshgrid of coordinates and synthesizes deterministic u and v wind fields based on the latitudes and longitudes. This is useful for testing plotting functions that require coordinate and wind data without relying on actual diag files.
 
@@ -165,10 +337,8 @@ def _to_degrees_wrapped(lon: np.ndarray,
     """
     if np.nanmax(np.abs(lon)) <= 2 * np.pi + 1e-6:
         lon = np.degrees(lon)
-
     if np.nanmax(np.abs(lat)) <= np.pi / 2 + 1e-6:
         lat = np.degrees(lat)
-
     lon = ((lon + 180.0) % 360.0) - 180.0
     return lon, lat
 
@@ -223,7 +393,8 @@ def load_mpas_coords_from_processor(n: int = 100) -> Tuple[np.ndarray, np.ndarra
     return lon, lat, u, v
 
 
-def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rainc", "rain_nc", "rain")) -> np.ndarray:
+def load_precip_from_diag(n: int = 100, 
+                          var_candidates: Tuple[str, ...] = ("rainc", "rain_nc", "rain")) -> np.ndarray:
     """
     The function initializes a processor for the `u240k/diag` directory and searches for a matching precipitation-like variable from `var_candidates`. If no suitable variable exists the test is skipped. The returned array is a flattened 1D numpy array of length `n` containing the first time slice.
 
@@ -254,7 +425,8 @@ def load_precip_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("rain
     return arr
 
 
-def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = ("t2m", "air_temperature", "t_surf")) -> np.ndarray:
+def load_surface_t2m_from_diag(n: int = 100, 
+                               var_candidates: Tuple[str, ...] = ("t2m", "air_temperature", "t_surf")) -> np.ndarray:
     """
     The helper probes the `u240k/diag` data directory for one of the supplied `var_candidates` and returns the first time slice as a flattened 1D array. If no candidate variable is present in the diag files the calling test is skipped to avoid false failures in environments lacking sample data.
 
@@ -283,7 +455,9 @@ def load_surface_t2m_from_diag(n: int = 100, var_candidates: Tuple[str, ...] = (
     return da.values.ravel()[:n]
 
 
-def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "u10", "x_wind"), v_candidates: Tuple[str, ...] = ("v", "v10", "y_wind")) -> Tuple[np.ndarray, np.ndarray]:
+def load_wind_uv_from_diag(n: int = 100, 
+                           u_candidates: Tuple[str, ...] = ("u", "u10", "x_wind"), 
+                           v_candidates: Tuple[str, ...] = ("v", "v10", "y_wind")) -> Tuple[np.ndarray, np.ndarray]:
     """
     The helper searches the `u240k/diag` dataset for suitable u and v variable names (from `u_candidates` and `v_candidates`). It returns flattened u and v arrays for the first time index. If either component is missing the test is skipped to avoid failures when diag data is not present.
 
@@ -311,7 +485,9 @@ def load_wind_uv_from_diag(n: int = 100, u_candidates: Tuple[str, ...] = ("u", "
     return da_u.values.ravel()[:n], da_v.values.ravel()[:n]
 
 
-def load_qv_3d_from_mpasout(n: int = 100, n_levels: int = 10, var_candidates: Tuple[str, ...] = ("qv", "specific_humidity", "q", "theta", "vorticity")) -> np.ndarray:
+def load_qv_3d_from_mpasout(n: int = 100, 
+                            n_levels: int = 10, 
+                            var_candidates: Tuple[str, ...] = ("qv", "specific_humidity", "q", "theta", "vorticity")) -> np.ndarray:
     """
     The helper looks for mpasout files under `data/u240k/mpasout`, initializes an `MPAS3DProcessor`, and probes for a matching 3D variable. Since specific humidity (qv) may not be available in all datasets, this function falls back to other 3D variables like theta (potential temperature) which have similar data characteristics for testing styling and level generation. If no suitable variable exists the test is skipped.
 
@@ -392,7 +568,8 @@ def check_mpas_data_available() -> bool:
     )
 
 
-def load_mpas_2d_processor(data_subdir: str = "u240k/diag", verbose: bool = False) -> MPAS2DProcessor:
+def load_mpas_2d_processor(data_subdir: str = "u240k/diag", 
+                           verbose: bool = False) -> MPAS2DProcessor:
     """
     This top-level function provides a centralized way to create and load a 2D processor with actual MPAS data. It handles path resolution and error cases consistently. Tests should prefer this function over creating processors directly.
 
@@ -426,7 +603,8 @@ def load_mpas_2d_processor(data_subdir: str = "u240k/diag", verbose: bool = Fals
     return proc
 
 
-def load_mpas_3d_processor(data_subdir: str = "u240k/mpasout", verbose: bool = False) -> MPAS3DProcessor:
+def load_mpas_3d_processor(data_subdir: str = "u240k/mpasout", 
+                           verbose: bool = False) -> MPAS3DProcessor:
     """
     This top-level function provides a centralized way to create and load a 3D processor with actual MPAS data. It handles path resolution and error cases consistently. Tests should prefer this function over creating processors directly.
 
@@ -501,12 +679,10 @@ def get_real_mpas_coordinates(n: Union[int, None] = None) -> Tuple[np.ndarray, n
     return lon, lat
 
 
-def get_real_mpas_variable(
-    processor,
-    variable_name: str,
-    time_index: int = 0,
-    level: Union[str, float, None] = None
-) -> np.ndarray:
+def get_real_mpas_variable(processor: Union[MPAS2DProcessor, MPAS3DProcessor],
+                           variable_name: str,
+                           time_index: int = 0,
+                           level: Union[str, float, None] = None) -> np.ndarray:
     """
     This helper provides a unified interface for extracting variables from both 2D and 3D processors. It handles the different APIs and returns a flattened numpy array suitable for testing.
 

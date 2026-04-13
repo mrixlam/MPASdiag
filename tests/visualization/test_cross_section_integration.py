@@ -239,7 +239,7 @@ class TestRealDataIntegration:
     
     def test_all_plot_types_with_real_data(self: "TestRealDataIntegration") -> None:
         """
-        This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different plot types ('filled_contour', 'contour', 'pcolormesh') with real MPAS data. It iterates over the specified plot types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for all plot types, confirming that the plotter can handle various visualization styles when working with real datasets.
+        This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different plot types ('contourf', 'contour', 'pcolormesh') with real MPAS data. It iterates over the specified plot types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for all plot types, confirming that the plotter can handle various visualization styles when working with real datasets.
 
         Parameters:
             None
@@ -249,7 +249,7 @@ class TestRealDataIntegration:
         """
         processor = self.processor
         
-        for plot_type in ['filled_contour', 'contour', 'pcolormesh']:
+        for plot_type in ['contourf', 'contour', 'pcolormesh']:
             fig, ax = self.plotter.create_vertical_cross_section(
                 processor, 'theta',
                 start_point=(-105, 35),
@@ -261,7 +261,7 @@ class TestRealDataIntegration:
     
     def test_all_vertical_coords_with_real_data(self: "TestRealDataIntegration") -> None:
         """
-        This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different vertical coordinate options ('pressure' and 'model_levels') with real MPAS data. It iterates over the specified vertical coordinate types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for both vertical coordinate options, confirming that the plotter can handle different vertical representations when working with real datasets.
+        This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different vertical coordinate options ('pressure' and 'modlev') with real MPAS data. It iterates over the specified vertical coordinate types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for both vertical coordinate options, confirming that the plotter can handle different vertical representations when working with real datasets.
 
         Parameters:
             None
@@ -271,7 +271,7 @@ class TestRealDataIntegration:
         """
         processor = self.processor
         
-        for vert_coord in ['pressure', 'model_levels']:
+        for vert_coord in ['pressure', 'modlev']:
             fig, ax = self.plotter.create_vertical_cross_section(
                 processor, 'theta',
                 start_point=(-105, 35),

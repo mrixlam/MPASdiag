@@ -242,7 +242,7 @@ class TestPlotTypeAndLabelingErrors:
             mock_meta.get_variable_metadata.side_effect = Exception("Metadata error")
             fig, ax = plotter.create_vertical_cross_section(
                 processor, 'theta', (-100, 30), (-90, 40),
-                plot_type='filled_contour'
+                plot_type='contourf'
             )
             plt.close(fig)
     
@@ -317,7 +317,7 @@ class TestPlottingConfigurations:
     
     def test_cross_section_with_plot_types(self: "TestPlottingConfigurations") -> None:
         """
-        This test validates that the `create_vertical_cross_section` method can successfully create plots using different plot types, specifically 'pcolormesh' and 'filled_contour'. It checks that a figure is returned for each plot type, confirming that the method can handle various plotting configurations without errors. This ensures that users have flexibility in choosing their preferred plot type for visualizing cross-section data, and that the plotter can accommodate these choices effectively.
+        This test validates that the `create_vertical_cross_section` method can successfully create plots using different plot types, specifically 'pcolormesh' and 'contourf'. It checks that a figure is returned for each plot type, confirming that the method can handle various plotting configurations without errors. This ensures that users have flexibility in choosing their preferred plot type for visualizing cross-section data, and that the plotter can accommodate these choices effectively.
 
         Parameters:
             self (Any): Test case instance with `processor` and `plotter` fixtures.

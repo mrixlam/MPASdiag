@@ -62,6 +62,22 @@ def temp_weights_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
+def temp_output_dir() -> Generator[Path, None, None]:
+    """
+    This fixture creates a temporary directory for storing output files generated during parallel processing tests. It yields the path to the temporary directory for use in tests, and ensures that the directory is cleaned up after the tests are completed.
+
+    Parameters:
+        None
+
+    Returns:
+        pathlib.Path: The path to the temporary directory.
+    """
+    temp_dir = Path(tempfile.mkdtemp())
+    yield temp_dir
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@pytest.fixture
 def simple_mpas_data() -> dict:
     """
     This fixture generates a simple dataset for testing MPAS processing functions. It creates arrays for longitude, latitude, and a sample data variable based on the u component of velocity. The longitude and latitude are converted to radians, and the data variable is normalized to the range [0, 1].

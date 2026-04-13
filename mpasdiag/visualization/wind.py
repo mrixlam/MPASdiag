@@ -185,9 +185,9 @@ class MPASWindPlotter(MPASVisualizer):
                              v_data: np.ndarray,
                              plot_type: str = 'barbs',
                              color: str = 'black',
-                             scale: Optional[float] = None) -> None:
+                             scale: Optional[float] = None) -> Optional[Any]:
         """
-        This internal helper method renders the wind vectors on the provided Matplotlib axes based on the specified plot type (barbs, arrows, or streamlines). It uses cartopy's PlateCarree transformation for geographic positioning of the vectors. For 'barbs', it renders meteorological barbs that indicate wind speed and direction with flags representing speed thresholds. For 'arrows', it uses quiver to render simple arrows where length and orientation indicate magnitude and direction, with an optional scale factor for arrow length. For 'streamlines', it requires 2D gridded data to show continuous flow trajectories colored by wind speed, and it validates that the input data is 2D before rendering. The method also includes error handling for unsupported plot types to ensure users are aware of valid options. By centralizing the rendering logic in this method, it allows for consistent styling and rendering of wind vectors across different types of visualizations while leveraging cartopy's capabilities for geographic plotting. 
+        This internal helper method renders the wind vectors on the provided Matplotlib axes based on the specified plot type (barbs, arrows, or streamlines). It uses cartopy's PlateCarree transformation for geographic positioning of the vectors. For 'barbs', it renders meteorological barbs that indicate wind speed and direction with flags representing speed thresholds. For 'arrows', it uses quiver to render simple arrows where length and orientation indicate magnitude and direction, with an optional scale factor for arrow length. IVT vector fields have values in the range of hundreds to thousands of kg m⁻¹ s⁻¹, which are far larger than typical wind speeds in m/s. To keep the arrows at a visually sensible length, pass a larger scale value (e.g. 15000) when rendering IVT vectors — the returned Quiver object can then be passed to ax.quiverkey() to add a labeled reference arrow to the plot. For 'streamlines', it requires 2D gridded data to show continuous flow trajectories colored by wind speed, and it validates that the input data is 2D before rendering. The method also includes error handling for unsupported plot types to ensure users are aware of valid options. By centralizing the rendering logic in this method, it allows for consistent styling and rendering of wind vectors across different types of visualizations while leveraging cartopy's capabilities for geographic plotting. 
 
         Parameters:
             ax (Axes): Matplotlib axes on which to render the wind vectors.
@@ -197,22 +197,26 @@ class MPASWindPlotter(MPASVisualizer):
             v_data (np.ndarray): V-component wind data array in m/s.
             plot_type (str): Type of wind vector plot ('barbs', 'arrows', or 'streamlines') to determine rendering method (default: 'barbs').
             color (str): Color for the wind vectors (default: 'black').
-            scale (Optional[float]): Scale factor for arrow length when plot_type is 'arrows' (default: None, uses automatic scaling).
+            scale (Optional[float]): Scale factor for arrow length when plot_type is 'arrows' (default: None, uses automatic scaling of 200). For high-magnitude fields such as IVT (kg m⁻¹ s⁻¹), use a much larger value (e.g. 15000) to keep arrows at a readable length.
 
         Returns:
-            None: Renders wind vectors on the provided axes based on the specified plot type and styling options.
+            Optional[Any]: The Quiver object returned by ax.quiver() when plot_type is 'arrows', which can be used with ax.quiverkey() to add a labeled scale-reference arrow to the plot. Returns None for 'barbs' and 'streamlines' plot types.
         """
         # Render wind vectors based on the specified plot type using cartopy's PlateCarree transformation for geographic positioning
         if plot_type == 'barbs':
             # Use barbs for meteorological convention showing wind speed and direction with flags indicating speed thresholds.
             ax.barbs(lon, lat, u_data, v_data,
                     transform=ccrs.PlateCarree(), color=color, length=6)
+            return None
         elif plot_type == 'arrows':
             if scale is None:
                 scale = 200
-            # Use quiver for simple arrow representation of wind vectors where length and orientation indicate magnitude and direction. 
-            ax.quiver(lon, lat, u_data, v_data,
-                     transform=ccrs.PlateCarree(), color=color, scale=scale)
+            # Use quiver for simple arrow representation of wind vectors where length and orientation indicate magnitude and direction.
+            # The returned Quiver object can be passed to ax.quiverkey() to add a reference arrow that shows the scale of the vectors.
+            # For high-magnitude fields such as IVT (kg m⁻¹ s⁻¹), use a larger scale value (e.g. 15000) to keep arrows at a sensible length.
+            Q = ax.quiver(lon, lat, u_data, v_data,
+                          transform=ccrs.PlateCarree(), color=color, scale=scale)
+            return Q
         elif plot_type == 'streamlines':
             # Streamlines require 2D gridded data to show continuous flow trajectories colored by wind speed. Validate that input data is 2D and raise error if not.
             if lon.ndim == 1:
@@ -841,15 +845,15 @@ class MPASWindPlotter(MPASVisualizer):
                          lon_max: Optional[float] = None,
                          lat_min: Optional[float] = None,
                          lat_max: Optional[float] = None,
-                         dataset: Optional[xr.Dataset] = None) -> None:
+                         dataset: Optional[xr.Dataset] = None) -> Optional[Any]:
         """
-        This method adds a wind vector overlay to an existing map axes (typically GeoAxes) based on the provided longitude, latitude, and wind configuration. It extracts and validates the necessary parameters from the wind configuration dictionary, converts the input data to NumPy arrays if they are xarray DataArrays for consistent processing, converts wind component units from original units to display units (m/s) if necessary, extracts a 2D slice from multi-dimensional wind arrays if needed, regrids the wind components to a regular lat-lon grid if requested, calculates an optimal subsampling factor if subsample is set to -1, prepares the wind data by applying subsampling and filtering out invalid values, validates that there are valid points to plot and logs the count before rendering the overlay, and finally renders the wind vectors on the provided axes using the specified plot type and styling from the configuration. This method allows for flexible addition of wind overlays to existing maps while ensuring that the data is properly processed and visualized according to user specifications. 
+        This method adds a wind vector overlay to an existing map axes (typically GeoAxes) based on the provided longitude, latitude, and wind configuration. It extracts and validates the necessary parameters from the wind configuration dictionary, converts the input data to NumPy arrays if they are xarray DataArrays for consistent processing, converts wind component units from original units to display units (m/s) if necessary, extracts a 2D slice from multi-dimensional wind arrays if needed, regrids the wind components to a regular lat-lon grid if requested, calculates an optimal subsampling factor if subsample is set to -1, prepares the wind data by applying subsampling and filtering out invalid values, validates that there are valid points to plot and logs the count before rendering the overlay, and finally renders the wind vectors on the provided axes using the specified plot type and styling from the configuration. This method allows for flexible addition of wind overlays to existing maps while ensuring that the data is properly processed and visualized according to user specifications. For arrow-type overlays the method returns the matplotlib Quiver object so that callers can optionally add a scale-reference arrow via ax.quiverkey() — this is particularly useful for IVT vectors whose magnitudes (kg m⁻¹ s⁻¹) are otherwise difficult to interpret from arrow length alone.
 
         Parameters:
             ax (Axes): Matplotlib Axes (typically GeoAxes) on which to add the wind vector overlay.
             lon (Union[np.ndarray, xr.DataArray]): Longitude coordinate array for vector positions in degrees east, which may be 1D or 2D.
             lat (Union[np.ndarray, xr.DataArray]): Latitude coordinate array for vector positions in degrees north, which may be 1D or 2D.
-            wind_config (Dict[str, Any]): Dictionary containing the wind overlay configuration parameters, which may include keys such as 'u_data', 'v_data', 'plot_type', 'subsample', 'color' or 'colors', 'scale', 'level_index', 'grid_resolution', 'regrid_method', 'figsize', and 'original_units'.
+            wind_config (Dict[str, Any]): Dictionary containing the wind overlay configuration parameters, which may include keys such as 'u_data', 'v_data', 'plot_type', 'subsample', 'color' or 'colors', 'scale', 'level_index', 'grid_resolution', 'regrid_method', 'figsize', and 'original_units'. For IVT vector overlays, set 'scale' to a large value (e.g. 15000) to compensate for the high-magnitude IVT data and keep arrow lengths visually meaningful.
             lon_min (Optional[float]): Minimum longitude boundary for the map extent in degrees east, required if grid_resolution is specified for regridding (default: None).
             lon_max (Optional[float]): Maximum longitude boundary for the map extent in degrees east, required if grid_resolution is specified for regridding (default: None).
             lat_min (Optional[float]): Minimum latitude boundary for the map extent in degrees north, required if grid_resolution is specified for regridding (default: None).
@@ -857,7 +861,7 @@ class MPASWindPlotter(MPASVisualizer):
             dataset (Optional[xr.Dataset]): MPAS dataset with coordinate information, auto-created from lon/lat if not provided. Required for regridding to ensure that the remapping utilities have access to the necessary coordinate information (default: None).
 
         Returns:
-            None: This method modifies the provided axes in place by adding the wind vector overlay based on the specified configuration and does not return any value.
+            Optional[Any]: The matplotlib Quiver object when plot_type is 'arrows', which can be passed directly to ax.quiverkey() to add a labeled reference arrow showing the meaning of arrow length. Returns None for all other plot types or when no valid data points are found.
         """
         # Extract and validate configuration parameters from the provided wind_config dictionary
         config = self._extract_wind_config(wind_config)
@@ -909,8 +913,10 @@ class MPASWindPlotter(MPASVisualizer):
         if not self._validate_and_log_wind_overlay(lon_valid, lat_valid):
             return
         
-        # Render wind vectors on the provided axes using the specified plot type and styling from the configuration
-        self._render_wind_vectors(
+        # Render wind vectors on the provided axes using the specified plot type and styling from the configuration.
+        # For 'arrows' plot type, _render_wind_vectors returns the Quiver object which is propagated back to the
+        # caller so it can optionally add a quiverkey reference arrow (e.g. for IVT magnitude labelling).
+        return self._render_wind_vectors(
             ax, lon_valid, lat_valid, u_valid, v_valid,
             config['plot_type'], config['color'], config['scale']
         )

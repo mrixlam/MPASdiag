@@ -88,7 +88,7 @@ class TestCrossSectionSingleTimeWithLogger:
     
     def test_cross_section_single_time_with_logger(self: "TestCrossSectionSingleTimeWithLogger") -> None:
         """
-        This test verifies that the `run_analysis` method completes successfully for a single-time cross-section analysis when a logger is active. The test initializes the `MPASUnifiedCLI` with a logger and provides a configuration for a cross-section analysis with specific start and end coordinates, as well as a time index. It asserts that the method returns a boolean, indicating that the analysis completed successfully and that the code paths involving logging were exercised. This test is designed to cover scenarios where the method must handle I/O operations and logging while processing a single time step for cross-section analyses.
+        This test verifies that the `run_analysis` method correctly processes a cross-section analysis for a single time index when a logger is configured. The test initializes the `MPASUnifiedCLI` with a logger and provides a configuration for a cross-section analysis with specific spatial and temporal parameters. It asserts that the method returns a boolean, indicating that the analysis completed successfully and that the logger was utilized during the process. This test is designed to cover the code path where the method handles cross-section analyses with logging enabled, ensuring that log messages are generated appropriately. 
 
         Parameters:
             self (TestCrossSectionSingleTimeWithLogger): The test instance.
@@ -119,49 +119,6 @@ class TestCrossSectionSingleTimeWithLogger:
             time_index=0,
             batch_mode=False, 
             output_dir='output/test_cross_single_logger',
-            verbose=True
-        )
-        
-        result = cli.run_analysis(config)
-        assert isinstance(result, bool)
-
-
-class TestCrossSectionSingleTimePlotting:
-    """ Test cross-section single time plotting with logger. """
-    
-    def test_cross_section_single_time_plot_saved(self: "TestCrossSectionSingleTimePlotting") -> None:
-        """
-        This test verifies that the `run_analysis` method successfully generates and saves a plot for a single-time cross-section analysis when a logger is active. The test initializes the `MPASUnifiedCLI` with a logger and provides a configuration for a cross-section analysis with specific start and end coordinates, as well as a time index. It asserts that the method returns a boolean, indicating that the analysis completed successfully and that the plotting code paths were exercised. This test is designed to cover scenarios where the method must handle plotting operations and logging while processing a single time step for cross-section analyses.
-
-        Parameters:
-            self (TestCrossSectionSingleTimePlotting): The test instance.
-
-        Returns:
-            None: Assertions validate the boolean return value.
-        """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
-        
-        if not os.path.exists('data/grids/x1.10242.static.nc'):
-            pytest.skip("Test data not available")
-            return
-        
-        cli = MPASUnifiedCLI()
-        cli.logger = MPASLogger('test', verbose=True)
-        
-        config = MPASConfig(
-            grid_file='data/grids/x1.10242.static.nc',
-            data_dir='data/u240k/mpasout',
-            analysis_type='cross',
-            variable='temperature',
-            start_lon=95.0,
-            start_lat=5.0,
-            end_lon=105.0,
-            end_lat=10.0,
-            time_index=0,
-            batch_mode=False, 
-            output_dir='output/test_cross_single_plot',
             verbose=True
         )
         

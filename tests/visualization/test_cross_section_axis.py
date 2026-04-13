@@ -25,6 +25,8 @@ from cartopy.mpl.geoaxes import GeoAxes
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from tests.test_data_helpers import assert_expected_public_methods
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data')
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
@@ -137,7 +139,7 @@ def test_interpolation_along_path() -> None:
         None
     """
     plotter = MPASVerticalCrossSectionPlotter()
-    
+
     grid_lons = np.array([-102, -101, -100, -99, -98])
     grid_lats = np.array([39, 40, 41, 42, 43])
     grid_data = np.array([10, 20, 30, 40, 50])
@@ -171,6 +173,7 @@ def test_input_validation() -> None:
         None
     """
     plotter = MPASVerticalCrossSectionPlotter()
+
     try:
         plotter.create_vertical_cross_section(
             mpas_3d_processor=cast(Any, "invalid"),
@@ -199,6 +202,7 @@ class TestPressureAxisSetup:
             None
         """
         self.plotter = MPASVerticalCrossSectionPlotter()
+
         self.plotter.fig = plt.figure()
         self.plotter.ax = self.plotter.fig.add_subplot(111)
     
@@ -280,6 +284,7 @@ class TestAxisFormatting:
             None
         """
         self.plotter = MPASVerticalCrossSectionPlotter()
+
         self.plotter.fig = plt.figure()
         self.plotter.ax = self.plotter.fig.add_subplot(111)
     
@@ -343,7 +348,7 @@ class TestAxisFormatting:
         vertical_coords = np.array([1, 2, 3])
 
         self.plotter._format_cross_section_axes(
-            longitudes, vertical_coords, 'model_levels',
+            longitudes, vertical_coords, 'modlev',
             (-100, 30), (-90, 40)
         )
 
@@ -356,7 +361,7 @@ class TestAxisFormattingFinal:
     """ Test axis formatting with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestAxisFormattingFinal", mpas_3d_processor) -> None:
+    def setup_method(self: "TestAxisFormattingFinal", mpas_3d_processor: "MPAS3DProcessor") -> None:
         """
         This fixture sets up a MPASVerticalCrossSectionPlotter instance and initializes it with real MPAS data for testing axis formatting with actual model output. It checks for the availability of the required data files and skips the tests if the data is not available. By using a shared session-scoped processor, it avoids redundant data loading across multiple tests, ensuring efficient use of resources while validating axis formatting with real MPAS data.
 
@@ -371,6 +376,7 @@ class TestAxisFormattingFinal:
             return
         
         self.plotter = MPASVerticalCrossSectionPlotter()
+
         self.processor = mpas_3d_processor
     
     def test_axis_formatting_with_max_height(self: "TestAxisFormattingFinal") -> None:
@@ -383,7 +389,7 @@ class TestAxisFormattingFinal:
         Returns:
             None: Asserts that the figure is created successfully.
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             (0, 30),
@@ -399,7 +405,7 @@ class TestAxisFormattingFinal:
     
     def test_model_levels_axis_formatting(self: "TestAxisFormattingFinal") -> None:
         """
-        This test produces a plot using `vertical_coord='model_levels'` and checks that the y-axis label contains 'Model Level'. It verifies that the plot is created successfully without errors, confirming that the plotter can handle model level vertical coordinates and apply appropriate axis labeling for model levels.
+        This test produces a plot using `vertical_coord='modlev'` and checks that the y-axis label contains 'Model Level'. It verifies that the plot is created successfully without errors, confirming that the plotter can handle model level vertical coordinates and apply appropriate axis labeling for model levels.
 
         Parameters:
             self (Any): Test case instance with `processor` and `plotter` fixtures.
@@ -412,7 +418,7 @@ class TestAxisFormattingFinal:
             'theta',
             (-5, 35),
             (10, 50),
-            vertical_coord='model_levels',
+            vertical_coord='modlev',
             num_points=25,
             time_index=0
         )

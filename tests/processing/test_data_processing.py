@@ -22,6 +22,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
+from tests.test_data_helpers import assert_expected_public_methods
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.processing.base import MPASBaseProcessor
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
@@ -35,7 +36,8 @@ class TestUtilityFunctions:
     Tests for utility functions in MPASBaseProcessor. """
 
     @pytest.fixture(autouse=True)
-    def temp_grid(self: "TestUtilityFunctions", tmp_path: Path) -> None:
+    def temp_grid(self: "TestUtilityFunctions", 
+                  tmp_path: Path) -> None:
         """
         This fixture sets up a temporary grid file for testing utility functions that require a grid file. It creates an empty NetCDF file in the pytest-provided temporary directory and assigns its path to self.stub_grid for use in test methods. This allows tests to run with a valid file path without relying on external files or actual filesystem state, ensuring isolation and repeatability of tests that depend on grid file access. 
 
@@ -60,6 +62,7 @@ class TestUtilityFunctions:
             None
         """
         processor = MPASBaseProcessor(self.stub_grid, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
 
         assert processor.validate_geographic_extent((100.0, 110.0, -10.0, 10.0))
         assert not processor.validate_geographic_extent((200.0, 110.0, -10.0, 10.0))
@@ -78,6 +81,7 @@ class TestUtilityFunctions:
             None
         """
         processor = MPASBaseProcessor(self.stub_grid, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
 
         lon_in = np.array([350.0, -200.0, 0.0, 180.0, -180.0])
         lon_out = processor.normalize_longitude(lon_in)
@@ -98,6 +102,7 @@ class TestUtilityFunctions:
             None
         """
         precip_diag = PrecipitationDiagnostics(verbose=False)
+        assert_expected_public_methods(precip_diag, 'PrecipitationDiagnostics')
 
         assert precip_diag.get_accumulation_hours('a01h') == pytest.approx(1)
         assert precip_diag.get_accumulation_hours('a03h') == pytest.approx(3)
@@ -110,7 +115,8 @@ class TestMPAS2DProcessor:
     """ Tests for MPAS2DProcessor class. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestMPAS2DProcessor", mock_mpas_mesh) -> Any:
+    def setup_method(self: "TestMPAS2DProcessor", 
+                     mock_mpas_mesh: Any) -> Any:
         """
         This fixture sets up the test environment for all tests in the TestMPAS2DProcessor class by creating a temporary grid file from the provided mock MPAS mesh data. It uses the tempfile module to create a temporary directory and file, writes the mock mesh data to a NetCDF file, and assigns the file path to self.grid_file for use in test methods. After yielding control to the test methods, it cleans up by removing the temporary directory and file. This setup allows individual test methods to focus on their specific assertions related to MPAS2DProcessor functionality without worrying about dataset creation or cleanup. 
 
@@ -141,6 +147,7 @@ class TestMPAS2DProcessor:
             None
         """
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         assert processor.grid_file == self.grid_file
         assert not processor.verbose
         assert processor.dataset is None
@@ -178,6 +185,8 @@ class TestMPAS2DProcessor:
                 fh.write("")
 
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
+
         files = processor.find_diagnostic_files(diag_dir)
 
         assert len(files) == pytest.approx(3)
@@ -195,12 +204,14 @@ class TestMPAS2DProcessor:
         """
         diag_dir = os.path.join(self.temp_dir, "diag_single")
         os.makedirs(diag_dir)
+
         fname = os.path.join(diag_dir, "diag.2024-01-01_00.00.00.nc")
 
         with open(fname, 'w') as fh:
             fh.write("")
 
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
 
         with pytest.raises(ValueError):
             processor.find_diagnostic_files(diag_dir)
@@ -222,6 +233,7 @@ class TestMPAS2DProcessor:
         ]
         
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         datetimes = processor.parse_file_datetimes(files)
         
         assert len(datetimes) == pytest.approx(3)
@@ -244,6 +256,7 @@ class TestMPAS2DProcessor:
         mock_dataset.sizes = {'Time': 10}
         
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         processor.dataset = mock_dataset
         
         time_dim, time_idx, time_size = processor.validate_time_parameters(5)
@@ -265,6 +278,7 @@ class TestMPAS2DProcessor:
             None
         """
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         
         with pytest.raises(ValueError):
             processor.validate_time_parameters(0)
@@ -308,7 +322,8 @@ class TestMPAS2DProcessor:
             None
         """
         processor = MPAS2DProcessor(self.grid_file, verbose=False)
-        
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
+
         with pytest.raises(ValueError):
             processor.extract_spatial_coordinates()
 
@@ -316,7 +331,9 @@ class TestMPAS2DProcessor:
 class TestDataValidation:
     """ Tests for data validation and filtering methods in MPAS2DProcessor. """
     
-    def test_filter_by_spatial_extent(self: "TestDataValidation", mock_mpas_mesh, mock_mpas_2d_data) -> None:
+    def test_filter_by_spatial_extent(self: "TestDataValidation", 
+                                      mock_mpas_mesh: Any, 
+                                      mock_mpas_2d_data: Any) -> None:
         """
         This test verifies that the filter_by_spatial_extent method correctly filters data based on specified geographic bounds. It uses real MPAS mesh data from the provided fixture to create a dataset with longitude and latitude coordinates. The test defines a smaller geographic extent within the bounds of the mesh and calls filter_by_spatial_extent with this extent. It then asserts that the returned mask is a boolean array of the correct length and that it correctly identifies which grid cells fall within the specified geographic bounds. This ensures that the method can accurately filter data for visualization or analysis based on spatial criteria. 
 
@@ -332,6 +349,7 @@ class TestDataValidation:
         try:
             mock_mpas_mesh.to_netcdf(grid_file)            
             processor = MPAS2DProcessor(grid_file, verbose=False)
+            assert_expected_public_methods(processor, 'MPAS2DProcessor')
             
             lon_rad = mock_mpas_mesh['lonCell'].values
             lat_rad = mock_mpas_mesh['latCell'].values

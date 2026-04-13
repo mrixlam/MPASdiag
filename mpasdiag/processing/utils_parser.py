@@ -434,7 +434,7 @@ Examples:
         xsec_group = parser.add_argument_group('Cross-section Parameters')
         xsec_group.add_argument("--time-index", type=int, default=0,
                               help="Time index to extract (default: 0)")
-        xsec_group.add_argument("--vertical-coord", choices=["pressure", "model_levels", "height"], 
+        xsec_group.add_argument("--vertical-coord", choices=["pressure", "modlev", "height"], 
                               default="pressure",
                               help="Vertical coordinate system (default: pressure)")
         xsec_group.add_argument("--num-points", type=int, default=100,
@@ -443,9 +443,9 @@ Examples:
                               help="Maximum height in km for the vertical axis (default: auto)")
         
         viz_group = parser.add_argument_group('Visualization Options')
-        viz_group.add_argument("--plot-type", choices=["filled_contour", "contour", "pcolormesh"], 
-                             default="filled_contour",
-                             help="Plot type (default: filled_contour)")
+        viz_group.add_argument("--plot-type", choices=["contourf", "contour", "pcolormesh"], 
+                             default="contourf",
+                             help="Plot type (default: contourf)")
         viz_group.add_argument("--colormap", default="viridis",
                              help="Matplotlib colormap name (default: viridis)")
         viz_group.add_argument("--levels", type=float, nargs='+',

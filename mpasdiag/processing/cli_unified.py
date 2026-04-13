@@ -419,7 +419,7 @@ class MPASUnifiedCLI:
         xsec_group.add_argument('--end-lat', type=float, required=True,
                               help='Ending latitude in degrees')
         xsec_group.add_argument('--vertical-coord', type=str, default='pressure',
-                              choices=['pressure', 'model_levels', 'height'],
+                              choices=['pressure', 'modlev', 'height'],
                               help='Vertical coordinate system (default: pressure)')
         xsec_group.add_argument('--num-points', type=int, default=100,
                               help='Number of interpolation points along path (default: 100)')

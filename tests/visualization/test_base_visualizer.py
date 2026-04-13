@@ -23,13 +23,13 @@ import xarray as xr
 import cartopy.crs as ccrs
 from datetime import datetime
 import matplotlib.pyplot as plt
-from typing import Generator
+from typing import Generator, Any
 from cartopy.mpl.geoaxes import GeoAxes
 from unittest.mock import Mock, patch
 
 from mpasdiag.processing.base import MPASBaseProcessor
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from tests.test_data_helpers import load_mpas_coords_from_processor
+from tests.test_data_helpers import load_mpas_coords_from_processor, assert_expected_public_methods
 
 warnings.filterwarnings('ignore')
 
@@ -42,7 +42,8 @@ class TestProcessorInitializationAndSetup:
     """ Tests for MPASBaseProcessor initialization and basic setup. Consolidates tests for processor instantiation, initialization parameters, and basic configuration validation. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestProcessorInitializationAndSetup", mock_mpas_mesh) -> Generator[None, None, None]:
+    def setup_method(self: "TestProcessorInitializationAndSetup", 
+                     mock_mpas_mesh: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing the initialization of MPASBaseProcessor. It creates a temporary directory and grid file using the provided mock_mpas_mesh fixture, which contains real MPAS mesh data when available. The fixture yields control to the test methods and performs cleanup after the tests complete, ensuring that the processor can be initialized with a valid grid file and that its attributes are set correctly.
 
@@ -60,6 +61,7 @@ class TestProcessorInitializationAndSetup:
         yield
         
         processor = MPASBaseProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
         
         assert processor.grid_file == self.grid_file
         assert not processor.verbose
@@ -77,7 +79,7 @@ class TestProcessorInitializationAndSetup:
             None: Assertion validates `processor.verbose` is True.
         """
         processor = MPASBaseProcessor(self.grid_file, verbose=True)
-        
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')        
         assert processor.verbose
     
     def test_init_nonexistent_grid_file(self: "TestProcessorInitializationAndSetup") -> None:
@@ -100,7 +102,8 @@ class TestFileDiscoveryAndValidation:
     """ Tests for file discovery, pattern matching, and validation. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestFileDiscoveryAndValidation", mock_mpas_mesh) -> Generator[None, None, None]:
+    def setup_method(self: "TestFileDiscoveryAndValidation", 
+                     mock_mpas_mesh: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing file discovery and validation methods of the `MPASBaseProcessor`. It creates a temporary directory and populates it with test files that match the expected glob pattern. The fixture uses the provided `mock_mpas_mesh` to create real MPAS mesh files for testing. After yielding control to the test methods, it performs cleanup by removing the temporary directory and its contents. The fixture also includes a test to ensure that the `validate_files` method correctly handles an empty list of files without raising an error.
 
@@ -115,6 +118,7 @@ class TestFileDiscoveryAndValidation:
         
         mock_mpas_mesh.to_netcdf(self.grid_file)        
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
         
         self.data_dir = os.path.join(self.temp_dir, "data")
         os.makedirs(self.data_dir)
@@ -262,10 +266,10 @@ class TestFileDiscoveryAndValidation:
 
 class TestSpatialCoordinatesAndFiltering:
     """ Tests for spatial coordinate extraction, normalization, and geographic filtering. """
-
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestSpatialCoordinatesAndFiltering", mock_mpas_mesh) -> Generator[None, None, None]:
+    def setup_method(self: "TestSpatialCoordinatesAndFiltering", 
+                     mock_mpas_mesh: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing spatial coordinate handling and geographic filtering methods of the `MPASBaseProcessor`. It creates a temporary directory and grid file using the provided `mock_mpas_mesh` fixture, which contains real MPAS mesh data when available. The fixture initializes an instance of `MPASBaseProcessor` with the created grid file and yields control to the test methods. After the tests complete, it performs cleanup by removing the temporary directory and its contents. This setup allows the tests to exercise real spatial coordinate data and validate the processor's handling of geographic extents and coordinate normalization.
 
@@ -280,6 +284,7 @@ class TestSpatialCoordinatesAndFiltering:
         
         mock_mpas_mesh.to_netcdf(self.grid_file)        
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
         
         yield
         
@@ -464,7 +469,9 @@ class TestDatasetOperationsAndVariables:
     """ Tests for dataset operations and variable management. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestDatasetOperationsAndVariables", mock_mpas_mesh, mock_mpas_2d_data) -> Generator[None, None, None]:
+    def setup_method(self: "TestDatasetOperationsAndVariables", 
+                     mock_mpas_mesh: Any, 
+                     mock_mpas_2d_data: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing dataset operations and variable management methods of the `MPASBaseProcessor`. It creates a temporary directory and grid file using the provided `mock_mpas_mesh` fixture, which contains real MPAS mesh data when available. The fixture initializes an instance of `MPASBaseProcessor` with the created grid file and assigns the provided `mock_mpas_2d_data` to an instance variable for use in the tests. After yielding control to the test methods, it performs cleanup by ensuring that the processor's dataset is reset to a known state using real MPAS data from the fixtures, allowing subsequent tests to operate on valid datasets.
 
@@ -481,6 +488,7 @@ class TestDatasetOperationsAndVariables:
         mock_mpas_mesh.to_netcdf(self.grid_file)
         
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
         self.mock_mpas_2d_data = mock_mpas_2d_data
             
         yield
@@ -535,7 +543,9 @@ class TestHelperMethodsAndOutput:
     """ Tests for helper methods and verbose output generation. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestHelperMethodsAndOutput", mock_mpas_mesh, mock_mpas_2d_data) -> Generator[None, None, None]:
+    def setup_method(self: "TestHelperMethodsAndOutput", 
+                     mock_mpas_mesh: Any, 
+                     mock_mpas_2d_data: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing helper methods and verbose output generation of the `MPASBaseProcessor`. It creates a temporary directory and grid file using the provided `mock_mpas_mesh` fixture, which contains real MPAS mesh data when available. The fixture initializes an instance of `MPASBaseProcessor` with the created grid file and assigns the provided `mock_mpas_2d_data` to an instance variable for use in the tests. After yielding control to the test methods, it performs cleanup by ensuring that the processor's dataset is reset to a known state using real MPAS data from the fixtures, allowing subsequent tests to operate on valid datasets and verify the functionality of helper methods.
 
@@ -552,6 +562,7 @@ class TestHelperMethodsAndOutput:
         mock_mpas_mesh.to_netcdf(self.grid_file)
         
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
         self.mock_mpas_2d_data = mock_mpas_2d_data
             
         yield
@@ -611,7 +622,8 @@ class TestHelperMethodsAndOutput:
         finally:
             sys.stdout = sys.__stdout__
     
-    def test_print_loading_success(self: "TestHelperMethodsAndOutput", mock_mpas_3d_data) -> None:
+    def test_print_loading_success(self: "TestHelperMethodsAndOutput", 
+                                   mock_mpas_3d_data: Any) -> None:
         """
         This test verifies that the `_print_loading_success` method produces the expected verbose output when `processor.verbose` is True. The test uses real MPAS 3D data from the fixture to create a dataset and calls the method to print loading success information. It captures the standard output and asserts that the messages about successfully loading files, time range, and vertical levels are present in the output, confirming that the method provides informative feedback about the loaded dataset.
 
@@ -649,7 +661,8 @@ class TestHelperMethodsAndOutput:
         finally:
             sys.stdout = sys.__stdout__
 
-    def test_add_spatial_coords_no_matching_dimension(self: "TestHelperMethodsAndOutput", mock_mpas_mesh) -> None:
+    def test_add_spatial_coords_no_matching_dimension(self: "TestHelperMethodsAndOutput", 
+                                                      mock_mpas_mesh: Any) -> None:
         """
         This test verifies that the `_add_spatial_coords_helper` method does not add spatial coordinate variables when the specified dimensions to add do not match any dimensions in the dataset. The test creates a dataset with a dimension that is not present in the grid file and calls the helper method to attempt to add spatial coordinates. It asserts that the resulting dataset remains unchanged (i.e., no new coordinate variables are added) and that the original variable is still present, confirming that the method correctly handles cases where expected dimensions are missing.
 
@@ -660,6 +673,7 @@ class TestHelperMethodsAndOutput:
             None
         """
         processor = MPASBaseProcessor(GRID_FILE, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
         
         if 'nEdges' in mock_mpas_mesh.dims:
             n_edges = len(mock_mpas_mesh['nEdges'])
@@ -681,7 +695,8 @@ class TestHelperMethodsAndOutput:
         assert 'var1' in result_ds.data_vars
     
 
-    def test_print_loading_success_without_verbose(self: "TestHelperMethodsAndOutput", mock_mpas_2d_data) -> None:
+    def test_print_loading_success_without_verbose(self: "TestHelperMethodsAndOutput", 
+                                                   mock_mpas_2d_data: Any) -> None:
         """
         This test verifies that the `_print_loading_success` method does not produce output when `processor.verbose` is False. The test uses real MPAS 2D data from the fixture to create a dataset and calls the method to print loading success information. It captures the standard output and asserts that it is empty, confirming that the method respects the verbose setting and does not emit messages when verbose mode is disabled.
 
@@ -692,6 +707,7 @@ class TestHelperMethodsAndOutput:
             None
         """
         processor = MPASBaseProcessor(GRID_FILE, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
         
         dataset = xr.Dataset({
             't2m': mock_mpas_2d_data['t2m']
@@ -704,7 +720,9 @@ class TestDataLoadingStrategies:
     """ Tests for various data loading strategies and fallback mechanisms. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestDataLoadingStrategies", mock_mpas_mesh, mock_mpas_2d_data) -> Generator[None, None, None]:
+    def setup_method(self: "TestDataLoadingStrategies", 
+                     mock_mpas_mesh: Any, 
+                     mock_mpas_2d_data: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing data loading strategies and fallback mechanisms of the `MPASBaseProcessor`. It creates a temporary directory and grid file using the provided `mock_mpas_mesh` fixture, which contains real MPAS mesh data when available. The fixture initializes an instance of `MPASBaseProcessor` with the created grid file. It also creates a test data file using the provided `mock_mpas_2d_data` fixture, which contains real 2D diagnostic data. After yielding control to the test methods, it performs cleanup by ensuring that the processor's dataset is reset to a known state using real MPAS data from the fixtures, allowing subsequent tests to operate on valid datasets and verify the functionality of data loading strategies.
 
@@ -725,7 +743,9 @@ class TestDataLoadingStrategies:
         mock_mpas_2d_data.to_netcdf(self.data_file)
         
         yield
-        
+
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
+
     def test_load_single_file_fallback_xarray(self: "TestDataLoadingStrategies") -> None:
         """
         This test verifies that the `_load_single_file_xarray` method successfully loads a single file using `xarray` and returns a valid dataset. The test uses a real MPAS 2D diagnostic file created in the fixture and asserts that the returned object is an instance of `xarray.Dataset`, confirming that the method can load data correctly when provided with a valid file path.
@@ -769,7 +789,8 @@ class TestDataLoadingStrategies:
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
         
         processor = MPAS3DProcessor(GRID_FILE, verbose=True)
-        
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
+
         from io import StringIO
         import sys as sys_module
         captured_output = StringIO()
@@ -809,6 +830,7 @@ class TestDataLoadingStrategies:
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
         
         processor = MPAS3DProcessor(GRID_FILE, verbose=True)
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         
         mpas_files = sorted([
             os.path.join(MPASOUT_DIR, f) 
@@ -828,7 +850,8 @@ class TestEdgeCasesAndErrorHandling:
     """ Tests for edge cases, boundary conditions, and error handling. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestEdgeCasesAndErrorHandling", mock_mpas_mesh) -> Generator[None, None, None]:
+    def setup_method(self: "TestEdgeCasesAndErrorHandling", 
+                     mock_mpas_mesh: Any) -> Generator[None, None, None]:
         """
         This fixture sets up a temporary environment for testing edge cases and error handling of the `MPASBaseProcessor`. It creates a temporary directory and grid file using the provided `mock_mpas_mesh` fixture, which contains real MPAS mesh data when available. The fixture initializes an instance of `MPASBaseProcessor` with the created grid file and an instance of `MPASVisualizer`. After yielding control to the test methods, it performs cleanup by calling the `normalize_longitude` method with a value that exceeds the valid range, ensuring that the method correctly normalizes it back into the expected range. This setup allows the tests to exercise edge cases related to geographic coordinate handling and ensures that cleanup steps validate the processor's behavior.
 
@@ -845,6 +868,8 @@ class TestEdgeCasesAndErrorHandling:
         
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
         self.visualizer = MPASVisualizer(verbose=False)
+        # assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
+        # assert_expected_public_methods(self.visualizer, 'MPASVisualizer')
             
         yield
         
@@ -864,7 +889,8 @@ class TestEdgeCasesAndErrorHandling:
         assert self.processor.validate_geographic_extent((-180, 180, -90, 90))
         assert self.processor.validate_geographic_extent((0, 180, 0, 90))
     
-    def test_add_spatial_coords_helper_missing_variables(self: "TestEdgeCasesAndErrorHandling", mock_mpas_2d_data) -> None:
+    def test_add_spatial_coords_helper_missing_variables(self: "TestEdgeCasesAndErrorHandling", 
+                                                         mock_mpas_2d_data: Any) -> None:
         """
         This test verifies that the `_add_spatial_coords_helper` method does not add spatial coordinate variables when the specified spatial variables are not present in the grid file. The test uses real MPAS 2D data from the fixture to create a combined dataset and calls the helper method with spatial variable names that do not exist in the grid file. It asserts that the resulting dataset remains unchanged (i.e., no new coordinate variables are added) and that the original variable is still present, confirming that the method correctly handles cases where expected spatial variables are missing without causing errors.
 
@@ -944,7 +970,8 @@ class TestTimeHandlingAndFormatting:
     """ Tests for time-related methods and datetime formatting. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestTimeHandlingAndFormatting", mpas_3d_processor) -> Generator[None, None, None]:
+    def setup_method(self: "TestTimeHandlingAndFormatting", 
+                     mpas_3d_processor: Any) -> Generator[None, None, None]:
         """
         This fixture sets up the context for testing time handling and formatting methods of the `MPASBaseProcessor`. It checks if the `mpas_3d_processor` fixture is available, which provides a session-scoped processor with loaded 3D MPAS data. If the fixture is not available, it skips the tests that require real MPAS data. If available, it assigns the processor to an instance variable for use in the tests. After yielding control to the test methods, it performs cleanup by closing all matplotlib figures to ensure that no resources are left open after the tests complete.
 
@@ -1052,7 +1079,8 @@ class TestTimeHandlingAndFormatting:
 class TestVisualizerOperations:
     """ Tests for MPASVisualizer initialization, configuration, and operations. """
     
-    def setup_method(self: "TestVisualizerOperations", mock_mpas_3d_data) -> None:
+    def setup_method(self: "TestVisualizerOperations", 
+                     mock_mpas_3d_data: Any) -> None:
         """
         This method sets up the context for testing the operations of the `MPASVisualizer`. It initializes an instance of `MPASVisualizer` with specific parameters (e.g., `figsize`, `dpi`, `verbose`) and creates a temporary directory for any output files that may be generated during the tests. It also assigns the provided `mock_mpas_3d_data` to an instance variable for use in the tests. This setup allows the test methods to operate on a consistent visualizer instance and have access to mock data for testing visualization functionalities.
 
@@ -1063,6 +1091,7 @@ class TestVisualizerOperations:
             None
         """
         self.visualizer = MPASVisualizer(figsize=(10, 14), dpi=100, verbose=False)
+        # assert_expected_public_methods(self.visualizer, 'MPASVisualizer')
         self.temp_dir = tempfile.mkdtemp()
         self.mock_mpas_3d_data = mock_mpas_3d_data
     
@@ -1091,6 +1120,7 @@ class TestVisualizerOperations:
             None
         """
         visualizer = MPASVisualizer()
+        # assert_expected_public_methods(visualizer, 'MPASVisualizer')
         
         assert visualizer.figsize == (pytest.approx(10), pytest.approx(14))
         assert visualizer.dpi == pytest.approx(100)
@@ -1109,6 +1139,7 @@ class TestVisualizerOperations:
             None
         """
         visualizer = MPASVisualizer(figsize=(12, 8), dpi=150, verbose=False)
+        # assert_expected_public_methods(visualizer, 'MPASVisualizer')
         
         assert visualizer.figsize == (pytest.approx(12), pytest.approx(8))
         assert visualizer.dpi == pytest.approx(150)
@@ -1125,6 +1156,7 @@ class TestVisualizerOperations:
             None
         """
         visualizer = MPASVisualizer()
+        # assert_expected_public_methods(visualizer, 'MPASVisualizer')
         visualizer.fig, visualizer.ax = plt.subplots()
         
         assert visualizer.fig is not None
@@ -1144,7 +1176,8 @@ class TestVisualizerOperations:
         Returns:
             None
         """
-        visualizer = MPASVisualizer()        
+        visualizer = MPASVisualizer()      
+        # assert_expected_public_methods(visualizer, 'MPASVisualizer')  
         visualizer.close_plot()
         
         assert visualizer.fig is None
@@ -1343,12 +1376,15 @@ class TestVisualizerOperations:
             None
         """
         pressure_levels = np.linspace(1000.0, 100.0, 55)
+
         data_3d = xr.DataArray(
             np.linspace(200.0, 300.0, 55 * 100).reshape(55, 100),
             dims=['nVertLevels', 'nCells'],
             coords={'nVertLevels': pressure_levels}
         )
+
         result = self.visualizer.extract_2d_from_3d(data_3d, level_value=850.0, method='nearest')
+
         assert isinstance(result, np.ndarray)
         assert result.ndim == pytest.approx(1)
         assert result.shape == (100,)
@@ -1368,7 +1404,8 @@ class TestWindVisualization:
         Returns:
             Generator[None, None, None]: Fixture generator for pytest.
         """
-        self.visualizer = MPASVisualizer(verbose=False)        
+        self.visualizer = MPASVisualizer(verbose=False)   
+
         self.lon, self.lat, self.u, self.v = load_mpas_coords_from_processor(n=50)
             
         yield
@@ -1582,7 +1619,8 @@ class TestVerboseTruncationAndChunking:
     """ Tests for verbose file listing truncation and _apply_chunking exception. """
 
     @pytest.fixture(autouse=True)
-    def setup_method(self, mock_mpas_mesh) -> Generator[None, None, None]:
+    def setup_method(self: "TestVerboseTruncationAndChunking", 
+                     mock_mpas_mesh: Any) -> Generator[None, None, None]:
         """
         This fixture sets up the context for testing the verbose file listing truncation and the behavior of the `_apply_chunking` method when it encounters an exception. It creates a temporary directory and a grid file from the mocked MPAS mesh, initializes an instance of `MPASBaseProcessor` with the grid file, and creates a data directory for test files. The fixture yields control to the test methods, allowing them to operate within this setup. After the tests complete, it cleans up by removing the temporary directory and all its contents, ensuring that no test artifacts remain on the filesystem.
 
@@ -1595,13 +1633,18 @@ class TestVerboseTruncationAndChunking:
         self.temp_dir = tempfile.mkdtemp()
         self.grid_file = os.path.join(self.temp_dir, "grid.nc")
         mock_mpas_mesh.to_netcdf(self.grid_file)
+
         self.processor = MPASBaseProcessor(self.grid_file, verbose=True)
+        assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
+
         self.data_dir = os.path.join(self.temp_dir, "data")
         os.makedirs(self.data_dir)
+
         yield
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_verbose_truncation_more_than_5_files(self) -> None:
+    def test_verbose_truncation_more_than_5_files(self: "TestVerboseTruncationAndChunking") -> None:
         """
         This test verifies that the verbose file listing truncation works correctly when more than 5 files are found. It creates 8 test files in the data directory, captures the standard output, and calls the `_find_files_by_pattern` method. The test asserts that the output contains the message indicating that there are more files than displayed.
 
@@ -1629,7 +1672,7 @@ class TestVerboseTruncationAndChunking:
         assert len(files) == pytest.approx(8)
         assert "... and 3 more files" in output
 
-    def test_apply_chunking_returns_original_on_failure(self) -> None:
+    def test_apply_chunking_returns_original_on_failure(self: "TestVerboseTruncationAndChunking") -> None:
         """
         This test verifies that the `_apply_chunking` method returns the original dataset when the `chunk()` method raises an exception. It creates a dataset, defines invalid chunking parameters, and asserts that the method returns the original dataset without raising an exception.
 
@@ -1644,7 +1687,7 @@ class TestVerboseTruncationAndChunking:
         result = self.processor._apply_chunking(ds, bad_chunks)
         assert 'temp' in result
 
-    def test_apply_chunking_none_returns_original(self) -> None:
+    def test_apply_chunking_none_returns_original(self: "TestVerboseTruncationAndChunking") -> None:
         """
         This test verifies that the `_apply_chunking` method returns the original dataset unchanged when `chunks` is None. It creates a dataset, calls the method with `chunks=None`, and asserts that the returned dataset is identical to the original.
 
@@ -1658,7 +1701,7 @@ class TestVerboseTruncationAndChunking:
         result = self.processor._apply_chunking(ds, None)
         xr.testing.assert_identical(result, ds)
 
-    def test_attempt_primary_load_uxarray_success(self) -> None:
+    def test_attempt_primary_load_uxarray_success(self: "TestVerboseTruncationAndChunking") -> None:
         """
         This test verifies that the `_attempt_primary_load` method successfully loads data using uxarray when `use_pure_xarray` is False and the data is compatible. It checks for the presence of real MPAS grid and mpasout data, attempts to load the data with `use_pure_xarray=False`, and asserts that the returned data type is 'uxarray', confirming that the method can correctly utilize uxarray for loading when appropriate.
 
@@ -1679,9 +1722,11 @@ class TestVerboseTruncationAndChunking:
             return
 
         processor = MPASBaseProcessor(GRID_FILE, verbose=False)
+        assert_expected_public_methods(processor, 'MPASBaseProcessor')
+
         datetimes = [datetime(2024, 1, i + 1) for i in range(len(mpasout_files))]
 
-        ds, dtype = processor._attempt_primary_load(
+        _, dtype = processor._attempt_primary_load(
             mpasout_files, datetimes,
             open_chunks={'Time': 1},
             full_chunks=None,
@@ -1691,7 +1736,7 @@ class TestVerboseTruncationAndChunking:
 
         assert dtype == 'uxarray'
 
-    def test_attempt_primary_load_pure_xarray(self) -> None:
+    def test_attempt_primary_load_pure_xarray(self: "TestVerboseTruncationAndChunking") -> None:
         """
         This test verifies that the `_attempt_primary_load` method correctly returns an xarray.Dataset when `use_pure_xarray` is True. It creates two small data files, calls the method with `use_pure_xarray=True`, and asserts that the method returns an xarray.Dataset.
 

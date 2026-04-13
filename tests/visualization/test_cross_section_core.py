@@ -245,7 +245,7 @@ class TestCreateVerticalCrossSectionComplete:
             time_index=0,
             vertical_coord='pressure',
             num_points=50,
-            plot_type='filled_contour'
+            plot_type='contourf'
         )
         
         assert fig is not None
@@ -310,7 +310,7 @@ class TestCreateVerticalCrossSectionComplete:
             'theta',
             start_point=(-110, 35),
             end_point=(-90, 45),
-            vertical_coord='model_levels'
+            vertical_coord='modlev'
         )
         
         assert fig is not None
@@ -352,7 +352,7 @@ class TestCreateVerticalCrossSectionComplete:
             'theta',
             start_point=(-110, 35),
             end_point=(-90, 45),
-            vertical_coord='model_levels',
+            vertical_coord='modlev',
             display_vertical='pressure'
         )
         
@@ -381,7 +381,7 @@ class TestCreateVerticalCrossSectionComplete:
     
     def test_create_cross_section_display_vertical_model_levels(self: "TestCreateVerticalCrossSectionComplete") -> None:
         """
-        This test verifies that the create_vertical_cross_section method can explicitly control the displayed vertical coordinate as model level indices. By passing `display_vertical='model_levels'` to `create_vertical_cross_section`, this test ensures that axis labeling and tick formatting for model-level displays are handled without error and that plot objects are returned for inspection.
+        This test verifies that the create_vertical_cross_section method can explicitly control the displayed vertical coordinate as model level indices. By passing `display_vertical='modlev'` to `create_vertical_cross_section`, this test ensures that axis labeling and tick formatting for model-level displays are handled without error and that plot objects are returned for inspection.
 
         Parameters:
             None
@@ -395,7 +395,7 @@ class TestCreateVerticalCrossSectionComplete:
             start_point=(-110, 35),
             end_point=(-90, 45),
             vertical_coord='pressure',
-            display_vertical='model_levels'
+            display_vertical='modlev'
         )
         
         assert fig is not None
@@ -666,17 +666,17 @@ class TestVerticalCoordinateConversion:
         Returns:
             None
         """
-        model_levels = np.arange(20)
+        modlev = np.arange(20)
         
         height_display, coord_type = self.plotter._convert_vertical_to_height(
-            model_levels,
-            'model_levels',
+            modlev,
+            'modlev',
             self.processor,
             time_index=0
         )
         
         assert height_display is not None
-        assert coord_type in ('height_km', 'model_levels')
+        assert coord_type in ('height_km', 'modlev')
     
     def test_extract_height_zgrid(self: "TestVerticalCoordinateConversion") -> None:
         """
@@ -1039,7 +1039,7 @@ class TestVerticalCoordinateEdgeCasesFinal:
     
     def test_model_levels_coordinate_system(self: "TestVerticalCoordinateEdgeCasesFinal") -> None:
         """
-        This test verifies that when using model level indices as the vertical coordinate, the create_vertical_cross_section method correctly handles the coordinate system and produces a plot with appropriate axis labeling. By calling the method with `vertical_coord='model_levels'` and real MPAS data, this test ensures that the plotter can manage model-level vertical coordinates and that the resulting plot's y-axis label reflects the use of model levels, confirming correct handling of this vertical coordinate type.
+        This test verifies that when using model level indices as the vertical coordinate, the create_vertical_cross_section method correctly handles the coordinate system and produces a plot with appropriate axis labeling. By calling the method with `vertical_coord='modlev'` and real MPAS data, this test ensures that the plotter can manage model-level vertical coordinates and that the resulting plot's y-axis label reflects the use of model levels, confirming correct handling of this vertical coordinate type.
 
         Parameters:
             self (Any): Test case instance with `processor` and `plotter` fixtures.
@@ -1052,7 +1052,7 @@ class TestVerticalCoordinateEdgeCasesFinal:
             'theta',
             (-5, 35),
             (15, 45),
-            vertical_coord='model_levels',
+            vertical_coord='modlev',
             num_points=25,
             time_index=0
         )

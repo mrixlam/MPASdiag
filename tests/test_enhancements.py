@@ -15,6 +15,7 @@ Version: 1.0.0
 import math
 import pytest
 import matplotlib
+import numpy as np
 matplotlib.use('Agg')  
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ from tests.test_data_helpers import load_mpas_coords_from_processor
 
 
 class TestRefactoredFunctions:
-    """ Test refactored functions for 2D variable metadata retrieval and 3D variable processing placeholders. This class validates the new MPASFileMetadata methods for extracting 2D variable metadata with automatic unit conversions, ensuring that temperature variables are correctly converted from Kelvin to Celsius and that appropriate metadata fields are populated. Additionally, it tests that placeholder functions for future 3D variable support raise NotImplementedError with informative messages, confirming that users receive clear feedback when attempting to use unimplemented features. These tests ensure the integrity of the refactored code while maintaining backward compatibility and providing a clear path for future enhancements. """
+    """ Test refactored functions for 2D and 3D variable metadata retrieval. """
     
     def test_get_2d_variable_metadata(self: "TestRefactoredFunctions") -> None:
         """
@@ -58,7 +59,7 @@ class TestRefactoredFunctions:
     
     def test_3d_placeholder_functions(self: "TestRefactoredFunctions") -> None:
         """
-        This test verifies that the placeholder functions for 3D variable support in the `MPASFileMetadata` class correctly raise `NotImplementedError` with informative messages. It attempts to call the `get_3d_variable_metadata`, `get_3d_colormap_and_levels`, and `plot_3d_variable_slice` methods with example parameters and asserts that each call raises the expected exception with a message indicating that 3D variable support is not yet implemented. This ensures that users receive clear feedback when trying to access unimplemented features, guiding them towards the current capabilities of the package while setting expectations for future enhancements.
+        This test validates the functionality of the placeholder methods for 3D variable metadata retrieval in the `MPASFileMetadata` class. It checks that the `get_3d_variable_metadata` method returns a fully populated metadata dictionary for a 3D variable (in this case, 'theta' for potential temperature at a specified level) and that the `get_3d_colormap_and_levels` method returns a valid tuple containing the colormap and levels. The test asserts that the metadata dictionary contains all expected keys ('units', 'original_units', 'long_name', 'colormap', 'levels', 'level') with correct values, and that the colormap and levels are appropriately returned. This ensures that the placeholder functions provide a solid foundation for future implementation of 3D variable metadata retrieval, supporting enhanced visualization capabilities for 3D fields in MPASdiag. 
 
         Parameters:
             None
@@ -66,30 +67,38 @@ class TestRefactoredFunctions:
         Returns:
             None
         """
-        with pytest.raises(NotImplementedError) as cm:
-            MPASFileMetadata.get_3d_variable_metadata('temperature', level=500)
+        # Test get_3d_variable_metadata returns a fully populated metadata dict
+        metadata = MPASFileMetadata.get_3d_variable_metadata('theta', level=500)
 
-        assert "3D variable support not yet implemented" in str(cm.value)
-        
-        with pytest.raises(NotImplementedError) as cm:
-            MPASFileMetadata.get_3d_colormap_and_levels('temperature', level=500)
+        assert isinstance(metadata, dict)
+        assert 'units' in metadata
+        assert 'original_units' in metadata
+        assert 'long_name' in metadata
+        assert 'colormap' in metadata
+        assert 'levels' in metadata
+        assert 'level' in metadata
+        assert metadata['level'] == 500
+        assert metadata['long_name'] == 'Potential Temperature'
+        assert metadata['colormap'] == 'RdYlBu_r'
+        assert isinstance(metadata['levels'], list)
+        assert len(metadata['levels']) > 0
 
-        assert "3D variable support not yet implemented" in str(cm.value)
-        
-        with pytest.raises(NotImplementedError) as cm:
-            import xarray as xr
-            lon, lat, u, v = load_mpas_coords_from_processor(n=10)
-            dummy_data = xr.DataArray(u.reshape(10, 1))
-            MPASFileMetadata.plot_3d_variable_slice(dummy_data, lon, lat, 500, 'temperature')
+        # Test get_3d_colormap_and_levels returns a valid (colormap, levels) tuple
+        colormap, levels = MPASFileMetadata.get_3d_colormap_and_levels('theta', level=500)
 
-        assert "3D variable support not yet implemented" in str(cm.value)
+        assert isinstance(colormap, str)
+        assert colormap == 'RdYlBu_r'
+        assert levels is not None
+        assert isinstance(levels, list)
+        assert len(levels) > 0
 
 
 class TestConditionalTimeDisplay:
-    """ This test class validates the conditional display of valid time information in surface plots based on the presence of time references in plot titles. It ensures that when users provide custom titles without temporal keywords, the plotting system automatically adds corner text with the valid time. Conversely, if the title already contains time information, no duplicate corner text should be displayed. The tests use mock objects to capture title and text method calls, verifying that timestamps are correctly integrated into titles or corner text as appropriate. This intelligent display logic enhances user experience by providing clear temporal context without visual clutter from duplicate timestamps. """
+    """ Test conditional display of valid time in surface plots based on title content. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestConditionalTimeDisplay", mpas_surface_temp_data) -> Generator[None, None, None]:
+    def setup_method(self: "TestConditionalTimeDisplay", 
+                     mpas_surface_temp_data: np.ndarray) -> Generator[None, None, None]:
         """
         This fixture sets up the necessary environment for testing conditional time display in surface plots. It initializes an instance of `MPASSurfacePlotter`, loads a sample MPAS surface temperature dataset, and prepares longitude and latitude coordinates for plotting. The fixture also defines a test time to be used for validating timestamp display logic. After the tests are executed, it ensures that any created figures are closed to prevent resource leaks.
 

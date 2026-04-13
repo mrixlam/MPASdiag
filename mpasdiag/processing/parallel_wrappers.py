@@ -23,9 +23,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-_COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
-_PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
-
 
 try:
     from .data_cache import MPASDataCache, get_global_cache
@@ -54,17 +51,7 @@ except ImportError:
     from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
-
-_PRECIP_REQUIRED_VARS = {
-    'total': ['rainc', 'rainnc'],
-    'rainc': ['rainc'],
-    'rainnc': ['rainnc'],
-}
-
-_CROSS_SECTION_AUX_VARS = [
-    'pressure', 'pressure_p', 'pressure_base',
-    'zgrid', 'height', 'fzp', 'surface_pressure',
-]
+from mpasdiag.processing.constants import PRECIP_REQUIRED_VARS, CROSS_SECTION_AUX_VARS, COORDS_FALLBACK_MSG, PRELOAD_COORDS_MSG
 
 _rank_processor_cache: Dict[str, Any] = {}
 
@@ -577,7 +564,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
     save_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{safe_time_str}.png")
     
-    fig, ax = plotter.create_vertical_cross_section(
+    fig, _ = plotter.create_vertical_cross_section(
         mpas_3d_processor=processor_3d,
         var_name=var_name,
         start_point=(start_lon, start_lat),
@@ -810,7 +797,7 @@ class ParallelPrecipitationProcessor:
                 'lat_min': lat_min,
                 'lat_max': lat_max,
                 'var_name': var_name,
-                'variables': _PRECIP_REQUIRED_VARS.get(var_name, [var_name]),
+                'variables': PRECIP_REQUIRED_VARS.get(var_name, [var_name]),
                 'accum_period': accum_period,
                 'plot_type': plot_type,
                 'grid_resolution': grid_resolution,
@@ -823,13 +810,13 @@ class ParallelPrecipitationProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
             
-            print(_PRELOAD_COORDS_MSG)
+            print(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
                 print(f"Coordinates cached for variable: {var_name}")
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print(_COORDS_FALLBACK_MSG)
+                print(COORDS_FALLBACK_MSG)
             
             worker_kwargs = {
                 'processor': processor,
@@ -964,13 +951,13 @@ class ParallelSurfaceProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
             
-            print(_PRELOAD_COORDS_MSG)
+            print(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
                 print(f"Coordinates cached for variable: {var_name}")
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print(_COORDS_FALLBACK_MSG)
+                print(COORDS_FALLBACK_MSG)
             
             worker_kwargs = {
                 'processor': processor,
@@ -1075,14 +1062,14 @@ class ParallelWindProcessor:
             return {**shared, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
 
         cache = MPASDataCache(max_variables=5)
-        print(_PRELOAD_COORDS_MSG)
+        print(PRELOAD_COORDS_MSG)
         
         try:
             cache.load_coordinates_from_dataset(processor.dataset, u_variable)
             print(f"Coordinates cached for variable: {u_variable}")
         except Exception as e:
             print(f"Warning: Could not pre-load coordinates into cache: {e}")
-            print(_COORDS_FALLBACK_MSG)
+            print(COORDS_FALLBACK_MSG)
         return {**shared, 'processor': processor, 'cache': cache}
 
     @staticmethod
@@ -1301,7 +1288,7 @@ class ParallelCrossSectionProcessor:
                 'end_lat': end_point[1],
                 'end_lon': end_point[0],
                 'var_name': var_name,
-                'variables': [var_name] + _CROSS_SECTION_AUX_VARS,
+                'variables': [var_name] + CROSS_SECTION_AUX_VARS,
                 'file_prefix': file_prefix,
                 'formats': formats,
                 'custom_title': None,

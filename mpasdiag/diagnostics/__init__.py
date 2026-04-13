@@ -15,5 +15,6 @@ Version: 1.0.0
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 from mpasdiag.diagnostics.wind import WindDiagnostics
 from mpasdiag.diagnostics.sounding import SoundingDiagnostics
+from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
 
-__all__ = ['PrecipitationDiagnostics', 'WindDiagnostics', 'SoundingDiagnostics']
+__all__ = ['PrecipitationDiagnostics', 'WindDiagnostics', 'SoundingDiagnostics', 'MoistureTransportDiagnostics']

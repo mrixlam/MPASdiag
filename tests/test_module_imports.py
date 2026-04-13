@@ -19,7 +19,7 @@ import types
 
 
 class TestCLIImports:
-    """ Test that CLI modules can be imported and expose expected entrypoints. These tests ensure that the command-line interface components of the package are available and properly structured for use in scripts and command-line execution. """
+    """ Test that CLI modules can be imported and expose expected entrypoints. """
     
     def test_import_cli_main(self: "TestCLIImports") -> None:
         """
@@ -49,7 +49,7 @@ class TestCLIImports:
 
 
 class TestProcessingImports:
-    """ Test that processing modules can be imported and expose expected classes. These tests ensure that core processing components of the package are available and properly structured for use in scripts and other modules. """
+    """ Test that processing modules can be imported and expose expected classes. """
     
     def test_import_base(self: "TestProcessingImports") -> None:
         """
@@ -144,7 +144,7 @@ class TestProcessingImports:
 
 
 class TestUtilityModules:
-    """ Test utility modules can be imported and expose expected functions or classes. These tests ensure that helper utilities are available and properly structured for use in processing and visualization components. """
+    """ Test utility modules can be imported and expose expected functions or classes. """
     
     def test_import_utils_config(self: "TestUtilityModules") -> None:
         """
@@ -239,7 +239,7 @@ class TestUtilityModules:
 
 
 class TestVisualizationImports:
-    """ Test visualization modules can be imported and expose expected classes or functions. These tests ensure that visualization components are available and properly structured for use in plotting and analysis routines. """
+    """ Test visualization modules can be imported and expose expected classes or functions. """
     
     def test_import_base_visualizer(self: "TestVisualizationImports") -> None:
         """
@@ -321,7 +321,7 @@ class TestVisualizationImports:
 
 
 class TestConstants:
-    """ This class verifies that the `constants` module can be imported and that key physical and unit constants are defined. These constants are critical for processing and visualization code that relies on consistent values for physical parameters and unit conversions. """
+    """ This class verifies that the `constants` module can be imported and that key physical and unit constants are defined. """
     
     def test_import_constants(self: "TestConstants") -> None:
         """
@@ -367,18 +367,18 @@ class TestConstants:
 
 
 class TestDiagnosticBasics:
-    """ This class tests basic attributes of diagnostic classes, such as the presence and behavior of a `verbose` flag in the `WindDiagnostics` and `PrecipitationDiagnostics` classes. These tests ensure that diagnostic-level logging controls are implemented and function as expected, allowing users to enable or disable verbose output when running diagnostics. """
+    """ This class tests basic attributes of diagnostic classes, such as the presence and behavior of a `verbose` flag in the `WindDiagnostics` and `PrecipitationDiagnostics` classes. """
     
     def test_wind_diagnostics_verbose_flag(self: "TestDiagnosticBasics") -> None:
         """
         This test confirms that the `WindDiagnostics` class respects the `verbose` constructor argument used to enable or disable diagnostic verbosity. The test constructs both verbose and quiet instances and asserts the `verbose` attribute matches the provided flag. The presence of this flag allows users to control the amount of diagnostic output produced during processing, which can be helpful for debugging or reducing noise in normal operation.
 
         Parameters:
-            None
+                None
 
-        Returns:
-            None
-        """
+            Returns:
+                None
+            """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
         diag_verbose = WindDiagnostics(verbose=True)
@@ -407,7 +407,7 @@ class TestDiagnosticBasics:
 
 
 class TestPackageStructure:
-    """ This class verifies that the top-level `mpasdiag` package can be imported and that core subpackages are accessible. These tests ensure that the overall package structure is intact and that users can import the main package and access key submodules without import errors. This is a fundamental check to catch issues with package initialization or missing subpackage imports. """
+    """ This class verifies that the top-level `mpasdiag` package can be imported and that core subpackages are accessible. """
     
     def test_package_import(self: "TestPackageStructure") -> None:
         """
@@ -452,7 +452,7 @@ class TestPackageStructure:
 
 
 class TestUtilityFunctions:
-    """ This class tests utility functions and classes provided by the `utils_logger` module, specifically the `MPASLogger` class. These tests ensure that the logging utility can be imported, instantiated, and that it exposes standard logging methods such as `info`, `warning`, and `error`. Additionally, the tests verify that the `verbose` flag in the logger constructor is respected, allowing users to control the verbosity of logging output. This is important for ensuring that diagnostic and processing code can utilize consistent logging practices throughout the package. """
+    """ This class tests utility functions and classes provided by the `utils_logger` module, specifically the `MPASLogger` class. """
     
     def test_setup_logger(self: "TestUtilityFunctions") -> None:
         """
@@ -489,7 +489,7 @@ class TestUtilityFunctions:
 
 
 class TestTypeHints:
-    """ This class contains tests that verify the presence of type hints in key diagnostic classes such as `WindDiagnostics` and `PrecipitationDiagnostics`. These tests use Python's `inspect` module to check that the `__init__` method of each diagnostic class is introspectable and has a signature, which implies that type hints are present if they are defined. The purpose of these tests is to ensure that type hinting is properly implemented and can be used for static analysis and CI checks, even though the tests themselves do not assert specific types. This helps maintain code quality and consistency in type annotations across the codebase. """
+    """ This class contains tests that verify the presence of type hints in key diagnostic classes such as `WindDiagnostics` and `PrecipitationDiagnostics`. """
     
     def test_wind_diagnostics_has_types(self: "TestTypeHints") -> None:
         """

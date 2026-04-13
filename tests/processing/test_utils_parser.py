@@ -754,7 +754,7 @@ class TestCreateCrosssectionParser:
         assert args.time_index == pytest.approx(0)
         assert args.vertical_coord == 'pressure'
         assert args.num_points == pytest.approx(100)
-        assert args.plot_type == 'filled_contour'
+        assert args.plot_type == 'contourf'
         assert args.colormap == 'viridis'
         assert args.extend == 'both'
         assert args.output_dir == './output'
@@ -781,7 +781,7 @@ class TestCreateCrosssectionParser:
             '--end-lon', '-80',
             '--end-lat', '45',
             '--time-index', '24',
-            '--vertical-coord', 'model_levels',
+            '--vertical-coord', 'modlev',
             '--num-points', '200',
             '--max-height', '15.0',
             '--plot-type', 'contour',
@@ -798,7 +798,7 @@ class TestCreateCrosssectionParser:
         ])
         
         assert args.time_index == pytest.approx(24)
-        assert args.vertical_coord == 'model_levels'
+        assert args.vertical_coord == 'modlev'
         assert args.num_points == pytest.approx(200)
         assert args.max_height == pytest.approx(15.0)
         assert args.plot_type == 'contour'
@@ -840,7 +840,7 @@ class TestParseCrosssectionArgsToConfig:
             vertical_coord='pressure',
             num_points=150,
             max_height=12.0,
-            plot_type='filled_contour',
+            plot_type='contourf',
             colormap='viridis',
             levels=None,
             extend='both'
@@ -860,7 +860,7 @@ class TestParseCrosssectionArgsToConfig:
         assert config.vertical_coord == 'pressure'
         assert config.num_points == pytest.approx(150)
         assert config.max_height == pytest.approx(12.0)
-        assert config.plot_type == 'filled_contour'
+        assert config.plot_type == 'contourf'
         assert config.colormap == 'viridis'
         assert config.levels is None
         assert config.extend == 'both'
@@ -895,7 +895,7 @@ class TestParseCrosssectionArgsToConfig:
             vertical_coord='pressure',
             num_points=100,
             max_height=None,
-            plot_type='filled_contour',
+            plot_type='contourf',
             colormap='viridis',
             levels=[250.0, 260.0, 270.0, 280.0, 290.0],
             extend='both'
@@ -932,7 +932,7 @@ class TestParseCrosssectionArgsToConfig:
             end_lat=40.0,
             vertical_coord='height',
             num_points=100,
-            plot_type='filled_contour',
+            plot_type='contourf',
             colormap='viridis',
             levels=None,
             extend='both'
@@ -970,7 +970,7 @@ class TestParseCrosssectionArgsToConfig:
             vertical_coord='pressure',
             num_points=100,
             max_height=None,
-            plot_type='filled_contour',
+            plot_type='contourf',
             colormap='viridis',
             levels=None,
             extend='both',

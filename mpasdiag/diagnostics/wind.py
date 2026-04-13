@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 from typing import Tuple, Union, Optional, Any, cast, Dict
 
-WIND_SPEED_UNITS = 'm s^{-1}'
+from mpasdiag.processing.constants import WIND_SPEED_UNITS
 
 
 class WindDiagnostics:

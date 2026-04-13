@@ -130,22 +130,28 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                   mpas_3d_processor: MPAS3DProcessor,
                                   time_index: int) -> Tuple[np.ndarray, str]:
         """
-        This internal method resolves the vertical coordinate values for display based on the desired vertical coordinate type. It accepts the original vertical coordinates and their type, along with the desired display type (e.g., 'height', 'pressure', 'model_levels'). Depending on the desired display, it performs the necessary conversions using the MPAS3DProcessor methods to convert model levels to height or pressure as needed. If the desired display is 'pressure' but the vertical coordinates contain non-positive or non-finite values, it issues a warning and falls back to displaying model levels. The method returns the vertical coordinates formatted for display and a string indicating the type of vertical coordinate being displayed.
+        This internal method resolves the vertical coordinate values for display based on the desired vertical coordinate type. It accepts the original vertical coordinates and their type, along with the desired display type (e.g., 'height', 'pressure', 'modlev'). Depending on the desired display, it performs the necessary conversions using the MPAS3DProcessor methods to convert model levels to height or pressure as needed. If the desired display is 'pressure' but the vertical coordinates contain non-positive or non-finite values, it issues a warning and falls back to displaying model levels. The method returns the vertical coordinates formatted for display and a string indicating the type of vertical coordinate being displayed.
 
         Parameters:
             vertical_coords (np.ndarray): The original vertical coordinate values extracted from the dataset.
-            vertical_coord_type (str): The type of the original vertical coordinates (e.g., 'pressure', 'height', 'model_levels').
-            desired_display (str): The desired vertical coordinate type for display ('pressure', 'height', 'model_levels').
+            vertical_coord_type (str): The type of the original vertical coordinates (e.g., 'pressure', 'height', 'modlev').
+            desired_display (str): The desired vertical coordinate type for display ('pressure', 'height', 'modlev').
             mpas_3d_processor (MPAS3DProcessor): The processor instance used for any necessary conversions.
             time_index (int): The time index for selecting temporal data if needed for conversions. 
 
         Returns:
             Tuple[np.ndarray, str]: The vertical coordinates formatted for display and the type of vertical coordinate being displayed. 
         """
+        # DEBUG: trace vertical display resolution
+        print(f"[DEBUG _resolve_vertical_display] desired_display='{desired_display}', vertical_coord_type='{vertical_coord_type}'")
+        print(f"[DEBUG _resolve_vertical_display] vertical_coords shape={np.asarray(vertical_coords).shape}, min={np.nanmin(vertical_coords):.4f}, max={np.nanmax(vertical_coords):.4f}")
+
         if desired_display == 'height':
-            return self._convert_vertical_to_height(
+            result_coords, result_type = self._convert_vertical_to_height(
                 vertical_coords, vertical_coord_type, mpas_3d_processor, time_index
             )
+            print(f"[DEBUG _resolve_vertical_display] after height conversion: type='{result_type}', min={np.nanmin(result_coords):.4f}, max={np.nanmax(result_coords):.4f}")
+            return result_coords, result_type
 
         if desired_display == 'pressure':
             try:
@@ -154,11 +160,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 v = np.asarray(vertical_coords, dtype=float)
             if not np.all(np.isfinite(v)) or np.nanmin(v) <= 0:
                 print("Warning: vertical coordinates contain non-positive or non-finite values; cannot display as pressure. Falling back to model levels.")
-                return np.arange(len(vertical_coords), dtype=float), 'model_levels'
+                return np.arange(len(vertical_coords), dtype=float), 'modlev'
             return (v / 100.0 if np.nanmax(v) > 10000 else v), 'pressure_hPa'
 
-        if desired_display == 'model_levels':
-            return vertical_coords, 'model_levels'
+        if desired_display == 'modlev':
+            return vertical_coords, 'modlev'
 
         return self._convert_vertical_to_height(
             vertical_coords, vertical_coord_type, mpas_3d_processor, time_index
@@ -270,7 +276,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             colormap (Any): The colormap to use for plotting the data values.
             levels (np.ndarray): The array of contour levels to use for plotting.
             extend (str): The contour extend option for out-of-range values when using filled contours ('neither', 'both', 'min', 'max').
-            plot_type (str): The type of plot to create ('filled_contour', 'contour', 'pcolormesh').
+            plot_type (str): The type of plot to create ('contourf', 'contour', 'pcolormesh').
             metadata (Dict[str, Any]): Metadata dictionary containing information about the variable, used for labeling the colorbar.
             var_name (str): The name of the variable being plotted, used for labeling and styling purposes.
             **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization.
@@ -280,7 +286,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         """
         assert self.ax is not None, "Axes must be initialized before rendering the plot"
 
-        if plot_type == 'filled_contour':
+        if plot_type == 'contourf':
             cs = self.ax.contourf(X, Y, data_values, levels=levels, cmap=colormap, extend=extend, **kwargs)
             cs_lines = self.ax.contour(X, Y, data_values, levels=levels, colors='black', linewidths=0.5, alpha=0.6)
             self.ax.clabel(cs_lines, inline=True, fontsize=8, fmt='%.1f')
@@ -290,9 +296,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         elif plot_type == 'pcolormesh':
             cs = self.ax.pcolormesh(X, Y, data_values, cmap=colormap, **kwargs)
         else:
-            raise ValueError(f"Unknown plot_type: {plot_type}. Use 'filled_contour', 'contour', or 'pcolormesh'")
+            raise ValueError(f"Unknown plot_type: {plot_type}. Use 'contourf', 'contour', or 'pcolormesh'")
         
-        if plot_type in ['filled_contour', 'pcolormesh']:
+        if plot_type in ['contourf', 'pcolormesh']:
             label = (
                 f"{metadata.get('long_name', var_name)} [{metadata.get('units', '')}]"
                 if metadata.get('units', '') else metadata.get('long_name', var_name)
@@ -366,7 +372,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                       levels: Optional[np.ndarray] = None, 
                                       colormap: Optional[Union[str, mcolors.Colormap]] = None, 
                                       extend: str = 'both', 
-                                      plot_type: str = 'filled_contour', 
+                                      plot_type: str = 'contourf', 
                                       save_path: Optional[str] = None, 
                                       title: Optional[str] = None, 
                                       max_height: Optional[float] = None, 
@@ -380,13 +386,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
             time_index (int): Time index for selecting temporal data from the dataset (default: 0).
-            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'model_levels') for data extraction (default: 'pressure').
-            display_vertical (Optional[str]): Desired vertical coordinate type for display ('pressure', 'height', 'model_levels'); if None, uses vertical_coord type (default: None).
+            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev') for data extraction (default: 'pressure').
+            display_vertical (Optional[str]): Desired vertical coordinate type for display ('pressure', 'height', 'modlev'); if None, uses vertical_coord type (default: None).
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting (default: 100).
             levels (Optional[np.ndarray]): Array of contour levels to use for plotting; if None, levels are automatically determined based on data range and variable type (default: None).
             colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for plotting; if None, a default colormap is selected based on variable type and styling rules (default: None).
             extend (str): Contour extend option for out-of-range values ('neither', 'both', 'min', 'max') when using filled contours (default: 'both').
-            plot_type (str): Type of plot to create ('filled_contour', 'contour', 'pcolormesh') with different rendering styles for the cross-section visualization (default: 'filled_contour').
+            plot_type (str): Type of plot to create ('contourf', 'contour', 'pcolormesh') with different rendering styles for the cross-section visualization (default: 'contourf').
             save_path (Optional[str]): File path to save the generated figure; if None, the figure is not saved to disk (default: None).
             title (Optional[str]): Title for the plot; if None, a default title is generated based on variable name and time information (default: None).
             max_height (Optional[float]): Maximum height in kilometers to display on the vertical axis; if None, full height range is shown based on data and vertical coordinate system (default: None).
@@ -460,28 +466,42 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Parameters:
             mpas_3d_processor (MPAS3DProcessor): The processor instance used to retrieve vertical levels from the dataset.
             var_name (str): The name of the variable for which to retrieve vertical levels.
-            vertical_coord (str): The type of vertical coordinate to retrieve ('pressure' or 'model_levels').
+            vertical_coord (str): The type of vertical coordinate to retrieve ('pressure' or 'modlev').
             time_index (int): The time index for selecting temporal data if needed for retrieving vertical levels.
 
         Returns:
             Tuple[np.ndarray, str]: The resolved vertical levels as a numpy array and the type of vertical coordinate being used for display.
         """
         try:
-            return_pressure = (vertical_coord == 'pressure')
+            return_pressure = vertical_coord in ('pressure', 'height')
 
             vertical_levels = mpas_3d_processor.get_vertical_levels(
                 var_name, return_pressure=return_pressure, time_index=time_index
             )
 
-            if vertical_coord not in ('pressure', 'model_levels'):
-                vertical_coord = 'model_levels'
+            if vertical_coord == 'height':
+                vertical_coord = 'pressure'
+
+            if vertical_coord not in ('pressure', 'modlev'):
+                vertical_coord = 'modlev'
 
             vertical_levels = np.array(vertical_levels)
 
+            # DEBUG: trace vertical level resolution
+            print(f"[DEBUG _resolve_vertical_levels] return_pressure={return_pressure}")
+            print(f"[DEBUG _resolve_vertical_levels] vertical_coord_type='{vertical_coord}'")
+            print(f"[DEBUG _resolve_vertical_levels] vertical_levels dtype={vertical_levels.dtype}, shape={vertical_levels.shape}")
+            print(f"[DEBUG _resolve_vertical_levels] vertical_levels min={np.nanmin(vertical_levels):.4f}, max={np.nanmax(vertical_levels):.4f}")
+
+            if len(vertical_levels) <= 60:
+                print(f"[DEBUG _resolve_vertical_levels] all values (Pa if pressure): {vertical_levels}")
+            else:
+                print(f"[DEBUG _resolve_vertical_levels] first 5: {vertical_levels[:5]}, last 5: {vertical_levels[-5:]}")
+
             if np.issubdtype(vertical_levels.dtype, np.integer):
-                vertical_coord = 'model_levels'
+                vertical_coord = 'modlev'
                 if self.fig is not None and self.verbose:
-                    print("Note: vertical levels appear to be integer indices; switching vertical_coord to 'model_levels'")
+                    print("Note: vertical levels appear to be integer indices; switching vertical_coord to 'modlev'")
             return vertical_levels, vertical_coord
         except Exception as e:
             print(f"Warning: Could not get vertical levels, using indices: {e}")
@@ -491,7 +511,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 or mpas_3d_processor.dataset.sizes.get('nVertLevelsP1')
                 or 10
             )
-            return np.arange(n_levels), 'model_levels'
+            return np.arange(n_levels), 'modlev'
 
     def _extract_cross_section_coords(self: 'MPASVerticalCrossSectionPlotter',
                                       mpas_3d_processor: MPAS3DProcessor,
@@ -672,7 +692,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
             time_index (int): Time index for selecting temporal data from the dataset.
-            vertical_coord (str): Type of vertical coordinate to use for data extraction ('pressure', 'height', 'model_levels').
+            vertical_coord (str): Type of vertical coordinate to use for data extraction ('pressure', 'height', 'modlev').
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting.
 
         Returns:
@@ -887,8 +907,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             
         var_lower = var_name.lower()
         return self._compute_var_levels(var_lower, var_name, data_min, data_max, data_range)
-            
-    
+                
     def _extract_height_from_dataset(self: 'MPASVerticalCrossSectionPlotter', 
                                      mpas_3d_processor: MPAS3DProcessor, 
                                      time_index: int, 
@@ -952,10 +971,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         except Exception:
             return None
     
-    # ------------------------------------------------------------------
-    # Helpers for _convert_vertical_to_height
-    # ------------------------------------------------------------------
-
     def _try_extract_height_km(self: 'MPASVerticalCrossSectionPlotter',
                                mpas_3d_processor: MPAS3DProcessor,
                                time_index: int,
@@ -971,21 +986,77 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Optional[Tuple[np.ndarray, str]]: A tuple containing the extracted height values in kilometers and the string 'height_km' if extraction is successful, or None if extraction fails for both variable names.
         """
+        print(f"[DEBUG _try_extract_height_km] Attempting to extract geometric height from dataset")
         try:
             for var in ('zgrid', 'height'):
+                print(f"[DEBUG _try_extract_height_km] Trying variable '{var}'...")
                 height_m = self._extract_height_from_dataset(
                     mpas_3d_processor, time_index, vertical_coords, var
                 )
                 if height_m is not None:
+                    print(f"[DEBUG _try_extract_height_km] SUCCESS with '{var}': min={np.nanmin(height_m):.2f} m, max={np.nanmax(height_m):.2f} m")
+                    print(f"[DEBUG _try_extract_height_km] Converted to km: min={np.nanmin(height_m/1000.0):.4f}, max={np.nanmax(height_m/1000.0):.4f}")
                     return height_m / 1000.0, 'height_km'
-        except Exception:
-            pass
+                else:
+                    print(f"[DEBUG _try_extract_height_km] '{var}' not found or extraction failed")
+        except Exception as e:
+            print(f"[DEBUG _try_extract_height_km] Exception: {e}")
+        print(f"[DEBUG _try_extract_height_km] No geometric height found, will fall back to barometric approximation")
         return None
+
+    @staticmethod
+    def _std_atm_pressure_to_height(pressure_pa: np.ndarray) -> np.ndarray:
+        """
+        This static method converts pressure values in Pascals to geometric height in meters using the US Standard Atmosphere 1976 piecewise model. The method defines the standard atmospheric layers with their base heights, temperatures, lapse rates, and pressures. It then iterates through the input pressure values, determines which atmospheric layer each pressure falls into, and applies the appropriate formula (isothermal or with lapse rate) to compute the corresponding geometric height. The method handles potential issues with non-positive or non-finite pressure values by clipping them to a minimum positive value to avoid mathematical errors during logarithmic calculations. This conversion is used as a fallback when geometric height data is not available in the dataset, providing an approximate vertical axis for the cross-section plot based on standard atmospheric conditions.
+
+        Parameters:
+            pressure_pa (np.ndarray): 1-D array of pressure values in Pa.  Values must be positive and finite.
+
+        Returns:
+            np.ndarray: Corresponding geometric heights in metres.
+        """
+        g = 9.80665    # gravitational acceleration (m/s^2)
+        R = 287.053    # specific gas constant for dry air (J/(kg*K))
+
+        # (base_height_m, base_temp_K, lapse_rate_K_per_m, base_pressure_Pa)
+        layers = [
+            (0.0,     288.15,  -0.0065,  101325.0),    # Troposphere: 0-11 km
+            (11000.0, 216.65,   0.0,      22632.1),     # Tropopause: 11-20 km
+            (20000.0, 216.65,   0.001,    5474.89),     # Stratosphere 1: 20-32 km
+            (32000.0, 228.65,   0.0028,   868.02),      # Stratosphere 2: 32-47 km
+            (47000.0, 270.65,   0.0,      110.91),      # Stratopause: 47-51 km
+        ]
+
+        height_m = np.empty_like(pressure_pa)
+
+        for i in range(len(pressure_pa)):
+            p = pressure_pa[i]
+
+            # Find which layer this pressure falls in (layers sorted by decreasing base pressure)
+            layer_idx = len(layers) - 1
+
+            for j in range(len(layers) - 1):
+                if p >= layers[j + 1][3]:
+                    layer_idx = j
+                    break
+            
+            # Extract layer parameters for the identified layer
+            h_b, T_b, L, P_b = layers[layer_idx]
+
+            if abs(L) < 1e-10:
+                # Isothermal layer: h = h_b - (R*T_b/g) * ln(P/P_b)
+                height_m[i] = h_b - (R * T_b / g) * np.log(p / P_b)
+            else:
+                # Layer with lapse rate: h = h_b + (T_b/L) * ((P/P_b)^(-R*L/g) - 1)
+                exponent = -R * L / g
+                height_m[i] = h_b + (T_b / L) * ((p / P_b) ** exponent - 1.0)
+
+        return height_m
 
     def _pressure_to_height_approx(self: 'MPASVerticalCrossSectionPlotter',
                                    vertical_coords: np.ndarray,) -> Tuple[np.ndarray, str]:
         """
-        This helper method converts pressure coordinates to geometric height in kilometers using a standard atmosphere approximation. It first checks if the pressure values are likely in hPa and converts them to Pa if necessary. It then handles potential issues with non-positive or non-finite pressure values by clipping them to a minimum positive value to avoid issues with logarithmic calculations. The method applies the barometric formula to convert pressure to height, ensuring that the resulting height values are non-negative. If any exceptions occur during this process, it falls back to returning the original vertical coordinates converted from Pa to hPa, along with the coordinate type string 'pressure_hPa'. This provides a way to estimate height from pressure when geometric height data is not available in the dataset. 
+        This internal method converts pressure values to geometric height in kilometers using the US Standard Atmosphere 1976 approximation. It first checks if the input pressure values are likely in hPa (by checking if the maximum value is less than 10000) and converts them to Pa if necessary. It then handles any non-positive or non-finite pressure values by clipping them to a minimum positive value to avoid issues with logarithmic calculations. The method applies the standard atmosphere model to convert the pressure values to height in meters, and then converts it to kilometers before returning. If any exceptions occur during this process, it falls back to returning the original vertical coordinates converted to hPa and indicates that the vertical coordinate type is 'pressure_hPa'. This method provides an approximate way to determine height when geometric height data is not available in the dataset, ensuring that the cross-section plot can still be generated with a reasonable vertical axis.
 
         Parameters:
             vertical_coords (np.ndarray): Array of vertical coordinate values representing pressure levels, which may be in hPa or Pa and may contain non-positive or non-finite values.
@@ -996,12 +1067,21 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             pressure_pa = vertical_coords.astype(float).copy()
 
+            # DEBUG: input pressure values
+            print(f"[DEBUG _pressure_to_height_approx] Input pressure values:")
+            print(f"[DEBUG _pressure_to_height_approx]   dtype={pressure_pa.dtype}, shape={pressure_pa.shape}")
+            print(f"[DEBUG _pressure_to_height_approx]   min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
+
             if np.nanmax(pressure_pa) < 10000:  # Likely in hPa
+                print(f"[DEBUG _pressure_to_height_approx]   max < 10000 => treating as hPa, multiplying by 100")
                 pressure_pa = pressure_pa * 100.0
+            else:
+                print(f"[DEBUG _pressure_to_height_approx]   max >= 10000 => treating as Pa (no conversion)")
 
             min_positive = 1.0
 
             if np.any(pressure_pa <= 0) or np.any(~np.isfinite(pressure_pa)):
+                print(f"[DEBUG _pressure_to_height_approx]   WARNING: non-positive/non-finite values detected, clipping")
                 if self.verbose:
                     print(
                         "Warning: pressure levels contained non-positive or non-finite values; "
@@ -1010,13 +1090,19 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 pressure_pa = np.where(np.isfinite(pressure_pa), pressure_pa, min_positive)
                 pressure_pa = np.clip(pressure_pa, min_positive, None)
 
-            H = 8.4       # Scale height in km
-            P0 = 101325.0  # Sea level pressure in Pa
+            print(f"[DEBUG _pressure_to_height_approx]   Using US Standard Atmosphere 1976 (piecewise, 5 layers)")
+            print(f"[DEBUG _pressure_to_height_approx]   pressure_pa after processing: min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
 
-            height_km = -H * np.log(pressure_pa / P0)
+            height_m = self._std_atm_pressure_to_height(pressure_pa)
+            height_km = np.maximum(height_m / 1000.0, 0.0)
 
-            return np.maximum(height_km, 0.0), 'height_km'
-        except Exception:
+            print(f"[DEBUG _pressure_to_height_approx]   height_km: min={np.nanmin(height_km):.4f}, max={np.nanmax(height_km):.4f}")
+            if len(height_km) <= 60:
+                print(f"[DEBUG _pressure_to_height_approx]   all height_km values: {np.array2string(height_km, precision=3, separator=', ')}")
+
+            return height_km, 'height_km'
+        except Exception as e:
+            print(f"[DEBUG _pressure_to_height_approx] EXCEPTION: {e}")
             return vertical_coords / 100.0, 'pressure_hPa'
 
     def _convert_vertical_to_height(self: 'MPASVerticalCrossSectionPlotter', 
@@ -1025,32 +1111,41 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                     mpas_3d_processor: MPAS3DProcessor, 
                                     time_index: int) -> Tuple[np.ndarray, str]:
         """
-        This internal method converts vertical coordinate values to geometric height in kilometers based on the specified vertical coordinate type. If the input coordinate type is 'height', it simply converts from meters to kilometers. If the input type is 'pressure', it first attempts to extract geometric height from the dataset using known variable names ('zgrid' or 'height'). If successful, it converts to kilometers and returns. If extraction fails, it applies a standard atmosphere approximation to convert pressure to height, while handling potential issues with non-positive or non-finite pressure values. For 'model_levels', it also tries to extract geometric height if available, otherwise it returns the original model level indices. The method ensures that the returned vertical coordinates are in a consistent format for plotting and includes error handling for various edge cases. 
+        This internal method converts vertical coordinate values to geometric height in kilometers based on the specified vertical coordinate type. If the input coordinate type is 'height', it simply converts from meters to kilometers. If the input type is 'pressure', it first attempts to extract geometric height from the dataset using known variable names ('zgrid' or 'height'). If successful, it converts to kilometers and returns. If extraction fails, it applies a standard atmosphere approximation to convert pressure to height, while handling potential issues with non-positive or non-finite pressure values. For 'modlev', it also tries to extract geometric height if available, otherwise it returns the original model level indices. The method ensures that the returned vertical coordinates are in a consistent format for plotting and includes error handling for various edge cases. 
 
         Parameters:
             vertical_coords (np.ndarray): Array of vertical coordinate values to convert.
-            vertical_coord_type (str): Type of vertical coordinate ('height', 'pressure', 'model_levels') indicating how to interpret the input coordinates.
+            vertical_coord_type (str): Type of vertical coordinate ('height', 'pressure', 'modlev') indicating how to interpret the input coordinates.
             mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance for accessing the dataset to extract height information if needed.
             time_index (int): Time index for selecting the appropriate temporal slice when extracting height from the dataset. 
 
         Returns:
-            Tuple[np.ndarray, str]: A tuple containing the converted vertical coordinates in kilometers and a string indicating the type of vertical coordinate used for display (e.g., 'height_km', 'pressure_hPa', or 'model_levels'). 
+            Tuple[np.ndarray, str]: A tuple containing the converted vertical coordinates in kilometers and a string indicating the type of vertical coordinate used for display (e.g., 'height_km', 'pressure_hPa', or 'modlev'). 
         """
+        print(f"[DEBUG _convert_vertical_to_height] vertical_coord_type='{vertical_coord_type}'")
+        print(f"[DEBUG _convert_vertical_to_height] vertical_coords: shape={vertical_coords.shape}, min={np.nanmin(vertical_coords):.4f}, max={np.nanmax(vertical_coords):.4f}")
+
         if vertical_coord_type == 'height':
+            print(f"[DEBUG _convert_vertical_to_height] Path: direct height -> dividing by 1000 for km")
             return vertical_coords / 1000.0, 'height_km'
 
         if vertical_coord_type == 'pressure':
+            print(f"[DEBUG _convert_vertical_to_height] Path: pressure -> trying geometric height first, then barometric approx")
             result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
             if result is not None:
+                print(f"[DEBUG _convert_vertical_to_height] Using extracted geometric height")
                 return result
+            print(f"[DEBUG _convert_vertical_to_height] Falling back to barometric approximation")
             return self._pressure_to_height_approx(vertical_coords)
 
+        print(f"[DEBUG _convert_vertical_to_height] Path: modlev -> trying geometric height")
         result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
 
         if result is not None:
             return result
         
-        return vertical_coords, 'model_levels'
+        print(f"[DEBUG _convert_vertical_to_height] No height conversion possible, returning raw model levels")
+        return vertical_coords, 'modlev'
 
     def _apply_standard_pressure_ticks(self: 'MPASVerticalCrossSectionPlotter',
                                        vertical_coords: np.ndarray,) -> None:
@@ -1178,7 +1273,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Parameters:
             longitudes (np.ndarray): Array of longitude values along the cross-section path, used to set x-axis limits and formatting.
             vertical_coords (np.ndarray): Array of vertical coordinate values used for the y-axis, with formatting determined by the vertical_coord_type.
-            vertical_coord_type (str): Type of vertical coordinate ('height_km', 'pressure_hPa', 'pressure', 'height', 'model_levels') that dictates y-axis labeling and limits.
+            vertical_coord_type (str): Type of vertical coordinate ('height_km', 'pressure_hPa', 'pressure', 'height', 'modlev') that dictates y-axis labeling and limits.
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees, used for annotating the plot.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees, used for annotating the plot.
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data. 
@@ -1206,7 +1301,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             self.ax.set_ylabel('Height [m]', fontsize=12)
             y_max = max_height * 1000 if max_height is not None else vertical_coords.max()
             self.ax.set_ylim(vertical_coords.min(), y_max)
-        else:  # model_levels
+        else:  # modlev
             self.ax.set_ylabel('Model Level', fontsize=12)
             try:
                 self.ax.set_ylim(vertical_coords.min(), vertical_coords.max())
@@ -1291,12 +1386,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
             time_idx (int): Current time index being processed in the batch workflow.
             total_times (int): Total number of time steps to process, used for progress updates.
-            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'model_levels').
+            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev').
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting.
             levels (Optional[np.ndarray]): Optional array of contour levels; if None, levels are determined automatically.
             colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for filled contour plots; can be a string name or a Matplotlib colormap object.
             extend (str): Direction to extend the colormap for out-of-range values ('neither', 'both', 'min', 'max').
-            plot_type (str): Type of plot to create ('filled_contour' or 'contour_lines').
+            plot_type (str): Type of plot to create ('contourf' or 'contour_lines').
             max_height (Optional[float]): Maximum height to display in the plot; if None, the full range is used.
             file_prefix (str): Prefix for the output file names.
             formats (List[str]): List of file formats to save the plot (e.g., ['png', 'pdf']).
@@ -1351,7 +1446,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                          levels: Optional[np.ndarray] = None, 
                                          colormap: Optional[Union[str, mcolors.Colormap]] = None, 
                                          extend: str = 'both', 
-                                         plot_type: str = 'filled_contour', 
+                                         plot_type: str = 'contourf', 
                                          max_height: Optional[float] = None, 
                                          file_prefix: str = 'mpas_cross_section', 
                                          formats: List[str] = ['png']) -> List[str]:
@@ -1364,12 +1459,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             var_name (str): Name of the variable to plot from the dataset.
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
-            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'model_levels').
+            vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev').
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting.
             levels (Optional[np.ndarray]): Optional array of contour levels; if None, levels are determined automatically.
             colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for filled contour plots; can be a string name or a Matplotlib colormap object.
             extend (str): Direction to extend the colormap for out-of-range values ('neither', 'both', 'min', 'max').
-            plot_type (str): Type of plot to create ('filled_contour' or 'contour_lines').
+            plot_type (str): Type of plot to create ('contourf' or 'contour_lines').
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data.
             file_prefix (str): Prefix for the output filenames; additional information will be appended to this prefix.
             formats (List[str]): List of file formats to save the plots in (e.g., ['png', 'pdf']). 

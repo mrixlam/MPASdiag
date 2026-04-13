@@ -20,6 +20,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 
 from mpasdiag.processing.data_cache import MPASDataCache, CachedVariable, get_global_cache, clear_global_cache
+from tests.test_data_helpers import assert_expected_public_methods
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -28,7 +29,8 @@ class TestLoadCoordinatesFromDataset:
     """ Test cases for load_coordinates_from_dataset method """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestLoadCoordinatesFromDataset", mpas_3d_processor) -> Any:
+    def setup_method(self: "TestLoadCoordinatesFromDataset", 
+                     mpas_3d_processor: Any) -> Any:
         """
         This fixture sets up the test environment for all tests in the TestLoadCoordinatesFromDataset class by providing access to a shared MPAS dataset processor. It checks if the processor is available and skips tests if not, ensuring that tests only run when the necessary data is present. The fixture also handles cleanup after tests by closing any open matplotlib figures to prevent resource leaks. This setup allows individual test methods to focus on their specific assertions without worrying about dataset loading or cleanup. 
 
@@ -60,6 +62,8 @@ class TestLoadCoordinatesFromDataset:
             None
         """
         processor = self.processor
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
+
         cache = MPASDataCache()
         
         cache.load_coordinates_from_dataset(processor.dataset, var_name=None)
@@ -85,6 +89,7 @@ class TestLoadCoordinatesFromDataset:
             None
         """
         processor = self.processor        
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         cache = MPASDataCache()
         
         cache.load_coordinates_from_dataset(processor.dataset, 'test_var')
@@ -104,6 +109,7 @@ class TestLoadCoordinatesFromDataset:
             None
         """
         processor = self.processor        
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         cache = MPASDataCache()
         ncells_var = None
 
@@ -129,6 +135,7 @@ class TestLoadCoordinatesFromDataset:
         """
         processor = self.processor
         ds = processor.dataset
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         cache = MPASDataCache()        
         nvertices_var = None
 
@@ -154,6 +161,7 @@ class TestLoadCoordinatesFromDataset:
         """
         processor = self.processor
         ds = processor.dataset
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         cache = MPASDataCache()        
         nedges_var = None
 
@@ -199,6 +207,7 @@ class TestLoadCoordinatesFromDataset:
             None
         """
         processor = self.processor
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         
         cache = MPASDataCache()
         cache.load_coordinates_from_dataset(processor.dataset)        
@@ -218,10 +227,11 @@ class TestLoadCoordinatesFromDataset:
             None
         """
         processor = self.processor
+        assert_expected_public_methods(processor, 'MPAS3DProcessor')
         
         cache = MPASDataCache()
         cache.load_coordinates_from_dataset(processor.dataset)        
-        lon, lat = cache.get_coordinates()
+        lon, _ = cache.get_coordinates()
         
         assert np.all(lon >= -180)
         assert np.all(lon <= 180)
@@ -276,7 +286,8 @@ class TestLoadVariableData:
     """ Tests for load_variable_data method. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestLoadVariableData", mpas_3d_processor) -> Any:
+    def setup_method(self: "TestLoadVariableData", 
+                     mpas_3d_processor: Any) -> Any:
         """
         This fixture sets up the test environment for all tests in the TestLoadVariableData class by providing access to a shared MPAS dataset processor. It checks if the processor is available and skips tests if not, ensuring that tests only run when the necessary data is present. The fixture also handles cleanup after tests by closing any open matplotlib figures to prevent resource leaks. This setup allows individual test methods to focus on their specific assertions without worrying about dataset loading or cleanup. 
 
@@ -634,7 +645,8 @@ class TestRealDataIntegration:
     """ Integration tests with real MPAS data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestRealDataIntegration", mpas_3d_processor) -> Any:
+    def setup_method(self: "TestRealDataIntegration", 
+                     mpas_3d_processor: Any) -> Any:
         """
         This fixture sets up the test environment for all tests in the TestRealDataIntegration class by providing access to a shared MPAS dataset processor loaded with real data. It checks if the processor is available and skips tests if not, ensuring that tests only run when the necessary data is present. The fixture also handles cleanup after tests by closing any open matplotlib figures to prevent resource leaks. This setup allows individual test methods to focus on their specific assertions related to real data integration without worrying about dataset loading or cleanup. 
 

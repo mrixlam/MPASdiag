@@ -274,3 +274,18 @@ class FileManager:
             return False
 
         return True
+
+
+def print_system_info() -> None:
+    """
+    Module-level convenience function that prints basic system information to the
+    console, including the Python version, platform, current working directory,
+    and available memory. Delegates to :meth:`FileManager.print_system_info`.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
+    FileManager.print_system_info()

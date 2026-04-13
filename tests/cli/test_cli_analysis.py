@@ -342,7 +342,7 @@ class TestCrossSectionExtended:
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
 
-        for vert_coord in ['pressure', 'model_levels', 'height']:
+        for vert_coord in ['pressure', 'modlev', 'height']:
             args = parser.parse_args([
                 'cross',
                 '--grid-file', 'test.nc',

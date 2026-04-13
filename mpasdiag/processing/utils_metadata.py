@@ -20,8 +20,8 @@ from mpasdiag.processing.utils_unit import UnitConverter
 
 from .constants import (
     M2_PER_S2, MM, DBZ, KELVIN, M_PER_S, PA, PERCENT,
-    METER, M2_PER_S, KG_PER_KG, KG_PER_M3, MICRONS, PER_KG,
-    M3_PER_M3, J_PER_KG, PER_S, G_PER_KG, W_PER_M2, NOUNIT
+    METER, M2_PER_S, KG_PER_KG, KG_PER_M2, KG_PER_M3, KG_PER_M_PER_S,
+    MICRONS, PER_KG, M3_PER_M3, J_PER_KG, PER_S, G_PER_KG, W_PER_M2, NOUNIT
 )
 
 
@@ -48,9 +48,14 @@ class MPASFileMetadata:
         standard_metadata = {
             'olrtoa': {'units': W_PER_M2, 'long_name': 'Outgoing Longwave Radiation at TOA'},
             
-            'rainc': {'units': MM, 'long_name': 'Convective Precipitation'},  
-            'rainnc': {'units': MM, 'long_name': 'Non-Convective Precipitation'},  
-            'precipw': {'units': MM, 'long_name': 'Precipitable Water'}, 
+            'rainc': {'units': MM, 'long_name': 'Convective Precipitation'},
+            'rainnc': {'units': MM, 'long_name': 'Non-Convective Precipitation'},
+            'precipw': {'units': MM, 'long_name': 'Precipitable Water'},
+
+            'iwv': {'units': KG_PER_M2, 'long_name': 'Integrated Water Vapor'},
+            'ivt': {'units': KG_PER_M_PER_S, 'long_name': 'Integrated Vapor Transport'},
+            'ivt_u': {'units': KG_PER_M_PER_S, 'long_name': 'Eastward Integrated Vapor Transport'},
+            'ivt_v': {'units': KG_PER_M_PER_S, 'long_name': 'Northward Integrated Vapor Transport'},
 
             'refl10cm_max': {'units': DBZ, 'long_name': 'Maximum 10cm Reflectivity'},
             'refl10cm_1km': {'units': DBZ, 'long_name': '10cm Reflectivity at 1km AGL'},
@@ -216,6 +221,26 @@ class MPASFileMetadata:
             'precipitation': {
                 'colormap': 'Blues',
                 'levels': [0, 0.1, 0.5, 1, 2, 5, 10, 15, 20, 25, 30, 40, 50],
+                'spatial_dims': 2
+            },
+            'iwv': {
+                'colormap': 'GnBu',
+                'levels': [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70],
+                'spatial_dims': 2
+            },
+            'ivt': {
+                'colormap': 'YlGnBu',
+                'levels': [0, 50, 100, 150, 200, 250, 300, 400, 500, 600, 750, 1000],
+                'spatial_dims': 2
+            },
+            'ivt_u': {
+                'colormap': 'RdBu_r',
+                'levels': list(range(-600, 700, 100)),
+                'spatial_dims': 2
+            },
+            'ivt_v': {
+                'colormap': 'RdBu_r',
+                'levels': list(range(-600, 700, 100)),
                 'spatial_dims': 2
             },
             'u10': {
@@ -832,12 +857,23 @@ class MPASFileMetadata:
             level (Optional[Any]): Specific vertical level to optimize metadata for, can be pressure level or model level (default: None). 
 
         Returns:
-            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 3D visualization. 
+            dict: Metadata dictionary with 'units', 'long_name', 'colormap', 'levels', 'spatial_dims' keys for 3D visualization.
         """
-        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
-    
+        metadata = MPASFileMetadata.get_variable_metadata(var_name, data_array, include_visualization=True)
+
+        if 'units' in metadata:
+            original_units = metadata['units']
+            display_units = UnitConverter.get_display_units(var_name, original_units)
+            metadata['original_units'] = original_units
+            metadata['units'] = display_units
+
+        if level is not None:
+            metadata['level'] = level
+
+        return metadata
+
     @staticmethod
-    def get_3d_colormap_and_levels(var_name: str, 
+    def get_3d_colormap_and_levels(var_name: str,
                                    data_array: Optional[xr.DataArray] = None, 
                                    level: Optional[Any] = None) -> Tuple[str, Optional[List[float]]]:
         """
@@ -849,30 +885,12 @@ class MPASFileMetadata:
             level (Optional[Any]): Specific vertical level to optimize colormap and levels for, can be pressure level or model level (default: None).
 
         Returns:
-            Tuple[str, Optional[List[float]]]: Tuple containing colormap name and list of contour levels for 3D variable visualization. 
+            Tuple[str, Optional[List[float]]]: Tuple containing colormap name and list of contour levels for 3D variable visualization.
         """
-        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
-    
-    @staticmethod
-    def plot_3d_variable_slice(data_array: xr.DataArray, 
-                               lon: np.ndarray, 
-                               lat: np.ndarray, 
-                               level: Union[int, float], 
-                               var_name: str) -> Any:
-        """
-        This method is intended to create a visualization of a 3D MPAS atmospheric variable at a specified vertical level, using appropriate colormaps and contour levels based on variable metadata. It takes a 3D xarray DataArray containing the variable data, along with corresponding longitude and latitude coordinate arrays, and the vertical level of interest (which can be specified as a pressure value in hPa, height in meters, or model level index). The method is designed to handle the transformation from MPAS unstructured mesh to regular grids suitable for contouring, and to apply variable-specific visualization settings based on metadata. Currently this functionality is not implemented and the method raises a NotImplementedError, reserving this interface for future development of comprehensive 3D variable visualization capabilities in MPASdiag. 
-
-        Parameters:
-            data_array (xr.DataArray): 3D xarray DataArray containing the variable data to be visualized.
-            lon (np.ndarray): 1D or 2D array of longitude coordinates corresponding to the data array.
-            lat (np.ndarray): 1D or 2D array of latitude coordinates corresponding to the data array.
-            level (Union[int, float]): Specific vertical level to visualize, can be pressure value in hPa, height in meters, or model level index.
-            var_name (str): Name of the variable being visualized, used for metadata retrieval and visualization settings. 
-
-        Returns:
-            Any: Visualization object (e.g., matplotlib figure or axis) containing the plotted 3D variable slice. 
-        """
-        raise NotImplementedError(MPASFileMetadata._3D_NOT_IMPLEMENTED)
+        metadata = MPASFileMetadata.get_variable_metadata(var_name, data_array, include_visualization=True)
+        colormap = metadata.get('colormap', 'viridis')
+        levels = metadata.get('levels', None)
+        return colormap, levels
     
     @staticmethod
     def get_available_variables() -> List[str]:

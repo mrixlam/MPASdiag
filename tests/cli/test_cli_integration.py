@@ -2,7 +2,7 @@
 """
 MPASdiag Test Suite: CLI Integration Tests
 
-This module contains integration-style tests for the MPASdiag CLI, focusing on the unified interface defined in `cli_unified.py`. The tests cover top-level behaviors such as the presence of the `main` function, handling of global flags, and execution of analysis workflows using real MPAS data files. The goal is to ensure that the CLI components work together correctly and that the application can be invoked as expected in typical usage scenarios.
+This module contains integration tests for the MPASdiag CLI unified interface, verifying that the command-line interface can successfully execute end-to-end workflows using real MPAS diagnostic files. The tests cover various analysis types (precipitation, surface, wind) and ensure that the CLI can parse arguments, dispatch to the correct analysis functions, and complete without errors. Sample data files are required for these tests, and they will be skipped if the necessary files are not available on the test host. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -18,19 +18,6 @@ from pathlib import Path
 
 class TestCLIIntegration:
     """ Integration tests for the MPASdiag CLI unified interface. """
-
-    def test_module_main_function_exists(self: "TestCLIIntegration") -> None:
-        """
-        This test verifies that the `main` function is defined in the `cli_unified` module. The presence of this function is critical for the CLI to operate correctly, as it serves as the entry point for command-line execution. The test imports the `main` function and asserts that it is callable, ensuring that the module's interface is properly defined.
-
-        Parameters:
-            self (unittest.TestCase): The test instance.
-
-        Returns:
-            None: The test will raise on failure.
-        """
-        from mpasdiag.processing.cli_unified import main
-        assert callable(main)
 
     def test_help_exits_cleanly(self: "TestCLIIntegration") -> None:
         """
@@ -90,7 +77,6 @@ class TestIntegrationWithRealData:
         )
         
         result = cli.run_analysis(config)
-        
         assert result is True
     
     def test_run_surface_analysis_with_real_data(self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str) -> None:
@@ -128,7 +114,6 @@ class TestIntegrationWithRealData:
         )
         
         result = cli.run_analysis(config)
-        
         assert result is True
     
     def test_run_wind_analysis_with_real_data(self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str) -> None:
@@ -168,7 +153,6 @@ class TestIntegrationWithRealData:
         )
         
         result = cli.run_analysis(config)
-        
         assert result is True
     
     def test_run_precipitation_analysis_batch_mode(self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str) -> None:
@@ -206,7 +190,6 @@ class TestIntegrationWithRealData:
         )
         
         result = cli.run_analysis(config)
-        
         assert result is True
     
     def test_run_surface_analysis_with_spatial_bounds(self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str) -> None:
@@ -248,7 +231,6 @@ class TestIntegrationWithRealData:
         )
         
         result = cli.run_analysis(config)
-        
         assert result is True
     
     def test_main_function_with_precipitation_args(self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str) -> None:

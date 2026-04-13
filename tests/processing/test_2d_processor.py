@@ -22,7 +22,7 @@ from unittest.mock import patch
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from tests.test_data_helpers import get_mpas_data_paths, check_mpas_data_available
+from tests.test_data_helpers import get_mpas_data_paths, check_mpas_data_available, assert_expected_public_methods
 
 
 def get_mpas_test_data_paths() -> Dict[str, str]:
@@ -42,7 +42,8 @@ def get_mpas_test_data_paths() -> Dict[str, str]:
 
     return paths
 
-def load_mpas_processor(verbose: bool = False, use_pure_xarray: bool = True) -> MPAS2DProcessor:
+def load_mpas_processor(verbose: bool = False, 
+                        use_pure_xarray: bool = True) -> MPAS2DProcessor:
     """
     This function initializes an MPAS2DProcessor instance and attempts to load MPAS diagnostic data if available. It retrieves the necessary paths using a helper function, checks for the existence of the required grid file, and initializes the processor. If diagnostic data is available, it attempts to load it using the specified loading method. If any required data is missing or if loading fails, it gracefully skips the test. This function is designed to be used as a fixture in tests that require a processor with loaded data, ensuring that tests only run when valid data is present.
     
@@ -101,18 +102,7 @@ class TestMPAS2DProcessorInitialization:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=True)
-        public_methods = [method for method in dir(processor) if not method.startswith('_')]
-
-        expected_methods = [
-            'find_diagnostic_files',
-            'extract_spatial_coordinates',
-            'get_2d_variable_data',
-            'normalize_longitude',
-        ]
-
-        for method in expected_methods:
-            assert method in public_methods
-
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         assert processor.verbose
 
     def test_initialization_verbose_false(self: "TestMPAS2DProcessorInitialization") -> None:
@@ -126,22 +116,7 @@ class TestMPAS2DProcessorInitialization:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=False)
-        public_methods = [method for method in dir(processor) if not method.startswith('_')]
-
-        expected_methods = [
-            'add_spatial_coordinates',
-            'extract_2d_coordinates_for_variable',
-            'extract_spatial_coordinates',
-            'filter_by_spatial_extent',
-            'find_diagnostic_files',
-            'get_2d_variable_data',
-            'get_available_variables',
-            'normalize_longitude',
-        ]
-        
-        for method in expected_methods:
-            assert method in public_methods
-
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         assert not processor.verbose
 
 
@@ -166,6 +141,7 @@ class TestFindDiagnosticFiles:
             return
         
         cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=True)
+        assert_expected_public_methods(cls.processor, 'MPAS2DProcessor')
 
     def test_find_files_in_diag_subdirectory(self: "TestFindDiagnosticFiles") -> None:
         """
@@ -223,7 +199,9 @@ class TestExtract2DCoordinates:
     """ Test coordinate extraction from actual MPAS data. """
 
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestExtract2DCoordinates", mpas_2d_processor_diag, mpas_data_available):
+    def setup_method(self: "TestExtract2DCoordinates", 
+                     mpas_2d_processor_diag: MPAS2DProcessor, 
+                     mpas_data_available: bool) -> None:
         """
         This fixture sets up the MPAS2DProcessor with loaded diagnostic data for coordinate extraction tests. It uses the session-scoped `mpas_2d_processor_diag` fixture to avoid redundant loading across multiple tests. If the MPAS dataset is not available, it will skip all tests in this class, ensuring that they only run when valid data is present. Shared attributes are stored on `self` for use in individual tests. This setup ensures that the tests are deterministic and do not fail due to missing data on machines that do not have the MPAS test dataset.
 
@@ -305,7 +283,8 @@ class TestExtract2DCoordinates:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=False)
-        
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
+
         with pytest.raises((AttributeError, KeyError, TypeError, ValueError)):
             processor.extract_spatial_coordinates()
 
@@ -321,6 +300,7 @@ class TestExtract2DCoordinates:
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=True)
         processor.load_2d_data(self.paths['diag_dir'], use_pure_xarray=True)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         
         with patch('builtins.print') as mock_print:
             _, _ = processor.extract_spatial_coordinates()
@@ -401,7 +381,9 @@ class TestGet2DVariableData:
     """ Test variable data retrieval from actual MPAS files. """
 
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestGet2DVariableData", mpas_2d_processor_diag, mpas_data_available):
+    def setup_method(self: "TestGet2DVariableData", 
+                     mpas_2d_processor_diag: "MPAS2DProcessor", 
+                     mpas_data_available: bool) -> None:
         """
         This fixture sets up the MPAS2DProcessor with loaded diagnostic data for variable retrieval tests. It uses the session-scoped `mpas_2d_processor_diag` fixture to avoid redundant loading across multiple tests. If the MPAS dataset is not available, it will skip all tests in this class, ensuring that they only run when valid data is present. Shared attributes are stored on `self` for use in individual tests. This setup ensures that the tests are deterministic and do not fail due to missing data on machines that do not have the MPAS test dataset. 
 
@@ -481,7 +463,8 @@ class TestGet2DVariableData:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=False)
-        
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
+
         with pytest.raises((AttributeError, TypeError, KeyError, ValueError)):
             processor.get_2d_variable_data('t2m')
 
@@ -551,8 +534,10 @@ class TestGetAccumulationHours:
             pytest.skip("MPAS test data not available")
             return
         
-        cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=False)        
+        cls.processor = MPAS2DProcessor(cls.paths['grid_file'], verbose=False)
+        assert_expected_public_methods(cls.processor, 'MPAS2DProcessor')     
         cls.precip_diag = PrecipitationDiagnostics(verbose=False)
+        assert_expected_public_methods(cls.precip_diag, 'PrecipitationDiagnostics')
         cls.diag_files = sorted(Path(cls.paths['diag_dir']).glob('diag.*.nc'))
 
         assert len(cls.diag_files) > 0, "No diagnostic files found for accumulation parsing tests"
@@ -680,7 +665,9 @@ class TestAddSpatialCoordinates:
     """ Test adding spatial coordinates to datasets. """
 
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestAddSpatialCoordinates", mpas_2d_processor_diag, mpas_data_available):
+    def setup_method(self: "TestAddSpatialCoordinates", 
+                     mpas_2d_processor_diag: "MPAS2DProcessor", 
+                     mpas_data_available: bool) -> None:
         """
         This fixture sets up the MPAS2DProcessor with loaded diagnostic data for spatial coordinate tests. It uses the session-scoped `mpas_2d_processor_diag` fixture to avoid redundant loading across multiple tests. If the MPAS dataset is not available, it will skip all tests in this class, ensuring that they only run when valid data is present. Shared attributes are stored on `self` for use in individual tests. This setup ensures that the tests are deterministic and do not fail due to missing data on machines that do not have the MPAS test dataset.
 
@@ -765,6 +752,7 @@ class TestLoad2DData:
             None
         """
         processor = MPAS2DProcessor(self.paths['grid_file'], verbose=False)
+        assert_expected_public_methods(processor, 'MPAS2DProcessor')
         result = processor.load_2d_data(self.paths['diag_dir'], use_pure_xarray=True)
         
         assert result is processor
@@ -774,7 +762,9 @@ class TestEdgeCases:
     """ Test edge cases and boundary conditions with real data. """
 
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestEdgeCases", mpas_2d_processor_diag, mpas_data_available):
+    def setup_method(self: "TestEdgeCases", 
+                     mpas_2d_processor_diag: "MPAS2DProcessor", 
+                     mpas_data_available: bool) -> None:
         """
         This fixture sets up the MPAS2DProcessor with loaded diagnostic data for edge case tests. It uses the session-scoped `mpas_2d_processor_diag` fixture to avoid redundant loading across multiple tests. If the MPAS dataset is not available, it will skip all tests in this class, ensuring that they only run when valid data is present. Shared attributes are stored on `self` for use in individual tests. This setup ensures that the tests are deterministic and do not fail due to missing data on machines that do not have the MPAS test dataset. 
 
@@ -849,6 +839,7 @@ def _make_mock_2d_processor(**kwargs: Any) -> MPAS2DProcessor:
     """
     with patch.object(MPAS2DProcessor, '__init__', lambda self, *a, **kw: setattr(self, 'verbose', kw.get('verbose', kwargs.get('verbose', False))) or setattr(self, 'dataset', None) or setattr(self, 'grid_file', 'mock')):
         proc = MPAS2DProcessor.__new__(MPAS2DProcessor)
+        assert_expected_public_methods(proc, 'MPAS2DProcessor')
         proc.verbose = kwargs.get('verbose', False)
         proc.dataset = kwargs.get('dataset', None)
         proc.grid_file = 'mock'
@@ -858,7 +849,8 @@ def _make_mock_2d_processor(**kwargs: Any) -> MPAS2DProcessor:
 class TestFileDiscoveryFallbacks:
     """ Tests for find_diagnostic_files fallback chain: diag → diag subdir → recursive → mpasout → mpasout recursive → error. """
 
-    def test_find_diag_files_in_diag_subdir(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_find_diag_files_in_diag_subdir(self: "TestFileDiscoveryFallbacks", 
+                                            tmp_path: Any) -> None:
         """
         This test verifies that when the primary search for diagnostic files in the specified directory fails, the method correctly falls back to searching within a `diag` subdirectory. It creates a `diag` subdirectory within the temporary path and populates it with mock diagnostic files. The test then patches the file discovery method to simulate a failure in the primary search while allowing the subdirectory search to succeed, and asserts that the correct number of files is returned from the `diag` subdirectory. 
 
@@ -884,7 +876,8 @@ class TestFileDiscoveryFallbacks:
             result = processor.find_diagnostic_files(str(tmp_path))
         assert len(result) == pytest.approx(3)
 
-    def test_find_diag_files_recursive(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_find_diag_files_recursive(self: "TestFileDiscoveryFallbacks", 
+                                       tmp_path: Any) -> None:
         """
         This test checks that when both the primary search and the `diag` subdirectory search for diagnostic files fail, the method correctly falls back to a recursive search for diagnostic files. It creates a nested directory structure within the temporary path and populates it with mock diagnostic files. The test then patches the file discovery method to simulate failures in both the primary and subdirectory searches while allowing the recursive search to succeed, and asserts that the correct number of files is returned from the recursive search.
 
@@ -911,7 +904,8 @@ class TestFileDiscoveryFallbacks:
 
         assert len(result) == pytest.approx(3)
 
-    def test_fallback_to_mpasout_files(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_fallback_to_mpasout_files(self: "TestFileDiscoveryFallbacks", 
+                                       tmp_path: Any) -> None:
         """
         This test verifies that when all searches for diagnostic files fail, the method correctly falls back to searching for `mpasout` files in the specified directory. It creates mock `mpasout` files directly within the temporary path. The test then patches the file discovery method to simulate failures in all diagnostic file searches while allowing the search for `mpasout` files to succeed, and asserts that the correct number of `mpasout` files is returned. This confirms that the method can successfully identify and return `mpasout` files as a fallback when no diagnostic files are found in the expected locations. 
 
@@ -938,7 +932,8 @@ class TestFileDiscoveryFallbacks:
                 result = processor.find_diagnostic_files(str(tmp_path))
         assert len(result) == pytest.approx(3)
 
-    def test_fallback_to_mpasout_recursive(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_fallback_to_mpasout_recursive(self: "TestFileDiscoveryFallbacks", 
+                                           tmp_path: Any) -> None:
         """
         This test checks that when all searches for diagnostic files and `mpasout` files in the specified directory fail, the method correctly falls back to a recursive search for `mpasout` files. It creates a nested directory structure within the temporary path and populates it with mock `mpasout` files. The test then patches the file discovery method to simulate failures in all previous search attempts while allowing the recursive search for `mpasout` files to succeed, and asserts that the correct number of files is returned from the recursive search. This confirms that the method can successfully identify and return `mpasout` files from a recursive search as a final fallback when no diagnostic files are found in any expected locations.
 
@@ -964,7 +959,8 @@ class TestFileDiscoveryFallbacks:
                 result = processor.find_diagnostic_files(str(tmp_path))
         assert len(result) == pytest.approx(3)
 
-    def test_no_files_found_raises_error(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_no_files_found_raises_error(self: "TestFileDiscoveryFallbacks", 
+                                         tmp_path: Any) -> None:
         """
         This test verifies that when all searches for diagnostic files and `mpasout` files fail, the method raises a `FileNotFoundError` with an appropriate message indicating that no diagnostic files were found. It patches the file discovery method to simulate failures in all search attempts, ensuring that no files are found in any location. The test then asserts that the expected exception is raised with a message containing "No diagnostic files", confirming that the method correctly handles the case where no relevant files are available and provides meaningful feedback through exceptions. 
 
@@ -981,7 +977,8 @@ class TestFileDiscoveryFallbacks:
             with pytest.raises(FileNotFoundError, match="No diagnostic files"):
                 processor.find_diagnostic_files(str(tmp_path))
 
-    def test_insufficient_mpasout_files(self: "TestFileDiscoveryFallbacks", tmp_path: Any) -> None:
+    def test_insufficient_mpasout_files(self: "TestFileDiscoveryFallbacks", 
+                                        tmp_path: Any) -> None:
         """
         This test checks that when the method falls back to searching for `mpasout` files but finds an insufficient number of them (e.g., only one file), it raises a `ValueError` with an appropriate message indicating that there are insufficient diagnostic files. It creates a single mock `mpasout` file within a subdirectory of the temporary path and patches the file discovery method to simulate failures in all previous search attempts while allowing the search for `mpasout` files to succeed. The test then asserts that the expected exception is raised with a message containing "Insufficient", confirming that the method correctly handles cases where fallback files are found but do not meet the criteria for a valid dataset, providing meaningful feedback through exceptions. 
 

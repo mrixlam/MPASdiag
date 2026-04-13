@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Dict, Any, Optional, Tuple, cast
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.processing.base import MPASBaseProcessor
+from mpasdiag.processing.constants import P0_REF_PA, KAPPA, Rv_OVER_Rd, EPSILON_RD_RV
 
 if TYPE_CHECKING:
     import metpy.calc as _mpcalc_t
@@ -33,18 +34,10 @@ try:
     import metpy.calc as _mpcalc  # type: ignore[no-redef]
     from metpy.units import units as _munits  # type: ignore[no-redef]
     HAS_METPY = True
+    mpcalc: Any = _mpcalc
+    munits: Any = _munits
 except ImportError:
     HAS_METPY = False
-
-# Convenience aliases used throughout the module
-mpcalc: Any = _mpcalc
-munits: Any = _munits
-
-# Physical constants
-_P0 = 100000.0       # Reference pressure (Pa)
-_KAPPA = 0.2854      # R_d / c_p (dimensionless)
-_Rv_over_Rd = 1.608  # Ratio of gas constants (water vapour / dry air)
-_EPSILON = 0.622     # Rd / Rv
 
 
 class SoundingDiagnostics:
@@ -216,7 +209,7 @@ class SoundingDiagnostics:
         p = np.asarray(pressure_pa, dtype=np.float64)
 
         # Vapour pressure: e = q * p / (epsilon + q)
-        e = np.clip(q * p / (_EPSILON + q), 1e-10, None)
+        e = np.clip(q * p / (EPSILON_RD_RV + q), 1e-10, None)
 
         # Magnus formula: compute dewpoint in °C from vapour pressure in Pa 
         ln_ratio = np.log(e / 611.2)
@@ -369,8 +362,8 @@ class SoundingDiagnostics:
         """
         # Return the actual temperature profile in K by applying the Poisson equation
         return np.asarray(theta, dtype=np.float64) * (
-            np.asarray(pressure_pa, dtype=np.float64) / _P0
-        ) ** _KAPPA
+            np.asarray(pressure_pa, dtype=np.float64) / P0_REF_PA
+        ) ** KAPPA
 
     def _load_grid_coordinates(self: "SoundingDiagnostics", 
                                processor: MPAS3DProcessor) -> Tuple[np.ndarray, np.ndarray]:
@@ -591,7 +584,7 @@ class SoundingDiagnostics:
 
             # Compute the LCL pressure using the Poisson equation with the estimated LCL temperature
             lcl_p = pressure_hpa[0] * (
-                (lcl_t + 273.15) / (T_sfc + 273.15)) ** (1.0 / _KAPPA)
+                (lcl_t + 273.15) / (T_sfc + 273.15)) ** (1.0 / KAPPA)
 
             # Store the fallback LCL pressure and temperature in the result dictionary
             result['lcl_pressure'] = float(lcl_p)
