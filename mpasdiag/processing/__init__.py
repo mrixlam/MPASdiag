@@ -28,11 +28,12 @@ from .utils_parser import ArgumentParser
 
 try:
     from .remapping import (
-        MPASRemapper, 
-        remap_mpas_to_latlon, 
+        MPASRemapper,
+        remap_mpas_to_latlon,
         remap_mpas_to_latlon_with_masking,
         build_remapped_valid_mask,
-        create_target_grid
+        create_target_grid,
+        dispatch_remap,
     )
     _REMAPPING_AVAILABLE = True
 except ImportError:
@@ -42,6 +43,7 @@ except ImportError:
     remap_mpas_to_latlon_with_masking = None
     build_remapped_valid_mask = None
     create_target_grid = None
+    dispatch_remap = None
 
 __all__ = [
     'MPASBaseProcessor',
@@ -62,5 +64,6 @@ __all__ = [
     'remap_mpas_to_latlon',
     'remap_mpas_to_latlon_with_masking',
     'build_remapped_valid_mask',
-    'create_target_grid'
+    'create_target_grid',
+    'dispatch_remap',
 ]

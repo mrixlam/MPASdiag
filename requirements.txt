@@ -46,4 +46,4 @@ execnet>=1.9.0
 metpy>=1.4.0
 
 # Regridding
-xesmf>=0.6.0
+esmpy>=8.4.0

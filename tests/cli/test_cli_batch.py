@@ -18,17 +18,18 @@ from pathlib import Path
 class TestBatchAndParallelProcessing:
     """ Test batch and parallel processing workflows without a logger attached. """
     
-    def test_precipitation_batch_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_precipitation_batch_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                                grid_file: str, 
+                                                test_data_dir: str) -> None:
         """
         This test runs the precipitation batch processing path with the logger removed. It prepares an `MPASConfig` for precipitation analysis in batch mode, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure. 
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -59,17 +60,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_surface_batch_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_surface_batch_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                          grid_file: str, 
+                                          test_data_dir: str) -> None:
         """
         This test runs the surface batch processing path with the logger removed. It prepares an `MPASConfig` for surface analysis in batch mode, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -100,17 +102,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_wind_batch_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_wind_batch_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                       grid_file: str, 
+                                       test_data_dir: str) -> None:
         """
         This test runs the wind batch processing path with the logger removed. It prepares an `MPASConfig` for wind analysis in batch mode, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -143,17 +146,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_cross_section_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_cross_section_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                          grid_file: str, 
+                                          test_data_dir: str) -> None:
         """
         This test runs the cross-section batch processing path with the logger removed. It prepares an `MPASConfig` for cross-section analysis in batch mode, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -188,17 +192,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_precipitation_parallel_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_precipitation_parallel_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                                   grid_file: str, 
+                                                   test_data_dir: str) -> None:
         """
         This test runs the precipitation batch processing path in parallel mode with the logger removed. It prepares an `MPASConfig` for precipitation analysis with `parallel=True`, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -229,17 +234,18 @@ class TestBatchAndParallelProcessing:
         result = cli.run_analysis(config)
         assert isinstance(result, bool)
     
-    def test_surface_parallel_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_surface_parallel_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                             grid_file: str, 
+                                             test_data_dir: str) -> None:
         """
         This test runs the surface batch processing path in parallel mode with the logger removed. It prepares an `MPASConfig` for surface analysis with `parallel=True`, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure. 
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -271,17 +277,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_wind_parallel_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_wind_parallel_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                          grid_file: str, 
+                                          test_data_dir: str) -> None:
         """
         This test runs the wind batch processing path in parallel mode with the logger removed. It prepares an `MPASConfig` for wind analysis with `parallel=True`, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -315,17 +322,18 @@ class TestBatchAndParallelProcessing:
         
         assert isinstance(result, bool)
     
-    def test_cross_section_batch_parallel_without_logger(self: "TestBatchAndParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_cross_section_batch_parallel_without_logger(self: 'TestBatchAndParallelProcessing', 
+                                                         grid_file: str, 
+                                                         test_data_dir: str) -> None:
         """
         This test runs the cross-section batch processing path in parallel mode with the logger removed. It prepares an `MPASConfig` for cross-section analysis with `parallel=True`, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure.
 
         Parameters:
-            self (TestBatchAndParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -366,17 +374,18 @@ class TestBatchAndParallelProcessing:
 class TestParallelProcessing:
     """ Test parallel processing workflows. """
     
-    def test_precipitation_parallel_processing(self: "TestParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_precipitation_parallel_processing(self: 'TestParallelProcessing', 
+                                               grid_file: str, 
+                                               test_data_dir: str) -> None:
         """
         This test runs the precipitation batch processing path in parallel mode. It prepares an `MPASConfig` for precipitation analysis with `parallel=True`, and asserts that `run_analysis` returns `True` on successful completion when required test data files are present, or skips the test if they are not available.
 
         Parameters:
-            self (TestParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts that `run_analysis` returns `True` on success and will raise on failure.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -406,17 +415,18 @@ class TestParallelProcessing:
         
         assert result is True
     
-    def test_surface_parallel_processing(self: "TestParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_surface_parallel_processing(self: 'TestParallelProcessing', 
+                                         grid_file: str, 
+                                         test_data_dir: str) -> None:
         """
         This test runs the surface batch processing path in parallel mode. It prepares an `MPASConfig` for surface analysis with `parallel=True`, and asserts that `run_analysis` returns `True` on successful completion when required test data files are present, or skips the test if they are not available.
 
         Parameters:
-            self (TestParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns `True` for a successful run and will raise otherwise.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -446,17 +456,18 @@ class TestParallelProcessing:
         
         assert result is True
     
-    def test_wind_parallel_processing(self: "TestParallelProcessing", grid_file: str, test_data_dir: str) -> None:
+    def test_wind_parallel_processing(self: 'TestParallelProcessing', 
+                                      grid_file: str, 
+                                      test_data_dir: str) -> None:
         """
         This test runs the wind batch processing path in parallel mode. It prepares an `MPASConfig` for wind analysis with `parallel=True`, and asserts that `run_analysis` returns `True` on successful completion when required test data files are present, or skips the test if they are not available.
 
         Parameters:
-            self (TestParallelProcessing): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns `True` on successful completion.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -493,15 +504,15 @@ class TestParallelProcessing:
 class TestBatchProcessingWithLogger:
     """ Test batch processing workflows with an attached logger. """
     
-    def test_precipitation_batch_parallel_with_logger(self: "TestBatchProcessingWithLogger") -> None:
+    def test_precipitation_batch_parallel_with_logger(self: 'TestBatchProcessingWithLogger') -> None:
         """
         This test runs the precipitation batch processing path in parallel mode with an attached logger. It prepares an `MPASConfig` for precipitation analysis with `parallel=True`, attaches an `MPASLogger` to the CLI, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions, while also emitting informational log messages. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestBatchProcessingWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -530,15 +541,15 @@ class TestBatchProcessingWithLogger:
         result = cli.run_analysis(config)
         assert isinstance(result, bool)
     
-    def test_surface_batch_parallel_with_logger(self: "TestBatchProcessingWithLogger") -> None:
+    def test_surface_batch_parallel_with_logger(self: 'TestBatchProcessingWithLogger') -> None:
         """
         This test runs the surface batch processing path in parallel mode with an attached logger. It prepares an `MPASConfig` for surface analysis with `parallel=True`, attaches an `MPASLogger` to the CLI, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions, while also emitting informational log messages. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestBatchProcessingWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -567,15 +578,15 @@ class TestBatchProcessingWithLogger:
         result = cli.run_analysis(config)
         assert isinstance(result, bool)
     
-    def test_wind_batch_parallel_with_logger(self: "TestBatchProcessingWithLogger") -> None:
+    def test_wind_batch_parallel_with_logger(self: 'TestBatchProcessingWithLogger') -> None:
         """
         This test runs the wind batch processing path in parallel mode with an attached logger. It prepares an `MPASConfig` for wind analysis with `parallel=True`, attaches an `MPASLogger` to the CLI, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions, while also emitting informational log messages. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestBatchProcessingWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts `run_analysis` returns a boolean.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -610,15 +621,15 @@ class TestBatchProcessingWithLogger:
 class TestCrossSectionBatchWithLogger:
     """ Test cross-section batch processing with logger. """
     
-    def test_cross_section_batch_parallel_with_logger(self: "TestCrossSectionBatchWithLogger") -> None:
+    def test_cross_section_batch_parallel_with_logger(self: 'TestCrossSectionBatchWithLogger') -> None:
         """
         This test runs the cross-section batch processing path in parallel mode with an attached logger. It prepares an `MPASConfig` for cross-section analysis with `parallel=True`, attaches an `MPASLogger` to the CLI, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions, while also emitting informational log messages. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestCrossSectionBatchWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns a boolean indicating whether the batch run attempted execution.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -650,15 +661,15 @@ class TestCrossSectionBatchWithLogger:
         result = cli.run_analysis(config)
         assert isinstance(result, bool)
     
-    def test_cross_section_batch_serial_with_logger(self: "TestCrossSectionBatchWithLogger") -> None:
+    def test_cross_section_batch_serial_with_logger(self: 'TestCrossSectionBatchWithLogger') -> None:
         """
         This test runs the cross-section batch processing path in serial mode with an attached logger. It prepares an `MPASConfig` for cross-section analysis with `parallel=False`, attaches an `MPASLogger` to the CLI, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions, while also emitting informational log messages. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestCrossSectionBatchWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns a boolean result indicating the batch run outcome.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -693,15 +704,15 @@ class TestCrossSectionBatchWithLogger:
 class TestCrossSectionBatchWithoutLogger:
     """ Test cross-section batch without logger for created_files message. """
     
-    def test_cross_section_batch_no_logger(self: "TestCrossSectionBatchWithoutLogger") -> None:
+    def test_cross_section_batch_no_logger(self: 'TestCrossSectionBatchWithoutLogger') -> None:
         """
         This test runs the cross-section batch processing path in serial mode with the logger removed. It prepares an `MPASConfig` for cross-section analysis with `parallel=False`, detaches the CLI logger, and asserts that `run_analysis` returns a boolean result indicating whether the batch run attempted execution without raising exceptions due to missing logging infrastructure. The test is skipped if required sample data files are not available on the system.
 
         Parameters:
-            self (TestCrossSectionBatchWithoutLogger): The test instance.
+            None
 
         Returns:
-            None: Assertions validate the boolean return value.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig

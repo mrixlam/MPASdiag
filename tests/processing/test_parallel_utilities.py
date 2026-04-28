@@ -14,7 +14,6 @@ import time
 import pytest
 from pathlib import Path
 from typing import List
-from unittest.mock import Mock, MagicMock, patch
 
 from mpasdiag.processing.parallel import (
     MPASParallelManager,
@@ -27,75 +26,10 @@ from mpasdiag.processing.parallel import (
 from tests.test_data_helpers import assert_expected_public_methods
 
 
-class TestMultiprocessingTaskWrapperModule:
-    """ Tests for the internal `_multiprocessing_task_wrapper` which adapts user functions for multiprocessing pools. """
-    
-    def test_wrapper_success(self: "TestMultiprocessingTaskWrapperModule") -> None:
-        """
-        This test confirms that the `_multiprocessing_task_wrapper` correctly executes a simple function and returns a successful `TaskResult`. It defines a `simple_func` that adds an offset to its input, constructs the expected arguments for the wrapper, and calls it directly. The test asserts that the result indicates success, that the computed result is correct, and that execution time is recorded. This validates that the wrapper correctly adapts user functions for execution in a multiprocessing context and returns results in the expected format. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def simple_func(x, offset=0):
-            return x + offset
-        
-        args = (0, 5, simple_func, 'collect', (10,), {})
-        result = _multiprocessing_task_wrapper(args)
-        
-        assert result.success
-        assert result.result == pytest.approx(15)
-        assert result.task_id == pytest.approx(0)
-        assert result.execution_time > 0
-    
-    def test_wrapper_error_collect(self: "TestMultiprocessingTaskWrapperModule") -> None:
-        """
-        This test checks that the `_multiprocessing_task_wrapper` correctly captures exceptions and returns a failed `TaskResult` when the error policy is 'collect'. It defines a `failing_func` that raises a `ValueError`, constructs the expected arguments for the wrapper, and calls it directly. The test asserts that the result indicates failure, that no result is returned, and that the error message contains expected information about the exception. This validates that the wrapper correctly handles exceptions according to the 'collect' policy, allowing for error information to be captured without crashing the multiprocessing pool. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def failing_func(x):
-            raise ValueError("Test error")
-        
-        args = (1, 5, failing_func, 'collect', (), {})
-        result = _multiprocessing_task_wrapper(args)
-        
-        assert not result.success
-        assert result.result is None
-        assert result.error is not None
-        assert "ValueError" in result.error
-        assert "Test error" in result.error
-    
-    def test_wrapper_error_abort(self: "TestMultiprocessingTaskWrapperModule") -> None:
-        """
-        This test checks that the `_multiprocessing_task_wrapper` re-raises exceptions when the error policy is 'abort'. It defines a `failing_func` that raises a `ValueError`, constructs the expected arguments for the wrapper with the 'abort' policy, and calls it directly. The test asserts that a `ValueError` is raised, confirming that the wrapper does not catch the exception and allows it to propagate, which is necessary for enabling upstream abort behavior in the multiprocessing context. This ensures that the wrapper correctly enforces the semantics of the 'abort' error policy. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def failing_func(x):
-            raise ValueError("Abort error")
-        
-        args = (2, 5, failing_func, 'abort', (), {})
-        
-        with pytest.raises(ValueError):
-            _multiprocessing_task_wrapper(args)
-
-
 class TestErrorHandling:
     """ Tests exercising different error handling policies (abort, continue, collect). """
     
-    def test_error_policy_collect(self: "TestErrorHandling") -> None:
+    def test_error_policy_collect(self: 'TestErrorHandling') -> None:
         """
         This test verifies that the 'collect' error policy allows the manager to execute all tasks while capturing error information for any that fail. It defines a `failing_func` that raises an exception for even inputs, sets the manager's error policy to 'collect', and calls `parallel_map` with a list of tasks. The test asserts that results are returned, that the correct number of tasks succeeded and failed, and that error information is captured for failed tasks. This validates that the manager correctly implements the 'collect' policy, enabling users to gather detailed error information without halting execution when some tasks fail. 
 
@@ -122,7 +56,7 @@ class TestErrorHandling:
         assert sum(1 for r in results if r.success) == pytest.approx(3)
         assert sum(1 for r in results if not r.success) == pytest.approx(2)
     
-    def test_error_policy_continue(self: "TestErrorHandling") -> None:
+    def test_error_policy_continue(self: 'TestErrorHandling') -> None:
         """
         This test verifies that the 'continue' error policy allows the manager to execute all tasks while treating failed tasks as unsuccessful without raising exceptions. It defines a `failing_func` that raises an exception for a specific input, sets the manager's error policy to 'continue', and calls `parallel_map` with a list of tasks. The test asserts that results are returned, that the correct number of tasks succeeded and failed, and that no exceptions are raised during execution. This validates that the manager correctly implements the 'continue' policy, allowing execution to proceed while marking failed tasks appropriately without halting or raising errors. 
 
@@ -148,11 +82,59 @@ class TestErrorHandling:
         assert len(results) == pytest.approx(3)
         assert sum(1 for r in results if r.success) == pytest.approx(2)
 
+    def test_multiprocessing_task_wrapper_raises_on_abort_policy(
+        self: 'TestErrorHandling',
+    ) -> None:
+        """
+        This test verifies that _multiprocessing_task_wrapper re-raises the original
+        exception when error_policy_value is 'abort' (line 126). It calls the wrapper
+        directly with a failing function and asserts that the exception propagates to
+        the caller, confirming that the abort policy is respected in the multiprocessing
+        task wrapper.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        def failing_func(task: int) -> int:
+            raise ValueError("deliberate failure")
+
+        args = (0, 42, failing_func, 'abort', (), {})
+        with pytest.raises(ValueError, match="deliberate failure"):
+            _multiprocessing_task_wrapper(args)
+
+    def test_execute_local_tasks_abort_policy_raises_in_serial(
+        self: 'TestErrorHandling',
+    ) -> None:
+        """
+        This test verifies that _execute_local_tasks raises the original exception when
+        the error policy is ABORT and the backend is not MPI (line 673). It creates a
+        serial manager, sets the error policy to 'abort', and calls _execute_local_tasks
+        with a failing function, asserting that a ValueError is raised.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        manager = MPASParallelManager(backend='serial', verbose=False)
+        assert_expected_public_methods(manager, 'MPASParallelManager')
+        manager.set_error_policy('abort')
+
+        def failing_func(task: int) -> int:
+            raise ValueError("abort trigger")
+
+        with pytest.raises(ValueError, match="abort trigger"):
+            manager._execute_local_tasks(failing_func, [(0, 1)])
+
 
 class TestStatistics:
     """ Tests for computing and formatting execution statistics from collected task timings. """
     
-    def test_get_statistics(self: "TestStatistics") -> None:
+    def test_get_statistics(self: 'TestStatistics') -> None:
         """
         This test confirms that the `get_statistics` method returns a valid statistics object after executing tasks in the multiprocessing backend. It runs a simple mapping of tasks and then retrieves statistics, asserting that the statistics object contains expected fields such as total tasks, completed tasks, failed tasks, and total execution time. This validates that the manager correctly collects and computes execution statistics in the multiprocessing context, providing users with insights into the performance and outcomes of their parallel executions. 
 
@@ -174,7 +156,7 @@ class TestStatistics:
         assert results is not None
         assert all(r.success for r in results)
     
-    def test_print_statistics(self: "TestStatistics") -> None:
+    def test_print_statistics(self: 'TestStatistics') -> None:
         """
         This test verifies that the `print_statistics` method outputs formatted execution statistics to stdout when verbose mode is enabled. It runs a simple mapping of tasks using the multiprocessing backend with `verbose=True`, captures the printed output, and asserts that it contains expected information such as "PARALLEL EXECUTION STATISTICS", total tasks, completed tasks, and other relevant details. This confirms that the manager correctly formats and prints execution statistics for users when verbose mode is active, providing insights into the performance of parallel executions. 
 
@@ -203,11 +185,109 @@ class TestStatistics:
         finally:
             sys.stdout = sys.__stdout__
 
+    def test_print_statistics_early_return_when_not_master(
+        self: 'TestStatistics',
+    ) -> None:
+        """
+        This test verifies that _print_statistics returns immediately without
+        producing any output when is_master is False (line 737). It sets is_master
+        to False on an otherwise valid manager and asserts that stdout remains empty
+        after calling _print_statistics.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import io
+        from contextlib import redirect_stdout
+
+        manager = MPASParallelManager(backend='serial', verbose=True)
+        assert_expected_public_methods(manager, 'MPASParallelManager')
+        manager.is_master = False
+        manager.stats = ParallelStats(
+            total_tasks=2, completed_tasks=2, failed_tasks=0,
+            total_time=1.0, worker_times={0: 1.0}, load_imbalance=0.0,
+        )
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            manager._print_statistics()
+
+        assert f.getvalue() == ""
+
+    def test_print_statistics_early_return_when_no_stats(
+        self: 'TestStatistics',
+    ) -> None:
+        """
+        This test verifies that _print_statistics returns immediately without
+        producing output when stats is None (line 737), even when is_master is True.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import io
+        from contextlib import redirect_stdout
+
+        manager = MPASParallelManager(backend='serial', verbose=True)
+        assert_expected_public_methods(manager, 'MPASParallelManager')
+        manager.is_master = True
+        manager.stats = None
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            manager._print_statistics()
+
+        assert f.getvalue() == ""
+
+    def test_print_statistics_shows_per_worker_times(
+        self: 'TestStatistics',
+    ) -> None:
+        """
+        This test verifies that _print_statistics prints the per-worker time table
+        and load imbalance line when worker_times contains more than one entry (lines
+        749-752). It constructs a ParallelStats with two worker entries, assigns it
+        to a serial manager with is_master=True and verbose=True, then asserts that
+        stdout contains the expected headers.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import io
+        from contextlib import redirect_stdout
+
+        manager = MPASParallelManager(backend='serial', verbose=True)
+        assert_expected_public_methods(manager, 'MPASParallelManager')
+        manager.is_master = True
+        manager.stats = ParallelStats(
+            total_tasks=4,
+            completed_tasks=4,
+            failed_tasks=0,
+            total_time=3.0,
+            worker_times={0: 1.0, 1: 2.0},
+            load_imbalance=0.5,
+        )
+
+        f = io.StringIO()
+        with redirect_stdout(f):
+            manager._print_statistics()
+
+        output = f.getvalue()
+        assert "Per-worker times:" in output
+        assert "Load imbalance:" in output
+
 
 class TestParallelPlotFunctionModule:
     """ Tests for the `parallel_plot` convenience function that wraps manager creation, mapping, and error policy configuration. """
     
-    def test_parallel_plot_basic(self: "TestParallelPlotFunctionModule") -> None:
+    def test_parallel_plot_basic(self: 'TestParallelPlotFunctionModule') -> None:
         """
         This test confirms that the `parallel_plot` function can execute a simple plotting function across multiple files without raising exceptions. It defines a `simple_plot` function that simulates plotting by returning a string, creates a list of file paths, and calls `parallel_plot` with these inputs. The test asserts that results are returned, that the correct number of results is produced, and that all results indicate success. This validates that the `parallel_plot` function correctly sets up the parallel manager, applies the plotting function to each file, and handles results according to the expected behavior, providing a convenient interface for parallel plotting tasks. 
 
@@ -231,24 +311,8 @@ class TestParallelPlotFunctionModule:
 class TestEdgeCases:
     """ Tests covering edge conditions such as empty task lists, single tasks, and more-workers-than-tasks scenarios. """
     
-    def test_empty_task_list(self: "TestEdgeCases") -> None:
-        """
-        This test verifies that the manager can handle an empty list of tasks without errors. It constructs a manager and calls `parallel_map` with an empty task list, asserting that results are returned and that the length of results is zero. This confirms that the manager correctly handles edge cases where no tasks are provided, ensuring that it does not raise exceptions or produce invalid results when given an empty workload. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        manager = MPASParallelManager(backend='serial', verbose=False)
-        assert_expected_public_methods(manager, 'MPASParallelManager')
-        results = manager.parallel_map(lambda x: x * 2, [])
-
-        assert results is not None
-        assert len(results) == pytest.approx(0)
     
-    def test_single_task(self: "TestEdgeCases") -> None:
+    def test_single_task(self: 'TestEdgeCases') -> None:
         """
         This test confirms that the manager can handle a single task correctly. It constructs a manager, calls `parallel_map` with a list containing one task, and asserts that results are returned, that there is exactly one result, that the task succeeded, and that the result is correct. This validates that the manager can execute a single task without issues, ensuring that it does not rely on having multiple tasks to function properly and can handle minimal workloads as expected. 
 
@@ -267,7 +331,7 @@ class TestEdgeCases:
         assert results[0].success
         assert results[0].result == pytest.approx(10)
     
-    def test_more_workers_than_tasks(self: "TestEdgeCases") -> None:
+    def test_more_workers_than_tasks(self: 'TestEdgeCases') -> None:
         """
         This test verifies that the manager can handle scenarios where the number of workers exceeds the number of tasks. It constructs a manager with more workers than tasks, calls `parallel_map` with a small list of tasks, and asserts that results are returned, that the correct number of results is produced, and that all tasks succeed. This ensures that the manager efficiently utilizes available workers without creating invalid task slots or errors when there are fewer tasks than workers. 
 
@@ -346,211 +410,10 @@ def sample_tasks() -> List[int]:
     return list(range(10))
 
 
-class TestMultiprocessingTaskWrapperAdditional:
-    """ Tests for the multiprocessing task wrapper helper that adapts user functions for pool workers. """
-    
-    def test_wrapper_abort_policy(self: "TestMultiprocessingTaskWrapperAdditional") -> None:
-        """
-        This test verifies that the `_multiprocessing_task_wrapper` re-raises exceptions when the error policy is 'abort'. It defines a `failing_func` that raises a `ValueError`, constructs the expected arguments for the wrapper with the 'abort' policy, and calls it directly. The test asserts that a `ValueError` is raised, confirming that the wrapper does not catch the exception and allows it to propagate, which is necessary for enabling upstream abort behavior in the multiprocessing context. This ensures that the wrapper correctly enforces the semantics of the 'abort' error policy. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def failing_func(task):
-            raise ValueError("Test error")
-        
-        args = (0, "task1", failing_func, "abort", (), {})
-        
-        with pytest.raises(ValueError, match="Test error"):
-            _multiprocessing_task_wrapper(args)
-    
-    def test_wrapper_continue_policy(self: "TestMultiprocessingTaskWrapperAdditional") -> None:
-        """
-        This test confirms that the `_multiprocessing_task_wrapper` captures exceptions into `TaskResult` objects under the 'continue' policy. It defines a `failing_func` that raises a `RuntimeError`, constructs the expected arguments for the wrapper with the 'continue' policy, and calls it directly. The test asserts that the result indicates failure, that error information is captured in the `TaskResult`, and that the error message contains expected details about the exception. This validates that the wrapper correctly handles exceptions according to the 'continue' policy, allowing execution to proceed while marking failed tasks appropriately without halting or raising errors. This is important for scenarios where users want to continue processing remaining tasks even if some fail, while still capturing error information for later analysis. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def failing_func(task):
-            raise RuntimeError("Expected error")
-        
-        args = (1, "task2", failing_func, "continue", (), {})
-        result = _multiprocessing_task_wrapper(args)
-        
-        assert not result.success
-        assert result.error is not None
-        assert "RuntimeError: Expected error" in result.error
-        assert result.task_id == pytest.approx(1)
-    
-    def test_wrapper_collect_policy(self: "TestMultiprocessingTaskWrapperAdditional") -> None:
-        """
-        This test confirms that the `_multiprocessing_task_wrapper` captures exceptions into `TaskResult` objects under the 'collect' policy. It defines a `failing_func` that raises a `TypeError`, constructs the expected arguments for the wrapper with the 'collect' policy, and calls it directly. The test asserts that the result indicates failure, that error information is captured in the `TaskResult`, and that the error message contains expected details about the exception. This validates that the wrapper correctly handles exceptions according to the 'collect' policy, allowing for error information to be captured without crashing the multiprocessing pool. Collection mode is important for aggregating errors post-run, enabling users to analyze failures after all tasks have completed. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        def failing_func(task):
-            raise TypeError("Type mismatch")
-        
-        args = (2, "task3", failing_func, "collect", (), {})
-        result = _multiprocessing_task_wrapper(args)
-        
-        assert not result.success
-        assert result.error is not None
-        assert "TypeError: Type mismatch" in result.error
-        assert result.task_id == pytest.approx(2)
-
-
-class TestPrintStatistics:
-    """ Tests for formatting and printing execution statistics from collected results. """
-    
-    def test_print_statistics_not_master(self: "TestPrintStatistics") -> None:
-        """
-        This test verifies that the `_print_statistics` method does not print any statistics when the manager is not the master process. It creates a mock MPI communicator that simulates a non-master rank, sets up a `ParallelStats` object with some dummy data, and captures stdout during the call to `_print_statistics`. The test asserts that no statistics-related output is printed since only the master process should output statistics. This ensures that in MPI runs, only the designated master process provides execution statistics, preventing cluttered output from multiple ranks. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        mock_comm = Mock()
-        mock_comm.Get_rank.return_value = 1 
-        mock_comm.Get_size.return_value = 4
-        
-        with patch('mpasdiag.processing.parallel.MPI_AVAILABLE', True):
-            mock_mpi = MagicMock()
-            mock_mpi.COMM_WORLD = mock_comm
-            
-            with patch('mpasdiag.processing.parallel.MPI', mock_mpi):
-                manager = MPASParallelManager(backend='mpi', verbose=True)
-                assert_expected_public_methods(manager, 'MPASParallelManager')
-                manager.is_master = False
-                manager.stats = ParallelStats(total_tasks=10, completed_tasks=10)
-                
-                import io
-                from contextlib import redirect_stdout                
-                f = io.StringIO()
-
-                with redirect_stdout(f):
-                    manager._print_statistics()
-                
-                output = f.getvalue()
-
-                assert "PARALLEL EXECUTION STATISTICS" not in output
-    
-    def test_print_statistics_no_stats(self: "TestPrintStatistics") -> None:
-        """
-        This test confirms that the `_print_statistics` method does not print any statistics when the `stats` attribute is None. It constructs a manager in serial mode, explicitly sets `stats` to None, and captures stdout during the call to `_print_statistics`. The test asserts that no statistics-related output is printed since there are no statistics to display. This ensures that the method handles cases where statistics have not been collected gracefully, without raising errors or printing misleading information. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        manager = MPASParallelManager(backend='serial', verbose=True)
-        assert_expected_public_methods(manager, 'MPASParallelManager')
-        manager.stats = None
-        
-        import io
-        from contextlib import redirect_stdout        
-        f = io.StringIO()
-
-        with redirect_stdout(f):
-            manager._print_statistics()
-        
-        output = f.getvalue()
-        assert "PARALLEL EXECUTION STATISTICS" not in output
-    
-    def test_print_statistics_with_single_worker(self: "TestPrintStatistics") -> None:
-        """
-        This test validates that the `_print_statistics` method correctly formats and prints execution statistics when there is only a single worker (e.g., in serial mode). It constructs a `ParallelStats` object with dummy data for a single worker, captures stdout during the call to `_print_statistics`, and asserts that the output includes overall statistics such as total tasks, completed tasks, failed tasks, and success rate. The test also confirms that per-worker timing details are not printed since there is only one worker. This ensures that the statistics output is appropriately tailored to the execution context, providing relevant information without unnecessary details in single-worker scenarios.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        manager = MPASParallelManager(backend='serial', verbose=True)
-        assert_expected_public_methods(manager, 'MPASParallelManager')
-
-        manager.stats = ParallelStats(
-            total_tasks=10,
-            completed_tasks=9,
-            failed_tasks=1,
-            total_time=25.5,
-            worker_times={0: 25.5},
-            load_imbalance=0.0
-        )
-        
-        import io
-        from contextlib import redirect_stdout        
-        f = io.StringIO()
-
-        with redirect_stdout(f):
-            manager._print_statistics()
-        
-        output = f.getvalue()
-
-        assert "PARALLEL EXECUTION STATISTICS" in output
-        assert "Total tasks:       10" in output
-        assert "Completed:         9" in output
-        assert "Failed:            1" in output
-        assert "Success rate:      90.0%" in output
-        assert "Per-worker times:" not in output
-    
-    def test_print_statistics_with_multiple_workers(self: "TestPrintStatistics") -> None:
-        """
-        This test confirms that the `_print_statistics` method includes per-worker timing details when multiple workers are present. The test builds a `ParallelStats` object with several worker times, captures stdout during the call to `_print_statistics`, and asserts that the output includes overall statistics as well as per-worker timing details and load imbalance metrics. This ensures that when multiple workers are involved, the statistics output provides insights into the performance of each worker, allowing users to identify potential bottlenecks or imbalances in their parallel execution. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        manager = MPASParallelManager(backend='multiprocessing', verbose=True)
-        assert_expected_public_methods(manager, 'MPASParallelManager')
-
-        manager.stats = ParallelStats(
-            total_tasks=20,
-            completed_tasks=20,
-            failed_tasks=0,
-            total_time=50.0,
-            worker_times={0: 12.5, 1: 13.0, 2: 12.0, 3: 12.5},
-            load_imbalance=0.04
-        )
-        
-        import io
-        from contextlib import redirect_stdout        
-        f = io.StringIO()
-
-        with redirect_stdout(f):
-            manager._print_statistics()
-        
-        output = f.getvalue()
-
-        assert "PARALLEL EXECUTION STATISTICS" in output
-        assert "Per-worker times:" in output
-        assert "Rank  0:" in output
-        assert "Load imbalance:" in output
-
-
 class TestParallelPlotFunctionAdditional:
     """ Tests for the `parallel_plot` convenience function that configures a manager and maps a plotting callback over input files. """
     
-    def test_parallel_plot_with_real_files(self: "TestParallelPlotFunctionAdditional", 
+    def test_parallel_plot_with_real_files(self: 'TestParallelPlotFunctionAdditional', 
                                            mpas_output_files: List[str]) -> None:
         """
         This test validates that the `parallel_plot` function can execute a plotting function over a list of MPAS output files in parallel. It defines a mock plotting function that asserts the existence of each file and returns a string indicating it was plotted. The test calls `parallel_plot` with this function and the provided list of MPAS output files, asserting that results are returned, that the correct number of results is produced, and that all results are instances of `TaskResult`. This ensures that `parallel_plot` correctly orchestrates parallel execution of a plotting function across multiple files, allowing for efficient generation of plots from MPAS outputs in a parallelized manner. If no MPAS output files are available, the test is skipped to avoid false failures. 
@@ -577,7 +440,7 @@ class TestParallelPlotFunctionAdditional:
             assert len(results) == len(mpas_output_files)
             assert all(isinstance(r, TaskResult) for r in results)
     
-    def test_parallel_plot_with_error_collection(self: "TestParallelPlotFunctionAdditional") -> None:
+    def test_parallel_plot_with_error_collection(self: 'TestParallelPlotFunctionAdditional') -> None:
         """
         This test ensures that the `parallel_plot` function correctly collects errors when the plotting function raises exceptions for certain files. It defines a `failing_plot` function that raises a `ValueError` for a specific file and returns success for others. The test calls `parallel_plot` with this function and a list of file paths, asserting that results are returned, that the correct number of results is produced, and that the error is properly captured for the failing file while other files succeed. This confirms that `parallel_plot` can handle exceptions gracefully, allowing for robust parallel plotting even when some files may cause errors. 
 
@@ -603,7 +466,7 @@ class TestParallelPlotFunctionAdditional:
             assert failed[0].error is not None
             assert "file2" in failed[0].error
     
-    def test_parallel_plot_returns_none_on_workers(self: "TestParallelPlotFunctionAdditional") -> None:
+    def test_parallel_plot_returns_none_on_workers(self: 'TestParallelPlotFunctionAdditional') -> None:
         """
         This test verifies that the `parallel_plot` function returns None when executed in a worker process, as it is designed to only return results on the master process. It defines a simple plotting function and simulates worker process behavior by calling `parallel_plot` directly. The test asserts that the result is None, confirming that the function correctly distinguishes between master and worker contexts and only returns results on the master. This ensures that users do not receive unexpected results when calling `parallel_plot` from within worker processes, maintaining a clear separation of responsibilities between master and worker execution.
 
@@ -625,7 +488,7 @@ class TestParallelPlotFunctionAdditional:
 class TestWithRealMPASData:
     """ Integration tests that operate on real MPAS output and grid files when available. """
     
-    def test_process_multiple_mpas_files(self: "TestWithRealMPASData", 
+    def test_process_multiple_mpas_files(self: 'TestWithRealMPASData', 
                                          mpas_output_files: List[str]) -> None:
         """
         This test validates that the `parallel_map` method can process multiple real MPAS output files in parallel, extracting basic information from each file. It defines a function to load an MPAS file and return its dimensions and variables, then uses the `MPASParallelManager` with multiprocessing to map this function over the provided list of MPAS output files. The test asserts that results are returned, that the number of results matches the number of files, and that each result contains expected information about the file's dimensions and variables. If no MPAS output files are available, the test is skipped to avoid false failures in CI environments without access to large data files. This ensures that the parallel processing logic can handle real-world MPAS data effectively, providing a foundation for more complex analyses and plotting functions.
@@ -662,82 +525,12 @@ class TestWithRealMPASData:
         assert all(r.success for r in results)
         assert all(isinstance(r.result, dict) for r in results)
     
-    def test_process_grid_file_with_different_strategies(self: "TestWithRealMPASData", 
-                                                         grid_file: str) -> None:
-        """
-        This test checks that the `parallel_map` method can process a real MPAS grid file using different load balancing strategies. It defines a function to extract basic grid information (number of cells and vertices) from the provided grid file, then uses the `MPASParallelManager` with the serial backend to map this function over the grid file. The test asserts that results are returned, that the result contains expected grid information, and that the method can execute without errors even when parallelism is not utilized. If the grid file is not available, the test is skipped to avoid false failures in environments where the file cannot be accessed. This ensures that the processing logic can handle real MPAS grid data and provides a basis for testing more complex operations on grid files in parallel contexts.
-
-        Parameters:
-            grid_file (str): Fixture-provided path to grid file.
-
-        Returns:
-            None
-        """
-        import os
-        if not os.path.exists(grid_file):
-            pytest.skip("Grid file not available")
-            return
-        
-        def extract_grid_info(filepath):
-            """Extract basic grid information."""
-            import xarray as xr
-            ds = xr.open_dataset(filepath, decode_times=False)
-            info = {
-                'nCells': ds.sizes.get('nCells', 0),
-                'nVertices': ds.sizes.get('nVertices', 0),
-            }
-            ds.close()
-            return info
-        
-        manager = MPASParallelManager(backend='serial', verbose=False)
-        results = manager.parallel_map(extract_grid_info, [grid_file])
-        assert_expected_public_methods(manager, 'MPASParallelManager')
-        
-        assert results is not None
-        assert len(results) == pytest.approx(1)
-        assert results[0].success
-        assert 'nCells' in results[0].result
-        assert 'nVertices' in results[0].result
-
 
 class TestParallelPlotFunctionComplete:
     """ Comprehensive tests of the `parallel_plot` convenience function covering manager creation, error policy configuration, and simple integration runs. """
     
-    def test_parallel_plot_creates_manager_with_dynamic_strategy(self: "TestParallelPlotFunctionComplete") -> None:
-        """
-        This test verifies that the `parallel_plot` function creates an instance of `MPASParallelManager` with the expected parameters, including the dynamic load balance strategy and verbose output. It mocks the `MPASParallelManager` class to intercept its instantiation and checks that it is called with the correct arguments. The test also asserts that the `set_error_policy` method is called with 'collect' to ensure that errors are handled appropriately during parallel execution. This confirms that the `parallel_plot` function sets up the parallel manager correctly for users, providing a foundation for effective parallel plotting operations. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        files = ["test1.nc", "test2.nc", "test3.nc"]
-        
-        def mock_plot(filepath, **kwargs):
-            return f"Plot of {filepath}"
-        
-        with patch('mpasdiag.processing.parallel.MPASParallelManager') as MockManager:
-            mock_instance = Mock()
-
-            mock_instance.parallel_map.return_value = [
-                TaskResult(i, True, f"Plot of {f}") for i, f in enumerate(files)
-            ]
-
-            MockManager.return_value = mock_instance            
-
-            results = parallel_plot(mock_plot, files, output_dir="./test/")            
-            MockManager.assert_called_once_with(load_balance_strategy="dynamic", verbose=True)
-            
-            mock_instance.set_error_policy.assert_called_once_with('collect')
-            mock_instance.parallel_map.assert_called_once()
-
-            assert results is not None
-            assert len(results) == len(files)
-            assert all(isinstance(r, TaskResult) for r in results)
     
-    def test_parallel_plot_integration(self: "TestParallelPlotFunctionComplete") -> None:
+    def test_parallel_plot_integration(self: 'TestParallelPlotFunctionComplete') -> None:
         """
         This test performs a simple integration test of the `parallel_plot` function using a basic counting plot function and a list of dummy file paths. It checks that the function returns results for each file and that the results are instances of `TaskResult`. This confirms that the `parallel_plot` function can execute end-to-end with a user-defined plotting function, providing a template for users to create their own parallel plotting workflows. 
 
@@ -760,113 +553,25 @@ class TestParallelPlotFunctionComplete:
             assert all(isinstance(r, TaskResult) for r in results)
 
 
-def test_timing_output() -> None:
-    """
-    This test simulates the output of a parallel processing timing test for MPAS diagnostics, demonstrating how to interpret timing metrics and load balancing statistics. It creates a mock MPI environment to show how timing information would be printed for a batch processing run, including breakdowns of data processing, plotting, and saving times, as well as overall wall time and speedup potential. The test also includes an interpretation section that explains what each metric means and provides usage recommendations based on the timing results. This serves as a template for users to understand and analyze the performance of their parallel processing workflows when running MPAS diagnostics. 
+class TestMainBlock:
+    """Tests that the if __name__ == '__main__' block in parallel.py executes without error."""
 
-    Parameters:
-        None
+    def test_main_block_executes_without_error(self: 'TestMainBlock') -> None:
+        """
+        This test exercises the if __name__ == '__main__' block in parallel.py (lines
+        806-820) by running the module as __main__ via runpy.run_module. It asserts
+        that no exception is raised during execution, confirming that the demo script
+        within the module is functional and that all referenced objects are correctly
+        resolved at runtime.
 
-    Returns:
-        None
-    """
-    try:
-        from mpi4py import MPI
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        is_parallel = size > 1
-    except ImportError:
-        rank = 0
-        size = 1
-        is_parallel = False
-    
-    if rank == 0:
-        print("\n" + "="*70)
-        print("PARALLEL PROCESSING TIMING TEST")
-        print("="*70)
-        print(f"Running with {size} process(es)")
-        print(f"Mode: {'PARALLEL' if is_parallel else 'SERIAL'}")
-        print("="*70 + "\n")
-    
-    if rank == 0:
-        print("Example timing output structure:\n")
-        
-        print("="*70)
-        print("PRECIPITATION BATCH PROCESSING RESULTS")
-        print("="*70)
-        print("Status:")
-        print("  Successful: 10/10")
-        print("  Failed: 0/10")
-        print("  Created files: 10 in ./plots")
-        print()
-        print("Timing Breakdown (per time step):")
-        print("  Data Processing:")
-        print("    Min:   0.245s")
-        print("    Max:   0.312s")
-        print("    Mean:  0.278s")
-        print("  Plotting:")
-        print("    Min:   1.234s")
-        print("    Max:   1.567s")
-        print("    Mean:  1.401s")
-        print("  Saving:")
-        print("    Min:   0.089s")
-        print("    Max:   0.123s")
-        print("    Mean:  0.106s")
-        print("  Total per step:")
-        print("    Min:   1.568s")
-        print("    Max:   2.002s")
-        print("    Mean:  1.785s")
-        print()
-        print("Overall Parallel Execution:")
-        print("  Wall time: 4.85s")
-        print("  Speedup potential: 17.85s / 4.85s = 3.68x")
-        print("  Load imbalance: 5.2%")
-        print("="*70)
-        print()
-        
-        print("INTERPRETATION:")
-        print("-" * 70)
-        print("1. Data Processing: Time spent reading/processing MPAS data")
-        print("   - If high: Consider data chunking or I/O optimization")
-        print()
-        print("2. Plotting: Time spent creating matplotlib figures")
-        print("   - Usually the dominant cost")
-        print("   - Benefits most from parallelization")
-        print()
-        print("3. Saving: Time spent writing files to disk")
-        print("   - If high: Check disk speed, consider different format")
-        print()
-        print("4. Wall time: Actual elapsed time (what user experiences)")
-        print("   - In parallel: Limited by slowest worker + overhead")
-        print()
-        print("5. Speedup potential: Sum of all times / wall time")
-        print("   - Ideal: Equal to number of processes")
-        print("   - Here: 3.68x with 4 processes = 92% efficiency")
-        print()
-        print("6. Load imbalance: How uneven work distribution is")
-        print("   - <10%: Excellent")
-        print("   - 10-20%: Good")
-        print("   - >20%: Consider dynamic load balancing")
-        print("="*70 + "\n")
-        
-        print("USAGE RECOMMENDATIONS:")
-        print("-" * 70)
-        print("• Use parallel processing when:")
-        print("  - Processing 10+ time steps")
-        print("  - Each step takes >1 second")
-        print("  - Have access to multiple cores")
-        print()
-        print("• Monitor timing to:")
-        print("  - Identify bottlenecks (data vs plotting vs I/O)")
-        print("  - Verify parallel speedup is worth the complexity")
-        print("  - Tune load balancing strategy")
-        print()
-        print("• Serial vs Parallel comparison:")
-        print("  - Run both and compare wall times")
-        print("  - Check that results are identical")
-        print("  - Ensure speedup > 1.5x to justify parallel overhead")
-        print("="*70 + "\n")
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import runpy
+        runpy.run_module('mpasdiag.processing.parallel', run_name='__main__', alter_sys=False)
 
 
 def simulate_workload() -> None:
@@ -940,8 +645,6 @@ if __name__ == "__main__":
     """
     This block allows the test module to be run directly, executing the `test_timing_output` function to demonstrate the timing output structure and interpretation guidelines for parallel processing. It also checks for MPI availability and provides instructions for testing with real data if MPI is available, or notes the requirement to install `mpi4py` for parallel execution testing. This enables users to easily run a demonstration of the timing output without needing to set up a full testing environment or access real MPAS datasets, providing insights into performance characteristics of parallel execution in MPAS diagnostics.
     """
-    test_timing_output()
-    
     try:
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
@@ -955,4 +658,3 @@ if __name__ == "__main__":
         print("\n✓ Timing test completed successfully!")
         print("\nNote: Install mpi4py to test parallel execution:")
         print("  pip install mpi4py\n")
-

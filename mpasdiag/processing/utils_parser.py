@@ -53,14 +53,14 @@ Examples:
             """
         )
         
-        io_group = parser.add_argument_group('Input/Output')
-        io_group.add_argument('--grid-file', type=str, required=False,
+        input_output_group = parser.add_argument_group('Input/Output')
+        input_output_group.add_argument('--grid-file', type=str, required=False,
                              help='Path to MPAS grid file')
-        io_group.add_argument('--data-dir', type=str, required=False,
+        input_output_group.add_argument('--data-dir', type=str, required=False,
                              help='Directory containing diagnostic files')
-        io_group.add_argument('--output-dir', type=str, default='./output',
+        input_output_group.add_argument('--output-dir', type=str, default='./output',
                              help='Output directory for plots and results')
-        io_group.add_argument('--config', type=str,
+        input_output_group.add_argument('--config', type=str,
                              help='Configuration file path (YAML format)')
         
         spatial_group = parser.add_argument_group('Spatial Extent')
@@ -430,15 +430,15 @@ Examples:
         path_group.add_argument("--end-lat", type=float, required=True,
                               help="Ending latitude in degrees")
         
-        xsec_group = parser.add_argument_group('Cross-section Parameters')
-        xsec_group.add_argument("--time-index", type=int, default=0,
+        crosssection_group = parser.add_argument_group('Cross-section Parameters')
+        crosssection_group.add_argument("--time-index", type=int, default=0,
                               help="Time index to extract (default: 0)")
-        xsec_group.add_argument("--vertical-coord", choices=["pressure", "modlev", "height"], 
+        crosssection_group.add_argument("--vertical-coord", choices=["pressure", "modlev", "height"],
                               default="pressure",
                               help="Vertical coordinate system (default: pressure)")
-        xsec_group.add_argument("--num-points", type=int, default=100,
+        crosssection_group.add_argument("--num-points", type=int, default=100,
                               help="Number of interpolation points along cross-section (default: 100)")
-        xsec_group.add_argument("--max-height", type=float,
+        crosssection_group.add_argument("--max-height", type=float,
                               help="Maximum height in km for the vertical axis (default: auto)")
         
         viz_group = parser.add_argument_group('Visualization Options')
@@ -461,11 +461,11 @@ Examples:
                           help="Output formats (default: png)")
         parser.add_argument("--title", help="Custom plot title")
         
-        fig_group = parser.add_argument_group('Figure Options')
-        fig_group.add_argument("--figure-size", nargs=2, type=float, default=[14, 8], 
+        figure_group = parser.add_argument_group('Figure Options')
+        figure_group.add_argument("--figure-size", nargs=2, type=float, default=[14, 8],
                              metavar=("WIDTH", "HEIGHT"),
                              help="Figure size in inches (default: 14 8)")
-        fig_group.add_argument("--dpi", type=int, default=100, 
+        figure_group.add_argument("--dpi", type=int, default=100,
                              help="Output DPI - default: 100, use 300+ for publication quality")
         
         parser.add_argument("--verbose", "-v", action="store_true", 

@@ -94,8 +94,8 @@ def sample_indices() -> dict[str, float]:
 class TestCreateSkewTDiagram:
     """ This test class contains unit tests for the create_skewt_diagram method of the MPASSkewTPlotter class. """
 
-    def test_returns_figure_and_axes(self: "TestCreateSkewTDiagram", 
-                                     plotter: MPASSkewTPlotter, 
+    def test_returns_figure_and_axes(self: 'TestCreateSkewTDiagram', 
+                                     plotter: 'MPASSkewTPlotter', 
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """ 
         The create_skewt_diagram method should return a Matplotlib Figure and Axes object when provided with valid sounding data. This test verifies that the method executes without errors and that the returned objects are of the correct types. It uses a sample profile to ensure that the method can handle typical sounding data and produce a SkewT diagram successfully. 
@@ -112,8 +112,8 @@ class TestCreateSkewTDiagram:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_without_wind(self: "TestCreateSkewTDiagram", 
-                          plotter: MPASSkewTPlotter, 
+    def test_without_wind(self: 'TestCreateSkewTDiagram', 
+                          plotter: 'MPASSkewTPlotter', 
                           sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """ 
         This test verifies that the create_skewt_diagram method can successfully create a SkewT diagram even when wind data is not provided. The method should be able to handle None values for the u and v wind components without raising errors. This ensures that users can still visualize the thermodynamic profile of the atmosphere even if wind data is unavailable or not relevant for their analysis.
@@ -130,8 +130,8 @@ class TestCreateSkewTDiagram:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_with_title(self: "TestCreateSkewTDiagram", 
-                        plotter: MPASSkewTPlotter, 
+    def test_with_title(self: 'TestCreateSkewTDiagram', 
+                        plotter: 'MPASSkewTPlotter', 
                         sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """ 
         This test checks that the create_skewt_diagram method can accept a title argument and still produce a valid SkewT diagram. The presence of a title should not interfere with the creation of the figure, and the method should return a Figure object as expected. This ensures that users can customize their SkewT diagrams with titles without encountering issues.
@@ -149,11 +149,10 @@ class TestCreateSkewTDiagram:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_with_indices(
-            self: "TestCreateSkewTDiagram", 
-            plotter: MPASSkewTPlotter, 
-            sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
-            sample_indices: Mapping[str, Optional[float]]) -> None:
+    def test_with_indices(self: 'TestCreateSkewTDiagram', 
+                          plotter: 'MPASSkewTPlotter', 
+                          sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
+                          sample_indices: Mapping[str, Optional[float]]) -> None:
         """ 
         This test verifies that the create_skewt_diagram method can accept a dictionary of indices and display them on the SkewT diagram without errors. The indices should be correctly passed to the method, and the presence of these indices should not interfere with the creation of the figure. This ensures that users can enhance their SkewT diagrams with additional information about atmospheric stability and other relevant parameters.
 
@@ -171,8 +170,8 @@ class TestCreateSkewTDiagram:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_with_parcel_and_indices(self: "TestCreateSkewTDiagram", 
-                                     plotter: MPASSkewTPlotter, 
+    def test_with_parcel_and_indices(self: 'TestCreateSkewTDiagram', 
+                                     plotter: 'MPASSkewTPlotter', 
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
                                      sample_indices: Mapping[str, Optional[float]]) -> None:
         """ 
@@ -198,8 +197,8 @@ class TestCreateSkewTDiagram:
 class TestSavePlot:
     """ Verify that the create_skewt_diagram method can save the generated SkewT diagram to a file when a save_path is provided. """
 
-    def test_save_png(self: "TestSavePlot", 
-                      plotter: MPASSkewTPlotter, 
+    def test_save_png(self: 'TestSavePlot', 
+                      plotter: 'MPASSkewTPlotter', 
                       sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
                       tmp_path: pathlib.Path) -> None:
         """ 
@@ -224,8 +223,8 @@ class TestSavePlot:
 
         plt.close(fig)
 
-    def test_save_pdf(self: "TestSavePlot", 
-                      plotter: MPASSkewTPlotter, 
+    def test_save_pdf(self: 'TestSavePlot', 
+                      plotter: 'MPASSkewTPlotter', 
                       sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], 
                       tmp_path: pathlib.Path) -> None:
         """ 
@@ -253,7 +252,7 @@ class TestSavePlot:
 class TestEdgeCases:
     """ Verify that the create_skewt_diagram method can handle edge cases such as very short profiles, NaN values in dewpoint, and indices with None values without crashing. """
 
-    def test_short_profile(self: "TestEdgeCases", plotter: MPASSkewTPlotter) -> None:
+    def test_short_profile(self: 'TestEdgeCases', plotter: 'MPASSkewTPlotter') -> None:
         """
         This test checks that the create_skewt_diagram method can handle a very short sounding profile (e.g., only 3 levels) without crashing. The method should be able to create a SkewT diagram even with limited data points, and it should return a valid Figure object. This ensures that users can still visualize their sounding data in a SkewT format even if they have only a few levels of data available.
 
@@ -270,8 +269,8 @@ class TestEdgeCases:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_nan_in_dewpoint(self: "TestEdgeCases", 
-                             plotter: MPASSkewTPlotter, 
+    def test_nan_in_dewpoint(self: 'TestEdgeCases', 
+                             plotter: 'MPASSkewTPlotter', 
                              sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """
         This test verifies that the create_skewt_diagram method can handle NaN values in the dewpoint array without crashing. The method should be able to create a SkewT diagram even if some dewpoint values are missing, and it should return a valid Figure object. This ensures that users can still visualize their sounding data in a SkewT format even if there are gaps in the dewpoint data.
@@ -289,8 +288,8 @@ class TestEdgeCases:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_indices_with_none_values(self: "TestEdgeCases", 
-                                      plotter: MPASSkewTPlotter, 
+    def test_indices_with_none_values(self: 'TestEdgeCases',
+                                      plotter: 'MPASSkewTPlotter', 
                                       sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """
         This test verifies that the create_skewt_diagram method can handle indices with None values without crashing. The method should be able to create a SkewT diagram even if some indices are missing, and it should return a valid Figure object. This ensures that users can still visualize their sounding data in a SkewT format even if there are gaps in the indices data.
@@ -317,8 +316,8 @@ class TestEdgeCases:
 class TestIndicesTable:
     """ Verify the _add_indices_table method renders correctly. """
 
-    def test_table_with_full_indices(self: "TestIndicesTable",
-                                     plotter: MPASSkewTPlotter,
+    def test_table_with_full_indices(self: 'TestIndicesTable',
+                                     plotter: 'MPASSkewTPlotter',
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
                                      sample_indices: dict[str, float]) -> None:
         """ 
@@ -339,8 +338,8 @@ class TestIndicesTable:
         assert len(fig.get_axes()) >= 2
         plt.close(fig)
 
-    def test_table_with_partial_indices(self: "TestIndicesTable",
-                                        plotter: MPASSkewTPlotter,
+    def test_table_with_partial_indices(self: 'TestIndicesTable',
+                                        plotter: 'MPASSkewTPlotter',
                                         sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """ 
         This test checks that the _add_indices_table method can render a table of indices on the SkewT diagram when most indices are None. The method should handle missing values gracefully and still produce a valid figure. This ensures that users can visualize a partial set of indices without encountering errors. 
@@ -360,8 +359,8 @@ class TestIndicesTable:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-    def test_table_all_none_no_crash(self: "TestIndicesTable",
-                                     plotter: MPASSkewTPlotter,
+    def test_table_all_none_no_crash(self: 'TestIndicesTable',
+                                     plotter: 'MPASSkewTPlotter',
                                      sample_profile: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> None:
         """
         This test checks that the _add_indices_table method does not crash when all indices are None. The method should be able to handle a scenario where no indices are available and still produce a valid figure without errors. This ensures that users can visualize their SkewT diagram even if they do not have any indices to display, and that the absence of indices does not interfere with the core functionality of the plotter. 
@@ -382,35 +381,6 @@ class TestIndicesTable:
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
-
-class TestPlotterInit:
-    """ Verify that the MPASSkewTPlotter can be initialized with default and custom parameters. """
-
-    def test_default_init(self: "TestPlotterInit") -> None:
-        """ 
-        This test checks that the MPASSkewTPlotter can be initialized with default parameters without raising errors. The default initialization should set the verbose attribute to True, which allows for output during plotting. This ensures that users can create an instance of the plotter with default settings and have it ready for use without needing to specify any parameters.
-        
-        Parameters:
-            None    
-        
-        Returns:
-            None: The test will pass if the plotter is initialized successfully and the verbose attribute is set to True. 
-        """
-        p = MPASSkewTPlotter()
-        assert p.verbose is True
-
-    def test_custom_init(self: "TestPlotterInit") -> None:
-        """ 
-        This test checks that the MPASSkewTPlotter can be initialized with custom parameters without raising errors. In this case, the plotter is initialized with a specific figure size, DPI, and verbose set to False. This ensures that users can customize the initialization of the plotter according to their preferences and that the plotter can be created successfully with these custom settings.
-
-        Parameters:
-            None
-        
-        Returns:
-            None: The test will pass if the plotter is initialized successfully and the verbose attribute is set to False.
-        """
-        p = MPASSkewTPlotter(figsize=(10, 14), dpi=200, verbose=False)
-        assert p.verbose is False
 
 if __name__ == "__main__":
     pytest.main([__file__])

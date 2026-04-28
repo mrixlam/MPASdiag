@@ -48,17 +48,17 @@ class MPASDateTimeUtils:
             if match:
                 year, month, day, hour, minute, second = match.groups()
                 try:
-                    file_dt = datetime(int(year), int(month), int(day), int(hour), int(minute), int(second))
+                    file_datetime = datetime(int(year), int(month), int(day), int(hour), int(minute), int(second))
                 except ValueError:
                     if verbose:
                         print(f"Warning: Invalid datetime parsed from filename: {filename}")
-                    file_dt = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
+                    file_datetime = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
             else:
                 if verbose:
                     print(f"Warning: Could not parse datetime from filename: {filename}")
-                file_dt = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
-            
-            file_datetimes.append(file_dt)
+                file_datetime = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
+
+            file_datetimes.append(file_datetime)
         return file_datetimes
 
     @staticmethod
@@ -135,16 +135,16 @@ class MPASDateTimeUtils:
             return
 
         if time_str is not None:
-            ctx = f" (using variable: {var_context})" if var_context else ""
-            print(f"Time index {time_index} corresponds to: {time_str}{ctx}")
+            context_suffix = f" (using variable: {var_context})" if var_context else ""
+            print(f"Time index {time_index} corresponds to: {time_str}{context_suffix}")
         elif error is not None:
-            ctx = (f" (could not parse time: {error}, using variable: {var_context})"
-                   if var_context else f" (could not parse time: {error})")
-            print(f"Using time index {time_index}{ctx}")
+            context_suffix = (f" (could not parse time: {error}, using variable: {var_context})"
+                              if var_context else f" (could not parse time: {error})")
+            print(f"Using time index {time_index}{context_suffix}")
         else:
-            ctx = (f" (time coordinate not available, using variable: {var_context})"
-                   if var_context else " (time coordinate not available)")
-            print(f"Using time index {time_index}{ctx}")
+            context_suffix = (f" (time coordinate not available, using variable: {var_context})"
+                              if var_context else " (time coordinate not available)")
+            print(f"Using time index {time_index}{context_suffix}")
 
     @staticmethod
     def get_time_info(dataset: xr.Dataset,
@@ -268,9 +268,9 @@ class MPASDateTimeUtils:
         for bounds_var in time_bounds_vars:
             if bounds_var in dataset.data_vars:
                 try:
-                    bounds = dataset[bounds_var].values[time_index]
-                    start_bound = pd.to_datetime(bounds[0]).to_pydatetime()
-                    end_bound = pd.to_datetime(bounds[1]).to_pydatetime()
+                    bounds_values = dataset[bounds_var].values[time_index]
+                    start_bound = pd.to_datetime(bounds_values[0]).to_pydatetime()
+                    end_bound = pd.to_datetime(bounds_values[1]).to_pydatetime()
                     return start_bound, end_bound
                 except (IndexError, ValueError):
                     continue

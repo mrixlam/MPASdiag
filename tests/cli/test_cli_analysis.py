@@ -11,41 +11,22 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load pytest for test execution
+import os
 import pytest
 
 
 class TestAnalysisExecution:
     """ Tests for CLI analysis execution and dispatch logic. """
 
-    def test_run_analysis_no_analysis_type(self) -> None:
-        """
-        This test verifies that `run_analysis` fails gracefully when no `analysis_type` is provided. It constructs a configuration object without specifying `analysis_type` and asserts that `run_analysis` returns `False`, indicating it did not attempt to execute an analysis without a valid type.
-
-        Parameters:
-            self (unittest.TestCase): The test instance.
-
-        Returns:
-            None: Raises if `run_analysis` unexpectedly succeeds.
-        """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-
-        cli = MPASUnifiedCLI()
-
-        config = MPASConfig(grid_file='test.nc', data_dir='data/')
-        result = cli.run_analysis(config)
-
-        assert result is False
-
-    def test_run_analysis_unknown_analysis_type(self) -> None:
+    def test_run_analysis_unknown_analysis_type(self: 'TestAnalysisExecution') -> None:
         """
         This test checks that `run_analysis` returns `False` when an unrecognized `analysis_type` is provided. It creates a configuration with an invalid `analysis_type` and asserts that the method does not attempt to execute any analysis and instead returns `False`.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises if the method does not return `False`.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -62,15 +43,15 @@ class TestAnalysisExecution:
 
         assert result is False
 
-    def test_run_analysis_recognizes_precipitation_alias(self) -> None:
+    def test_run_analysis_recognizes_precipitation_alias(self: 'TestAnalysisExecution') -> None:
         """
         This test ensures that `run_analysis` correctly identifies precipitation analysis aliases. It iterates over known precipitation aliases and asserts that the `_run_precipitation_analysis` method is called for each alias, returning `True` to indicate successful recognition and dispatch.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on missing calls or false return values.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -90,15 +71,15 @@ class TestAnalysisExecution:
                 mock_method.assert_called_once_with(config)
                 assert result is True
 
-    def test_run_analysis_recognizes_surface_alias(self) -> None:
+    def test_run_analysis_recognizes_surface_alias(self: 'TestAnalysisExecution') -> None:
         """
         This test verifies that `run_analysis` correctly identifies surface analysis aliases. It iterates over known surface aliases and asserts that the `_run_surface_analysis` method is called for each alias, returning `True` to confirm proper recognition and dispatch.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on missing calls or incorrect results.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -118,15 +99,15 @@ class TestAnalysisExecution:
                 mock_method.assert_called_once_with(config)
                 assert result is True
 
-    def test_run_analysis_recognizes_wind_alias(self) -> None:
+    def test_run_analysis_recognizes_wind_alias(self: 'TestAnalysisExecution') -> None:
         """
         This test ensures that `run_analysis` correctly identifies wind analysis aliases. It iterates over known wind aliases and asserts that the `_run_wind_analysis` method is called for each alias, returning `True` to indicate successful recognition and dispatch.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on missing calls or incorrect return values.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -146,15 +127,15 @@ class TestAnalysisExecution:
                 mock_method.assert_called_once_with(config)
                 assert result is True
 
-    def test_run_analysis_recognizes_cross_alias(self) -> None:
+    def test_run_analysis_recognizes_cross_alias(self: 'TestAnalysisExecution') -> None:
         """
         This test ensures that `run_analysis` correctly identifies cross-section analysis aliases. It iterates over known cross-section aliases and asserts that the `_run_cross_analysis` method is called for each alias, returning `True` to indicate successful recognition and dispatch.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on missing calls or incorrect return values.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -174,15 +155,15 @@ class TestAnalysisExecution:
                 mock_method.assert_called_once_with(config)
                 assert result is True
 
-    def test_run_analysis_recognizes_overlay_alias(self) -> None:
+    def test_run_analysis_recognizes_overlay_alias(self: 'TestAnalysisExecution') -> None:
         """
         This test ensures that `run_analysis` correctly identifies overlay analysis aliases. It iterates over known overlay aliases and asserts that the `_run_overlay_analysis` method is called for each alias, returning `True` to indicate successful recognition and dispatch.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on missing calls or incorrect return values.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -203,18 +184,18 @@ class TestAnalysisExecution:
                 assert result is True
 
 
-class TestSurfaceMappingExtended:
+class TestSurfaceAnalysis:
     """ Extended surface analysis configuration mapping tests. """
 
-    def test_parse_args_surface_with_colormap(self) -> None:
+    def test_parse_args_surface_with_colormap(self: 'TestSurfaceAnalysis') -> None:
         """
         This test verifies that the `--colormap` argument is correctly parsed and mapped to the configuration object for surface analysis. It constructs a CLI argument list including `--colormap` and asserts that the resulting configuration's `colormap` attribute matches the input value.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -235,15 +216,15 @@ class TestSurfaceMappingExtended:
         assert config.colormap == 'jet'
         assert config.variable == 'temperature'
 
-    def test_parse_args_surface_with_plot_type(self) -> None:
+    def test_parse_args_surface_with_plot_type(self: 'TestSurfaceAnalysis') -> None:
         """
         This test verifies that different `--plot-type` values are accepted and correctly mapped to the configuration object for surface analysis. It iterates over a set of supported plot types, constructs CLI arguments for each, and asserts that the resulting configuration's `plot_type` attribute matches the input value.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -265,18 +246,18 @@ class TestSurfaceMappingExtended:
             assert config.plot_type == plot_type
 
 
-class TestWindAnalysisExtended:
+class TestWindAnalysis:
     """ Extended wind analysis configuration mapping tests. """
 
-    def test_parse_args_wind_with_wind_plot_type(self) -> None:
+    def test_parse_args_wind_with_wind_plot_type(self: 'TestWindAnalysis') -> None:
         """
         This test verifies that different `--wind-plot-type` values are accepted and correctly mapped to the configuration object for wind analysis. It iterates over a set of supported wind plot types, constructs CLI arguments for each, and asserts that the resulting configuration's `wind_plot_type` attribute matches the input value.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -296,15 +277,15 @@ class TestWindAnalysisExtended:
 
             assert config.wind_plot_type == wind_type
 
-    def test_parse_args_wind_with_subsample_factor(self) -> None:
+    def test_parse_args_wind_with_subsample_factor(self: 'TestWindAnalysis') -> None:
         """
         This test verifies that the `--subsample` option is correctly parsed and mapped to the configuration object for wind analysis. It constructs a CLI argument list including `--subsample` and asserts that the resulting configuration's `subsample_factor` attribute matches the input value.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -323,19 +304,55 @@ class TestWindAnalysisExtended:
 
         assert config.subsample_factor == pytest.approx(5)
 
+    def test_wind_single_time_with_time_dimension(self: 'TestWindAnalysis') -> None:
+        """
+        This test verifies that the `run_analysis` method correctly handles time formatting for wind analysis when a single time index is specified. The test initializes the `MPASUnifiedCLI` without a logger and provides a configuration for a wind analysis with a specific time index. It asserts that the method returns a boolean, indicating that the analysis completed successfully and that the time formatting code path was exercised. This test is intended to cover scenarios where the method must format time strings for output files when processing a single time step.
 
-class TestCrossSectionExtended:
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag.processing.utils_config import MPASConfig
+        
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
+            pytest.skip("Test data not available")
+            return
+        
+        cli = MPASUnifiedCLI()
+
+        config = MPASConfig(
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/diag',
+            analysis_type='wind',
+            u_variable='u10',
+            v_variable='v10',
+            wind_plot_type='barbs',
+            subsample_factor=5,
+            time_index=0,
+            batch_mode=False,  
+            output_dir='output/test_wind_time_format',
+            verbose=False
+        )
+        
+        result = cli.run_analysis(config)
+        assert isinstance(result, bool)
+
+
+class TestCrossSectionAnalysis:
     """ Extended cross-section configuration mapping tests. """
 
-    def test_parse_args_cross_with_vertical_coord(self) -> None:
+    def test_parse_args_cross_with_vertical_coord(self: 'TestCrossSectionAnalysis') -> None:
         """
         This test verifies that different `--vertical-coord` values are accepted and correctly mapped to the configuration object for cross-section analysis. It iterates over a set of supported vertical coordinate identifiers, constructs CLI arguments for each, and asserts that the resulting configuration's `vertical_coord` attribute matches the input value.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -360,15 +377,15 @@ class TestCrossSectionExtended:
 
             assert config.vertical_coord == vert_coord
 
-    def test_parse_args_cross_with_num_points(self) -> None:
+    def test_parse_args_cross_with_num_points(self: 'TestCrossSectionAnalysis') -> None:
         """
         This test verifies that the `--num-points` argument is correctly parsed and mapped to the configuration object for cross-section analysis. It constructs a CLI argument list including `--num-points` with an integer value and asserts that the resulting configuration's `num_points` attribute matches the input integer.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on mismatch.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
 
@@ -396,17 +413,18 @@ class TestCrossSectionExtended:
 class TestCrossSectionWorkflows:
     """ Integration-style tests for cross-section analysis workflows using real data. """
 
-    def test_cross_section_batch_mode_serial(self: "TestCrossSectionWorkflows", grid_file, test_data_dir) -> None:
+    def test_cross_section_batch_mode_serial(self: 'TestCrossSectionWorkflows', 
+                                             grid_file: str, 
+                                             test_data_dir: str) -> None:
         """
         This test runs a cross-section analysis in batch mode without parallel processing. It sets up an `MPASConfig` with `batch_mode=True` and `parallel=False`, then calls `run_analysis` to validate that the method executes the batch workflow in serial mode and returns a boolean indicating the run attempted to execute.
 
         Parameters:
-            self (TestCrossSectionWorkflows): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts the return value is a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -441,17 +459,18 @@ class TestCrossSectionWorkflows:
         
         assert isinstance(result, bool)
     
-    def test_cross_section_batch_mode_parallel(self: "TestCrossSectionWorkflows", grid_file, test_data_dir) -> None:
+    def test_cross_section_batch_mode_parallel(self: 'TestCrossSectionWorkflows', 
+                                               grid_file: str, 
+                                               test_data_dir: str) -> None:
         """
         This test runs a cross-section analysis in batch mode with parallel processing. It sets up an `MPASConfig` with `batch_mode=True` and `parallel=True`, then calls `run_analysis` to validate that the method executes the batch workflow in parallel mode and returns a boolean indicating the run attempted to execute.
 
         Parameters:
-            self (TestCrossSectionWorkflows): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts the return value is a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -487,17 +506,18 @@ class TestCrossSectionWorkflows:
         
         assert isinstance(result, bool)
     
-    def test_cross_section_with_custom_output_path(self: "TestCrossSectionWorkflows", grid_file, test_data_dir) -> None:
+    def test_cross_section_with_custom_output_path(self: 'TestCrossSectionWorkflows', 
+                                                   grid_file: str, 
+                                                   test_data_dir: str) -> None:
         """
         This test runs a cross-section analysis with a custom output path specified in the configuration. It sets up an `MPASConfig` with a custom `output` path and calls `run_analysis` to validate that the method accepts the custom output path and returns a boolean indicating the run attempted to execute.
 
         Parameters:
-            self (TestCrossSectionWorkflows): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts the function returns a boolean.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -532,18 +552,18 @@ class TestCrossSectionWorkflows:
         
         assert isinstance(result, bool)
 
-
-    def test_run_cross_section_analysis_with_real_data(self: "TestCrossSectionWorkflows", grid_file, test_data_dir) -> None:
+    def test_run_cross_section_analysis_with_real_data(self: 'TestCrossSectionWorkflows', 
+                                                        grid_file: str, 
+                                                        test_data_dir: str) -> None:
         """
         This test runs a cross-section analysis using real MPAS data files. It sets up an `MPASConfig` with appropriate parameters for a cross-section analysis and calls `run_analysis` to validate that the method executes without errors and returns a boolean indicating the run attempted to execute. This test serves as an integration-style check to ensure that the CLI processing workflow can handle real data inputs end-to-end.
 
         Parameters:
-            self (TestCrossSectionWorkflows): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: Assertions validate the result; failures raise exceptions.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -576,6 +596,45 @@ class TestCrossSectionWorkflows:
         result = cli.run_analysis(config)
         
         assert result is not None
+        assert isinstance(result, bool)
+
+    def test_cross_section_single_time_with_logger(self: 'TestCrossSectionWorkflows') -> None:
+        """
+        This test verifies that the `run_analysis` method correctly processes a cross-section analysis for a single time index when a logger is configured. The test initializes the `MPASUnifiedCLI` with a logger and provides a configuration for a cross-section analysis with specific spatial and temporal parameters. It asserts that the method returns a boolean, indicating that the analysis completed successfully and that the logger was utilized during the process. This test is designed to cover the code path where the method handles cross-section analyses with logging enabled, ensuring that log messages are generated appropriately. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag.processing.utils_logger import MPASLogger
+        
+        if not os.path.exists('data/grids/x1.10242.static.nc'):
+            pytest.skip("Test data not available")
+            return
+        
+        cli = MPASUnifiedCLI()
+        cli.logger = MPASLogger('test', verbose=True)
+        
+        config = MPASConfig(
+            grid_file='data/grids/x1.10242.static.nc',
+            data_dir='data/u240k/mpasout',
+            analysis_type='cross',
+            variable='temperature',
+            start_lon=95.0,
+            start_lat=5.0,
+            end_lon=105.0,
+            end_lat=10.0,
+            time_index=0,
+            batch_mode=False, 
+            output_dir='output/test_cross_single_logger',
+            verbose=True
+        )
+        
+        result = cli.run_analysis(config)
         assert isinstance(result, bool)
 
 

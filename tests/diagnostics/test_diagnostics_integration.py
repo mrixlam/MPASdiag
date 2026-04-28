@@ -28,16 +28,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 class TestDiagnosticsIntegration:
     """ Integration tests for diagnostics modules. """
     
-    def test_wind_and_precipitation_together(self: "TestDiagnosticsIntegration", mock_mpas_2d_data: Any) -> None:
+    def test_wind_and_precipitation_together(self: 'TestDiagnosticsIntegration', 
+                                             mock_mpas_2d_data: Any) -> None:
         """
         This test verifies that the wind and precipitation diagnostics can be executed together on the same dataset without errors. It checks that both diagnostics produce outputs and that the dimensions of the outputs are consistent. This ensures that the diagnostics can be used in a combined workflow, which is common in meteorological analyses.
 
         Parameters:
-            self (Any): Test case instance.
             mock_mpas_2d_data (Any): Fixture for 2D diagnostic variables including wind and precipitation from diag files.
 
         Returns:
-            None: Assertions confirm both diagnostics produce usable outputs and matching dimensions.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
@@ -63,15 +63,15 @@ class TestDiagnosticsIntegration:
 class TestIntegrationWithRealData:
     """ Integration tests using realistic precipitation and wind data. """
     
-    def test_full_workflow_1hour_accumulation(self: "TestIntegrationWithRealData") -> None:
+    def test_full_workflow_1hour_accumulation(self: 'TestIntegrationWithRealData') -> None:
         """
         This test simulates a realistic workflow for computing 1-hour precipitation accumulation from cumulative data. It creates synthetic cumulative precipitation data that mimics real-world conditions, then uses the PrecipitationDiagnostics to compute the 1-hour difference. The test checks that the output is a DataArray with the expected shape and that all values are non-negative, which is a physical requirement for precipitation.
 
         Parameters:
-            self ("TestIntegrationWithRealData"): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate shape and non-negativity of results.
+            None
         """
         nCells = 100
         nTime = 24
@@ -94,15 +94,15 @@ class TestIntegrationWithRealData:
             assert result.shape == (nCells,)
             assert np.all(result.values >= 0)
     
-    def test_full_workflow_multiple_accumulation_periods(self: "TestIntegrationWithRealData") -> None:
+    def test_full_workflow_multiple_accumulation_periods(self: 'TestIntegrationWithRealData') -> None:
         """
         This test evaluates the precipitation diagnostic's ability to compute differences for multiple accumulation periods (1h, 3h, 6h, 12h, 24h) using synthetic cumulative data. It creates a dataset with cumulative precipitation that increases over time and checks that the computed differences have the correct metadata indicating the accumulation period. This ensures that the diagnostic can handle various periods and that the output is properly annotated.
 
         Parameters:
-            self ("TestIntegrationWithRealData"): Test case instance.
+            None
 
         Returns:
-            None: Assertions verify each period's result contains correct metadata.
+            None
         """
         nCells = 50
         nTime = 25
@@ -129,15 +129,15 @@ class TestIntegrationWithRealData:
             assert 'accumulation_period' in result.attrs
             assert result.attrs['accumulation_period'] == period
 
-    def test_full_workflow_2d_wind(self: "TestIntegrationWithRealData") -> None:
+    def test_full_workflow_2d_wind(self: 'TestIntegrationWithRealData') -> None:
         """
         Integration test for a complete 2D wind diagnostic workflow. It creates realistic 10m wind data, extracts components, computes speed and direction, and runs analysis summaries. This end-to-end check validates multiple helper functions work together on a synthetic dataset. The test asserts types and basic properties of resulting analysis.
 
         Parameters:
-            self ("TestIntegrationWithRealData"): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate outputs and analysis summary values.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -167,15 +167,15 @@ class TestIntegrationWithRealData:
         assert 'horizontal_speed' in analysis
         assert analysis['horizontal_speed']['mean'] > 0
     
-    def test_full_workflow_3d_wind_with_shear(self: "TestIntegrationWithRealData") -> None:
+    def test_full_workflow_3d_wind_with_shear(self: 'TestIntegrationWithRealData') -> None:
         """
         Integration test for a 3D wind workflow that includes shear calculation. The test constructs synthetic 3D fields, extracts components at two levels, and computes vertical shear magnitude and direction. This validates combined operation of extraction and shear algorithms on multi-level datasets. The test asserts types and non-negativity of shear magnitude.
 
         Parameters:
-            self ("TestIntegrationWithRealData"): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate shear computation outputs.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         

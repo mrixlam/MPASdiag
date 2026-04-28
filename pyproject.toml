@@ -51,7 +51,7 @@ dependencies = [
     "PyYAML>=5.4.0",
     "psutil>=5.8.0",
     "metpy>=1.4.0",
-    "xesmf>=0.6.0",
+    "esmpy>=8.4.0",
 ]
 
 [project.optional-dependencies]

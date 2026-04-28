@@ -32,7 +32,7 @@ class TestAddWindOverlay:
     # ------------------ Initialize Plotter Fixture ------------------
 
     @pytest.fixture
-    def plotter(self) -> MPASWindPlotter:
+    def plotter(self: 'TestAddWindOverlay') -> 'MPASWindPlotter':
         """
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind overlay addition tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `add_wind_overlay` method without worrying about shared state or side effects from previous tests.
 
@@ -46,8 +46,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Basic Wind Overlay Addition ------------------
 
-    def test_add_wind_overlay_basic(self: "TestAddWindOverlay", 
-                                    plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_basic(self: 'TestAddWindOverlay', 
+                                    plotter: 'MPASWindPlotter', 
                                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                     mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                     monkeypatch) -> None:
@@ -105,8 +105,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with 3D Data and Level Index ------------------
 
-    def test_add_wind_overlay_3d_data_with_level(self: "TestAddWindOverlay", 
-                                                 plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_3d_data_with_level(self: 'TestAddWindOverlay', 
+                                                 plotter: 'MPASWindPlotter', 
                                                  mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                                  mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                                  monkeypatch) -> None:
@@ -168,8 +168,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with 3D Data and Default Level ------------------
 
-    def test_add_wind_overlay_3d_data_default_level(self: "TestAddWindOverlay", 
-                                                    plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_3d_data_default_level(self: 'TestAddWindOverlay', 
+                                                    plotter: 'MPASWindPlotter', 
                                                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                                     mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                                     monkeypatch) -> None:
@@ -229,8 +229,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with Regridding ------------------
 
-    def test_add_wind_overlay_with_regridding(self: "TestAddWindOverlay", 
-                                              plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_with_regridding(self: 'TestAddWindOverlay', 
+                                              plotter: 'MPASWindPlotter', 
                                               mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                               mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                               monkeypatch) -> None:
@@ -307,8 +307,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with Regridding but Missing Bounds ------------------
 
-    def test_add_wind_overlay_regrid_missing_bounds(self: "TestAddWindOverlay", 
-                                                    plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_regrid_missing_bounds(self: 'TestAddWindOverlay', 
+                                                    plotter: 'MPASWindPlotter', 
                                                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                                     mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
         """
@@ -359,8 +359,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with Automatic Subsampling ------------------
 
-    def test_add_wind_overlay_auto_subsample(self: "TestAddWindOverlay", 
-                                             plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_auto_subsample(self: 'TestAddWindOverlay', 
+                                             plotter: 'MPASWindPlotter', 
                                              mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                              mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                              monkeypatch) -> None:
@@ -406,8 +406,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with Automatic Subsampling but Missing Bounds ------------------
 
-    def test_add_wind_overlay_auto_subsample_missing_bounds(self: "TestAddWindOverlay", 
-                                                            plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_auto_subsample_missing_bounds(self: 'TestAddWindOverlay', 
+                                                            plotter: 'MPASWindPlotter', 
                                                             mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                                             mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
         """
@@ -448,14 +448,14 @@ class TestAddWindOverlay:
     # ------------------ Test Wind Overlay Addition with Empty Data ------------------
 
     def test_add_wind_overlay_empty_data_1d(self: "TestAddWindOverlay", 
-                                            plotter: MPASWindPlotter, 
+                                            plotter: 'MPASWindPlotter', 
                                             mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                             monkeypatch) -> None:
         """
         This test verifies that when 1D coordinate and wind component arrays are provided to `add_wind_overlay` but all values are NaN, the method does not attempt to render any wind vectors and handles the empty data gracefully without errors. The test uses real MPAS longitude and latitude arrays but injects NaN values for the wind components to create a scenario of empty data. It checks that the internal rendering method is not called, confirming that the method correctly identifies that there is no valid data to render and skips the rendering process. This ensures that users can add wind overlays with empty or invalid data without encountering errors, and that the internal logic correctly handles cases where there are no valid wind vectors to render.
 
         Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to add overlay.
+            plotter ('MPASWindPlotter'): Fixture instance used to add overlay.
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             monkeypatch: Pytest fixture for patching methods.
 
@@ -491,8 +491,8 @@ class TestAddWindOverlay:
     
     # ------------------ Test Wind Overlay Addition with Empty 2D Data ------------------
 
-    def test_add_wind_overlay_empty_data_2d(self: "TestAddWindOverlay", 
-                                            plotter: MPASWindPlotter, 
+    def test_add_wind_overlay_empty_data_2d(self: 'TestAddWindOverlay', 
+                                            plotter: 'MPASWindPlotter', 
                                             monkeypatch) -> None:
         """
         This test verifies that when 2D coordinate and wind component arrays are provided to `add_wind_overlay` but all values are NaN, the method does not attempt to render any wind vectors and handles the empty data gracefully without errors. The test creates synthetic 2D longitude and latitude grids filled with NaN values, as well as 2D wind component arrays filled with NaN values, to simulate a scenario of empty data. It checks that the internal rendering method is not called, confirming that the method correctly identifies that there is no valid data to render and skips the rendering process. This ensures that users can add wind overlays with empty or invalid 2D data without encountering errors, and that the internal logic correctly handles cases where there are no valid wind vectors to render in a gridded format.
@@ -528,323 +528,13 @@ class TestAddWindOverlay:
         plt.close(fig)
 
 
-class TestExtract2DFrom3DWind:
-    """ Tests for extracting 2D slices from 3D wind component arrays. These tests cover explicit index extraction, pressure-level matching, default top-level extraction, and xarray compatibility. """
-
-    # ------------------ Initialize Plotter Fixture ------------------
-
-    @pytest.fixture
-    def plotter(self: "TestExtract2DFrom3DWind") -> MPASWindPlotter:
-        """
-        This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the 2D extraction tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `extract_2d_from_3d_wind` method without worrying about shared state or side effects from previous tests.
-
-        Parameters:
-            None: This fixture does not require any parameters.
-
-        Returns:
-            MPASWindPlotter: Plotter instance used in tests.
-        """
-        return MPASWindPlotter()
-
-    # ------------------ Test Extraction by Explicit Level Index ------------------
-
-    def test_extract_by_level_index(self: "TestExtract2DFrom3DWind", 
-                                    plotter: MPASWindPlotter, 
-                                    mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that when a specific `level_index` is provided to `extract_2d_from_3d_wind`, the method correctly extracts the corresponding vertical level from the 3D u and v wind component arrays and returns 2D arrays with the expected shape and values. The test uses real MPAS wind component data to create realistic 3D arrays for testing. It checks that the returned 2D arrays have the correct shape corresponding to the number of horizontal points, and that the values in the extracted 2D arrays match the expected slice from the original 3D arrays based on the provided level index. This ensures that users can accurately extract specific vertical levels from 3D wind datasets using explicit level indices.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        u_100, v_100 = mpas_wind_data
-        u_flat = np.tile(u_100, 10)
-        v_flat = np.tile(v_100, 10)
-        u_3d = u_flat.reshape((100, 10))
-        v_3d = v_flat.reshape((100, 10))
-        
-        u_2d, v_2d = plotter.extract_2d_from_3d_wind(
-            u_3d, v_3d, level_index=5
-        )
-        
-        assert u_2d.shape == (100,)
-        np.testing.assert_array_equal(u_2d, u_3d[:, 5])
-    
-    # ------------------ Test Extraction by Pressure Value ------------------
-
-    def test_extract_by_pressure_value(self: "TestExtract2DFrom3DWind", 
-                                       plotter: MPASWindPlotter, 
-                                       mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that when a specific `level_value` (e.g., pressure level) is provided to `extract_2d_from_3d_wind` along with the corresponding `pressure_levels` array, the method correctly identifies the index of the specified pressure level and extracts the corresponding vertical level from the 3D u and v wind component arrays. The test uses real MPAS wind component data to create realistic 3D arrays for testing, and defines a set of pressure levels to match against. It checks that the returned 2D arrays have the correct shape corresponding to the number of horizontal points, and that the values in the extracted 2D arrays match the expected slice from the original 3D arrays based on the identified index for the provided pressure level. This ensures that users can extract specific vertical levels from 3D wind datasets by specifying pressure values, and that the internal logic correctly matches those values to the appropriate indices in the data.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        u_100, v_100 = mpas_wind_data
-        u_flat = np.tile(u_100, 10)
-        v_flat = np.tile(v_100, 10)
-        u_3d = u_flat.reshape((100, 10))
-        v_3d = v_flat.reshape((100, 10))
-        pressure_levels = np.array([1000, 925, 850, 700, 500, 400, 300, 250, 200, 100])
-        
-        u_2d, v_2d = plotter.extract_2d_from_3d_wind(
-            u_3d, v_3d,
-            level_value=850,
-            pressure_levels=pressure_levels
-        )
-        
-        assert u_2d.shape == (100,)
-        np.testing.assert_array_equal(u_2d, u_3d[:, 2])
-    
-    # ------------------ Test Extraction with Default Top-Level Selection ------------------
-
-    def test_extract_default_top_level(self: "TestExtract2DFrom3DWind", 
-                                       plotter: MPASWindPlotter, 
-                                       mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that when no specific level selection is provided to `extract_2d_from_3d_wind`, the method defaults to extracting the topmost vertical level (i.e., the last index) from the 3D u and v wind component arrays. The test uses real MPAS wind component data to create realistic 3D arrays for testing. It checks that the returned 2D arrays have the correct shape corresponding to the number of horizontal points, and that the values in the extracted 2D arrays match the expected slice from the original 3D arrays based on the default top-level selection. This ensures that users can rely on a sensible default behavior when extracting 2D slices from 3D wind datasets without needing to specify a level, and that the internal logic correctly defaults to an appropriate level for extraction when no selection is provided.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        u_100, v_100 = mpas_wind_data
-        u_flat = np.tile(u_100, 10)
-        v_flat = np.tile(v_100, 10)
-        u_3d = u_flat.reshape((100, 10))
-        v_3d = v_flat.reshape((100, 10))
-        
-        u_2d, v_2d = plotter.extract_2d_from_3d_wind(u_3d, v_3d)
-        
-        assert u_2d.shape == (100,)
-        np.testing.assert_array_equal(u_2d, u_3d[:, -1])
-    
-    # ------------------ Test Extraction with xarray DataArray Inputs ------------------
-
-    def test_extract_with_xarray(self: "TestExtract2DFrom3DWind", 
-                                 plotter: MPASWindPlotter, 
-                                 mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that `extract_2d_from_3d_wind` can accept `xarray.DataArray` inputs for the 3D u and v wind component data, and that it preserves the return types as `xarray.DataArray` when requested. The test uses real MPAS wind component data to create realistic 3D arrays for testing, and converts them into `xarray.DataArray` format. It checks that the returned 2D arrays are indeed `xarray.DataArray` instances, and that the values in the extracted 2D arrays match the expected slice from the original 3D arrays based on a specified level index. This ensures that users can work with `xarray.DataArray` inputs and outputs when extracting 2D slices from 3D wind datasets, and that the method correctly handles xarray data structures while performing the extraction.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        u_100, v_100 = mpas_wind_data
-        u_flat = np.tile(u_100, 4)
-        v_flat = np.tile(v_100, 4)
-        u_data = u_flat.reshape((50, 8))
-        v_data = v_flat.reshape((50, 8))
-
-        u_3d = xr.DataArray(u_data, dims=['cells', 'levels'])
-        v_3d = xr.DataArray(v_data, dims=['cells', 'levels'])
-        
-        u_2d, v_2d = plotter.extract_2d_from_3d_wind(
-            u_3d, v_3d, level_index=3
-        )
-        
-        assert isinstance(u_2d, xr.DataArray)
-        np.testing.assert_array_equal(u_2d.values, u_data[:, 3])
-
-
-class TestComputeWindSpeedAndDirection:
-    """ Tests for `compute_wind_speed_and_direction` utility. These tests verify magnitude computation and meteorological angle conversion across 1D and 2D inputs. """
-
-    # ------------------ Initialize Plotter Fixture ------------------
-
-    @pytest.fixture
-    def plotter(self: "TestComputeWindSpeedAndDirection") -> MPASWindPlotter:
-        """
-        This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind speed and direction computation tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `compute_wind_speed_and_direction` method without worrying about shared state or side effects from previous tests.
-
-        Parameters:
-            None: This fixture does not require any parameters.
-
-        Returns:
-            MPASWindPlotter: Plotter instance used in tests.
-        """
-        return MPASWindPlotter()
-
-    # ------------------ Test Wind Speed Computation with Simple Inputs ------------------
-
-    def test_compute_wind_speed(self: "TestComputeWindSpeedAndDirection", 
-                                plotter: MPASWindPlotter, 
-                                mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that `compute_wind_speed_and_direction` correctly computes the wind speed (magnitude) from the u and v wind components using the Pythagorean theorem. The test uses real MPAS wind component data to create realistic 1D arrays for testing. It checks that the computed wind speed matches the expected values calculated from the original u and v components, confirming that the method accurately computes wind speed from its vector components.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Skip if MPAS data fixture is not available
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        # Use real MPAS wind data for realistic testing
-        u, v = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
-        
-        # Compute speed and direction for the test inputs 
-        speed, direction = plotter.compute_wind_speed_and_direction(u, v)
-        
-        # Expected speed should be sqrt(u^2 + v^2) for each element based on the Pythagorean theorem for vector magnitude
-        expected_speed = np.sqrt(u**2 + v**2)
-
-        # Assert that the computed speed matches the expected values within a reasonable tolerance
-        np.testing.assert_array_almost_equal(speed, expected_speed)
-    
-    # ------------------ Test Wind Direction Computation with Cardinal Directions ------------------
-
-    def test_compute_wind_direction_north(self: "TestComputeWindSpeedAndDirection", 
-                                          plotter: MPASWindPlotter) -> None:
-        """
-        This test verifies that `compute_wind_speed_and_direction` correctly computes the meteorological wind direction for a northward wind (u=0, v>0). According to meteorological convention, a northward wind means the wind is coming from the south, which corresponds to a direction of 180 degrees. The test checks that the computed direction matches this expected value within a reasonable tolerance, confirming that the method correctly converts u and v components into meteorological angles.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Northward wind means the wind is coming from the south, which corresponds to a meteorological direction of 180 degrees.
-        u = np.array([0.0])
-        v = np.array([5.0])  # Northward wind (FROM south = 180 degrees)
-        
-        # Compute speed and direction for the test inputs
-        speed, direction = plotter.compute_wind_speed_and_direction(u, v)
-        
-        # Meteorological convention: wind from south is 180 degrees and should be verified within a reasonable tolerance
-        assert direction[0] == pytest.approx(180.0, abs=1e-1)
-    
-    # ------------------ Test Wind Direction Computation for Eastward and Westward Winds ------------------
-
-    def test_compute_wind_direction_east(self: "TestComputeWindSpeedAndDirection", 
-                                         plotter: MPASWindPlotter) -> None:
-        """
-        This test verifies that `compute_wind_speed_and_direction` correctly computes the meteorological wind direction for an eastward wind (u>0, v=0). According to meteorological convention, an eastward wind means the wind is coming from the west, which corresponds to a direction of 270 degrees. The test checks that the computed direction matches this expected value within a reasonable tolerance, confirming that the method correctly converts u and v components into meteorological angles.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Eastward wind means the wind is coming from the west, which corresponds to a meteorological direction of 270 degrees.
-        u = np.array([5.0])  # Eastward wind (FROM west = 270 degrees)
-        v = np.array([0.0])
-        
-        # Compute speed and direction for the test inputs
-        speed, direction = plotter.compute_wind_speed_and_direction(u, v)
-        
-        # Meteorological convention: wind from west is 270 degrees and should be verified within a reasonable tolerance
-        assert direction[0] == pytest.approx(270.0, abs=1e-1)
-    
-    # ------------------ Test Wind Direction Computation for Westward Winds ------------------
-
-    def test_compute_wind_direction_west(self: "TestComputeWindSpeedAndDirection", 
-                                         plotter: MPASWindPlotter) -> None:
-        """
-        This test verifies that `compute_wind_speed_and_direction` correctly computes the meteorological wind direction for a westward wind (u<0, v=0). According to meteorological convention, a westward wind means the wind is coming from the east, which corresponds to a direction of 90 degrees. The test checks that the computed direction matches this expected value within a reasonable tolerance, confirming that the method correctly converts u and v components into meteorological angles.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Westward wind means the wind is coming from the east, which corresponds to a meteorological direction of 90 degrees.
-        u = np.array([-5.0])  # Westward wind (FROM east = 90 degrees)
-        v = np.array([0.0])
-        
-        # Compute speed and direction for the test inputs
-        speed, direction = plotter.compute_wind_speed_and_direction(u, v)
-        
-        # Meteorological convention: wind from east is 90 degrees
-        assert direction[0] == pytest.approx(90.0, abs=1e-1)
-    
-    # ------------------ Test Wind Speed and Direction Computation with 2D Inputs ------------------
-
-    def test_compute_2d_arrays(self: "TestComputeWindSpeedAndDirection", 
-                               plotter: MPASWindPlotter, 
-                               mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
-        """
-        This test verifies that `compute_wind_speed_and_direction` can handle 2D input arrays for the u and v wind components, and that it correctly computes the wind speed and direction for each corresponding element in the 2D arrays. The test uses real MPAS wind component data reshaped into 2D arrays to create a realistic scenario for gridded wind data. It checks that the computed speed and direction arrays have the correct shapes matching the input 2D arrays, and that the values in the computed speed array match the expected magnitudes calculated from the original u and v components for each element. This ensures that users can compute wind speed and direction from gridded 2D wind component data, and that the method correctly processes multi-dimensional inputs.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance used to call the method.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Skip if MPAS data fixture is not available
-        if mpas_wind_data is None:
-            pytest.skip("MPAS data not available")
-            return
-        
-        # Use real MPAS data reshaped to 2D (5x5 grid)
-        u_2d = mpas_wind_data[0][:25].reshape(5, 5)
-        v_2d = mpas_wind_data[1][:25].reshape(5, 5)
-        
-        # Compute speed and direction for 2D arrays and verify shapes and values
-        speed, direction = plotter.compute_wind_speed_and_direction(u_2d, v_2d)
-        
-        # Verify speed shape matches input shape
-        assert speed.shape == (5, 5)
-
-        # Verify direction shape matches input shape
-        assert direction.shape == (5, 5)
-
-        # Expected speed should be sqrt(u^2 + v^2) for each element
-        expected_speed = np.sqrt(u_2d**2 + v_2d**2)
-
-        # Assert that the computed speed matches the expected values within a reasonable tolerance
-        np.testing.assert_array_almost_equal(speed, expected_speed)
-
-
 class TestCreateBatchWindPlots:
     """ Tests that create a sequence of wind plots and save them to disk. These exercises validate interaction with the MPAS time utilities and the high-level batch orchestration. """
 
     # ------------------ Initialize Plotter and Temporary Directory Fixtures ------------------
 
     @pytest.fixture
-    def plotter(self: "TestCreateBatchWindPlots") -> MPASWindPlotter:
+    def plotter(self: 'TestCreateBatchWindPlots') -> 'MPASWindPlotter':
         """
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the batch wind plot creation tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `create_batch_wind_plots` method without worrying about shared state or side effects from previous tests.
 
@@ -859,7 +549,7 @@ class TestCreateBatchWindPlots:
     # ------------------ Create Temporary Directory for Test Outputs ------------------
 
     @pytest.fixture
-    def temp_dir(self: "TestCreateBatchWindPlots") -> Generator[str, None, None]:
+    def temp_dir(self: 'TestCreateBatchWindPlots') -> Generator[str, None, None]:
         """
         This fixture creates a temporary directory for storing output files generated during the batch wind plot creation tests. It uses the `tempfile` module to create a unique temporary directory for each test, and ensures that the directory is cleaned up after the test completes by removing it with `shutil.rmtree`. This allows the tests to write output files without affecting the actual filesystem or leaving behind test artifacts, and provides a clean environment for each test method that requires file output.
 
@@ -880,8 +570,8 @@ class TestCreateBatchWindPlots:
     
     # ------------------ Test Batch Creation with Mocked Processor and Real MPAS Data ------------------
 
-    def test_create_batch_wind_plots(self: "TestCreateBatchWindPlots", 
-                                     plotter: MPASWindPlotter, 
+    def test_create_batch_wind_plots(self: 'TestCreateBatchWindPlots', 
+                                     plotter: 'MPASWindPlotter', 
                                      mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                      mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                      temp_dir: str) -> None:
@@ -889,7 +579,7 @@ class TestCreateBatchWindPlots:
         This test verifies that `create_batch_wind_plots` can successfully create a batch of wind plots using a mocked processor that simulates the behavior of a real data processor with a loaded dataset, and that it correctly interacts with the MPAS data fixtures to retrieve coordinates and wind data. The test uses real MPAS longitude, latitude, and wind component data to create a realistic scenario for batch plot creation. It checks that the method returns a list of created file paths corresponding to the expected number of time steps, and that the expected output files are created in the temporary directory. This ensures that users can create batches of wind plots using the `create_batch_wind_plots` method with a properly structured processor and real MPAS data, and that the method correctly handles the data retrieval and file creation processes.
 
         Parameters:
-            plotter (MPASWindPlotter): Fixture instance to call batch creation.
+            plotter ('MPASWindPlotter'): Fixture instance to call batch creation.
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             mpas_wind_data: Session fixture providing real MPAS u/v wind data.
             temp_dir (str): Temporary directory path to receive output files.
@@ -904,7 +594,6 @@ class TestCreateBatchWindPlots:
 
         # Import pandas and xarray here since they are only needed for this test and to avoid unnecessary imports if MPAS data is not available        
         import pandas as pd
-        import xarray as xr
 
         # Create a mock dataset with a Time coordinate to simulate the processor's dataset structure; the actual time values are not critical for this test, so we can use simple timestamps
         times = pd.to_datetime(['2024-01-01T00', '2024-01-01T06', '2024-01-01T12'])
@@ -957,37 +646,3 @@ class TestCreateBatchWindPlots:
         # Close any open figures
         plt.close('all')
     
-    # ------------------ Test Batch Creation with Missing Dataset ------------------
-
-    def test_create_batch_no_dataset(self: "TestCreateBatchWindPlots", 
-                                     plotter: MPASWindPlotter, temp_dir: str) -> None:
-        """
-        This test verifies that `create_batch_wind_plots` raises a ValueError with an informative message when the provided processor does not have a loaded dataset. The test uses a MagicMock to simulate a processor that lacks a dataset, and checks that the batch creation function correctly identifies this issue and raises an error with a message indicating that there is no loaded dataset and that the user should load data before attempting to create batch plots. This ensures that users receive clear feedback about the requirement for a loaded dataset when they attempt to create batch wind plots without having properly set up their processor.
-
-        Parameters:
-            plotter (MPASWindPlotter): Fixture instance to call batch creation.
-            temp_dir (str): Temporary directory path used as output.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Create a MagicMock to simulate the processor's behavior; we will configure it to have no dataset to trigger the error handling in the batch creation function
-        mock_processor = MagicMock()
-        mock_processor.dataset = None
-        
-        # Call batch creation and expect it to raise a ValueError due to the missing dataset; we will check that the error message contains the expected instruction to load data first
-        with pytest.raises(ValueError) as exc_info:
-            plotter.create_batch_wind_plots(
-                processor=mock_processor,
-                output_dir=temp_dir,
-                lon_min=0, lon_max=50,
-                lat_min=0, lat_max=25
-            )
-        
-        # Assert that the error message contains the expected instruction about no loaded dataset
-        assert "no loaded dataset" in str(exc_info.value)
-
-        # Close any open figures to free resources
-        plt.close('all')
-
-

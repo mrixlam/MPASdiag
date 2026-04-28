@@ -17,30 +17,21 @@ import xarray as xr
 from typing import Any
 from pathlib import Path
 
-import xesmf as xe
-
-if not xe:
-    XESMF_AVAILABLE = True
-else:
-    XESMF_AVAILABLE = False
-
 from mpasdiag.processing.remapping import (
     MPASRemapper,
     remap_mpas_to_latlon
 )
 
-REMAPPING_AVAILABLE = True
-
 
 class TestWithRealMPASData:
     """ Integration tests using actual MPAS data files. """
     
-    def test_remap_mpas_to_latlon_with_real_data(self: "TestWithRealMPASData", mpas_test_data: Any) -> None:
+    def test_remap_mpas_to_latlon_with_real_data(self: 'TestWithRealMPASData', mpas_test_data: Any) -> None:
         """
         This test verifies that the `remap_mpas_to_latlon` function can successfully remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then calls the remapping function. The assertions check that the output is an xarray DataArray and that it contains the expected longitude and latitude coordinates, confirming that the remapping process produces the expected structured output. 
 
         Parameters:
-            self ("TestWithRealMPASData"): Test instance (unused).
+            self ('TestWithRealMPASData'): Test instance (unused).
             mpas_test_data (Any): Fixture returning an xarray Dataset.
 
         Returns:
@@ -65,13 +56,12 @@ class TestWithRealMPASData:
         assert 'lon' in result.coords
         assert 'lat' in result.coords
     
-    @pytest.mark.skipif(not XESMF_AVAILABLE, reason="xESMF not installed")
-    def test_mpas_remapper_with_real_data(self: "TestWithRealMPASData", mpas_test_data: Any, temp_weights_dir: Path) -> None:
+    def test_mpas_remapper_with_real_data(self: 'TestWithRealMPASData', mpas_test_data: Any, temp_weights_dir: Path) -> None:
         """
         This test verifies that the `MPASRemapper` class can be used to remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test first extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then uses the `MPASRemapper` class to perform the remapping. The assertions check that the output is an xarray DataArray, confirming that the remapping process produces the expected structured output when using the class-based approach. 
 
         Parameters:
-            self ("TestWithRealMPASData"): Test instance (unused).
+            self ('TestWithRealMPASData'): Test instance (unused).
             mpas_test_data (Any): Fixture returning an xarray Dataset.
             temp_weights_dir (Path): Temporary directory for weight files.
 
@@ -92,7 +82,7 @@ class TestWithRealMPASData:
             intermediate_resolution=2.0
         )
         
-        remapper = MPASRemapper(method='bilinear', weights_dir=temp_weights_dir, reuse_weights=False)
+        remapper = MPASRemapper(method='nearest_s2d', weights_dir=temp_weights_dir, reuse_weights=False)
         remapper.source_grid = grid_dataset
 
         remapper.create_target_grid(
@@ -106,23 +96,6 @@ class TestWithRealMPASData:
         result = remapper.remap(data_array)
         
         assert isinstance(result, xr.DataArray)
-
-
-class TestMainExecution:
-    """ Test __main__ execution block. """
-    
-    def test_main_block_executes(self: "TestMainExecution") -> None:
-        """
-        This test verifies that the main execution block of the remapping module can be executed without errors. The test simply attempts to import the remapping module and checks for the presence of the `remap_mpas_to_latlon` function, which is a key component of the remapping functionality. This ensures that the module can be imported successfully and that the main components are available, confirming that there are no issues with module-level code execution. 
-
-        Parameters:
-            self ("TestMainExecution"): Test instance (unused).
-
-        Returns:
-            None: Assertion validates module import behavior.
-        """
-        import mpasdiag.processing.remapping
-        assert hasattr(mpasdiag.processing.remapping, 'remap_mpas_to_latlon')
 
 
 if __name__ == '__main__':

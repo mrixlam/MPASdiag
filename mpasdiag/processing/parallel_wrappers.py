@@ -18,6 +18,7 @@ matplotlib.use('Agg')
 import gc
 import os
 import time
+from types import SimpleNamespace
 from typing import List, Optional, Tuple, Any, Dict
 import numpy as np
 import pandas as pd
@@ -198,6 +199,9 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         custom_title_template = kwargs.get('custom_title_template')
         colormap = kwargs.get('colormap')
         levels = kwargs.get('levels')
+        remap_engine = kwargs.get('remap_engine', 'kdtree')
+        remap_method = kwargs.get('remap_method', 'nearest')
+        remap_config = SimpleNamespace(remap_engine=remap_engine, remap_method=remap_method)
 
         start_time = time.time()
         timings = {}
@@ -222,6 +226,12 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
         plotter = MPASPrecipitationPlotter(figsize=(10, 14))
 
+        weights_dir = kwargs.get('weights_dir')
+
+        if weights_dir is not None:
+            from pathlib import Path
+            plotter._remapper_weights_dir = Path(weights_dir)
+
         if custom_title_template:
             title = custom_title_template.format(
                 var_name=var_name.upper(),
@@ -244,7 +254,9 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             levels=levels,
             data_array=precip_data,
             time_end=time_end,
-            var_name=var_name
+            var_name=var_name,
+            dataset=processor.dataset,
+            config=remap_config,
         )
 
         timings['plotting'] = time.time() - plot_start
@@ -329,7 +341,10 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     custom_title = kwargs.get('custom_title')
     colormap = kwargs.get('colormap')
     levels = kwargs.get('levels')
-    
+    remap_engine = kwargs.get('remap_engine', 'kdtree')
+    remap_method = kwargs.get('remap_method', 'nearest')
+    remap_config = SimpleNamespace(remap_engine=remap_engine, remap_method=remap_method)
+
     start_time = time.time()
     timings = {}
     cache_hits = {'coordinates': False, 'data': False}
@@ -369,7 +384,9 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         plot_type=plot_type,
         colormap=colormap,
         levels=levels,
-        time_stamp=pd.Timestamp(str(processor.dataset['Time'].values[time_idx]))
+        time_stamp=pd.Timestamp(str(processor.dataset['Time'].values[time_idx])),
+        dataset=processor.dataset,
+        config=remap_config,
     )
     timings['plotting'] = time.time() - plot_start
     
@@ -377,6 +394,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     time_str = str(processor.dataset['Time'].values[time_idx])
     safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
+
     output_path = os.path.join(
         output_dir,
         f"{file_prefix}_{var_name}_{plot_type}_valid_{safe_time_str}"
@@ -438,6 +456,9 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     show_background = kwargs.get('show_background', False)
     grid_resolution = kwargs.get('grid_resolution', None)
     regrid_method = kwargs.get('regrid_method', 'linear')
+    remap_engine = kwargs.get('remap_engine', 'kdtree')
+    remap_method = kwargs.get('remap_method', 'nearest')
+    remap_config = SimpleNamespace(remap_engine=remap_engine, remap_method=remap_method)
     formats = kwargs['formats']
     
     start_time = time.time()
@@ -484,7 +505,9 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         show_background=show_background,
         time_stamp=None,
         grid_resolution=grid_resolution,
-        regrid_method=regrid_method
+        regrid_method=regrid_method,
+        dataset=processor.dataset,
+        config=remap_config,
     )
 
     timings['plotting'] = time.time() - plot_start
@@ -574,6 +597,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         levels=levels,
         save_path=save_path
     )
+
     timings['plotting'] = time.time() - plot_start
     
     save_start = time.time()
@@ -605,7 +629,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 def _process_parallel_results(results: List[Any], 
                               time_indices: List[int], 
                               output_dir: str, 
-                              manager: MPASParallelManager, 
+                              manager: 'MPASParallelManager', 
                               processing_type: str, 
                               var_info: Optional[str] = None) -> List[str]:
     """
@@ -615,7 +639,7 @@ def _process_parallel_results(results: List[Any],
         results (List[Any]): List of results returned by parallel worker functions, where each result is expected to be a dictionary containing 'files', 'timings', 'time_str', and optionally 'cache_hits' and 'cache_info'.
         time_indices (List[int]): List of time indices that were processed in parallel, used for reporting purposes.
         output_dir (str): Directory path where output files were saved, used for reporting the location of generated files.
-        manager (MPASParallelManager): Instance of the parallel manager used to execute the tasks, from which overall execution statistics can be retrieved.
+        manager ('MPASParallelManager'): Instance of the parallel manager used to execute the tasks, from which overall execution statistics can be retrieved.
         processing_type (str): String indicating the type of processing performed (e.g., "Precipitation Maps", "Surface Maps", "Wind Plots", "Cross-Sections") for report header.
         var_info (Optional[str]): Optional string with variable information to include in the report header for additional context. 
 
@@ -705,28 +729,76 @@ def _process_parallel_results(results: List[Any],
     return created_files
 
 
+def _prebuild_remapper_mpi(processor: 'MPAS2DProcessor',
+                           weights_dir: str,
+                           lon_min: float,
+                           lon_max: float,
+                           lat_min: float,
+                           lat_max: float,
+                           resolution: float,
+                           comm: Any,) -> None:
+    """
+    This helper function pre-builds the remapper for the MPASPrecipitationPlotter in MPI mode to ensure that the remapping weights are generated and cached before any worker processes attempt to use them. It extracts the full grid coordinates from the processor's dataset, retrieves the boundary coordinates, and calls the plotter's internal method to get or build the remapper with the specified spatial bounds and resolution. This function is intended to be called on the master process before launching parallel workers to ensure that all necessary remapping weights are available in the shared directory for use by worker processes without incurring redundant computation or cache misses.
+
+    Parameters:
+        processor ('MPAS2DProcessor'): The processor instance containing the dataset and grid information needed to extract coordinates for remapper construction.
+        weights_dir (str): The directory path where remapping weights should be stored and accessed by worker processes.
+        lon_min (float): Minimum longitude for the remapper's target grid in degrees.
+        lon_max (float): Maximum longitude for the remapper's target grid in degrees.
+        lat_min (float): Minimum latitude for the remapper's target grid in degrees.
+        lat_max (float): Maximum latitude for the remapper's target grid in degrees.
+        resolution (float): Desired grid resolution for the remapper in degrees.
+        comm (Any): The MPI communicator object used for parallel execution, needed to ensure that remapper construction is performed on the master process and that worker processes can access the generated weights.
+
+    Returns:
+        None: This function does not return a value but ensures that the remapper is pre-built and that the necessary weights are available in the specified directory for use by worker processes during parallel execution. 
+    """
+    from pathlib import Path
+
+    plotter: MPASPrecipitationPlotter = MPASPrecipitationPlotter.__new__(MPASPrecipitationPlotter)
+    plotter._remapper = None
+    plotter._remapper_key = None
+    plotter._remapper_weights_dir = Path(weights_dir)
+
+    dataset = processor.dataset
+    dataset = plotter._ensure_boundary_data(dataset)
+    lon_full, lat_full = plotter._extract_full_grid(dataset)
+
+    lon_bounds = dataset['lon_b'].values
+    lat_bounds = dataset['lat_b'].values
+
+    plotter._get_or_build_remapper(
+        lon_full, lat_full, lon_bounds, lat_bounds,
+        lon_min, lon_max, lat_min, lat_max, resolution,
+        comm=comm,
+    )
+
+
 class ParallelPrecipitationProcessor:
     """ This class provides static methods for parallel processing of precipitation diagnostics and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_precipitation_maps_parallel(processor: MPAS2DProcessor,
-                                                 output_dir: str, 
-                                                 lon_min: float, 
-                                                 lon_max: float, 
-                                                 lat_min: float, 
-                                                 lat_max: float, 
-                                                 var_name: str = 'rainnc', 
-                                                 accum_period: str = 'a01h', 
-                                                 plot_type: str = 'scatter', 
-                                                 grid_resolution: Optional[float] = None, 
-                                                 file_prefix: str = 'mpas_precipitation_map', 
-                                                 formats: List[str] = ['png'], 
-                                                 custom_title_template: Optional[str] = None, 
-                                                 colormap: Optional[str] = None, 
-                                                 levels: Optional[List[float]] = None, 
-                                                 time_indices: Optional[List[int]] = None, 
-                                                 n_processes: Optional[int] = None, 
-                                                 load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
+    def create_batch_precipitation_maps_parallel(processor: 'MPAS2DProcessor',
+                                                 output_dir: str,
+                                                 lon_min: float,
+                                                 lon_max: float,
+                                                 lat_min: float,
+                                                 lat_max: float,
+                                                 var_name: str = 'rainnc',
+                                                 accum_period: str = 'a01h',
+                                                 plot_type: str = 'scatter',
+                                                 grid_resolution: Optional[float] = None,
+                                                 file_prefix: str = 'mpas_precipitation_map',
+                                                 formats: List[str] = ['png'],
+                                                 custom_title_template: Optional[str] = None,
+                                                 colormap: Optional[str] = None,
+                                                 levels: Optional[List[float]] = None,
+                                                 remap_engine: str = 'kdtree',
+                                                 remap_method: str = 'nearest',
+                                                 time_indices: Optional[List[int]] = None,
+                                                 n_processes: Optional[int] = None,
+                                                 load_balance_strategy: str = "dynamic",
+                                                 weights_dir: Optional[str] = None) -> Optional[List[str]]:
         """
         This method creates precipitation maps in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
 
@@ -774,8 +846,8 @@ class ParallelPrecipitationProcessor:
             verbose=True,
             n_workers=n_processes
         )
-        manager.set_error_policy('collect')
-        
+
+        manager.set_error_policy('collect')        
         is_mpi_mode = manager.backend == 'mpi'
         
         if is_mpi_mode:
@@ -803,11 +875,14 @@ class ParallelPrecipitationProcessor:
                 'formats': formats,
                 'custom_title_template': custom_title_template,
                 'colormap': colormap,
-                'levels': levels
+                'levels': levels,
+                'remap_engine': remap_engine,
+                'remap_method': remap_method,
+                'weights_dir': weights_dir,
             }
         else:
             cache = MPASDataCache(max_variables=5)
-            
+
             print(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
@@ -815,7 +890,7 @@ class ParallelPrecipitationProcessor:
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
                 print(COORDS_FALLBACK_MSG)
-            
+
             worker_kwargs = {
                 'processor': processor,
                 'cache': cache,
@@ -832,9 +907,19 @@ class ParallelPrecipitationProcessor:
                 'formats': formats,
                 'custom_title_template': custom_title_template,
                 'colormap': colormap,
-                'levels': levels
+                'levels': levels,
+                'remap_engine': remap_engine,
+                'remap_method': remap_method,
+                'weights_dir': weights_dir,
             }
-        
+
+        if weights_dir is not None and grid_resolution is not None:
+            _prebuild_remapper_mpi(
+                processor, weights_dir,
+                lon_min, lon_max, lat_min, lat_max,
+                grid_resolution, manager.comm,
+            )
+
         os.makedirs(output_dir, exist_ok=True)
         
         if manager.is_master:
@@ -842,7 +927,7 @@ class ParallelPrecipitationProcessor:
             print(f"Using accumulation period: {accum_period} ({accum_hours} hours)")
             print(f"Output directory: {output_dir}")
         
-        tasks = [(idx, worker_kwargs) for idx in time_indices]
+        tasks = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
         results = manager.parallel_map(
             _precipitation_worker,
@@ -866,27 +951,29 @@ class ParallelSurfaceProcessor:
     """ This class provides static methods for parallel processing of surface variable maps and visualizations using MPI-based distributed processing. """
     
     @staticmethod
-    def create_batch_surface_maps_parallel(processor: MPAS2DProcessor, 
-                                           output_dir: str, 
-                                           lon_min: float, 
-                                           lon_max: float, 
-                                           lat_min: float, 
-                                           lat_max: float, 
-                                           var_name: str = 't2m', 
-                                           plot_type: str = 'scatter', 
-                                           file_prefix: str = 'mpas_surface', 
-                                           formats: List[str] = ['png'], 
-                                           grid_resolution: Optional[float] = None, 
-                                           clim_min: Optional[float] = None, 
-                                           clim_max: Optional[float] = None, 
-                                           time_indices: Optional[List[int]] = None, 
-                                           n_processes: Optional[int] = None, 
+    def create_batch_surface_maps_parallel(processor: 'MPAS2DProcessor',
+                                           output_dir: str,
+                                           lon_min: float,
+                                           lon_max: float,
+                                           lat_min: float,
+                                           lat_max: float,
+                                           var_name: str = 't2m',
+                                           plot_type: str = 'scatter',
+                                           file_prefix: str = 'mpas_surface',
+                                           formats: List[str] = ['png'],
+                                           grid_resolution: Optional[float] = None,
+                                           clim_min: Optional[float] = None,
+                                           clim_max: Optional[float] = None,
+                                           remap_engine: str = 'kdtree',
+                                           remap_method: str = 'nearest',
+                                           time_indices: Optional[List[int]] = None,
+                                           n_processes: Optional[int] = None,
                                            load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
         This method creates surface variable maps in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
 
         Parameters:
-            processor (MPAS2DProcessor): Initialized MPAS2DProcessor instance with loaded data and grid information.
+            processor ('MPAS2DProcessor'): Initialized MPAS2DProcessor instance with loaded data and grid information.
             output_dir (str): Directory path where surface map files will be saved.
             lon_min (float): Minimum longitude for map spatial extent in degrees.
             lon_max (float): Maximum longitude for map spatial extent in degrees.
@@ -944,11 +1031,13 @@ class ParallelSurfaceProcessor:
                 'formats': formats,
                 'custom_title': None,
                 'colormap': None,
-                'levels': None
+                'levels': None,
+                'remap_engine': remap_engine,
+                'remap_method': remap_method,
             }
         else:
             cache = MPASDataCache(max_variables=5)
-            
+
             print(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
@@ -956,7 +1045,7 @@ class ParallelSurfaceProcessor:
             except Exception as e:
                 print(f"Warning: Could not pre-load coordinates into cache: {e}")
                 print(COORDS_FALLBACK_MSG)
-            
+
             worker_kwargs = {
                 'processor': processor,
                 'cache': cache,
@@ -971,7 +1060,9 @@ class ParallelSurfaceProcessor:
                 'formats': formats,
                 'custom_title': None,
                 'colormap': None,
-                'levels': None
+                'levels': None,
+                'remap_engine': remap_engine,
+                'remap_method': remap_method,
             }
         
         worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
@@ -1003,7 +1094,7 @@ class ParallelWindProcessor:
     """ This class provides static methods for parallel processing of wind vector plots and visualizations using MPI-based distributed processing. """
 
     @staticmethod
-    def _build_wind_worker_kwargs(processor: MPAS2DProcessor,
+    def _build_wind_worker_kwargs(processor: 'MPAS2DProcessor',
                                   is_mpi_mode: bool,
                                   output_dir: str,
                                   lon_min: float, lon_max: float,
@@ -1013,7 +1104,9 @@ class ParallelWindProcessor:
                                   scale: Optional[float], show_background: bool,
                                   grid_resolution: Optional[float],
                                   regrid_method: str,
-                                  formats: List[str]) -> Dict[str, Any]:
+                                  formats: List[str],
+                                  remap_engine: str = 'kdtree',
+                                  remap_method: str = 'nearest') -> Dict[str, Any]:
         """
         This helper method constructs the keyword arguments dictionary to be passed to the wind worker function based on whether MPI mode is being used or not. It ensures that the necessary information for data processing and plotting is included in the kwargs, and handles the setup of a shared data cache for multiprocessing mode to optimize performance. The method checks for required attributes in MPI mode and raises informative errors if they are missing, while in multiprocessing mode it attempts to pre-load coordinates into the cache for faster access by worker processes.
 
@@ -1038,7 +1131,7 @@ class ParallelWindProcessor:
         Returns:
             Dict[str, Any]: Dictionary of keyword arguments to be passed to the wind worker function, containing either 'grid_file' and 'data_dir' for MPI mode, or 'processor' and 'cache' for multiprocessing mode, along with all necessary parameters for plotting.
         """
-        shared = {
+        shared_kwargs = {
             'output_dir': output_dir,
             'lon_min': lon_min, 'lon_max': lon_max,
             'lat_min': lat_min, 'lat_max': lat_max,
@@ -1047,6 +1140,7 @@ class ParallelWindProcessor:
             'plot_type': plot_type, 'subsample': subsample,
             'scale': scale, 'show_background': show_background,
             'grid_resolution': grid_resolution, 'regrid_method': regrid_method,
+            'remap_engine': remap_engine, 'remap_method': remap_method,
             'file_prefix': 'mpas_wind', 'formats': formats,
         }
 
@@ -1057,37 +1151,39 @@ class ParallelWindProcessor:
                     "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
                     "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
                 )
-            return {**shared, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
+            return {**shared_kwargs, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
 
         cache = MPASDataCache(max_variables=5)
         print(PRELOAD_COORDS_MSG)
-        
+
         try:
             cache.load_coordinates_from_dataset(processor.dataset, u_variable)
             print(f"Coordinates cached for variable: {u_variable}")
         except Exception as e:
             print(f"Warning: Could not pre-load coordinates into cache: {e}")
             print(COORDS_FALLBACK_MSG)
-        return {**shared, 'processor': processor, 'cache': cache}
+        return {**shared_kwargs, 'processor': processor, 'cache': cache}
 
     @staticmethod
-    def create_batch_wind_plots_parallel(processor: MPAS2DProcessor, 
-                                         output_dir: str, 
-                                         lon_min: float, 
-                                         lon_max: float, 
-                                         lat_min: float, 
-                                         lat_max: float, 
-                                         u_variable: str = 'u', 
-                                         v_variable: str = 'v', 
-                                         plot_type: str = 'barbs', 
-                                         formats: Optional[List[str]] = None, 
-                                         subsample: int = 1, 
-                                         scale: Optional[float] = None, 
-                                         show_background: bool = False, 
-                                         grid_resolution: Optional[float] = None, 
-                                         regrid_method: str = 'linear', 
-                                         time_indices: Optional[List[int]] = None, 
-                                         n_processes: Optional[int] = None, 
+    def create_batch_wind_plots_parallel(processor: 'MPAS2DProcessor',
+                                         output_dir: str,
+                                         lon_min: float,
+                                         lon_max: float,
+                                         lat_min: float,
+                                         lat_max: float,
+                                         u_variable: str = 'u',
+                                         v_variable: str = 'v',
+                                         plot_type: str = 'barbs',
+                                         formats: Optional[List[str]] = None,
+                                         subsample: int = 1,
+                                         scale: Optional[float] = None,
+                                         show_background: bool = False,
+                                         grid_resolution: Optional[float] = None,
+                                         regrid_method: str = 'linear',
+                                         remap_engine: str = 'kdtree',
+                                         remap_method: str = 'nearest',
+                                         time_indices: Optional[List[int]] = None,
+                                         n_processes: Optional[int] = None,
                                          load_balance_strategy: str = "dynamic") -> Optional[List[str]]:
         """
         This method creates wind vector plots in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics and cache performance for insights into efficiency. 
@@ -1137,7 +1233,8 @@ class ParallelWindProcessor:
             processor, is_mpi_mode,
             output_dir, lon_min, lon_max, lat_min, lat_max,
             u_variable, v_variable, plot_type, subsample,
-            scale, show_background, grid_resolution, regrid_method, formats
+            scale, show_background, grid_resolution, regrid_method, formats,
+            remap_engine=remap_engine, remap_method=remap_method,
         )
 
         worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
@@ -1212,7 +1309,7 @@ class ParallelCrossSectionProcessor:
         return created_files
 
     @staticmethod
-    def create_batch_cross_section_plots_parallel(mpas_3d_processor: MPAS3DProcessor, 
+    def create_batch_cross_section_plots_parallel(mpas_3d_processor: 'MPAS3DProcessor', 
                                                   var_name: str, 
                                                   start_point: Tuple[float, float], 
                                                   end_point: Tuple[float, float], 

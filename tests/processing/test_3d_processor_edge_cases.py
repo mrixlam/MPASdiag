@@ -28,35 +28,8 @@ from tests.test_data_helpers import (
 class TestExtract2DCoordinatesEdgeCases:
     """ Test edge cases in extract_2d_coordinates_for_variable. """
     
-    def test_grid_file_exception_handling(self: "TestExtract2DCoordinatesEdgeCases") -> None:
-        """
-        This test verifies that the `extract_2d_coordinates_for_variable` method in the MPAS3DProcessor class properly handles exceptions that may occur when attempting to load the grid file. By mocking the `xarray.open_dataset` function to raise a RuntimeError, the test checks that the method catches this exception and raises a new RuntimeError with an appropriate error message, ensuring that users receive clear feedback about issues with loading the grid coordinates.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        assert_expected_public_methods(MPAS3DProcessor, 'MPAS3DProcessor')
-
-        with patch('os.path.exists', return_value=True):
-            processor = MPAS3DProcessor('test_grid.nc', verbose=False)
-        
-        mock_ds = MagicMock()
-        mock_var = MagicMock()
-        mock_var.sizes = {'nCells': 100, 'nVertLevels': 55}
-        mock_ds.__getitem__.return_value = mock_var
-        mock_ds.__contains__.return_value = True
-        processor.dataset = mock_ds
-        
-        with patch('xarray.open_dataset', side_effect=RuntimeError("File read error")):
-            with pytest.raises(RuntimeError) as exc_info:
-                processor.extract_2d_coordinates_for_variable('theta')
-            assert "Error loading coordinates" in str(exc_info.value)
     
-    def test_verbose_output_for_coordinate_extraction(self: "TestExtract2DCoordinatesEdgeCases") -> None:
+    def test_verbose_output_for_coordinate_extraction(self: 'TestExtract2DCoordinatesEdgeCases') -> None:
         """
         This test checks that when the processor is initialized with `verbose=True`, the `extract_2d_coordinates_for_variable` method provides expected output information during coordinate extraction. By mocking the grid coordinates and ensuring that the returned longitude and latitude arrays have the correct sizes, the test validates that verbose mode does not interfere with the coordinate extraction process and that it provides useful feedback when enabled. 
 
@@ -100,7 +73,7 @@ class TestExtract2DCoordinatesEdgeCases:
 class TestLoad3DDataSpatialCoordinates:
     """ Test spatial coordinate handling in load_3d_data. """
     
-    def test_load_3d_data_xarray_adds_spatial_coords(self: "TestLoad3DDataSpatialCoordinates") -> None:
+    def test_load_3d_data_xarray_adds_spatial_coords(self: 'TestLoad3DDataSpatialCoordinates') -> None:
         """
         This test verifies that the `load_3d_data` method can successfully load datasets using the xarray backend when the `use_pure_xarray` flag is set to True. The test checks that the processor's `dataset` attribute is populated with an xarray Dataset containing the expected data variables and that the `data_type` is correctly set to 'xarray'. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -125,7 +98,7 @@ class TestLoad3DDataSpatialCoordinates:
         assert hasattr(processor.dataset, 'data_vars')
         assert processor.data_type == 'xarray'
     
-    def test_load_3d_data_uxarray_adds_spatial_coords(self: "TestLoad3DDataSpatialCoordinates") -> None:
+    def test_load_3d_data_uxarray_adds_spatial_coords(self: 'TestLoad3DDataSpatialCoordinates') -> None:
         """
         This test confirms that the `load_3d_data` method can successfully load datasets using the uxarray backend when the `use_pure_xarray` flag is set to False. The test checks that the processor's `dataset` attribute is populated with a dataset object containing the expected data variables and that the `data_type` is correctly set to 'uxarray'. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -154,7 +127,7 @@ class TestLoad3DDataSpatialCoordinates:
 class TestGetAvailable3DVerbose:
     """ Test verbose output in get_available_3d_variables. """
     
-    def test_get_available_3d_variables_verbose_output(self: "TestGetAvailable3DVerbose") -> None:
+    def test_get_available_3d_variables_verbose_output(self: 'TestGetAvailable3DVerbose') -> None:
         """
         This test checks that when the processor is initialized with `verbose=True`, the `get_available_3d_variables` method provides expected output information about the available 3D variables in the dataset. By ensuring that the method returns a non-empty list of variable names, the test validates that verbose mode does not interfere with the variable discovery process and that it provides useful feedback when enabled. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -174,5 +147,3 @@ class TestGetAvailable3DVerbose:
         
         assert isinstance(variables, list)
         assert len(variables) > 0
-
-

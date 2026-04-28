@@ -287,6 +287,10 @@ mpasdiag precipitation \
 mpasdiag precipitation \
   --grid-file grid.nc --data-dir ./data --variable total --batch-all --dpi 300 --figure-size 12 12
 
+# Batch processing with conservative remapping
+mpasdiag precipitation \
+  --grid-file grid.nc --data-dir ./data --variable total --batch-all --remap-engine esmf --remap-method conservative
+
 # Batch processing with parallel execution (multiprocessing backend)
 mpasdiag precipitation \
   --grid-file grid.nc --data-dir ./data --variable total --batch-all --parallel --workers 4 --grid-resolution 0.1

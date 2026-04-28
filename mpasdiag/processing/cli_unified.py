@@ -74,7 +74,7 @@ class MPASUnifiedCLI:
         'overlay': 'Complex multi-variable overlay plots'
     }
     
-    def __init__(self: "MPASUnifiedCLI") -> None:
+    def __init__(self: 'MPASUnifiedCLI') -> None:
         """
         This method initializes the MPASUnifiedCLI class, setting up instance variables for logging, performance monitoring, and configuration management. It prepares the CLI for execution by initializing these components to None, which will later be configured based on user input and command-line arguments. The logger will be used to record messages and events during the execution of the CLI, while the performance monitor will track the execution time of various processing steps. The configuration variable will hold the parsed configuration settings from command-line arguments or configuration files, allowing for flexible and customizable execution of different analysis types. By initializing these components in the constructor, it ensures that they are available throughout the lifecycle of the CLI instance for consistent logging, performance tracking, and configuration management across all analysis types. 
 
@@ -88,7 +88,7 @@ class MPASUnifiedCLI:
         self.perf_monitor = None
         self.config = None
     
-    def create_main_parser(self: "MPASUnifiedCLI") -> argparse.ArgumentParser:
+    def create_main_parser(self: 'MPASUnifiedCLI') -> argparse.ArgumentParser:
         """
         This method creates and configures the main argument parser for the MPASUnifiedCLI, which serves as the entry point for users to access various types of analyses. The main parser is set up with a program name, description, and an epilog that provides usage examples for different analysis types. It includes global arguments for configuration file input, verbosity control, logging options, and version information. The method also creates subparsers for each analysis type (precipitation, surface variables, wind vectors, vertical cross-sections, and complex overlays) and registers them with the main parser. Each subparser is configured with its own specific arguments relevant to the type of analysis it performs, while also incorporating common arguments through a shared method. By structuring the CLI in this way, it allows users to easily navigate and execute different analyses while maintaining a consistent interface and providing helpful guidance through detailed help text and examples. 
 
@@ -149,7 +149,7 @@ class MPASUnifiedCLI:
         
         return parser
     
-    def _add_common_arguments(self: "MPASUnifiedCLI", 
+    def _add_common_arguments(self: 'MPASUnifiedCLI', 
                               parser: argparse.ArgumentParser,
                               required_grid: bool = True) -> None:
         """
@@ -217,8 +217,30 @@ class MPASUnifiedCLI:
                                help='Number of parallel workers (default: auto-detect based on CPU cores)')
         proc_group.add_argument('--chunk-size', type=int, default=100000,
                                help='Data chunk size for processing (default: 100000)')
+
+        remap_group = parser.add_argument_group('Remapping Options')
+        remap_group.add_argument(
+            '--remap-engine',
+            type=str,
+            default='kdtree',
+            choices=['kdtree', 'esmf'],
+            help=(
+                'Remapping engine: kdtree (scipy KDTree, default) or '
+                'esmf (ESMPy — requires conda install -c conda-forge esmpy)'
+            ),
+        )
+        remap_group.add_argument(
+            '--remap-method',
+            type=str,
+            default='nearest',
+            help=(
+                'Remapping method. For --remap-engine kdtree: nearest (default), linear. '
+                'For --remap-engine esmf: bilinear (auto-selected default), conservative, '
+                'conservative_normed, patch, nearest_s2d, nearest_d2s.'
+            ),
+        )
     
-    def _add_precipitation_parser(self: "MPASUnifiedCLI", 
+    def _add_precipitation_parser(self: 'MPASUnifiedCLI', 
                                   subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the precipitation subparser for the MPASUnifiedCLI, enabling users to generate precipitation accumulation maps from MPAS diagnostic data. The subparser is configured with command aliases ('precip', 'rain') for user convenience and includes specific arguments for selecting the precipitation variable, accumulation period, plot type (scatter or contourf), grid resolution for interpolation, thresholding options, and output units. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing precipitation analyses effectively, allowing for flexible visualization of precipitation accumulation over various time periods and with different plotting styles. By registering this subparser under the main CLI, it allows users to easily access precipitation analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -267,7 +289,7 @@ class MPASUnifiedCLI:
         precip_group.add_argument('--units', type=str, choices=['mm', 'in', 'cm'],
                                 default='mm', help='Output units (default: mm)')
     
-    def _add_surface_parser(self: "MPASUnifiedCLI", 
+    def _add_surface_parser(self: 'MPASUnifiedCLI', 
                             subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the surface variable subparser for the MPASUnifiedCLI, enabling users to generate surface variable scalar plots from MPAS diagnostic data. The subparser is configured with command aliases ('surf', '2d') for user convenience and includes specific arguments for selecting the surface variable to plot, choosing the plot type (scatter, contour, contourf, pcolormesh), specifying grid resolution for interpolation, controlling interpolation method for contour plots, and setting the number of contour levels. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing surface variable analyses effectively, allowing for flexible visualization of various surface variables such as temperature, pressure, humidity, or wind components with different plotting styles. By registering this subparser under the main CLI, it allows users to easily access surface variable analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -313,7 +335,7 @@ class MPASUnifiedCLI:
         surf_group.add_argument('--contour-levels', type=int, default=15,
                               help='Number of contour levels (default: 15)')
     
-    def _add_wind_parser(self: "MPASUnifiedCLI", 
+    def _add_wind_parser(self: 'MPASUnifiedCLI', 
                          subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the wind vector subparser for the MPASUnifiedCLI, enabling users to generate wind vector plots from MPAS diagnostic data. The subparser is configured with command aliases ('vector', 'winds') for user convenience and includes specific arguments for selecting the U and V wind component variables, wind level description for labeling, wind vector representation (barbs, arrows, streamlines), subsampling factor for vector density control, scale factor for wind vectors, options to show background wind speed as filled contours, colormap selection for background speed, color and transparency settings for vectors, and grid resolution and interpolation method for regridding wind components if needed. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing wind vector analyses effectively, allowing for flexible visualization of surface or upper-level winds with various customization options. By registering this subparser under the main CLI, it allows users to easily access wind vector analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -373,7 +395,7 @@ class MPASUnifiedCLI:
                               choices=['linear', 'nearest'],
                               help='Interpolation method for regridding - linear for smooth fields or nearest for preserving values (default: linear)')
     
-    def _add_cross_parser(self: "MPASUnifiedCLI", 
+    def _add_cross_parser(self: 'MPASUnifiedCLI', 
                           subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the vertical cross-section subparser for the MPASUnifiedCLI, enabling users to generate 3D vertical cross-section plots from MPAS diagnostic data. The subparser is configured with command aliases ('cross', 'xsection') for user convenience and includes specific arguments for selecting the variable to plot, defining the start and end points of the cross-section in terms of longitude and latitude, choosing the plot type (contour, contourf, pcolormesh), specifying grid resolution for interpolation, controlling interpolation method for contour plots, and setting the number of contour levels. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing vertical cross-section analyses effectively, allowing for flexible visualization of atmospheric variables along a defined transect with different plotting styles. By registering this subparser under the main CLI, it allows users to easily access vertical cross-section analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -427,7 +449,7 @@ class MPASUnifiedCLI:
                               choices=['both', 'min', 'max', 'neither'],
                               help='Colorbar extension (default: both)')
     
-    def _add_sounding_parser(self: "MPASUnifiedCLI", 
+    def _add_sounding_parser(self: 'MPASUnifiedCLI', 
                              subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the sounding subparser for the MPASUnifiedCLI, enabling users to generate Skew-T Log-P diagrams from MPAS 3D atmospheric data at specified locations. The subparser is configured with command aliases ('skewt', 'profile') for user convenience and includes specific arguments for selecting the longitude and latitude of the sounding location, options to compute and display thermodynamic indices (CAPE, CIN, LCL, LFC, EL), and an option to plot the lifted parcel profile if MetPy is available. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing sounding analyses effectively, allowing for flexible visualization of atmospheric profiles at specific locations with various customization options. By registering this subparser under the main CLI, it allows users to easily access sounding analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -469,7 +491,7 @@ class MPASUnifiedCLI:
         sounding_group.add_argument('--show-parcel', action='store_true',
                                    help='Plot lifted parcel profile (requires MetPy)')
 
-    def _add_overlay_parser(self: "MPASUnifiedCLI", 
+    def _add_overlay_parser(self: 'MPASUnifiedCLI', 
                             subparsers: argparse._SubParsersAction) -> None:
         """
         This method creates and registers the complex overlay subparser for the MPASUnifiedCLI, enabling users to generate multi-variable overlay plots that combine different types of data (e.g., precipitation with wind vectors, temperature with pressure contours) from MPAS diagnostic files. The subparser is configured with command aliases ('complex', 'multi', 'composite') for user convenience and includes specific arguments for selecting the type of overlay analysis to perform, specifying primary and secondary variables for the overlay, defining custom variable lists for multi-variable overlays, configuring wind vector options for overlays that include wind data, and customizing colormap and transparency settings for the overlay elements. It also incorporates common arguments for input/output settings, spatial extent, time selection, and processing options through a shared method. The method provides detailed help text and usage examples to guide users in executing complex overlay analyses effectively, allowing for flexible visualization of multiple atmospheric variables in a single plot with various customization options. By registering this subparser under the main CLI, it allows users to easily access complex overlay analysis functionality while maintaining a consistent interface across different types of analyses. 
@@ -526,7 +548,7 @@ class MPASUnifiedCLI:
         overlay_group.add_argument('--contour-overlay', action='store_true',
                                  help='Add contour lines for secondary variable')
     
-    def parse_args_to_config(self: "MPASUnifiedCLI", 
+    def parse_args_to_config(self: 'MPASUnifiedCLI', 
                              args: argparse.Namespace) -> MPASConfig:
         """
         This method takes the parsed command-line arguments from the argparse namespace and translates them into a structured MPASConfig object that encapsulates all the necessary settings for executing the selected analysis command. It first initializes an empty configuration dictionary and then populates it with common parameters that are applicable across all analysis types, such as input/output paths, spatial extent, time selection, output formatting, color settings, and processing options. The method then checks which specific analysis command was invoked (e.g., precipitation, surface, wind, cross-section, sounding, overlay) and calls dedicated mapping methods to extract and translate analysis-specific parameters from the argparse namespace into the configuration dictionary. Each mapping method handles the unique parameters relevant to its respective analysis type while ensuring that only user-specified options are included in the final configuration. Finally, the method constructs and returns an MPASConfig object using the populated configuration dictionary, which can then be used by the processing classes to execute the desired analysis with the specified settings. 
@@ -557,8 +579,10 @@ class MPASUnifiedCLI:
             'clim_min': 'clim_min',
             'clim_max': 'clim_max',
             'parallel': 'parallel',
-            'workers': 'workers',  
-            'chunk_size': 'chunk_size'
+            'workers': 'workers',
+            'chunk_size': 'chunk_size',
+            'remap_engine': 'remap_engine',
+            'remap_method': 'remap_method',
         }
         
         for arg_name, config_attr in common_mapping.items():
@@ -579,7 +603,7 @@ class MPASUnifiedCLI:
         
         return MPASConfig(**config_dict)
 
-    def _dispatch_analysis_args(self: "MPASUnifiedCLI",
+    def _dispatch_analysis_args(self: 'MPASUnifiedCLI',
                                 args: argparse.Namespace,
                                 config_dict: Dict[str, Any]) -> None:
         """
@@ -592,21 +616,21 @@ class MPASUnifiedCLI:
         Returns:
             None
         """
-        cmd = args.analysis_command
-        if cmd in ['precipitation', 'precip', 'rain']:
+        analysis_cmd = args.analysis_command
+        if analysis_cmd in ['precipitation', 'precip', 'rain']:
             self._map_precipitation_args(args, config_dict)
-        elif cmd in ['surface', 'surf', '2d']:
+        elif analysis_cmd in ['surface', 'surf', '2d']:
             self._map_surface_args(args, config_dict)
-        elif cmd in ['wind', 'vector', 'winds']:
+        elif analysis_cmd in ['wind', 'vector', 'winds']:
             self._map_wind_args(args, config_dict)
-        elif cmd in ['cross', 'xsec', '3d', 'vertical']:
+        elif analysis_cmd in ['cross', 'xsec', '3d', 'vertical']:
             self._map_cross_args(args, config_dict)
-        elif cmd in ['sounding', 'skewt', 'profile']:
+        elif analysis_cmd in ['sounding', 'skewt', 'profile']:
             self._map_sounding_args(args, config_dict)
-        elif cmd in ['overlay', 'complex', 'multi', 'composite']:
+        elif analysis_cmd in ['overlay', 'complex', 'multi', 'composite']:
             self._map_overlay_args(args, config_dict)
 
-    def _map_precipitation_args(self: "MPASUnifiedCLI", 
+    def _map_precipitation_args(self: 'MPASUnifiedCLI', 
                                 args: argparse.Namespace, 
                                 config_dict: Dict[str, Any]) -> None:
         """
@@ -632,7 +656,7 @@ class MPASUnifiedCLI:
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
     
-    def _map_surface_args(self: "MPASUnifiedCLI", 
+    def _map_surface_args(self: 'MPASUnifiedCLI',
                           args: argparse.Namespace, 
                           config_dict: Dict[str, Any]) -> None:
         """
@@ -657,7 +681,7 @@ class MPASUnifiedCLI:
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
     
-    def _map_wind_args(self: "MPASUnifiedCLI", 
+    def _map_wind_args(self: 'MPASUnifiedCLI', 
                        args: argparse.Namespace, 
                        config_dict: Dict[str, Any]) -> None:
         """
@@ -689,7 +713,7 @@ class MPASUnifiedCLI:
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
     
-    def _map_cross_args(self: "MPASUnifiedCLI", 
+    def _map_cross_args(self: 'MPASUnifiedCLI',
                         args: argparse.Namespace, 
                         config_dict: Dict[str, Any]) -> None:
         """
@@ -719,7 +743,7 @@ class MPASUnifiedCLI:
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
     
-    def _map_sounding_args(self: "MPASUnifiedCLI", 
+    def _map_sounding_args(self: 'MPASUnifiedCLI', 
                            args: argparse.Namespace, 
                            config_dict: Dict[str, Any]) -> None:
         """
@@ -743,7 +767,7 @@ class MPASUnifiedCLI:
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
     
-    def _map_overlay_args(self: "MPASUnifiedCLI", 
+    def _map_overlay_args(self: 'MPASUnifiedCLI', 
                           args: argparse.Namespace, 
                           config_dict: Dict[str, Any]) -> None:
         """
@@ -777,8 +801,8 @@ class MPASUnifiedCLI:
         if hasattr(args, 'variables') and args.variables:
             config_dict['variables'] = [v.strip() for v in args.variables.split(',')]
     
-    def setup_logging(self: "MPASUnifiedCLI", 
-                      config: MPASConfig, 
+    def setup_logging(self: 'MPASUnifiedCLI', 
+                      config: 'MPASConfig', 
                       log_file: Optional[str] = None) -> MPASLogger:
         """
         This method sets up the logging configuration for the MPASUnifiedCLI based on the user's preferences for logging verbosity and an optional log file path. It determines the appropriate logging level (e.g., ERROR, INFO, DEBUG) based on the presence of 'quiet' and 'verbose' flags in the configuration object. If the 'quiet' flag is set, it configures logging to only capture ERROR messages; if the 'verbose' flag is set, it configures logging to capture DEBUG messages; otherwise, it defaults to INFO level. The method also checks if a log file path is provided and configures the MPASLogger to write log messages to that file in addition to the console output. By setting up logging in this way, it allows for flexible control over the amount of information logged during execution and provides an option for persistent logging to a file for later review or debugging purposes. The configured MPASLogger instance is then returned for use throughout the CLI execution. 
@@ -808,7 +832,7 @@ class MPASUnifiedCLI:
         
         return self.logger
     
-    def _validate_file_path(self: "MPASUnifiedCLI", 
+    def _validate_file_path(self: 'MPASUnifiedCLI', 
                             file_path: Optional[str], 
                             file_type: str, 
                             errors: List[str]) -> None:
@@ -829,7 +853,7 @@ class MPASUnifiedCLI:
         elif not Path(file_path).exists():
             errors.append(f"{file_type} not found: {file_path}")
     
-    def _validate_directory_path(self: "MPASUnifiedCLI", 
+    def _validate_directory_path(self: 'MPASUnifiedCLI', 
                                  dir_path: Optional[str], 
                                  dir_type: str, 
                                  errors: List[str]) -> bool:
@@ -855,7 +879,7 @@ class MPASUnifiedCLI:
             return False
         return True
     
-    def _find_data_files(self: "MPASUnifiedCLI", 
+    def _find_data_files(self: 'MPASUnifiedCLI', 
                          data_path: Path) -> List[Path]:
         """
         This method attempts to discover MPAS data files within the specified data directory by checking for common naming patterns and directory structures used in MPAS diagnostic output. It first looks for files matching the DIAG_GLOB pattern directly within the provided data_path. If no files are found, it checks if there is a 'diag' subdirectory and looks for DIAG_GLOB files there. If still no files are found, it looks for files matching the MPASOUT_GLOB pattern directly within the data_path, and if not found, it checks for an 'mpasout' subdirectory. If no files are found in these common locations, it performs a recursive search through all subdirectories of data_path for files matching either DIAG_GLOB or MPASOUT_GLOB patterns. The method returns a list of Path objects representing the discovered MPAS data files that match the expected naming patterns within the specified data directory and its subdirectories. This file discovery process is essential for ensuring that the analysis has access to the necessary input data files based on user-specified directory paths, even if the files are organized in different ways. 
@@ -886,8 +910,8 @@ class MPASUnifiedCLI:
         
         return list(data_path.rglob(DIAG_GLOB)) + list(data_path.rglob(MPASOUT_GLOB))
     
-    def _validate_coordinate_range(self: "MPASUnifiedCLI",
-                                   config: MPASConfig,
+    def _validate_coordinate_range(self: 'MPASUnifiedCLI',
+                                   config: 'MPASConfig',
                                    min_attr: str,
                                    max_attr: str,
                                    coord_type: str,
@@ -911,8 +935,8 @@ class MPASUnifiedCLI:
             if min_val >= max_val:
                 errors.append(f"Invalid {coord_type} range: {min_attr} >= {max_attr}")
     
-    def _validate_cross_section_params(self: "MPASUnifiedCLI",
-                                       config: MPASConfig,
+    def _validate_cross_section_params(self: 'MPASUnifiedCLI',
+                                       config: 'MPASConfig',
                                        errors: List[str]) -> None:
         """
         This method performs additional validation checks specific to cross-section analysis by verifying that if the analysis type is identified as a cross-section type (e.g., 'cross', 'xsec', '3d', 'vertical'), then the required parameters for defining the cross-section path (start and end longitude and latitude) are present in the configuration object. It first checks if the 'analysis_type' attribute exists in the configuration object and if it matches any of the known cross-section analysis types. If it does, it defines a list of required attributes for cross-section analysis (start_lon, start_lat, end_lon, end_lat) and iterates through this list to check if each attribute is present and not None in the configuration object. If any required attribute is missing or None, it appends an error message to the provided errors list indicating that the specific parameter is required for cross-section analysis. This validation step ensures that users have provided all necessary information to define a valid cross-section path before attempting to execute the analysis, preventing runtime errors due to missing parameters and providing clear feedback on what needs to be specified for successful execution. By accumulating error messages in a list, this method allows for comprehensive reporting of multiple validation issues related to cross-section parameters in a single output. 
@@ -931,7 +955,7 @@ class MPASUnifiedCLI:
                     if not hasattr(config, attr) or getattr(config, attr) is None:
                         errors.append(f"Cross-section analysis requires --{attr.replace('_', '-')}")
     
-    def _report_validation_errors(self: "MPASUnifiedCLI", 
+    def _report_validation_errors(self: 'MPASUnifiedCLI', 
                                   errors: List[str]) -> None:
         """
         This method reports the accumulated configuration validation errors to the user by logging them through the configured logger if available, or printing them to the console if no logger is set up. It first defines a header message indicating that configuration validation has failed, and then iterates through the list of error messages, logging or printing each one with a consistent format. This method centralizes the reporting of validation errors, ensuring that users receive clear and organized feedback on what issues were detected during the validation process and what needs to be corrected in their configuration settings before they can successfully execute the analysis. By providing detailed error messages, it helps users understand exactly what parameters are missing or invalid, facilitating easier troubleshooting and correction of their configuration. 
@@ -953,13 +977,13 @@ class MPASUnifiedCLI:
             for error in errors:
                 print(f"  - {error}")
     
-    def validate_config(self: "MPASUnifiedCLI", 
-                        config: MPASConfig) -> bool:
+    def validate_config(self: 'MPASUnifiedCLI', 
+                        config: 'MPASConfig') -> bool:
         """
         This method performs comprehensive validation of the configuration object to ensure that all required parameters are specified, file paths exist, and spatial bounds are logically consistent before attempting to execute the analysis. It uses helper methods to validate individual aspects of the configuration, such as checking for the existence of required files and directories, validating coordinate ranges for latitude and longitude, and performing additional checks specific to certain analysis types (e.g., cross-section parameters). If any validation checks fail, it accumulates error messages in a list and reports them to the user through the logger or console output. The method returns True if all validation checks pass successfully, allowing execution to proceed, or False if any validation errors are detected that require user correction before execution can continue. This validation step is crucial for preventing runtime errors during analysis execution by ensuring that the configuration is complete and valid before processing begins. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all parameters for the analysis, which will be validated for completeness, correctness, and logical consistency before execution. 
+            config ('MPASConfig'): The configuration object containing all parameters for the analysis, which will be validated for completeness, correctness, and logical consistency before execution. 
 
         Returns:
             bool: True if the configuration passes all validation checks and is considered valid for execution, False if any validation errors are detected that require user correction before execution can continue.
@@ -987,13 +1011,13 @@ class MPASUnifiedCLI:
         
         return True
     
-    def _check_analysis_type_specified(self: "MPASUnifiedCLI", 
-                                       config: MPASConfig) -> bool:
+    def _check_analysis_type_specified(self: 'MPASUnifiedCLI',
+                                       config: 'MPASConfig') -> bool:
         """
         This method checks whether the 'analysis_type' attribute is specified in the configuration object, which is essential for determining which analysis workflow to execute. It verifies that the 'analysis_type' attribute exists and is not empty or None. If the analysis type is not specified, it logs an error message indicating that no analysis type was specified and returns False, signaling that execution cannot proceed without this critical piece of information. If the analysis type is specified, it returns True, allowing the execution flow to continue to the dispatching of the appropriate analysis method based on the specified type. This check ensures that users have provided the necessary information to identify which analysis they want to perform before any processing begins. 
         
         Parameters:
-            config (MPASConfig): The configuration object containing the parameters for the analysis, which should include the 'analysis_type' attribute that specifies which type of analysis to execute. 
+            config ('MPASConfig'): The configuration object containing the parameters for the analysis, which should include the 'analysis_type' attribute that specifies which type of analysis to execute. 
 
         Returns:
             bool: True if the 'analysis_type' attribute is specified and valid in the configuration object, False if it is missing or empty, indicating that execution cannot proceed without this information. 
@@ -1003,15 +1027,15 @@ class MPASUnifiedCLI:
             return False
         return True
     
-    def _dispatch_analysis(self: "MPASUnifiedCLI", 
+    def _dispatch_analysis(self: 'MPASUnifiedCLI', 
                            analysis_type: Optional[str], 
-                           config: MPASConfig) -> Optional[bool]:
+                           config: 'MPASConfig') -> Optional[bool]:
         """
         This method dispatches the execution to the appropriate analysis method based on the specified analysis type in the configuration. It defines a mapping of known analysis types and their aliases to corresponding methods that implement the specific analysis workflows (e.g., precipitation, surface variables, wind vectors, cross-sections, soundings, overlays). The method iterates through this mapping to find a match for the provided analysis type and calls the corresponding method with the configuration object if a match is found. If no known analysis type matches the provided input, it returns None, indicating that the analysis type is unknown and no method was executed. This dispatching mechanism allows for flexible execution of different analysis workflows based on user input while maintaining a clean and organized structure for handling multiple types of analyses within the unified CLI framework. 
 
         Parameters:
             analysis_type (Optional[str]): The type of analysis to execute, which may be None if not specified. This string is used to determine which analysis method to call based on predefined mappings of analysis types and their aliases.
-            config (MPASConfig): The configuration object containing all parameters for the analysis, which will be passed to the specific analysis method that is executed based on the analysis type. 
+            config ('MPASConfig'): The configuration object containing all parameters for the analysis, which will be passed to the specific analysis method that is executed based on the analysis type. 
 
         Returns:
             Optional[bool]: The result of the executed analysis method (True for success, False for failure) if a known analysis type is matched and executed, or None if the analysis type is unknown and no method was executed. 
@@ -1028,13 +1052,13 @@ class MPASUnifiedCLI:
             ('overlay', 'complex', 'multi', 'composite'): self._run_overlay_analysis,
         }
         
-        for type_aliases, analysis_method in analysis_map.items():
-            if analysis_type in type_aliases:
+        for analysis_type_aliases, analysis_method in analysis_map.items():
+            if analysis_type in analysis_type_aliases:
                 return analysis_method(config)
         
         return None
     
-    def _log_error(self: "MPASUnifiedCLI", 
+    def _log_error(self: 'MPASUnifiedCLI', 
                    message: str, 
                    include_traceback: bool = False) -> None:
         """
@@ -1053,13 +1077,13 @@ class MPASUnifiedCLI:
                 import traceback
                 self.logger.error(traceback.format_exc())
     
-    def _print_performance_summary(self: "MPASUnifiedCLI", 
-                                   config: MPASConfig) -> None:
+    def _print_performance_summary(self: 'MPASUnifiedCLI', 
+                                   config: 'MPASConfig') -> None:
         """
         This method prints a performance summary of the analysis execution if the logger is configured and the 'verbose' flag is set in the configuration object. It checks if the logger is available and if the configuration has a 'verbose' attribute that is True. If both conditions are met, it calls the 'print_summary' method of the PerformanceMonitor instance to output a summary of the execution times for various stages of the analysis. This allows users to see detailed performance metrics when they have enabled verbose output, providing insights into how long different parts of the analysis took to execute. If either condition is not met (i.e., no logger or verbose mode not enabled), this method will not print anything, ensuring that performance information is only displayed when requested by the user. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing user preferences for logging verbosity (e.g., 'verbose') that will be used to determine whether to print the performance summary. 
+            config ('MPASConfig'): The configuration object containing user preferences for logging verbosity (e.g., 'verbose') that will be used to determine whether to print the performance summary. 
 
         Returns:
             None
@@ -1068,13 +1092,13 @@ class MPASUnifiedCLI:
             if self.perf_monitor is not None:
                 self.perf_monitor.print_summary()
     
-    def run_analysis(self: "MPASUnifiedCLI", 
-                     config: MPASConfig) -> bool:
+    def run_analysis(self: 'MPASUnifiedCLI', 
+                     config: 'MPASConfig') -> bool:
         """
         This method serves as the main entry point for executing the analysis based on the provided configuration. It first initializes a PerformanceMonitor to track execution times, then checks if the analysis type is specified in the configuration. If not, it logs an error and returns False. If the analysis type is specified, it dispatches the execution to the appropriate analysis method based on the analysis type. If the analysis type is unknown, it logs an error and returns False. After executing the analysis, it prints a performance summary if verbose mode is enabled. The method returns True if the analysis completes successfully without errors, or False if any issues occur during execution or if the analysis type is unknown. It also includes exception handling to catch KeyboardInterrupt for user-initiated interruptions and general exceptions for any other errors that may occur during execution, logging appropriate error messages in each case.   
 
         Parameters:
-            config (MPASConfig): The configuration object containing all parameters for the analysis, including the specified analysis type, file paths, spatial bounds, output preferences, and any other settings needed to execute the analysis. 
+            config ('MPASConfig'): The configuration object containing all parameters for the analysis, including the specified analysis type, file paths, spatial bounds, output preferences, and any other settings needed to execute the analysis. 
 
         Returns:
             bool: True if the analysis completes successfully without errors, False if any issues occur during execution (e.g., unknown analysis type, exceptions) or if the analysis type is not specified. 
@@ -1102,21 +1126,21 @@ class MPASUnifiedCLI:
             self._log_error("Analysis interrupted by user")
             return False
         except Exception as e:
-            include_trace = hasattr(config, 'verbose') and config.verbose
-            self._log_error(f"Analysis failed: {e}", include_traceback=include_trace)
+            include_traceback = hasattr(config, 'verbose') and config.verbose
+            self._log_error(f"Analysis failed: {e}", include_traceback=include_traceback)
             return False
     
-    def _run_precipitation_batch(self: "MPASUnifiedCLI",
-                                 processor: "MPAS2DProcessor",
-                                 plotter: "MPASPrecipitationPlotter",
-                                 config: MPASConfig,) -> None:
+    def _run_precipitation_batch(self: 'MPASUnifiedCLI',
+                                 processor: 'MPAS2DProcessor',
+                                 plotter: 'MPASPrecipitationPlotter',
+                                 config: 'MPASConfig') -> None:
         """
         This method executes the batch precipitation analysis workflow for MPAS data, handling the process of generating multiple precipitation maps across a range of time steps or spatial bounds based on user-specified parameters. It first checks if parallel processing is enabled in the configuration and, if so, it utilizes the ParallelPrecipitationProcessor to create batch precipitation maps in parallel, logging the use of parallel processing. If parallel processing is not enabled, it calls the create_batch_precipitation_maps method of the plotter to generate the maps sequentially. The method passes all necessary parameters to these functions, including spatial bounds, variable name, accumulation period, plot type, grid resolution, and output formats. After the maps are created, it logs the number of generated maps for user confirmation. This method is designed to be called when batch processing is enabled in the configuration, allowing for efficient generation of multiple precipitation maps based on the specified criteria.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and compute precipitation differences for the specified variable and time range in batch mode.
-            plotter (MPASPrecipitationPlotter): An instance of the MPASPrecipitationPlotter class that will be used to create and save the precipitation map visualizations based on the computed precipitation differences and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution) in batch mode.
-            config (MPASConfig): The configuration object containing all parameters for the batch precipitation analysis, including the variable name, spatial bounds, accumulation period, plot type, grid resolution, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and compute precipitation differences for the specified variable and time range in batch mode.
+            plotter ('MPASPrecipitationPlotter'): An instance of the MPASPrecipitationPlotter class that will be used to create and save the precipitation map visualizations based on the computed precipitation differences and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution) in batch mode.
+            config ('MPASConfig'): The configuration object containing all parameters for the batch precipitation analysis, including the variable name, spatial bounds, accumulation period, plot type, grid resolution, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
 
         Returns:
             None
@@ -1152,19 +1176,19 @@ class MPASUnifiedCLI:
         if self.logger and created_files:
             self.logger.info(f"Created {len(created_files)} precipitation maps")
 
-    def _run_precipitation_single(self: "MPASUnifiedCLI",
-                                  processor: "MPAS2DProcessor",
-                                  plotter: "MPASPrecipitationPlotter",
+    def _run_precipitation_single(self: 'MPASUnifiedCLI',
+                                  processor: 'MPAS2DProcessor',
+                                  plotter: 'MPASPrecipitationPlotter',
                                   dataset: Any, 
-                                  config: MPASConfig,) -> None:
+                                  config: 'MPASConfig',) -> None:
         """
         This method executes the precipitation analysis workflow for a single timestep of MPAS data, handling the process of extracting coordinates, computing precipitation differences, and generating a visualization based on user-specified parameters. It uses the provided MPAS2DProcessor to extract longitude and latitude coordinates for the specified variable, computes the precipitation difference using the PrecipitationDiagnostics class, and creates a precipitation map with appropriate titles and formatting. The method ensures that output directories are created as needed and saves the visualization in the requested formats. It also logs the output path of the saved plot for user confirmation. This method is designed to be called when batch processing is not enabled, allowing for focused analysis on a single timestep of data.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and compute precipitation differences for the specified variable and time index.
-            plotter (MPASPrecipitationPlotter): An instance of the MPASPrecipitationPlotter class that will be used to create and save the precipitation map visualization based on the computed precipitation differences and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution).
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and compute precipitation differences for the specified variable and time index.
+            plotter ('MPASPrecipitationPlotter'): An instance of the MPASPrecipitationPlotter class that will be used to create and save the precipitation map visualization based on the computed precipitation differences and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution).
             dataset (Any): The dataset object containing the loaded MPAS data, which will be used to extract time information for the plot title and to access the variable data needed for precipitation difference calculations.
-            config (MPASConfig): The configuration object containing all parameters for the precipitation analysis, including the variable name, time index, spatial bounds, accumulation period, plot type, grid resolution, output preferences, and any other settings needed to execute the analysis for a single timestep.
+            config ('MPASConfig'): The configuration object containing all parameters for the precipitation analysis, including the variable name, time index, spatial bounds, accumulation period, plot type, grid resolution, output preferences, and any other settings needed to execute the analysis for a single timestep.
 
         Returns:
             None
@@ -1172,6 +1196,7 @@ class MPASUnifiedCLI:
         lon, lat = processor.extract_2d_coordinates_for_variable(config.variable)
 
         precip_diag = PrecipitationDiagnostics(verbose=config.verbose)
+
         precip_data = precip_diag.compute_precipitation_difference(
             dataset, config.time_index, config.variable, config.accumulation_period,
             data_type=getattr(processor, 'data_type', 'UXarray')
@@ -1186,7 +1211,8 @@ class MPASUnifiedCLI:
             title=config.title or f"MPAS Precipitation | Variable: {config.variable} | Valid: {time_str}",
             accum_period=config.accumulation_period,
             plot_type=getattr(config, 'plot_type', 'scatter'),
-            grid_resolution=getattr(config, 'grid_resolution', None)
+            grid_resolution=getattr(config, 'grid_resolution', None),
+            dataset=dataset,
         )
 
         output_path = config.output or os.path.join(
@@ -1200,8 +1226,8 @@ class MPASUnifiedCLI:
         if self.logger:
             self.logger.info(f"Precipitation plot saved: {output_path}")
 
-    def _run_precipitation_analysis(self: "MPASUnifiedCLI", 
-                                    config: MPASConfig) -> bool:
+    def _run_precipitation_analysis(self: 'MPASUnifiedCLI', 
+                                    config: 'MPASConfig') -> bool:
         """
         This method executes the precipitation analysis workflow for MPAS data, handling the complete process of loading 2D diagnostic data, computing precipitation differences, and generating visualizations based on user-specified parameters. It initializes an MPAS2DProcessor to load the grid and data, creates an MPASPrecipitationPlotter for visualization, and supports both single-timestep and batch-mode processing. In batch mode, it can utilize ParallelPrecipitationProcessor for efficient generation of multiple precipitation maps. For single-timestep analysis, it extracts longitude and latitude coordinates, computes the precipitation difference using PrecipitationDiagnostics, and creates a precipitation map with appropriate titles and formatting. The method ensures that output directories are created as needed and saves visualizations in the requested formats. It also logs the number of generated maps for user confirmation. The method returns True if the analysis completes successfully without errors, or False if any issues occur during processing or plotting. 
 
@@ -1232,17 +1258,17 @@ class MPASUnifiedCLI:
 
         return True
     
-    def _run_surface_batch(self: "MPASUnifiedCLI",
-                           processor: "MPAS2DProcessor",
-                           plotter: "MPASSurfacePlotter",
-                           config: MPASConfig,) -> None:
+    def _run_surface_batch(self: 'MPASUnifiedCLI',
+                           processor: 'MPAS2DProcessor',
+                           plotter: 'MPASSurfacePlotter',
+                           config: 'MPASConfig',) -> None:
         """
         This method executes the batch surface variable analysis workflow for MPAS data, handling the process of generating multiple surface maps across a range of time steps or spatial bounds based on user-specified parameters. It first checks if parallel processing is enabled in the configuration and, if so, it utilizes the ParallelSurfaceProcessor to create batch surface maps in parallel, logging the use of parallel processing. If parallel processing is not enabled, it calls the create_batch_surface_maps method of the plotter to generate the maps sequentially. The method passes all necessary parameters to these functions, including spatial bounds, variable name, plot type, grid resolution, and output formats. After the maps are created, it logs the number of generated maps for user confirmation. This method is designed to be called when batch processing is enabled in the configuration, allowing for efficient generation of multiple surface maps based on the specified criteria.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified variable and time range in batch mode.
-            plotter (MPASSurfacePlotter): An instance of the MPASSurfacePlotter class that will be used to create and save the surface map visualizations based on the extracted variable data and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution) in batch mode.
-            config (MPASConfig): The configuration object containing all parameters for the batch surface analysis, including the variable name, spatial bounds, plot type, grid resolution, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified variable and time range in batch mode.
+            plotter ('MPASSurfacePlotter'): An instance of the MPASSurfacePlotter class that will be used to create and save the surface map visualizations based on the extracted variable data and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution) in batch mode.
+            config ('MPASConfig'): The configuration object containing all parameters for the batch surface analysis, including the variable name, spatial bounds, plot type, grid resolution, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
 
         Returns:
             None
@@ -1276,19 +1302,19 @@ class MPASUnifiedCLI:
         if self.logger and created_files:
             self.logger.info(f"Created {len(created_files)} surface maps")
 
-    def _run_surface_single(self: "MPASUnifiedCLI",
-                            processor: "MPAS2DProcessor",
-                            plotter: "MPASSurfacePlotter",
+    def _run_surface_single(self: 'MPASUnifiedCLI',
+                            processor: 'MPAS2DProcessor',
+                            plotter: 'MPASSurfacePlotter',
                             dataset: Any,
-                            config: MPASConfig,) -> None:
+                            config: 'MPASConfig',) -> None:
         """
         This method executes the surface variable analysis workflow for a single timestep of MPAS data, handling the process of extracting coordinates, retrieving variable data, and generating a visualization based on user-specified parameters. It uses the provided MPAS2DProcessor to extract longitude and latitude coordinates for the specified variable, retrieves the 2D variable data for the specified time index, and creates a surface map with appropriate titles and formatting. The method ensures that output directories are created as needed and saves the visualization in the requested formats. It also logs the output path of the saved plot for user confirmation. This method is designed to be called when batch processing is not enabled, allowing for focused analysis on a single timestep of data.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified variable and time index.
-            plotter (MPASSurfacePlotter): An instance of the MPASSurfacePlotter class that will be used to create and save the surface map visualization based on the extracted variable data and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution).
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified variable and time index.
+            plotter ('MPASSurfacePlotter'): An instance of the MPASSurfacePlotter class that will be used to create and save the surface map visualization based on the extracted variable data and user-specified parameters for plotting (e.g., spatial bounds, plot type, grid resolution).
             dataset (Any): The dataset object containing the loaded MPAS data, which will be used to extract time information for the plot title and to access the variable data needed for creating the surface map.
-            config (MPASConfig): The configuration object containing all parameters for the surface analysis, including the variable name, time index, spatial bounds, plot type, grid resolution, output preferences, and any other settings needed to execute the analysis for a single timestep.
+            config ('MPASConfig'): The configuration object containing all parameters for the surface analysis, including the variable name, time index, spatial bounds, plot type, grid resolution, output preferences, and any other settings needed to execute the analysis for a single timestep.
 
         Returns:
             None
@@ -1308,7 +1334,8 @@ class MPASUnifiedCLI:
             colormap=config.colormap if config.colormap != 'default' else None,
             clim_min=config.clim_min,
             clim_max=config.clim_max,
-            data_array=var_data
+            data_array=var_data,
+            dataset=processor.dataset,
         )
 
         output_path = config.output or os.path.join(
@@ -1322,13 +1349,13 @@ class MPASUnifiedCLI:
         if self.logger:
             self.logger.info(f"Surface plot saved: {output_path}")
 
-    def _run_surface_analysis(self: "MPASUnifiedCLI", 
-                              config: MPASConfig) -> bool:
+    def _run_surface_analysis(self: 'MPASUnifiedCLI', 
+                              config: 'MPASConfig') -> bool:
         """
         This method executes the surface variable analysis workflow for MPAS data, managing the entire process of loading 2D diagnostic data, extracting the specified variable, and generating visualizations based on user-specified parameters. It initializes an MPAS2DProcessor to load the grid and data, creates an MPASSurfacePlotter for visualization, and supports both single-timestep and batch-mode processing. In batch mode, it can utilize ParallelSurfaceProcessor for efficient generation of multiple surface maps. For single-timestep analysis, it extracts longitude and latitude coordinates, retrieves the specified variable data, and creates a surface map with appropriate titles and formatting. The method ensures that output directories are created as needed and saves visualizations in the requested formats. It also logs the number of generated maps for user confirmation. The method returns True if the analysis completes successfully without errors, or False if any issues occur during processing or plotting. 
 
         Parameters:
-            config (MPASConfig): Configuration object containing parameters for surface analysis, including grid file path, data directory, variable name, spatial bounds, plot type, gridding options, output preferences, and flags for batch processing and parallel execution. 
+            config ('MPASConfig'): Configuration object containing parameters for surface analysis, including grid file path, data directory, variable name, spatial bounds, plot type, gridding options, output preferences, and flags for batch processing and parallel execution. 
 
         Returns:
             bool: True if surface analysis completes successfully, False if any errors occur during data loading, processing, or plotting. 
@@ -1354,17 +1381,17 @@ class MPASUnifiedCLI:
 
         return True
     
-    def _run_wind_batch(self: "MPASUnifiedCLI",
-                        processor: "MPAS2DProcessor",
-                        plotter: "MPASWindPlotter",
-                        config: MPASConfig,) -> None:
+    def _run_wind_batch(self: 'MPASUnifiedCLI',
+                        processor: 'MPAS2DProcessor',
+                        plotter: 'MPASWindPlotter',
+                        config: 'MPASConfig',) -> None:
         """
         This method executes the batch wind vector analysis workflow for MPAS data, handling the process of generating multiple wind plots across a range of time steps or spatial bounds based on user-specified parameters. It first checks if parallel processing is enabled in the configuration and, if so, it utilizes the ParallelWindProcessor to create batch wind plots in parallel, logging the use of parallel processing. If parallel processing is not enabled, it calls the create_batch_wind_plots method of the plotter to generate the plots sequentially. The method passes all necessary parameters to these functions, including spatial bounds, variable names for u and v components, plot type, gridding options, and output formats. After the plots are created, it logs the number of generated plots for user confirmation. This method is designed to be called when batch processing is enabled in the configuration, allowing for efficient generation of multiple wind plots based on the specified criteria.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified u and v wind components across multiple time steps or spatial criteria in batch mode.
-            plotter (MPASWindPlotter): An instance of the MPASWindPlotter class that will be used to create and save the wind plot visualizations based on the extracted variable data for the u and v wind components and user-specified parameters for plotting (e.g., spatial bounds, plot type, gridding options) in batch mode.
-            config (MPASConfig): The configuration object containing all parameters for the batch wind analysis, including the variable names for the u and v wind components, spatial bounds, plot type, gridding options, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified u and v wind components across multiple time steps or spatial criteria in batch mode.
+            plotter ('MPASWindPlotter'): An instance of the MPASWindPlotter class that will be used to create and save the wind plot visualizations based on the extracted variable data for the u and v wind components and user-specified parameters for plotting (e.g., spatial bounds, plot type, gridding options) in batch mode.
+            config ('MPASConfig'): The configuration object containing all parameters for the batch wind analysis, including the variable names for the u and v wind components, spatial bounds, plot type, gridding options, output preferences, and any other settings needed to execute the batch analysis across multiple time steps or spatial criteria.
 
         Returns:
             None
@@ -1408,17 +1435,17 @@ class MPASUnifiedCLI:
         if self.logger and created_files:
             self.logger.info(f"Created {len(created_files)} wind plots")
 
-    def _run_wind_single(self: "MPASUnifiedCLI",
-                         processor: "MPAS2DProcessor",
-                         plotter: "MPASWindPlotter",
-                         config: MPASConfig,) -> None:
+    def _run_wind_single(self: 'MPASUnifiedCLI',
+                         processor: 'MPAS2DProcessor',
+                         plotter: 'MPASWindPlotter',
+                         config: 'MPASConfig',) -> None:
         """
         This method executes the wind vector analysis workflow for a single timestep of MPAS data, handling the process of extracting coordinates, retrieving u and v wind component data, and generating a visualization based on user-specified parameters. It uses the provided MPAS2DProcessor to extract longitude and latitude coordinates for the specified u variable, retrieves the 2D variable data for both the u and v wind components for the specified time index, and creates a wind plot with appropriate titles and formatting. The method ensures that output directories are created as needed and saves the visualization in the requested formats. It also logs the output path of the saved plot for user confirmation. This method is designed to be called when batch processing is not enabled, allowing for focused analysis on a single timestep of data.
 
         Parameters:
-            processor (MPAS2DProcessor): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified u and v wind components and time index.
-            plotter (MPASWindPlotter): An instance of the MPASWindPlotter class that will be used to create and save the wind plot visualization based on the extracted variable data for the u and v wind components and user-specified parameters for plotting (e.g., spatial bounds, plot type, gridding options).
-            config (MPASConfig): The configuration object containing all parameters for the wind analysis, including the variable names for the u and v wind components, time index, spatial bounds, plot type, gridding options, output preferences, and any other settings needed to execute the analysis for a single timestep.
+            processor ('MPAS2DProcessor'): An instance of the MPAS2DProcessor class that has been initialized with the grid and loaded with the 2D diagnostic data, which will be used to extract coordinates and variable data for the specified u and v wind components and time index.
+            plotter ('MPASWindPlotter'): An instance of the MPASWindPlotter class that will be used to create and save the wind plot visualization based on the extracted variable data for the u and v wind components and user-specified parameters for plotting (e.g., spatial bounds, plot type, gridding options).
+            config ('MPASConfig'): The configuration object containing all parameters for the wind analysis, including the variable names for the u and v wind components, time index, spatial bounds, plot type, gridding options, output preferences, and any other settings needed to execute the analysis for a single timestep.
 
         Returns:
             None
@@ -1438,7 +1465,8 @@ class MPASUnifiedCLI:
             scale=config.wind_scale,
             show_background=config.show_background,
             grid_resolution=getattr(config, 'grid_resolution', None),
-            regrid_method=getattr(config, 'regrid_method', 'linear')
+            regrid_method=getattr(config, 'regrid_method', 'linear'),
+            dataset=processor.dataset,
         )
 
         time_str = MPASDateTimeUtils.get_time_info(processor.dataset, config.time_index, verbose=False)
@@ -1454,13 +1482,13 @@ class MPASUnifiedCLI:
         if self.logger:
             self.logger.info(f"Wind plot saved: {output_path}")
 
-    def _run_wind_analysis(self: "MPASUnifiedCLI", 
-                           config: MPASConfig) -> bool:
+    def _run_wind_analysis(self: 'MPASUnifiedCLI', 
+                           config: 'MPASConfig') -> bool:
         """
         This method executes the wind vector analysis workflow for MPAS data, handling the complete process of loading 2D diagnostic data, extracting the specified u and v wind components, and generating visualizations based on user-specified parameters. It initializes an MPAS2DProcessor to load the grid and data, creates an MPASWindPlotter for visualization, and supports both single-timestep and batch-mode processing. In batch mode, it can utilize ParallelWindProcessor for efficient generation of multiple wind plots. For single-timestep analysis, it extracts longitude and latitude coordinates, retrieves the u and v wind component data, and creates a wind plot with appropriate titles and formatting. The method ensures that output directories are created as needed and saves visualizations in the requested formats. It also logs the number of generated plots for user confirmation. The method returns True if the analysis completes successfully without errors, or False if any issues occur during processing or plotting. 
 
         Parameters:
-            config (MPASConfig): Configuration object containing parameters for wind analysis, including grid file path, data directory, u and v variable names, spatial bounds, plot type, gridding options, output preferences, and flags for batch processing and parallel execution. 
+            config ('MPASConfig'): Configuration object containing parameters for wind analysis, including grid file path, data directory, u and v variable names, spatial bounds, plot type, gridding options, output preferences, and flags for batch processing and parallel execution. 
 
         Returns:
             bool: True if wind analysis completes successfully, False if any errors occur during data loading, processing, or plotting. 
@@ -1485,13 +1513,13 @@ class MPASUnifiedCLI:
 
         return True
     
-    def _validate_cross_section_coordinates(self: "MPASUnifiedCLI", 
-                                            config: MPASConfig) -> None:
+    def _validate_cross_section_coordinates(self: 'MPASUnifiedCLI', 
+                                            config: 'MPASConfig') -> None:
         """
         This method validates that the necessary coordinates for defining a vertical cross-section are specified in the configuration object when the analysis type is set to a cross-section analysis. It checks that both the start and end longitude and latitude coordinates are provided and not None. If any of these required coordinates are missing, it raises an assertion error with a message indicating which specific coordinate is missing. This validation ensures that users have provided all necessary information to define the start and end points of the vertical cross-section before attempting to execute the cross-section analysis, preventing runtime errors during processing due to missing parameters. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing parameters for the analysis, which should include the start and end longitude and latitude coordinates for defining the vertical cross-section when the analysis type is set to a cross-section analysis. 
+            config ('MPASConfig'): The configuration object containing parameters for the analysis, which should include the start and end longitude and latitude coordinates for defining the vertical cross-section when the analysis type is set to a cross-section analysis. 
 
         Returns:
             None
@@ -1502,13 +1530,13 @@ class MPASUnifiedCLI:
         assert config.end_lon is not None and config.end_lat is not None, \
             "Cross-section end coordinates must be specified"
     
-    def _extract_cross_section_params(self: "MPASUnifiedCLI", 
-                                      config: MPASConfig) -> Dict[str, Any]:
+    def _extract_cross_section_params(self: 'MPASUnifiedCLI', 
+                                      config: 'MPASConfig') -> Dict[str, Any]:
         """
         This method extracts the necessary parameters for performing a vertical cross-section analysis from the provided configuration object and organizes them into a dictionary format that can be easily used in the plotting functions. It retrieves the variable name, start and end coordinates, vertical coordinate type, number of points along the cross-section, and maximum height for the plot from the configuration object. The method assumes that these parameters have already been validated to ensure that they are present and valid for cross-section analysis. By centralizing the extraction of these parameters into a single method, it promotes cleaner code and easier maintenance, allowing the main analysis workflow to focus on processing and plotting logic while relying on this helper method to provide the necessary parameters in a consistent format. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all parameters for the cross-section analysis, including variable name, start and end coordinates, vertical coordinate type, number of points, and maximum height. These parameters should be validated before calling this method to ensure they are present and valid for cross-section analysis.
+            config ('MPASConfig'): The configuration object containing all parameters for the cross-section analysis, including variable name, start and end coordinates, vertical coordinate type, number of points, and maximum height. These parameters should be validated before calling this method to ensure they are present and valid for cross-section analysis.
 
         Returns:
             Dict[str, Any]: A dictionary containing the extracted parameters for cross-section analysis, organized in a format that can be easily used in the plotting functions. The dictionary includes keys such as 'var_name', 'start_point', 'end_point', 'vertical_coord', 'num_points', and 'max_height' with corresponding values extracted from the configuration object. 
@@ -1522,18 +1550,18 @@ class MPASUnifiedCLI:
             'max_height': config.max_height,
         }
     
-    def _run_batch_cross_sections(self: "MPASUnifiedCLI",
+    def _run_batch_cross_sections(self: 'MPASUnifiedCLI',
                                   processor: 'MPAS3DProcessor', 
                                   plotter: 'MPASVerticalCrossSectionPlotter', 
-                                  config: MPASConfig, 
+                                  config: 'MPASConfig', 
                                   params: Dict[str, Any]) -> Optional[List[str]]:
         """
         This method executes the workflow for creating multiple vertical cross-section plots in batch mode based on the provided configuration and parameters. It checks if parallel processing is enabled in the configuration and, if so, it calls the `ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel` method to generate the cross-section plots using multiple processes for improved performance. If parallel processing is not enabled, it calls the `plotter.create_batch_cross_section_plots` method to generate the plots sequentially. The method returns a list of file paths for the created cross-section plots if generation was successful, or None if no files were created or if an error occurred during processing. This method allows for efficient generation of multiple cross-section visualizations based on user specifications while providing flexibility in execution mode (parallel vs. serial) depending on user preferences and system capabilities.   
 
         Parameters:
-            processor (MPAS3DProcessor): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
-            plotter (MPASVerticalCrossSectionPlotter): An instance of the MPASVerticalCrossSectionPlotter class used for creating vertical cross-section visualizations.
-            config (MPASConfig): The configuration object containing all necessary parameters for batch cross-section analysis, including output directory, output formats, batch mode flag, and any other relevant settings for generating multiple cross-section plots.
+            processor ('MPAS3DProcessor'): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
+            plotter ('MPASVerticalCrossSectionPlotter'): An instance of the MPASVerticalCrossSectionPlotter class used for creating vertical cross-section visualizations.
+            config ('MPASConfig'): The configuration object containing all necessary parameters for batch cross-section analysis, including output directory, output formats, batch mode flag, and any other relevant settings for generating multiple cross-section plots.
             params (Dict[str, Any]): A dictionary of parameters extracted from the configuration that are needed for creating the cross-section plots, such as variable name, start and end coordinates, vertical coordinate type, number of points, and maximum height. 
 
         Returns:
@@ -1561,18 +1589,18 @@ class MPASUnifiedCLI:
                 **params
             )
     
-    def _run_single_cross_section(self: "MPASUnifiedCLI", 
+    def _run_single_cross_section(self: 'MPASUnifiedCLI', 
                                   processor: 'MPAS3DProcessor', 
                                   plotter: 'MPASVerticalCrossSectionPlotter', 
-                                  config: MPASConfig, 
+                                  config: 'MPASConfig', 
                                   params: Dict[str, Any]) -> None:
         """
         This method executes the workflow for creating a single vertical cross-section plot based on the provided configuration and parameters. It retrieves the time information for the specified time index from the processor's dataset to include in the plot title. It then calls the `plotter.create_vertical_cross_section` method to generate the cross-section plot using the provided processor, time index, title, colormap, and other parameters extracted from the configuration. After creating the plot, it constructs the output file path based on the configuration and saves the plot in the requested formats. Finally, it logs a message indicating that the cross-section plot has been saved. This method handles all steps necessary to create and save a single vertical cross-section visualization based on user specifications. 
 
         Parameters:
-            processor (MPAS3DProcessor): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
-            plotter (MPASVerticalCrossSectionPlotter): An instance of the MPASVerticalCrossSectionPlotter class used for creating vertical cross-section visualizations.
-            config (MPASConfig): The configuration object containing all necessary parameters for single cross-section analysis, including time index, title, colormap, output directory, output formats, and any other relevant settings for generating the cross-section plot.
+            processor ('MPAS3DProcessor'): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
+            plotter ('MPASVerticalCrossSectionPlotter'): An instance of the MPASVerticalCrossSectionPlotter class used for creating vertical cross-section visualizations.
+            config ('MPASConfig'): The configuration object containing all necessary parameters for single cross-section analysis, including time index, title, colormap, output directory, output formats, and any other relevant settings for generating the cross-section plot.
             params (Dict[str, Any]): A dictionary of parameters extracted from the configuration that are needed for creating the cross-section plot, such as variable name, start and end coordinates, vertical coordinate type, number of points, and maximum height.
 
         Returns:
@@ -1599,7 +1627,7 @@ class MPASUnifiedCLI:
         if self.logger:
             self.logger.info(f"Cross-section plot saved: {output_path}")
     
-    def _log_created_files(self: "MPASUnifiedCLI", 
+    def _log_created_files(self: 'MPASUnifiedCLI', 
                            created_files: Optional[List[str]], 
                            file_type: str = "plots") -> None:
         """
@@ -1615,13 +1643,13 @@ class MPASUnifiedCLI:
         if self.logger and created_files:
             self.logger.info(f"Created {len(created_files)} {file_type}")
     
-    def _run_cross_analysis(self: "MPASUnifiedCLI", 
-                            config: MPASConfig) -> bool:
+    def _run_cross_analysis(self: 'MPASUnifiedCLI', 
+                            config: 'MPASConfig') -> bool:
         """
         This method executes the vertical cross-section analysis workflow for MPAS data, managing the entire process of loading 3D atmospheric data, validating cross-section coordinates, extracting necessary parameters, and generating visualizations based on user-specified configuration. It initializes an MPAS3DProcessor to load the grid and 3D data, creates an MPASVerticalCrossSectionPlotter for visualization, and ensures that output directories are created as needed. The method supports both single-timestep and batch-mode processing for cross-section analysis. In batch mode, it generates multiple cross-section plots across specified time indices using either parallel or serial processing based on user preferences. In single-timestep mode, it creates a single cross-section plot for the specified time index. The method also handles logging of created files and returns True if the analysis completes successfully without errors, or False if any issues occur during processing or plotting. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all necessary parameters for cross-section analysis, including grid file path, data directory, variable name, start and end coordinates, vertical coordinate type, number of points, maximum height, output directory, output formats, batch mode flag, and any other relevant settings for generating cross-section visualizations. 
+            config ('MPASConfig'): The configuration object containing all necessary parameters for cross-section analysis, including grid file path, data directory, variable name, start and end coordinates, vertical coordinate type, number of points, maximum height, output directory, output formats, batch mode flag, and any other relevant settings for generating cross-section visualizations. 
 
         Returns:
             bool: True if cross-section analysis completes successfully, False if any errors occur during data loading, processing, or plotting. 
@@ -1650,16 +1678,16 @@ class MPASUnifiedCLI:
         
         return True
     
-    def _compute_sounding_indices(self: "MPASUnifiedCLI",
+    def _compute_sounding_indices(self: 'MPASUnifiedCLI',
                                   show_indices: bool,
-                                  sounding_diag: "SoundingDiagnostics",
+                                  sounding_diag: 'SoundingDiagnostics',
                                   profile: Dict[str, Any],) -> Optional[Dict[str, Any]]:
         """
         This method computes thermodynamic indices for a sounding profile if the user has requested to show indices in the Skew-T diagram. It checks the `show_indices` flag, and if it is False, it returns None, indicating that no indices should be computed or displayed. If `show_indices` is True, it calls the `compute_thermodynamic_indices` method of the `SoundingDiagnostics` instance, passing in the necessary profile data such as pressure, temperature, dewpoint, and optionally wind components and height if they are available in the profile. The computed indices are returned as a dictionary that can be used in the plotting function to display relevant thermodynamic information on the Skew-T diagram. This method centralizes the logic for determining whether to compute indices and how to compute them based on the provided sounding profile data.
 
         Parameters:
             show_indices (bool): A flag indicating whether the user has requested to compute and display thermodynamic indices on the Skew-T diagram. If False, this method will return None and no indices will be computed or displayed.
-            sounding_diag (SoundingDiagnostics): An instance of the SoundingDiagnostics class that provides the method for computing thermodynamic indices based on the sounding profile data.
+            sounding_diag ('SoundingDiagnostics'): An instance of the SoundingDiagnostics class that provides the method for computing thermodynamic indices based on the sounding profile data.
             profile (Dict[str, Any]): A dictionary containing the sounding profile data, including pressure, temperature, dewpoint, and optionally wind components and height. This data will be used to compute the thermodynamic indices if `show_indices` is True.
 
         Returns:
@@ -1674,7 +1702,7 @@ class MPASUnifiedCLI:
             height_m=profile.get('height'),
         )
 
-    def _build_skewt_tags(self: "MPASUnifiedCLI",
+    def _build_skewt_tags(self: 'MPASUnifiedCLI',
                           profile: Dict[str, Any],) -> tuple:
         """
         This method constructs longitude and latitude tags for the Skew-T diagram title based on the station longitude and latitude from the sounding profile. It formats the longitude and latitude values to two decimal places and appends the appropriate directional indicators (E/W for longitude and N/S for latitude) based on the sign of the coordinates. The resulting tags are returned as a tuple of strings that can be used in the plot title to indicate the location of the sounding profile being visualized.
@@ -1691,11 +1719,11 @@ class MPASUnifiedCLI:
         lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
         return lon_tag, lat_tag
 
-    def _run_sounding_batch(self: "MPASUnifiedCLI",
-                            processor: "MPAS3DProcessor",
-                            plotter: "MPASSkewTPlotter",
-                            sounding_diag: "SoundingDiagnostics",
-                            config: MPASConfig,
+    def _run_sounding_batch(self: 'MPASUnifiedCLI',
+                            processor: 'MPAS3DProcessor',
+                            plotter: 'MPASSkewTPlotter',
+                            sounding_diag: 'SoundingDiagnostics',
+                            config: 'MPASConfig',
                             sounding_lon: float,
                             sounding_lat: float,
                             show_indices: bool,
@@ -1704,10 +1732,10 @@ class MPASUnifiedCLI:
         This method handles the batch processing of sounding profiles for MPAS data, generating Skew-T diagrams across a range of time indices for a specified sounding location. It determines the appropriate time dimension in the dataset, calculates the number of time steps available, and sets the start and end time indices based on the configuration. It then iterates over the specified time range, extracting the sounding profile for each time index at the given longitude and latitude. For each profile, it computes thermodynamic indices if requested, builds longitude and latitude tags for the plot title, and creates a Skew-T diagram using the plotter. The generated plots are saved with filenames that include the location and valid time information. Finally, it logs the created files for user confirmation. This method allows users to efficiently generate multiple Skew-T diagrams for a specific location across different time steps in their MPAS dataset.
 
         Parameters:
-            processor (MPAS3DProcessor): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
-            plotter (MPASSkewTPlotter): An instance of the MPASSkewTPlotter class used for creating Skew-T diagram visualizations.
-            sounding_diag (SoundingDiagnostics): An instance of the SoundingDiagnostics class that provides methods for extracting sounding profiles and computing thermodynamic indices.
-            config (MPASConfig): The configuration object containing all necessary parameters for sounding analysis, including time range settings, output directory, figure size, DPI, verbosity, and any other relevant settings for generating Skew-T diagrams in batch mode.
+            processor ('MPAS3DProcessor'): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
+            plotter ('MPASSkewTPlotter'): An instance of the MPASSkewTPlotter class used for creating Skew-T diagram visualizations.
+            sounding_diag ('SoundingDiagnostics'): An instance of the SoundingDiagnostics class that provides methods for extracting sounding profiles and computing thermodynamic indices.
+            config ('MPASConfig'): The configuration object containing all necessary parameters for sounding analysis, including time range settings, output directory, figure size, DPI, verbosity, and any other relevant settings for generating Skew-T diagrams in batch mode.
             sounding_lon (float): The longitude of the sounding location for which to extract profiles and generate Skew-T diagrams.
             sounding_lat (float): The latitude of the sounding location for which to extract profiles and generate Skew-T diagrams.
             show_indices (bool): A flag indicating whether to compute and display thermodynamic indices on the Skew-T diagrams.
@@ -1722,12 +1750,12 @@ class MPASUnifiedCLI:
         time_end = config.time_end if config.time_end is not None else (n_times - 1)
         created_files = []
 
-        for t_idx in range(time_start, min(time_end + 1, n_times)):
+        for time_idx in range(time_start, min(time_end + 1, n_times)):
             profile = sounding_diag.extract_sounding_profile(
-                processor, sounding_lon, sounding_lat, time_index=t_idx,
+                processor, sounding_lon, sounding_lat, time_index=time_idx,
             )
             indices = self._compute_sounding_indices(show_indices, sounding_diag, profile)
-            time_str = MPASDateTimeUtils.get_time_info(processor.dataset, t_idx, verbose=False)
+            time_str = MPASDateTimeUtils.get_time_info(processor.dataset, time_idx, verbose=False)
             lon_tag, lat_tag = self._build_skewt_tags(profile)
 
             title = f"MPAS Skew-T | {lon_tag}, {lat_tag} | Valid: {time_str}"
@@ -1752,11 +1780,11 @@ class MPASUnifiedCLI:
 
         self._log_created_files(created_files, "Skew-T diagrams")
 
-    def _run_sounding_single(self: "MPASUnifiedCLI",
-                             processor: "MPAS3DProcessor",
-                             plotter: "MPASSkewTPlotter",
-                             sounding_diag: "SoundingDiagnostics",
-                             config: MPASConfig,
+    def _run_sounding_single(self: 'MPASUnifiedCLI',
+                             processor: 'MPAS3DProcessor',
+                             plotter: 'MPASSkewTPlotter',
+                             sounding_diag: 'SoundingDiagnostics',
+                             config: 'MPASConfig',
                              sounding_lon: float,
                              sounding_lat: float,
                              show_indices: bool,                             
@@ -1765,10 +1793,10 @@ class MPASUnifiedCLI:
         This method handles the processing of a single sounding profile for MPAS data, generating a Skew-T diagram for a specified sounding location and time index. It extracts the sounding profile at the given longitude and latitude for the specified time index, computes thermodynamic indices if requested, builds longitude and latitude tags for the plot title, and creates a Skew-T diagram using the plotter. The generated plot is saved with a filename that includes the location and valid time information. Finally, it logs the created file for user confirmation. This method allows users to generate a focused Skew-T diagram for a specific location and time step in their MPAS dataset without needing to process multiple time steps in batch mode.
 
         Parameters:
-            processor (MPAS3DProcessor): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
-            plotter (MPASSkewTPlotter): An instance of the MPASSkewTPlotter class used for creating Skew-T diagram visualizations.
-            sounding_diag (SoundingDiagnostics): An instance of the SoundingDiagnostics class that provides methods for extracting sounding profiles and computing thermodynamic indices.
-            config (MPASConfig): The configuration object containing all necessary parameters for sounding analysis, including time index, output directory, figure size, DPI, verbosity, and any other relevant settings for generating a Skew-T diagram for a single time step.
+            processor ('MPAS3DProcessor'): An instance of the MPAS3DProcessor class that has loaded the necessary 3D atmospheric data for analysis.
+            plotter ('MPASSkewTPlotter'): An instance of the MPASSkewTPlotter class used for creating Skew-T diagram visualizations.
+            sounding_diag ('SoundingDiagnostics'): An instance of the SoundingDiagnostics class that provides methods for extracting sounding profiles and computing thermodynamic indices.
+            config ('MPASConfig'): The configuration object containing all necessary parameters for sounding analysis, including time index, output directory, figure size, DPI, verbosity, and any other relevant settings for generating a Skew-T diagram for a single time step.
             sounding_lon (float): The longitude of the sounding location for which to extract the profile and generate the Skew-T diagram.
             sounding_lat (float): The latitude of the sounding location for which to extract the profile and generate the Skew-T diagram.
             show_indices (bool): A flag indicating whether to compute and display thermodynamic indices on the Skew-T diagram.
@@ -1805,13 +1833,13 @@ class MPASUnifiedCLI:
             save_path=save_path,
         )
 
-    def _run_sounding_analysis(self: "MPASUnifiedCLI", 
-                               config: MPASConfig) -> bool:
+    def _run_sounding_analysis(self: 'MPASUnifiedCLI', 
+                               config: 'MPASConfig') -> bool:
         """
         This method executes the sounding analysis workflow for MPAS data, managing the complete process of loading 3D atmospheric data, extracting sounding profiles at specified locations and times, computing thermodynamic indices if requested, and generating Skew-T diagrams based on user-specified configuration. It initializes an MPAS3DProcessor to load the grid and 3D data, creates a SoundingDiagnostics instance for extracting profiles and computing indices, and an MPASSkewTPlotter for visualization. The method supports both single-timestep and batch-mode processing for sounding analysis. In batch mode, it generates multiple Skew-T diagrams across specified time indices for the given sounding location. In single-timestep mode, it creates a single Skew-T diagram for the specified time index. The method also handles logging of created files and returns True if the analysis completes successfully without errors, or False if any issues occur during processing or plotting. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all necessary parameters for sounding analysis, including grid file path, data directory, output directory, figure size, DPI, verbosity, sounding location (longitude and latitude), time index or batch mode settings, flags for showing indices and parcel information, and any other relevant settings for generating Skew-T diagrams. 
+            config ('MPASConfig'): The configuration object containing all necessary parameters for sounding analysis, including grid file path, data directory, output directory, figure size, DPI, verbosity, sounding location (longitude and latitude), time index or batch mode settings, flags for showing indices and parcel information, and any other relevant settings for generating Skew-T diagrams. 
 
         Returns:
             bool: True if sounding analysis completes successfully, False if any errors occur during data loading, processing, or plotting.
@@ -1825,12 +1853,13 @@ class MPASUnifiedCLI:
             sounding_diag = SoundingDiagnostics(verbose=config.verbose)
 
             show_indices = getattr(config, 'show_indices', False)
-            figsize = config.figure_size
+            adjusted_figsize = config.figure_size
+
             if show_indices:
-                figsize = (figsize[0], figsize[1] + 4)
+                adjusted_figsize = (adjusted_figsize[0], adjusted_figsize[1] + 4)
 
             plotter = MPASSkewTPlotter(
-                figsize=figsize,
+                figsize=adjusted_figsize,
                 dpi=config.dpi,
                 verbose=config.verbose,
             )
@@ -1854,13 +1883,13 @@ class MPASUnifiedCLI:
 
         return True
     
-    def _run_overlay_analysis(self: "MPASUnifiedCLI", 
-                              config: MPASConfig) -> bool:
+    def _run_overlay_analysis(self: 'MPASUnifiedCLI', 
+                              config: 'MPASConfig') -> bool:
         """
         This method executes the overlay analysis workflow for MPAS data, managing the process of loading 2D diagnostic data and generating overlay visualizations based on user-specified configuration. It initializes an MPAS2DProcessor to load the grid and data, and then creates appropriate plotter instances based on the specified overlay type (e.g., precipitation + wind, temperature + pressure). The method supports different types of overlays as indicated by the `overlay_type` attribute in the configuration. It ensures that output directories are created as needed and logs messages about the progress of the analysis. Currently, this method contains placeholder implementation for the actual overlay plotting logic, and it returns True to indicate successful completion of the workflow. Future implementations will include detailed processing and plotting steps to create meaningful overlay visualizations based on the loaded MPAS data. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all necessary parameters for overlay analysis, including grid file path, data directory, overlay type, output directory, figure size, DPI, verbosity, and any other relevant settings for generating overlay visualizations. 
+            config ('MPASConfig'): The configuration object containing all necessary parameters for overlay analysis, including grid file path, data directory, overlay type, output directory, figure size, DPI, verbosity, and any other relevant settings for generating overlay visualizations. 
 
         Returns:
             bool: True if overlay analysis completes successfully, False if any errors occur during data loading, processing, or plotting. 
@@ -1890,7 +1919,7 @@ class MPASUnifiedCLI:
         
         return True
     
-    def _parse_args_with_fallback(self: "MPASUnifiedCLI", 
+    def _parse_args_with_fallback(self: 'MPASUnifiedCLI', 
                                   parser: argparse.ArgumentParser) -> argparse.Namespace:
         """
         This method attempts to parse command-line arguments using the `parse_intermixed_args` method, which allows for more flexible ordering of global options and subcommands. If parsing with `parse_intermixed_args` fails due to an exception (which can occur in certain Python versions or with specific argument configurations), it falls back to a custom parsing strategy implemented in the `_parse_args_with_reordering` method. This fallback method manually reorders the command-line arguments to ensure that global options are processed correctly even when intermixed with subcommands, improving compatibility across different user input styles and Python versions. By implementing this two-tiered parsing approach, the CLI can provide a more robust and user-friendly experience when handling complex command-line inputs. 
@@ -1906,7 +1935,7 @@ class MPASUnifiedCLI:
         except Exception:
             return self._parse_args_with_reordering(parser)
     
-    def _parse_args_with_reordering(self: "MPASUnifiedCLI", 
+    def _parse_args_with_reordering(self: 'MPASUnifiedCLI', 
                                     parser: argparse.ArgumentParser) -> argparse.Namespace:
         """
         This method implements a custom argument parsing strategy that manually reorders command-line arguments to ensure that global options are processed correctly even when intermixed with subcommands. It identifies global options that can either have values (e.g., `--config`, `--log-file`) or be flags without values (e.g., `--verbose`, `--quiet`), and separates them from the rest of the arguments. The method then attempts to parse the reordered arguments using the provided parser. If parsing fails, it falls back to parsing the original arguments without reordering. This approach allows for greater flexibility in how users can input command-line arguments while maintaining compatibility across different Python versions and argument configurations. 
@@ -1917,37 +1946,37 @@ class MPASUnifiedCLI:
         Returns:
             argparse.Namespace: The parsed command-line arguments after reordering global options and attempting to parse them with the provided parser. If parsing fails, it returns the result of parsing the original arguments without reordering. 
         """
-        argv = sys.argv[1:]
+        cli_args = sys.argv[1:]
         globals_with_value = {'--config', '--log-file'}
         globals_no_value = {'--verbose', '-v', '--quiet', '-q', '--version'}
-        
-        front = []
-        rest = []
+
+        global_args = []
+        subcommand_args = []
         i = 0
 
-        while i < len(argv):
-            a = argv[i]
-            if a in globals_no_value:
-                front.append(a)
+        while i < len(cli_args):
+            arg = cli_args[i]
+            if arg in globals_no_value:
+                global_args.append(arg)
                 i += 1
-            elif any(a.startswith(g + "=") for g in globals_with_value):
-                front.append(a)
+            elif any(arg.startswith(g + "=") for g in globals_with_value):
+                global_args.append(arg)
                 i += 1
-            elif a in globals_with_value:
-                val = argv[i + 1] if i + 1 < len(argv) else ''
-                front.extend([a, val])
+            elif arg in globals_with_value:
+                arg_value = cli_args[i + 1] if i + 1 < len(cli_args) else ''
+                global_args.extend([arg, arg_value])
                 i += 2
             else:
-                rest.append(a)
+                subcommand_args.append(arg)
                 i += 1
-        
+
         try:
-            return parser.parse_args(front + rest)
+            return parser.parse_args(global_args + subcommand_args)
         except Exception:
             return parser.parse_args()
     
-    def _load_and_merge_config(self: "MPASUnifiedCLI", 
-                               args: argparse.Namespace) -> MPASConfig:
+    def _load_and_merge_config(self: 'MPASUnifiedCLI', 
+                               args: argparse.Namespace) -> 'MPASConfig':
         """
         This method loads the configuration from a YAML file if the `--config` option is provided in the command-line arguments, and then merges any additional CLI options that are specified directly in the command line to override the corresponding settings in the configuration file. It first checks if the `config` attribute is present and not None in the parsed arguments. If a configuration file is specified, it loads the configuration using the `MPASConfig.load_from_file` method. It then calls the `parse_args_to_config` method to convert any additional CLI options into a configuration object. The method iterates through the attributes of the CLI configuration and updates the loaded configuration with any values that are not None, allowing CLI options to take precedence over configuration file settings. Finally, it returns the merged configuration instance that will be used for running the analysis. If no configuration file is specified, it simply parses the CLI arguments into a configuration object and returns it. 
 
@@ -1955,7 +1984,7 @@ class MPASUnifiedCLI:
             args (argparse.Namespace): The parsed command-line arguments that may include a `config` attribute specifying the path to a YAML configuration file, as well as other CLI options that can override settings in the configuration file. 
 
         Returns:
-            MPASConfig: The merged configuration instance that combines settings from the YAML configuration file (if provided) and any additional CLI options specified in the command line, with CLI options taking precedence over file settings. If no configuration file is provided, this will be a configuration object created solely from the CLI arguments. 
+            'MPASConfig': The merged configuration instance that combines settings from the YAML configuration file (if provided) and any additional CLI options specified in the command line, with CLI options taking precedence over file settings. If no configuration file is provided, this will be a configuration object created solely from the CLI arguments. 
         """
         if hasattr(args, 'config') and args.config:
             config = MPASConfig.load_from_file(args.config)
@@ -1967,13 +1996,13 @@ class MPASUnifiedCLI:
         else:
             return self.parse_args_to_config(args)
     
-    def _print_verbose_output(self: "MPASUnifiedCLI", 
-                              config: MPASConfig) -> None:
+    def _print_verbose_output(self: 'MPASUnifiedCLI', 
+                              config: 'MPASConfig') -> None:
         """
         This method prints detailed information about the system and the active configuration settings to the logger if the `verbose` flag is set in the configuration. It calls helper methods to print system information (such as Python version, platform details, and available memory) and a summary of the configuration settings that will be used for the analysis. This verbose output can help users understand the environment in which the analysis is being run and verify that their configuration is correct before the analysis starts. If the `verbose` flag is not set or if a logger is not configured, this method does nothing, allowing for cleaner output during normal operation. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing all settings for the analysis, including a `verbose` flag that indicates whether detailed information should be printed to the logger. 
+            config ('MPASConfig'): The configuration object containing all settings for the analysis, including a `verbose` flag that indicates whether detailed information should be printed to the logger. 
 
         Returns:
             None
@@ -1982,7 +2011,7 @@ class MPASUnifiedCLI:
             self._print_system_info()
             self._print_config_summary()
     
-    def _handle_main_exception(self: "MPASUnifiedCLI", 
+    def _handle_main_exception(self: 'MPASUnifiedCLI', 
                                error: Exception) -> int:
         """
         This method handles any unexpected exceptions that occur during the execution of the main workflow in the `main` method. It logs the error message and stack trace using the configured logger if available, or prints them to standard output if no logger is configured. The method then returns an exit code of 1 to indicate that an error occurred during processing. This centralized exception handling ensures that users receive informative feedback about what went wrong while also allowing the CLI to exit gracefully with an appropriate status code. 
@@ -2002,7 +2031,7 @@ class MPASUnifiedCLI:
             traceback.print_exc()
         return 1
     
-    def main(self) -> int:
+    def main(self: 'MPASUnifiedCLI') -> int:
         """
         This method serves as the main entry point for the MPAS diagnostics CLI, orchestrating the entire workflow of parsing command-line arguments, loading and merging configuration settings, setting up logging, validating the configuration, printing verbose output if requested, and running the appropriate analysis based on the specified configuration. It uses a try-except block to catch any unexpected exceptions that occur during execution, allowing for graceful error handling and user feedback. The method returns an exit code where 0 indicates successful completion of the analysis with all outputs generated, 1 indicates an error occurred during processing, and 130 indicates that the analysis was interrupted by the user (e.g., via Ctrl+C). This structured approach ensures that users receive clear feedback about the outcome of their analysis while also providing robust error handling for unforeseen issues. 
 
@@ -2036,7 +2065,7 @@ class MPASUnifiedCLI:
         except Exception as e:
             return self._handle_main_exception(e)
     
-    def _print_system_info(self: "MPASUnifiedCLI") -> None:
+    def _print_system_info(self: 'MPASUnifiedCLI') -> None:
         """
         This method prints detailed information about the system environment to the logger, including the Python version, platform details, current working directory, and available memory (if the `psutil` library is installed). This information can be useful for debugging and understanding the context in which the analysis is being run. The output is formatted with a section header for readability. If a logger is not configured, this method does nothing, allowing for cleaner output during normal operation. 
 
@@ -2059,7 +2088,7 @@ class MPASUnifiedCLI:
                 pass
             self.logger.info("=" * 30)
     
-    def _print_config_summary(self: "MPASUnifiedCLI") -> None:
+    def _print_config_summary(self: 'MPASUnifiedCLI') -> None:
         """
         This method prints a summary of the active configuration settings to the logger, providing users with a clear overview of the parameters that will be used for the analysis. It iterates through the attributes of the configuration object and logs any settings that are not None, allowing users to verify that their configuration is correct before the analysis starts. The output is formatted with a section header for readability. If a logger is not configured or if the configuration object is None, this method does nothing, allowing for cleaner output during normal operation. 
 

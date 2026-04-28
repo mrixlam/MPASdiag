@@ -53,9 +53,9 @@ class MPASVisualizationStyle:
         hours = None
 
         try:
-            m = re.search(r"(\d+)", accum_key)
-            if m:
-                hours = int(m.group(1))
+            hour_match = re.search(r"(\d+)", accum_key)
+            if hour_match:
+                hours = int(hour_match.group(1))
         except Exception:
             hours = None
 
@@ -352,7 +352,7 @@ class MPASVisualizationStyle:
             step = 1
         levels = [float(x) for x in range(int(data_min // step) * step,
                                            int(data_max // step) * step + step * 2, step)]
-        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        levels = [level_value for level_value in levels if data_min <= level_value <= data_max]
         return colormap, levels
 
     @staticmethod
@@ -384,7 +384,7 @@ class MPASVisualizationStyle:
         cmap, levels = MPASVisualizationStyle.create_precip_colormap(accum_period)
 
         if data_max > 0:
-            levels = [lv for lv in levels if lv <= data_max * 1.2]
+            levels = [level_value for level_value in levels if level_value <= data_max * 1.2]
         return cmap, levels
 
     @staticmethod
@@ -414,7 +414,7 @@ class MPASVisualizationStyle:
         levels = [float(x) for x in range(int(data_min // step) * step,
                                            int(data_max // step) * step + step * 2, step)]
 
-        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        levels = [level_value for level_value in levels if data_min <= level_value <= data_max]
         return colormap, levels
 
     @staticmethod
@@ -430,14 +430,14 @@ class MPASVisualizationStyle:
         """
         colormap = 'plasma'
         if data_max < 3:
-            raw = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
+            candidate_levels = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5]
         elif data_max < 15:
-            raw = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
+            candidate_levels = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0]
         elif data_max < 30:
-            raw = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
+            candidate_levels = [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
         else:
-            raw = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
-        levels = [lv for lv in raw if lv <= data_max * 1.1]
+            candidate_levels = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0]
+        levels = [level_value for level_value in candidate_levels if level_value <= data_max * 1.1]
         return colormap, levels
 
     @staticmethod
@@ -462,7 +462,7 @@ class MPASVisualizationStyle:
             step = 20 if data_range > 200 else 10
         levels = [float(x) for x in range(int(data_min // step) * step,
                                            int(data_max // step) * step + step * 2, step)]
-        levels = [lv for lv in levels if data_min <= lv <= data_max]
+        levels = [level_value for level_value in levels if data_min <= level_value <= data_max]
         return colormap, levels
 
     @staticmethod
@@ -483,12 +483,12 @@ class MPASVisualizationStyle:
         colormap = 'BuGn'
         if data_max <= 1.1:
             if 'rh' in var_lower or 'humidity' in var_lower:
-                raw = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                candidate_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             else:
-                raw = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
+                candidate_levels = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0]
         else:
-            raw = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-        levels = [lv for lv in raw if data_min <= lv <= data_max]
+            candidate_levels = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        levels = [level_value for level_value in candidate_levels if data_min <= level_value <= data_max]
         return colormap, levels
 
     @staticmethod
@@ -668,10 +668,10 @@ class MPASVisualizationStyle:
         colorbar_tops: List[float] = []
         try:
             for ax in fig.axes:
-                pos = ax.get_position()
+                axes_position = ax.get_position()
                 # Heuristic for horizontal colorbar: wide, short height, located low in figure
-                if pos.width > 0.35 and pos.height < 0.12 and pos.y0 < 0.35:
-                    colorbar_tops.append(pos.y1)
+                if axes_position.width > 0.35 and axes_position.height < 0.12 and axes_position.y0 < 0.35:
+                    colorbar_tops.append(axes_position.y1)
         except Exception:
             colorbar_tops = []
 
@@ -768,8 +768,8 @@ class MPASVisualizationStyle:
         """
         try:
             cbar.ax.xaxis.set_label_position(cast(Literal['top', 'bottom'], label_pos))
-            ticks_pos = 'bottom' if label_pos == 'top' else 'top'
-            cbar.ax.xaxis.set_ticks_position(ticks_pos)
+            tick_position = 'bottom' if label_pos == 'top' else 'top'
+            cbar.ax.xaxis.set_ticks_position(tick_position)
         except Exception:
             pass
         if label is not None:
@@ -799,8 +799,8 @@ class MPASVisualizationStyle:
         """
         try:
             cbar.ax.yaxis.set_label_position(cast(Literal['left', 'right'], label_pos))
-            ticks_pos = 'left' if label_pos == 'right' else 'right'
-            cbar.ax.yaxis.set_ticks_position(ticks_pos)
+            tick_position = 'left' if label_pos == 'right' else 'right'
+            cbar.ax.yaxis.set_ticks_position(tick_position)
         except Exception:
             pass
         if label is not None:
@@ -1009,8 +1009,8 @@ class MPASVisualizationStyle:
         return marker_size
 
     @staticmethod
-    def _choose_tick_fmt(t: np.ndarray, 
-                         non_zero_t: np.ndarray) -> str:
+    def _choose_tick_fmt(tick_values: np.ndarray,
+                         nonzero_ticks: np.ndarray) -> str:
         """
         This internal method determines the appropriate format string for axis tick labels based on the range and distribution of tick values. It first checks if all ticks are close to integers, in which case it returns a format string with no decimal places. If there are non-zero ticks, it calculates the typical magnitude using the median of the absolute values of the non-zero ticks and selects a format string with an appropriate number of decimal places based on predefined thresholds (e.g., 1 decimal for values between 10 and 100, 2 decimals for values between 0.01 and 10, etc.). If there are no non-zero ticks, it defaults to integer formatting. This method helps ensure that tick labels are formatted in a way that is both informative and visually clean across a wide range of data values in MPAS diagnostic plots.
 
@@ -1021,13 +1021,13 @@ class MPASVisualizationStyle:
         Returns:
             str: The format string for tick labels.
         """
-        if np.allclose(t, np.round(t), atol=1e-6):
+        if np.allclose(tick_values, np.round(tick_values), atol=1e-6):
             return '{:.0f}'
 
-        if len(non_zero_t) == 0:
+        if len(nonzero_ticks) == 0:
             return '{:.0f}'
 
-        typical_magnitude = float(np.median(np.abs(non_zero_t)))
+        typical_magnitude = float(np.median(np.abs(nonzero_ticks)))
 
         if typical_magnitude >= 100:
             return '{:.0f}'
@@ -1053,9 +1053,9 @@ class MPASVisualizationStyle:
         Returns:
             List[str]: A list of formatted tick label strings with increased precision to resolve duplicates. If duplicates persist even after upgrading the format, it returns a list of labels formatted with 'g' to preserve significant digits and ensure uniqueness. This method helps maintain clarity in axis labeling by ensuring that each tick has a distinct label, even when the tick values are close together.
         """
-        _next: Dict[str, str] = {'{:.0f}': '{:.1f}', '{:.1f}': '{:.2f}', '{:.2f}': '{:.3f}'}
-        upgraded = _next.get(fmt, fmt)
-        labels = [upgraded.format(x) for x in ticks]
+        precision_upgrade_map: Dict[str, str] = {'{:.0f}': '{:.1f}', '{:.1f}': '{:.2f}', '{:.2f}': '{:.3f}'}
+        upgraded_fmt = precision_upgrade_map.get(fmt, fmt)
+        labels = [upgraded_fmt.format(x) for x in ticks]
         if len(set(labels)) < len(labels):
             labels = [f'{x:g}' for x in ticks]
         return labels
@@ -1074,19 +1074,19 @@ class MPASVisualizationStyle:
         if not ticks:
             return []
 
-        t = np.array(ticks)
-        non_zero_t = t[t != 0]
+        tick_array = np.array(ticks)
+        nonzero_ticks = tick_array[tick_array != 0]
 
-        if len(non_zero_t) > 0:
-            max_abs = np.max(np.abs(non_zero_t))
-            min_abs = np.min(np.abs(non_zero_t))
+        if len(nonzero_ticks) > 0:
+            max_abs = np.max(np.abs(nonzero_ticks))
+            min_abs = np.min(np.abs(nonzero_ticks))
             if max_abs >= 1e4 or min_abs < 1e-3:
                 return [f'{x:.1e}' for x in ticks]
 
-        fmt = MPASVisualizationStyle._choose_tick_fmt(t, non_zero_t)
-        formatted_labels = [fmt.format(x) for x in ticks]
+        tick_fmt = MPASVisualizationStyle._choose_tick_fmt(tick_array, nonzero_ticks)
+        formatted_labels = [tick_fmt.format(x) for x in ticks]
 
         if len(set(formatted_labels)) < len(formatted_labels):
-            formatted_labels = MPASVisualizationStyle._resolve_duplicate_labels(fmt, ticks)
+            formatted_labels = MPASVisualizationStyle._resolve_duplicate_labels(tick_fmt, ticks)
 
         return formatted_labels

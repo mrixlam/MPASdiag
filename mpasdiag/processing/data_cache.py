@@ -22,6 +22,7 @@ from typing import Dict, Any, Optional, Tuple
 @dataclass
 class CachedVariable:
     """ Container for a cached variable with metadata. """
+
     data: np.ndarray
     var_name: str
     time_index: Optional[int] = None
@@ -34,7 +35,7 @@ class CachedVariable:
 class MPASDataCache:
     """ Thread-safe data cache for MPAS diagnostic processing with support for multiprocessing. """
     
-    def __init__(self: "MPASDataCache", 
+    def __init__(self: 'MPASDataCache', 
                  max_variables: int = 10,
                  max_coordinates: int = 10) -> None:
         """
@@ -56,7 +57,7 @@ class MPASDataCache:
         self.max_coordinates = max_coordinates
         self._access_count: Dict[str, int] = {}
     
-    def _get_lock(self: "MPASDataCache") -> threading.RLock:
+    def _get_lock(self: 'MPASDataCache') -> threading.RLock:
         """
         This internal method provides access to a thread-safe reentrant lock for cache operations. It lazily initializes the lock the first time it is accessed to avoid unnecessary overhead when the cache is not used in a multi-threaded context. The use of a reentrant lock allows for nested locking within the same thread, which can be useful if multiple cache operations are performed in sequence. This method ensures that all cache operations that modify shared data structures are protected by the lock to prevent race conditions and ensure thread safety. 
 
@@ -70,7 +71,7 @@ class MPASDataCache:
             self._lock = threading.RLock()
         return self._lock
     
-    def __getstate__(self: "MPASDataCache") -> Dict[str, Any]:
+    def __getstate__(self: 'MPASDataCache') -> Dict[str, Any]:
         """
         This method customizes the pickling behavior of the cache to exclude the lock object from the serialized state. It creates a copy of the cache's __dict__ and sets the _lock entry to None before returning it for pickling. This allows the cache to be safely serialized and sent to worker processes without including the non-picklable lock object, while still preserving all cached data and metadata. The lock will be lazily recreated in each worker process when accessed, ensuring that the cache remains thread-safe in the multiprocessing context. 
 
@@ -84,7 +85,7 @@ class MPASDataCache:
         state['_lock'] = None
         return state
     
-    def __setstate__(self: "MPASDataCache", 
+    def __setstate__(self: 'MPASDataCache', 
                      state: Dict[str, Any]) -> None:
         """
         This method customizes the unpickling behavior of the cache to restore the state from the pickled data and reinitialize the lock object. It updates the cache's __dict__ with the provided state dictionary, which contains all cached data and metadata except for the lock. After restoring the state, it sets the _lock attribute to None, allowing it to be lazily initialized when accessed in the worker process. This ensures that each worker process has its own lock instance for thread safety while sharing access to the cached data. 
@@ -98,7 +99,7 @@ class MPASDataCache:
         self.__dict__.update(state)
         self._lock = None
         
-    def load_coordinates_from_dataset(self: "MPASDataCache", 
+    def load_coordinates_from_dataset(self: 'MPASDataCache', 
                                       dataset: xr.Dataset, 
                                       var_name: Optional[str] = None) -> None:
         """
@@ -124,22 +125,22 @@ class MPASDataCache:
                 
                 # Determine coordinate variables based on dimensions
                 if 'nCells' in var_dims:
-                    lon_var, lat_var = 'lonCell', 'latCell'
+                    lon_coord_name, lat_coord_name = 'lonCell', 'latCell'
                 elif 'nVertices' in var_dims:
-                    lon_var, lat_var = 'lonVertex', 'latVertex'
+                    lon_coord_name, lat_coord_name = 'lonVertex', 'latVertex'
                 elif 'nEdges' in var_dims:
-                    lon_var, lat_var = 'lonEdge', 'latEdge'
+                    lon_coord_name, lat_coord_name = 'lonEdge', 'latEdge'
                 else:
-                    lon_var, lat_var = 'lonCell', 'latCell'
+                    lon_coord_name, lat_coord_name = 'lonCell', 'latCell'
             else:
                 # Default coordinates
-                lon_var, lat_var = 'lonCell', 'latCell'
-            
-            if lon_var not in dataset or lat_var not in dataset:
-                raise ValueError(f"Coordinate variables {lon_var}, {lat_var} not found in dataset")
-            
-            lon = dataset[lon_var].values
-            lat = dataset[lat_var].values
+                lon_coord_name, lat_coord_name = 'lonCell', 'latCell'
+
+            if lon_coord_name not in dataset or lat_coord_name not in dataset:
+                raise ValueError(f"Coordinate variables {lon_coord_name}, {lat_coord_name} not found in dataset")
+
+            lon = dataset[lon_coord_name].values
+            lat = dataset[lat_coord_name].values
             
             # Convert from radians to degrees if needed
             if np.max(np.abs(lon)) <= 2 * np.pi:
@@ -156,7 +157,7 @@ class MPASDataCache:
             self._coordinates[cache_key] = (lon, lat)
             print(f"Cached coordinates for '{cache_key}': {len(lon)} points")
     
-    def get_coordinates(self: "MPASDataCache", 
+    def get_coordinates(self: 'MPASDataCache', 
                         var_name: Optional[str] = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         This method retrieves cached spatial coordinates (longitude and latitude) for a specific variable or default cell-centered coordinates. It checks the cache for the requested coordinates based on a key derived from the variable name or 'default', and returns the longitude and latitude arrays as 1D numpy arrays in degrees. If the requested coordinates are not found in the cache, it raises a KeyError indicating that load_coordinates_from_dataset must be called first to populate the cache. This method provides thread-safe access to cached coordinates for use in subsequent processing steps that require spatial information. 
@@ -169,13 +170,14 @@ class MPASDataCache:
         """
         with self._get_lock():
             cache_key = var_name or 'default'
+
             if cache_key not in self._coordinates:
                 raise KeyError(f"Coordinates for '{cache_key}' not loaded. Call load_coordinates_from_dataset first.")
             
             self._access_count[cache_key] = self._access_count.get(cache_key, 0) + 1
             return self._coordinates[cache_key]
     
-    def load_variable_data(self: "MPASDataCache", 
+    def load_variable_data(self: 'MPASDataCache', 
                            dataset: xr.Dataset, 
                            var_name: str, 
                            time_index: Optional[int] = None, 
@@ -243,7 +245,7 @@ class MPASDataCache:
             print(f"Cached variable '{cache_key}': shape {data_array.shape}, "
                   f"size {data_array.nbytes / 1024 / 1024:.2f} MB")
     
-    def get_variable_data(self: "MPASDataCache", 
+    def get_variable_data(self: 'MPASDataCache', 
                           var_name: str, 
                           time_index: Optional[int] = None, 
                           level_index: Optional[int] = None) -> CachedVariable:
@@ -260,13 +262,14 @@ class MPASDataCache:
         """
         with self._get_lock():
             cache_key = self._make_cache_key(var_name, time_index, level_index)
+
             if cache_key not in self._variables:
                 raise KeyError(f"Variable data '{cache_key}' not loaded. Call load_variable_data first.")
             
             self._access_count[cache_key] = self._access_count.get(cache_key, 0) + 1
             return self._variables[cache_key]
     
-    def clear(self: "MPASDataCache") -> None:
+    def clear(self: 'MPASDataCache') -> None:
         """
         This method clears all cached data and metadata from the cache, including coordinates, variables, grid data, and metadata dictionaries. It acquires the cache lock to ensure thread safety while clearing the internal data structures, and resets the access count tracking as well. This method can be used to free up memory when switching between different datasets or when the cached data is no longer needed. After calling this method, the cache will be empty and will need to be repopulated by calling the appropriate loading methods before any retrieval operations can be performed again. 
 
@@ -284,7 +287,7 @@ class MPASDataCache:
             self._access_count.clear()
             print("Cache cleared")
     
-    def get_cache_info(self: "MPASDataCache") -> Dict[str, Any]:
+    def get_cache_info(self: 'MPASDataCache') -> Dict[str, Any]:
         """
         This method provides information about the current state of the cache, including the number of cached coordinates, the number of cached variables, the total memory used by cached variables in megabytes, and the most accessed variable based on the access count tracking. It acquires the cache lock to ensure thread safety while accessing the internal data structures, calculates the total memory usage by summing the sizes of all cached variable data arrays, and returns a dictionary containing these statistics. This method can be used for monitoring cache usage and performance during MPAS diagnostic processing. 
 
@@ -322,13 +325,16 @@ class MPASDataCache:
             str: Generated cache key string based on the variable name and indices. 
         """
         key = var_name
+
         if time_index is not None:
             key += f"_t{time_index}"
+
         if level_index is not None:
             key += f"_l{level_index}"
+
         return key
     
-    def _evict_least_accessed(self: "MPASDataCache") -> None:
+    def _evict_least_accessed(self: 'MPASDataCache') -> None:
         """
         This internal method implements a simple eviction policy to remove the least accessed variable from the cache when the maximum number of cached variables is exceeded. It identifies the variable with the lowest access count from the _access_count dictionary, removes it from the _variables cache and the _access_count tracking, and prints a message indicating which variable was evicted and how much memory was freed. This method helps manage memory usage in the cache by ensuring that only the most frequently accessed variables are retained when caching large datasets. 
 
@@ -349,7 +355,7 @@ class MPASDataCache:
             print(f"Evicted variable '{least_accessed}' from cache "
                   f"({evicted.data.nbytes / 1024 / 1024:.2f} MB freed)")
 
-    def _evict_least_accessed_coordinates(self: "MPASDataCache") -> None:
+    def _evict_least_accessed_coordinates(self: 'MPASDataCache') -> None:
         """
         This internal method implements a simple eviction policy to remove the least accessed coordinate set from the cache when the maximum number of cached coordinates is exceeded. It identifies the coordinate key with the lowest access count, removes it from the _coordinates cache and the _access_count tracking, and prints a message indicating which coordinate set was evicted.
 
@@ -374,10 +380,10 @@ class MPASDataCache:
               f"({mem_freed:.2f} MB freed)")
 
 
-_global_cache: Optional[MPASDataCache] = None
+_global_cache: Optional['MPASDataCache'] = None
 
 
-def get_global_cache() -> MPASDataCache:
+def get_global_cache() -> 'MPASDataCache':
     """
     This function provides access to a global instance of the MPASDataCache that can be shared across all workers in the current process. It checks if the global cache instance has already been created, and if not, it initializes a new MPASDataCache instance and assigns it to the global variable. This allows for efficient sharing of cached data across multiple processing steps without the need for passing cache instances explicitly between functions or workers. The global cache can be accessed by calling this function from any part of the code, ensuring that all operations that require caching can utilize the same shared cache instance. 
 

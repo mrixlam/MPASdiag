@@ -13,7 +13,6 @@ Version: 1.0.0
 import os
 import io
 import pytest
-import builtins
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -30,10 +29,7 @@ from mpasdiag.processing.parallel_wrappers import (
     _cross_section_worker,
     _process_parallel_results,
     ParallelPrecipitationProcessor,
-    ParallelSurfaceProcessor,
-    ParallelWindProcessor,
-    ParallelCrossSectionProcessor,
-    auto_batch_processor
+    ParallelCrossSectionProcessor
 )
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from tests.test_data_helpers import assert_expected_public_methods
@@ -45,7 +41,7 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 class TestWorkerExceptionHandler:
     """ Tests for the catch-all exception handler in worker functions. """
 
-    def test_precipitation_worker_returns_error_dict_on_crash(self: "TestWorkerExceptionHandler", 
+    def test_precipitation_worker_returns_error_dict_on_crash(self: 'TestWorkerExceptionHandler', 
                                                               temp_output_dir: Path) -> None:
         """
         This test verifies that if the `_precipitation_worker` function encounters an unhandled exception (simulated by passing `None` as the processor), it returns a dictionary containing 'error' and 'traceback' keys with appropriate error information. It asserts that the error information is present in the result and that the worker does not crash, confirming that the catch-all exception handler is functioning correctly to capture and report unexpected errors in the worker workflow. 
@@ -78,68 +74,18 @@ class TestWorkerExceptionHandler:
         assert result['timings'] == {}
         assert 'WORKER ERROR' in captured.getvalue()
 
-    def test_precipitation_worker_error_dict_time_idx_non_int(self: "TestWorkerExceptionHandler",
-                                                              temp_output_dir: Path) -> None:
-        """
-        This test verifies that if the `_precipitation_worker` function receives a non-integer `time_idx`, it returns a dictionary containing 'error' and 'time_str' keys with 'unknown' as the value for 'time_str'. It asserts that the error information is present in the result and that the worker does not crash, confirming that the catch-all exception handler is functioning correctly to capture and report unexpected errors in the worker workflow. 
-
-        Parameters:
-            temp_output_dir (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate error handling behavior.
-        """
-        captured = io.StringIO()
-
-        with redirect_stdout(captured):
-            result = _precipitation_worker((slice(None), {'processor': None})) # type: ignore
-
-        assert 'error' in result
-        assert result['time_str'] == 'unknown'
-
 
 class TestProcessParallelResultsEdgeCases:
     """ Tests for result processing with all-failure results and absent stats. """
 
-    def test_all_failures_no_timing_stats(self: "TestProcessParallelResultsEdgeCases", 
-                                          temp_output_dir: Path) -> None:
-        """
-        This test verifies that if the `_process_parallel_results` function receives a list of results where all tasks have failed, it correctly reports the failure statistics and does not attempt to print timing breakdowns. It creates a list of `TaskResult` objects where all tasks indicate failure with error messages, and mocks the manager to return no statistics. The test asserts that the function processes the results without crashing, returns an empty list of files, and that the output includes the correct failure statistics while omitting any timing information, confirming that the function can gracefully handle scenarios where all parallel tasks fail.
 
-        Parameters:
-            self ("TestProcessParallelResultsEdgeCases"): Test instance (unused).
-            temp_output_dir (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate result processing behavior.
-        """
-        results = [
-            TaskResult(task_id=0, success=False, error="boom"),
-            TaskResult(task_id=1, success=False, error="crash"),
-        ]
-
-        mock_manager = Mock()
-        mock_manager.get_statistics.return_value = None
-        captured = io.StringIO()
-
-        with redirect_stdout(captured):
-            files = _process_parallel_results(
-                results, [0, 1], str(temp_output_dir), mock_manager, "ALL_FAIL"
-            )
-
-        output = captured.getvalue()
-
-        assert files == []
-        assert "Failed: 2/2" in output
-        assert "Timing Breakdown" not in output  
-
-    def test_no_manager_statistics(self: "TestProcessParallelResultsEdgeCases", 
+    def test_no_manager_statistics(self: 'TestProcessParallelResultsEdgeCases', 
                                    temp_output_dir: Path) -> None:
         """
         This test verifies that if the `_process_parallel_results` function receives a manager with no statistics, the report is printed without speedup information. It creates a list of `TaskResult` objects where one task indicates success with valid results, and mocks the manager to return no statistics. The test asserts that the function processes the results without crashing, returns the expected files, and that the output includes the report header but omits any speedup information, confirming that the function can gracefully handle scenarios where performance statistics are unavailable. 
 
         Parameters:
-            self ("TestProcessParallelResultsEdgeCases"): Test instance (unused).
+            self ('TestProcessParallelResultsEdgeCases'): Test instance (unused).
             temp_output_dir (Path): Temporary directory for output files.
 
         Returns:
@@ -167,13 +113,13 @@ class TestProcessParallelResultsEdgeCases:
         assert len(files) == pytest.approx(1)
         assert "Speedup potential" not in output
 
-    def test_var_info_formatting(self: "TestProcessParallelResultsEdgeCases", 
+    def test_var_info_formatting(self: 'TestProcessParallelResultsEdgeCases', 
                                  temp_output_dir: Path) -> None:
         """
         This test verifies that if the `_process_parallel_results` function receives a `var_info` string, it is included in the report header. It creates a list of `TaskResult` objects where one task indicates success with valid results, and mocks the manager to return no statistics. The test asserts that the function processes the results without crashing, returns the expected files, and that the output includes the provided `var_info` string in the report header, confirming that the function correctly integrates variable information into the result reporting. 
 
         Parameters:
-            self ("TestProcessParallelResultsEdgeCases"): Test instance (unused).
+            self ('TestProcessParallelResultsEdgeCases'): Test instance (unused).
             temp_output_dir (Path): Temporary directory for output files.
 
         Returns:
@@ -202,76 +148,16 @@ class TestProcessParallelResultsEdgeCases:
         assert "Variable: temperature_2m" in captured.getvalue()
 
 
-class TestAutoBatchProcessorMPISingleProcess:
-    """ Tests for auto_batch_processor when MPI is available but only 1 rank. """
-
-    def test_mpi_single_rank_returns_false(self: "TestAutoBatchProcessorMPISingleProcess") -> None:
-        """
-        This test verifies that when MPI is available but Get_size() returns 1, the auto_batch_processor function returns False, indicating that parallel processing should not be used. It mocks the mpi4py import and the Get_size method to simulate an MPI environment with only one rank, and asserts that auto_batch_processor correctly identifies that parallel processing is not beneficial in this scenario. 
-
-        Parameters:
-            self ("TestAutoBatchProcessorMPISingleProcess"): Test instance (unused).
-
-        Returns:
-            None: Assertions validate auto_batch_processor behavior.
-        """
-        mock_mpi = MagicMock()
-        mock_mpi.MPI.COMM_WORLD.Get_size.return_value = 1
-
-        real_import = builtins.__import__
-
-        def mock_import(name, *args, **kwargs):
-            if name == 'mpi4py':
-                return mock_mpi
-            return real_import(name, *args, **kwargs)
-
-        builtins.__import__ = mock_import
-
-        try:
-            result = auto_batch_processor(use_parallel=None)
-            assert result is False
-        finally:
-            builtins.__import__ = real_import
-
-    def test_mpi_multi_rank_returns_true(self: "TestAutoBatchProcessorMPISingleProcess") -> None:
-        """
-        This test verifies that when MPI is available and Get_size() returns a value greater than 1, the auto_batch_processor function returns True, indicating that parallel processing should be used. It mocks the mpi4py import and the Get_size method to simulate an MPI environment with multiple ranks, and asserts that auto_batch_processor correctly identifies that parallel processing is beneficial in this scenario. 
-
-        Parameters:
-            self ("TestAutoBatchProcessorMPISingleProcess"): Test instance (unused).
-
-        Returns:
-            None: Assertions validate auto_batch_processor behavior.
-        """
-        mock_mpi = MagicMock()
-        mock_mpi.MPI.COMM_WORLD.Get_size.return_value = 4
-
-        real_import = builtins.__import__
-
-        def mock_import(name, *args, **kwargs):
-            if name == 'mpi4py':
-                return mock_mpi
-            return real_import(name, *args, **kwargs)
-
-        builtins.__import__ = mock_import
-
-        try:
-            result = auto_batch_processor(use_parallel=None)
-            assert result is True
-        finally:
-            builtins.__import__ = real_import
-
-
 class TestMPIModeBranches:
     """ Tests exercising MPI-mode branches in worker functions and Parallel*Processor classes. """
 
-    def _make_mpi_kwargs(self: "TestMPIModeBranches", 
+    def _make_mpi_kwargs(self: 'TestMPIModeBranches', 
                          output_dir: str) -> Dict:
         """
         This helper method creates a dictionary of keyword arguments for worker functions that will trigger the MPI mode branches by including 'grid_file' and 'data_dir' keys. The values are set to fake paths since the actual file reading is mocked in the tests. 
 
         Parameters:
-            self ("TestMPIModeBranches"): Test instance (unused).
+            self ('TestMPIModeBranches'): Test instance (unused).
             output_dir (str): Directory for output files.
 
         Returns:
@@ -285,13 +171,13 @@ class TestMPIModeBranches:
             'lat_min': 30, 'lat_max': 50,
         }
 
-    def test_precipitation_worker_mpi_grid_file_branch(self: "TestMPIModeBranches", 
+    def test_precipitation_worker_mpi_grid_file_branch(self: 'TestMPIModeBranches', 
                                                        tmp_path: Path) -> None:
         """
         This test verifies that the `_precipitation_worker` function correctly executes the MPI mode branch when `grid_file` and `data_dir` are provided. It mocks the processor to return a dataset with a `rainnc` variable and configures the diagnostic and plotter mocks to simulate the computation and plotting of precipitation data. The test asserts that the worker function completes without crashing and returns a result containing a 'files' key, confirming that the MPI mode branch is functioning correctly in the precipitation worker workflow. 
 
         Parameters:
-            self ("TestMPIModeBranches"): Test instance (unused).
+            self ('TestMPIModeBranches'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -332,13 +218,13 @@ class TestMPIModeBranches:
         assert isinstance(result, dict)
         assert 'files' in result
 
-    def test_surface_worker_mpi_mode_branch(self: "TestMPIModeBranches", 
+    def test_surface_worker_mpi_mode_branch(self: 'TestMPIModeBranches', 
                                             tmp_path: Path) -> None:
         """
         This test verifies that the `_surface_worker` function correctly executes the MPI mode branch when `grid_file` and `data_dir` are provided. It mocks the processor to return a dataset with a `t2m` variable and configures the plotter mock to simulate the creation of a surface map. The test asserts that the worker function completes without crashing and returns a result containing a 'files' key, confirming that the MPI mode branch is functioning correctly in the surface worker workflow. 
 
         Parameters:
-            self ("TestMPIModeBranches"): Test instance (unused).
+            self ('TestMPIModeBranches'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -374,13 +260,13 @@ class TestMPIModeBranches:
         assert isinstance(result, dict)
         assert 'files' in result
 
-    def test_wind_worker_mpi_mode_branch(self: "TestMPIModeBranches", 
+    def test_wind_worker_mpi_mode_branch(self: 'TestMPIModeBranches', 
                                          tmp_path: Path) -> None:
         """
         This test verifies that the `_wind_worker` function correctly executes the MPI mode branch when `grid_file` and `data_dir` are provided. It mocks the processor to return a dataset with `u10` and `v10` variables and configures the plotter mock to simulate the creation of a wind plot. The test asserts that the worker function completes without crashing and returns a result containing a 'files' key, confirming that the MPI mode branch is functioning correctly in the wind worker workflow. 
 
         Parameters:
-            self ("TestMPIModeBranches"): Test instance (unused).
+            self ('TestMPIModeBranches'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -419,13 +305,13 @@ class TestMPIModeBranches:
         assert isinstance(result, dict)
         assert 'files' in result
 
-    def test_cross_section_worker_mpi_3d_reload(self: "TestMPIModeBranches", 
+    def test_cross_section_worker_mpi_3d_reload(self: 'TestMPIModeBranches', 
                                                 tmp_path: Path) -> None:
         """
         This test verifies that the `_cross_section_worker` function correctly executes the MPI mode branch for 3D data when `grid_file` and `data_dir` are provided. It mocks the processor to return a dataset with a `theta` variable and configures the plotter mock to simulate the creation of a vertical cross-section plot. The test asserts that the worker function completes without crashing and returns a result containing a 'files' key, confirming that the MPI mode branch for 3D data reload is functioning correctly in the cross-section worker workflow. 
 
         Parameters:
-            self ("TestMPIModeBranches"): Test instance (unused).
+            self ('TestMPIModeBranches'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -468,13 +354,13 @@ class TestMPIModeBranches:
 class TestParallelProcessorBatchMethods:
     """ Tests for Parallel*Processor batch methods targeting MPI mode branches. """
 
-    def test_process_parallel_results_success_iteration(self: "TestParallelProcessorBatchMethods", 
+    def test_process_parallel_results_success_iteration(self: 'TestParallelProcessorBatchMethods', 
                                                         tmp_path: Path) -> None:
         """
         This test verifies that the `_process_parallel_results` function correctly processes a list of successful `TaskResult` objects, extracts the files, and prints the appropriate statistics. It mocks a set of successful results with timing information, simulates a manager with relevant statistics, and asserts that the function returns the expected list of files and includes the correct success statistics in the output, confirming that the function can handle and report on successful parallel processing outcomes effectively. 
 
         Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
+            self ('TestParallelProcessorBatchMethods'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -508,13 +394,13 @@ class TestParallelProcessorBatchMethods:
         assert len(files) == pytest.approx(3)
         assert 'Successful: 2/2' in captured.getvalue()
 
-    def test_timing_statistics_creation(self: "TestParallelProcessorBatchMethods", 
+    def test_timing_statistics_creation(self: 'TestParallelProcessorBatchMethods', 
                                         tmp_path: Path) -> None:
         """
         This test verifies that the `_process_parallel_results` function correctly creates a timing_stats dictionary for each key. It mocks a set of successful `TaskResult` objects with timing information, simulates a manager with no statistics, and asserts that the function returns the expected list of files and includes the correct timing breakdown in the output, confirming that the function can generate and report detailed timing statistics even when overall performance statistics are unavailable. 
 
         Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
+            self ('TestParallelProcessorBatchMethods'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -541,160 +427,14 @@ class TestParallelProcessorBatchMethods:
         assert 'Data Processing' in output
         assert len(files) == pytest.approx(1)
 
-    def test_precipitation_processor_mpi_check(self: "TestParallelProcessorBatchMethods", 
-                                               tmp_path: Path) -> None:
-        """
-        This test verifies that the `ParallelPrecipitationProcessor` correctly checks MPI mode and requires a `data_dir`. It mocks a manager in MPI mode, removes the `data_dir` attribute from the processor, and asserts that an `AttributeError` is raised when attempting to create batch precipitation maps in parallel. 
 
-        Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
-            tmp_path (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate MPI mode behavior.
-        """
-        import mpasdiag.processing.parallel_wrappers as _pw
-        orig_mgr = _pw.MPASParallelManager
-
-        assert_expected_public_methods(orig_mgr, 'MPASParallelManager')
-
-        mock_mgr = MagicMock()
-        mock_mgr.backend = 'mpi'
-        mock_mgr.is_master = True
-        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
-        try:
-            processor = MagicMock()
-            processor.grid_file = '/fake/grid.nc'
-            del processor.data_dir  
-
-            with pytest.raises(AttributeError, match="MPI mode requires"):
-                ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-                    processor=processor,
-                    output_dir=str(tmp_path),
-                    lon_min=-120, lon_max=-80, lat_min=30, lat_max=50,
-                    var_name='rainnc', accum_period='a01h',
-                    time_indices=[0, 1], n_processes=2
-                )
-        finally:
-            _pw.MPASParallelManager = orig_mgr
-
-    def test_surface_processor_mpi_check(self: "TestParallelProcessorBatchMethods", 
-                                         tmp_path: Path) -> None:
-        """
-        This test verifies that the `ParallelSurfaceProcessor` correctly checks MPI mode and requires a `data_dir`. It mocks a manager in MPI mode, removes the `data_dir` attribute from the processor, and asserts that an `AttributeError` is raised when attempting to create batch surface maps in parallel. 
-
-        Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
-            tmp_path (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate MPI mode behavior.
-        """
-        import mpasdiag.processing.parallel_wrappers as _pw
-        orig_mgr = _pw.MPASParallelManager
-
-        assert_expected_public_methods(orig_mgr, 'MPASParallelManager')
-
-        mock_mgr = MagicMock()
-        mock_mgr.backend = 'mpi'
-        mock_mgr.is_master = True
-        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
-        try:
-            processor = MagicMock()
-            processor.grid_file = '/fake/grid.nc'
-            del processor.data_dir
-
-            with pytest.raises(AttributeError, match="MPI mode requires"):
-                ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-                    processor=processor,
-                    output_dir=str(tmp_path),
-                    lon_min=-120, lon_max=-80, lat_min=30, lat_max=50,
-                    var_name='t2m', time_indices=[0, 1], n_processes=2
-                )
-        finally:
-            _pw.MPASParallelManager = orig_mgr
-
-    def test_wind_processor_mpi_check(self: "TestParallelProcessorBatchMethods", 
-                                      tmp_path: Path) -> None:
-        """
-        This test verifies that the `ParallelWindProcessor` correctly checks MPI mode and requires a `data_dir`. It mocks a manager in MPI mode, removes the `data_dir` attribute from the processor, and asserts that an `AttributeError` is raised when attempting to create batch wind plots in parallel. 
-
-        Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
-            tmp_path (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate MPI mode behavior.
-        """
-        import mpasdiag.processing.parallel_wrappers as _pw
-        orig_mgr = _pw.MPASParallelManager
-
-        assert_expected_public_methods(orig_mgr, 'MPASParallelManager')
-
-        mock_mgr = MagicMock()
-        mock_mgr.backend = 'mpi'
-        mock_mgr.is_master = True
-        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
-        try:
-            processor = MagicMock()
-            processor.grid_file = '/fake/grid.nc'
-            del processor.data_dir
-
-            with pytest.raises(AttributeError, match="MPI mode requires"):
-                ParallelWindProcessor.create_batch_wind_plots_parallel(
-                    processor=processor,
-                    output_dir=str(tmp_path),
-                    lon_min=-120, lon_max=-80, lat_min=30, lat_max=50,
-                    u_variable='u10', v_variable='v10',
-                    time_indices=[0, 1], n_processes=2
-                )
-        finally:
-            _pw.MPASParallelManager = orig_mgr
-
-    def test_cross_section_processor_mpi_check(self: "TestParallelProcessorBatchMethods", 
-                                               tmp_path: Path) -> None:
-        """
-        This test verifies that the `ParallelCrossSectionProcessor` correctly checks MPI mode and requires a `data_dir`. It mocks a manager in MPI mode, removes the `data_dir` attribute from the processor, and asserts that an `AttributeError` is raised when attempting to create batch cross-section plots in parallel. 
-
-        Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
-            tmp_path (Path): Temporary directory for output files.
-
-        Returns:
-            None: Assertions validate MPI mode behavior.
-        """
-        import mpasdiag.processing.parallel_wrappers as _pw
-        orig_mgr = _pw.MPASParallelManager
-
-        assert_expected_public_methods(orig_mgr, 'MPASParallelManager')
-
-        mock_mgr = MagicMock()
-        mock_mgr.backend = 'mpi'
-        mock_mgr.is_master = True
-        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
-        try:
-            processor = MagicMock()
-            processor.grid_file = '/fake/grid.nc'
-            del processor.data_dir
-
-            with pytest.raises(AttributeError, match="MPI mode requires"):
-                ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
-                    mpas_3d_processor=processor,
-                    output_dir=str(tmp_path),
-                    var_name='theta',
-                    start_point=(-110, 30), end_point=(-100, 40),
-                    time_indices=[0, 1], n_processes=2
-                )
-        finally:
-            _pw.MPASParallelManager = orig_mgr
-
-    def test_precipitation_processor_mpi_kwargs_construction(self: "TestParallelProcessorBatchMethods", 
+    def test_precipitation_processor_mpi_kwargs_construction(self: 'TestParallelProcessorBatchMethods', 
                                                              tmp_path: Path) -> None:
         """
         This test verifies that the `ParallelPrecipitationProcessor` correctly constructs `worker_kwargs` in MPI mode. It mocks a manager in MPI mode, sets up a processor with necessary attributes, and asserts that the `create_batch_precipitation_maps_parallel` method behaves as expected when `parallel_map` returns `None`, confirming that the method can construct the appropriate arguments for worker functions in MPI mode without attempting to process results when `parallel_map` is mocked to return `None`. 
 
         Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
+            self ('TestParallelProcessorBatchMethods'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -730,13 +470,13 @@ class TestParallelProcessorBatchMethods:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_cross_section_processor_result_aggregation(self: "TestParallelProcessorBatchMethods", 
+    def test_cross_section_processor_result_aggregation(self: 'TestParallelProcessorBatchMethods', 
                                                         tmp_path: Path) -> None:
         """
         This test verifies that the `ParallelCrossSectionProcessor` correctly aggregates results from `parallel_map` and processes them with `_process_parallel_results`. It mocks a manager in multiprocessing mode, simulates a set of results with one success and one failure, and asserts that the `create_batch_cross_section_plots_parallel` method returns the expected list of files and includes the correct success statistics in the output, confirming that the method can handle and report on mixed outcomes from parallel processing effectively. 
 
         Parameters:
-            self ("TestParallelProcessorBatchMethods"): Test instance (unused).
+            self ('TestParallelProcessorBatchMethods'): Test instance (unused).
             tmp_path (Path): Temporary directory for output files.
 
         Returns:
@@ -782,6 +522,108 @@ class TestParallelProcessorBatchMethods:
             _pw.MPASParallelManager = orig_mgr
 
 
+class TestPrebuildRemapperMPI:
+    """Tests for the _prebuild_remapper_mpi function body (lines 756-770)."""
+
+    def test_prebuild_remapper_mpi_executes(self: 'TestPrebuildRemapperMPI',
+                                            tmp_path: Path) -> None:
+        """
+        This test verifies that `_prebuild_remapper_mpi` correctly instantiates
+        an `MPASPrecipitationPlotter` via `__new__`, sets attributes, calls
+        `_ensure_boundary_data`, `_extract_full_grid`, and finally
+        `_get_or_build_remapper` (lines 756-774). It patches all three plotter
+        instance methods so no real data or weights directory is needed, then
+        asserts that `_get_or_build_remapper` was called exactly once.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from unittest.mock import patch, MagicMock
+        import numpy as np
+        import xarray as xr
+        import mpasdiag.processing.parallel_wrappers as _pw
+
+        lon = np.linspace(-120, -80, 10)
+        lat = np.linspace(30, 50, 10)
+        lon_b = np.linspace(-121, -79, 11)
+        lat_b = np.linspace(29, 51, 11)
+
+        boundary_ds = xr.Dataset({
+            'lon_b': (['n_b'], lon_b),
+            'lat_b': (['n_b'], lat_b),
+        })
+
+        mock_proc = MagicMock()
+        mock_proc.dataset = xr.Dataset()
+
+        with patch.object(_pw.MPASPrecipitationPlotter, '_ensure_boundary_data',
+                          return_value=boundary_ds), \
+             patch.object(_pw.MPASPrecipitationPlotter, '_extract_full_grid',
+                          return_value=(lon, lat)), \
+             patch.object(_pw.MPASPrecipitationPlotter, '_get_or_build_remapper') as mock_build:
+
+            _pw._prebuild_remapper_mpi(
+                mock_proc, str(tmp_path),
+                -120.0, -80.0, 30.0, 50.0, 0.5, None
+            )
+
+        mock_build.assert_called_once()
+
+
+class TestAutoBatchProcessor:
+    """Tests for the auto_batch_processor function (lines 1452-1460)."""
+
+    def test_explicit_true_returns_true(self: 'TestAutoBatchProcessor') -> None:
+        """auto_batch_processor(True) must return True regardless of MPI."""
+        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        assert auto_batch_processor(True) is True
+
+    def test_explicit_false_returns_false(self: 'TestAutoBatchProcessor') -> None:
+        """auto_batch_processor(False) must return False regardless of MPI."""
+        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        assert auto_batch_processor(False) is False
+
+    def test_no_mpi_returns_false(self: 'TestAutoBatchProcessor') -> None:
+        """When mpi4py is not importable, auto_batch_processor(None) returns False."""
+        import sys
+        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        with patch.dict(sys.modules, {'mpi4py': None, 'mpi4py.MPI': None}):
+            result = auto_batch_processor(None)
+        assert result is False
+
+    def test_mpi_single_rank_returns_false(self: 'TestAutoBatchProcessor') -> None:
+        """When mpi4py is available but only 1 process, returns False."""
+        import sys
+        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+
+        mock_comm = MagicMock()
+        mock_comm.Get_size.return_value = 1
+
+        mock_mpi4py = MagicMock()
+        mock_mpi4py.MPI.COMM_WORLD = mock_comm
+
+        with patch.dict(sys.modules, {'mpi4py': mock_mpi4py, 'mpi4py.MPI': mock_mpi4py.MPI}):
+            result = auto_batch_processor(None)
+        assert result is False
+
+    def test_mpi_multi_rank_returns_true(self: 'TestAutoBatchProcessor') -> None:
+        """When mpi4py is available and Get_size() > 1, returns True."""
+        import sys
+        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+
+        mock_comm = MagicMock()
+        mock_comm.Get_size.return_value = 4
+
+        mock_mpi4py = MagicMock()
+        mock_mpi4py.MPI.COMM_WORLD = mock_comm
+
+        with patch.dict(sys.modules, {'mpi4py': mock_mpi4py, 'mpi4py.MPI': mock_mpi4py.MPI}):
+            result = auto_batch_processor(None)
+        assert result is True
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

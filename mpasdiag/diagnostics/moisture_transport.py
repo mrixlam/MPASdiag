@@ -20,27 +20,27 @@ from mpasdiag.processing.constants import (
 )
 
 
-def _trapezoidal_column_integral(q_arr: np.ndarray, 
-                                 p_arr: np.ndarray) -> np.ndarray:
+def _trapezoidal_column_integral(integrand_arr: np.ndarray,
+                                 pressure_arr: np.ndarray) -> np.ndarray:
     """
-    This function performs the column integration of a given quantity (q_arr) over the vertical dimension in pressure coordinates using the trapezoidal rule. It calculates the pressure thickness (dp) between model levels and applies the trapezoidal rule to compute the integral of q_arr weighted by dp. The resulting column-integrated quantity is then divided by gravity to convert from mass flux to a column-integrated value. The function assumes that the vertical dimension is the last axis of the input arrays and that p_arr represents total atmospheric pressure in Pascals at each model level. The output is an array with the vertical dimension removed, containing the column-integrated quantity in units consistent with q_arr and p_arr.
+    This function performs the column integration of a given quantity (integrand_arr) over the vertical dimension in pressure coordinates using the trapezoidal rule. It calculates the pressure thickness (dp) between model levels and applies the trapezoidal rule to compute the integral of integrand_arr weighted by dp. The resulting column-integrated quantity is then divided by gravity to convert from mass flux to a column-integrated value. The function assumes that the vertical dimension is the last axis of the input arrays and that pressure_arr represents total atmospheric pressure in Pascals at each model level. The output is an array with the vertical dimension removed, containing the column-integrated quantity in units consistent with integrand_arr and pressure_arr.
 
     Parameters:
-        q_arr (np.ndarray): Array of the quantity to integrate, with the vertical dimension as the last axis.
-        p_arr (np.ndarray): Array of total atmospheric pressure in Pascals with the same shape as q_arr.
+        integrand_arr (np.ndarray): Array of the quantity to integrate, with the vertical dimension as the last axis.
+        pressure_arr (np.ndarray): Array of total atmospheric pressure in Pascals with the same shape as integrand_arr.
 
     Returns:
         np.ndarray: Array with the vertical axis removed, containing the column-integrated quantity divided by gravity.
     """
-    dp_abs = np.abs(np.diff(p_arr, axis=-1))
-    q_mid  = (q_arr[..., :-1] + q_arr[..., 1:]) / 2.0
-    return np.sum(q_mid * dp_abs, axis=-1) / GRAVITY
+    pressure_thickness = np.abs(np.diff(pressure_arr, axis=-1))
+    integrand_midpoints = (integrand_arr[..., :-1] + integrand_arr[..., 1:]) / 2.0
+    return np.sum(integrand_midpoints * pressure_thickness, axis=-1) / GRAVITY
 
 
 class MoistureTransportDiagnostics:
     """ Computes vertically integrated water vapor (IWV) and vertically integrated water vapor transport (IVT) for MPAS 3D output data. """
 
-    def __init__(self: "MoistureTransportDiagnostics",
+    def __init__(self: 'MoistureTransportDiagnostics',
                  verbose: bool = True) -> None:
         """
         This is the constructor for the MoistureTransportDiagnostics class. It initializes an instance of the class with an optional verbose flag that controls whether detailed output messages are printed during the moisture transport calculations. The verbose flag is stored as an instance variable and can be used by other methods in the class to determine whether to print diagnostic information about the computed IWV and IVT fields, such as their ranges and means. By default, verbose mode is enabled, allowing users to receive immediate feedback on the results of their moisture transport analyses.
@@ -53,7 +53,7 @@ class MoistureTransportDiagnostics:
         """
         self.verbose = verbose
 
-    def _integrate_column(self: "MoistureTransportDiagnostics",
+    def _integrate_column(self: 'MoistureTransportDiagnostics',
                           integrand: xr.DataArray,
                           pressure: xr.DataArray) -> xr.DataArray:
         """
@@ -76,7 +76,7 @@ class MoistureTransportDiagnostics:
             output_dtypes=[float],
         )
 
-    def compute_iwv(self: "MoistureTransportDiagnostics",
+    def compute_iwv(self: 'MoistureTransportDiagnostics',
                     specific_humidity: xr.DataArray,
                     pressure: xr.DataArray) -> xr.DataArray:
         """
@@ -106,7 +106,7 @@ class MoistureTransportDiagnostics:
 
         return iwv
 
-    def compute_ivt_components(self: "MoistureTransportDiagnostics",
+    def compute_ivt_components(self: 'MoistureTransportDiagnostics',
                                specific_humidity: xr.DataArray,
                                u_component: xr.DataArray,
                                v_component: xr.DataArray,
@@ -146,7 +146,7 @@ class MoistureTransportDiagnostics:
 
         return ivt_u, ivt_v
 
-    def compute_ivt(self: "MoistureTransportDiagnostics",
+    def compute_ivt(self: 'MoistureTransportDiagnostics',
                     ivt_u: xr.DataArray,
                     ivt_v: xr.DataArray) -> xr.DataArray:
         """
@@ -176,7 +176,7 @@ class MoistureTransportDiagnostics:
 
         return ivt
 
-    def analyze_moisture_transport(self: "MoistureTransportDiagnostics",
+    def analyze_moisture_transport(self: 'MoistureTransportDiagnostics',
                                    specific_humidity: xr.DataArray,
                                    u_component: xr.DataArray,
                                    v_component: xr.DataArray,
@@ -194,14 +194,14 @@ class MoistureTransportDiagnostics:
             Dict[str, Any]: A dictionary containing the computed diagnostics (IWV, IVT_u, IVT_v, IVT) along with their summary statistics and units.
         """
         # Use a silent copy of self to avoid duplicate verbose prints from sub-methods
-        _saved_verbose = self.verbose
+        saved_verbose = self.verbose
         self.verbose = False
 
         iwv = self.compute_iwv(specific_humidity, pressure)
         ivt_u, ivt_v = self.compute_ivt_components(specific_humidity, u_component, v_component, pressure)
         ivt = self.compute_ivt(ivt_u, ivt_v)
 
-        self.verbose = _saved_verbose
+        self.verbose = saved_verbose
 
         analysis: Dict[str, Any] = {
             'iwv': {

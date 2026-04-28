@@ -27,7 +27,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
     """ Processor class for handling 2D surface and diagnostic variables from MPAS model output. """
     
     def __init__(self: 'MPAS2DProcessor', grid_file: str, 
-                 verbose: bool = True):
+                 verbose: bool = True) -> None:
         """
         This constructor initializes the MPAS2DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the necessary attributes for processing 2D diagnostic data, ensuring that the processor is ready to load datasets, extract spatial coordinates, and prepare data for visualization. By inheriting from MPASBaseProcessor, it leverages common functionality while allowing for specific implementations tailored to 2D surface data processing workflows. 
 
@@ -52,7 +52,11 @@ class MPAS2DProcessor(MPASBaseProcessor):
             xr.Dataset: The enriched dataset with added spatial coordinate variables for nCells, nVertices, nIsoLevelsT, and nIsoLevelsZ, along with their corresponding latitude and longitude coordinates. 
         """
         dimensions_to_add = ['nCells', 'nVertices', 'nIsoLevelsT', 'nIsoLevelsZ']
-        spatial_vars = ['latCell', 'lonCell', 'latVertex', 'lonVertex']
+
+        spatial_vars = [
+            'latCell', 'lonCell', 'latVertex', 'lonVertex',
+            'verticesOnCell', 'nEdgesOnCell',
+        ]
         
         return self._add_spatial_coords_helper(
             combined_ds, dimensions_to_add, spatial_vars, "2D"
@@ -113,8 +117,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
         if len(files) >= 2:
             if self.verbose:
                 print(f"\nFound {len(files)} diagnostic files (recursive search):")
-                for i, f in enumerate(files[:5]):
-                    print(f"  {i+1}: {os.path.basename(f)}")
+                for i, filepath in enumerate(files[:5]):
+                    print(f"  {i+1}: {os.path.basename(filepath)}")
             return files
 
         return None
@@ -150,8 +154,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
 
         if self.verbose:
             print(f"\nFound {len(files)} MPAS output files (recursive search):")
-            for i, f in enumerate(files[:5]):
-                print(f"  {i+1}: {os.path.basename(f)}")
+            for i, filepath in enumerate(files[:5]):
+                print(f"  {i+1}: {os.path.basename(filepath)}")
 
         return files
 
@@ -171,10 +175,10 @@ class MPAS2DProcessor(MPASBaseProcessor):
         except FileNotFoundError:
             pass
 
-        diag_sub = os.path.join(data_dir, "diag")
-        
+        diag_subdir = os.path.join(data_dir, "diag")
+
         try:
-            return self._find_files_by_pattern(diag_sub, DIAG_GLOB, "diagnostic files")
+            return self._find_files_by_pattern(diag_subdir, DIAG_GLOB, "diagnostic files")
         except FileNotFoundError:
             pass
 

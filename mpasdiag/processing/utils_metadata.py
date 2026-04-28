@@ -807,9 +807,9 @@ class MPASFileMetadata:
                     metadata['long_name'] = data_array.attrs['standard_name']
         
         if include_visualization:
-            viz_meta = visualization_metadata.get(var_name.lower(), {})
-            if viz_meta:
-                metadata.update(viz_meta)
+            visualization_entry = visualization_metadata.get(var_name.lower(), {})
+            if visualization_entry:
+                metadata.update(visualization_entry)
             else:
                 metadata.update({
                     'colormap': 'viridis',

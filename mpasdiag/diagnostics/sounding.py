@@ -43,7 +43,7 @@ except ImportError:
 class SoundingDiagnostics:
     """ Computes sounding-related diagnostics for MPAS model output, including profile extraction, thermodynamic index calculation, and data quality checks. """
 
-    def __init__(self: "SoundingDiagnostics", 
+    def __init__(self: 'SoundingDiagnostics', 
                  verbose: bool = True) -> None:
         """
         This function initializes the SoundingDiagnostics class with optional verbose output. The verbose flag controls whether detailed messages about the sounding extraction process and index calculations are printed to the console. When enabled, it provides insights into the nearest cell selection, profile characteristics, and any issues encountered during computations. This can be helpful for debugging and understanding the results, especially when working with complex MPAS datasets. 
@@ -57,8 +57,8 @@ class SoundingDiagnostics:
         # Store the verbose flag for use in other methods
         self.verbose = verbose
 
-    def extract_sounding_profile(self: "SoundingDiagnostics", 
-                                 processor: MPAS3DProcessor, 
+    def extract_sounding_profile(self: 'SoundingDiagnostics', 
+                                 processor: 'MPAS3DProcessor', 
                                  lon: float, 
                                  lat: float, 
                                  time_index: int = 0,) -> Dict[str, Any]:
@@ -191,7 +191,7 @@ class SoundingDiagnostics:
             'time_index': validated_time_index,
         }
 
-    def compute_dewpoint_from_mixing_ratio(self: "SoundingDiagnostics", 
+    def compute_dewpoint_from_mixing_ratio(self: 'SoundingDiagnostics', 
                                            mixing_ratio: np.ndarray, 
                                            pressure_pa: np.ndarray,) -> np.ndarray:
         """
@@ -205,20 +205,20 @@ class SoundingDiagnostics:
             np.ndarray: Dewpoint temperature in °C.
         """
         # Ensure inputs are treated as floating-point arrays for accurate calculations
-        q = np.asarray(mixing_ratio, dtype=np.float64)
-        p = np.asarray(pressure_pa, dtype=np.float64)
+        mixing_ratio_f64 = np.asarray(mixing_ratio, dtype=np.float64)
+        pressure_f64 = np.asarray(pressure_pa, dtype=np.float64)
 
         # Vapour pressure: e = q * p / (epsilon + q)
-        e = np.clip(q * p / (EPSILON_RD_RV + q), 1e-10, None)
+        vapour_pressure = np.clip(mixing_ratio_f64 * pressure_f64 / (EPSILON_RD_RV + mixing_ratio_f64), 1e-10, None)
 
-        # Magnus formula: compute dewpoint in °C from vapour pressure in Pa 
-        ln_ratio = np.log(e / 611.2)
+        # Magnus formula: compute dewpoint in °C from vapour pressure in Pa
+        ln_ratio = np.log(vapour_pressure / 611.2)
         dewpoint_c = 243.5 * ln_ratio / (17.67 - ln_ratio)
 
         # Return the computed dewpoint profile in degrees Celsius
         return dewpoint_c
 
-    def compute_thermodynamic_indices(self: "SoundingDiagnostics", 
+    def compute_thermodynamic_indices(self: 'SoundingDiagnostics', 
                                       pressure_hpa: np.ndarray, 
                                       temperature_c: np.ndarray, 
                                       dewpoint_c: np.ndarray, 
@@ -260,15 +260,15 @@ class SoundingDiagnostics:
             return result
 
         # Create local aliases for MetPy calculation functions and units
-        _calc: Any = mpcalc
-        _units: Any = munits
+        metpy_calc: Any = mpcalc
+        metpy_units: Any = munits
 
         # Compute the parcel profile using the surface pressure, temperature, and dewpoint
         try:
-            p = pressure_hpa * _units.hPa
-            T = temperature_c * _units.degC
-            Td = dewpoint_c * _units.degC
-            prof = cast(Any, _calc.parcel_profile(p, T[0], Td[0])).to('degC')
+            pressure_metpy = pressure_hpa * metpy_units.hPa
+            temperature_metpy = temperature_c * metpy_units.degC
+            dewpoint_metpy = dewpoint_c * metpy_units.degC
+            parcel_profile = cast(Any, metpy_calc.parcel_profile(pressure_metpy, temperature_metpy[0], dewpoint_metpy[0])).to('degC')
 
         # Catch any exceptions that occur during the base profile computation
         except Exception as exc:
@@ -278,64 +278,64 @@ class SoundingDiagnostics:
 
         # --- Lifting condensation level (LCL) ---
         result['lcl_pressure'], result['lcl_temperature'] = (
-            self._safe_pair(_calc.lcl, p[0], T[0], Td[0]))
+            self._safe_pair(metpy_calc.lcl, pressure_metpy[0], temperature_metpy[0], dewpoint_metpy[0]))
 
         # --- Level of free convection (LFC) ---
-        result['lfc_pressure'], _ = self._safe_pair(_calc.lfc, p, T, Td)
+        result['lfc_pressure'], _ = self._safe_pair(metpy_calc.lfc, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
         # --- Equilibrium level (EL) ---
-        result['el_pressure'], _ = self._safe_pair(_calc.el, p, T, Td)
+        result['el_pressure'], _ = self._safe_pair(metpy_calc.el, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
         # --- Surface-based CAPE/CIN ---
         result['sbcape'], result['sbcin'] = (
-            self._safe_pair(_calc.surface_based_cape_cin, p, T, Td))
+            self._safe_pair(metpy_calc.surface_based_cape_cin, pressure_metpy, temperature_metpy, dewpoint_metpy))
 
         # --- Surface-based CAPE/CIN fallback for backward compatibility ---
         if result['sbcape'] is None:
             result['sbcape'], result['sbcin'] = (
-                self._safe_pair(_calc.cape_cin, p, T, Td, prof))
+                self._safe_pair(metpy_calc.cape_cin, pressure_metpy, temperature_metpy, dewpoint_metpy, parcel_profile))
 
         # --- For backward compatibility, also store surface-based CAPE/CIN under 'cape' and 'cin' keys ---
         result['cape'], result['cin'] = result['sbcape'], result['sbcin']
 
-        # --- Mixed layer CAPE/CIN --- 
+        # --- Mixed layer CAPE/CIN ---
         result['mlcape'], result['mlcin'] = (
-            self._safe_pair(_calc.mixed_layer_cape_cin, p, T, Td))
+            self._safe_pair(metpy_calc.mixed_layer_cape_cin, pressure_metpy, temperature_metpy, dewpoint_metpy))
 
         # --- Most unstable CAPE/CIN (using the level with the highest equivalent potential temperature) ---
         result['mucape'], result['mucin'] = (
-            self._safe_pair(_calc.most_unstable_cape_cin, p, T, Td))
+            self._safe_pair(metpy_calc.most_unstable_cape_cin, pressure_metpy, temperature_metpy, dewpoint_metpy))
 
-        # --- Downdraft CAPE --- 
-        result['dcape'], _ = self._safe_pair(_calc.downdraft_cape, p, T, Td)
+        # --- Downdraft CAPE ---
+        result['dcape'], _ = self._safe_pair(metpy_calc.downdraft_cape, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
         # --- Scalar stability indices ---
         result['lifted_index'] = self._safe_scalar(
-            _calc.lifted_index, p, T, prof)
+            metpy_calc.lifted_index, pressure_metpy, temperature_metpy, parcel_profile)
 
         # --- K-index ---
-        result['k_index'] = self._safe_scalar(_calc.k_index, p, T, Td)
+        result['k_index'] = self._safe_scalar(metpy_calc.k_index, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
-        # --- Total totals index --- 
+        # --- Total totals index ---
         result['total_totals'] = self._safe_scalar(
-            _calc.total_totals_index, p, T, Td)
+            metpy_calc.total_totals_index, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
         # --- Showalter index ---
         result['showalter_index'] = self._safe_scalar(
-            _calc.showalter_index, p, T, Td)
+            metpy_calc.showalter_index, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
         # --- Cross totals index ---
         result['cross_totals'] = self._safe_scalar(
-            _calc.cross_totals, p, T, Td)
+            metpy_calc.cross_totals, pressure_metpy, temperature_metpy, dewpoint_metpy)
 
-        # --- Precipitable water --- 
+        # --- Precipitable water ---
         result['precipitable_water'] = self._safe_scalar(
-            _calc.precipitable_water, p, Td, to_unit='mm')
+            metpy_calc.precipitable_water, pressure_metpy, dewpoint_metpy, to_unit='mm')
 
         # --- Wet-bulb zero height ---
         if height_m is not None:
             result['wet_bulb_zero_height'] = self._compute_wet_bulb_zero(
-                p, T, Td, height_m)
+                pressure_metpy, temperature_metpy, dewpoint_metpy, height_m)
 
         # --- Shear and storm-relative indices (require wind and height) ---
         if (u_wind_kt is not None and v_wind_kt is not None
@@ -365,8 +365,8 @@ class SoundingDiagnostics:
             np.asarray(pressure_pa, dtype=np.float64) / P0_REF_PA
         ) ** KAPPA
 
-    def _load_grid_coordinates(self: "SoundingDiagnostics", 
-                               processor: MPAS3DProcessor) -> Tuple[np.ndarray, np.ndarray]:
+    def _load_grid_coordinates(self: 'SoundingDiagnostics', 
+                               processor: 'MPAS3DProcessor') -> Tuple[np.ndarray, np.ndarray]:
         """
         This function loads the longitude and latitude coordinates of the cell centers from the MPAS grid file using xarray. It checks for common variable names for longitude and latitude in the grid dataset, and extracts them as 1D arrays. If the coordinates are in radians, it converts them to degrees. Finally, it ensures that longitudes are in the range [-180, 180] degrees before returning the longitude and latitude arrays. This is used to find the nearest cell to a target location when extracting sounding profiles. 
 
@@ -458,10 +458,10 @@ class SoundingDiagnostics:
 
         # Build a KDTree from the grid points and query it with the target point to find the nearest neighbor
         tree = cKDTree(cart)
-        _, idx = tree.query(tgt_cart)
+        _, nearest_idx = tree.query(tgt_cart)
 
         # Return the index of the nearest cell as an integer
-        return int(idx[0])
+        return int(nearest_idx[0])
 
     @staticmethod
     def _haversine_km(lon1: float, 
@@ -489,10 +489,10 @@ class SoundingDiagnostics:
         dlon = lon2 - lon1
 
         # Haversine formula to calculate the great-circle distance
-        a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+        haversine_term = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
 
         # Return the distance in kilometers
-        return float(6371.0 * 2 * np.arcsin(np.sqrt(a)))
+        return float(6371.0 * 2 * np.arcsin(np.sqrt(haversine_term)))
 
     @staticmethod
     def _safe_scalar(func: Any, 
@@ -511,17 +511,17 @@ class SoundingDiagnostics:
         """
         try:
             # Compute the value using the provided function and arguments
-            val = func(*args)
+            computed_val = func(*args)
 
             # If a unit conversion is requested, convert the result to the specified unit
             if to_unit is not None:
-                val = val.to(to_unit)
+                computed_val = computed_val.to(to_unit)
 
             # Extract the magnitude of the result
-            mag = val.magnitude
+            magnitude = computed_val.magnitude
 
             # Extract the magnitude as a float
-            return float(mag.item()) if hasattr(mag, 'item') else float(mag)
+            return float(magnitude.item()) if hasattr(magnitude, 'item') else float(magnitude)
 
         # Catch any exceptions that occur during the calculation and return None
         except Exception:
@@ -544,20 +544,20 @@ class SoundingDiagnostics:
         """
         try:
             # Compute the pair of values using the provided function and arguments
-            a, b = func(*args)
+            first_result, second_result = func(*args)
 
             # If a unit conversion is requested, convert both results to the specified unit
             if to_unit is not None:
-                a, b = a.to(to_unit), b.to(to_unit)
+                first_result, second_result = first_result.to(to_unit), second_result.to(to_unit)
 
             # Extract the magnitudes of both results and return them as floats
-            return float(a.magnitude), float(b.magnitude)
-        
+            return float(first_result.magnitude), float(second_result.magnitude)
+
         # Catch any exceptions that occur during the calculation and return (None, None)
         except Exception:
             return None, None
 
-    def _compute_fallback_lcl(self: "SoundingDiagnostics", 
+    def _compute_fallback_lcl(self: 'SoundingDiagnostics', 
                               pressure_hpa: np.ndarray, 
                               temperature_c: np.ndarray, 
                               dewpoint_c: np.ndarray, 
@@ -576,19 +576,19 @@ class SoundingDiagnostics:
         """
         try:
             # Use the surface temperature and dewpoint (first level of the profile) for the LCL estimation
-            T_sfc = temperature_c[0]
-            Td_sfc = dewpoint_c[0]
+            surface_temp_c = temperature_c[0]
+            surface_dewpoint_c = dewpoint_c[0]
 
             # Estimate the LCL temperature using a simplified formula based on surface temperature and dewpoint
-            lcl_t = Td_sfc - (0.001296 * Td_sfc + 0.1963) * (T_sfc - Td_sfc)
+            lcl_temperature = surface_dewpoint_c - (0.001296 * surface_dewpoint_c + 0.1963) * (surface_temp_c - surface_dewpoint_c)
 
             # Compute the LCL pressure using the Poisson equation with the estimated LCL temperature
-            lcl_p = pressure_hpa[0] * (
-                (lcl_t + 273.15) / (T_sfc + 273.15)) ** (1.0 / KAPPA)
+            lcl_pressure = pressure_hpa[0] * (
+                (lcl_temperature + 273.15) / (surface_temp_c + 273.15)) ** (1.0 / KAPPA)
 
             # Store the fallback LCL pressure and temperature in the result dictionary
-            result['lcl_pressure'] = float(lcl_p)
-            result['lcl_temperature'] = float(lcl_t)
+            result['lcl_pressure'] = float(lcl_pressure)
+            result['lcl_temperature'] = float(lcl_temperature)
         except Exception:
             pass
 
@@ -598,9 +598,9 @@ class SoundingDiagnostics:
                   "Install metpy>=1.3.0 for comprehensive thermodynamic indices.")
 
     @staticmethod
-    def _compute_wet_bulb_zero(p: Any, 
-                               T: Any, 
-                               Td: Any, 
+    def _compute_wet_bulb_zero(pressure_metpy: Any,
+                               temperature_metpy: Any,
+                               dewpoint_metpy: Any,
                                height_m: np.ndarray,) -> Optional[float]:
         """
         This function computes the height of the wet bulb zero isotherm (the level where the wet bulb temperature reaches 0°C) using MetPy's wet bulb temperature calculation. It takes pressure, temperature, and dewpoint profiles with MetPy units, along with the corresponding height profile in meters. The function calculates the wet bulb temperature at each level, converts it to degrees Celsius, and then finds the first crossing of the 0°C isotherm. If a crossing is found, it performs a linear interpolation between the two levels that bracket the crossing to estimate the height of the wet bulb zero. If any step of the process fails (e.g., due to insufficient profile levels or invalid values), it returns None. This provides an important diagnostic for understanding freezing level conditions in the sounding profile. 
@@ -614,38 +614,38 @@ class SoundingDiagnostics:
         Returns:
             Optional[float]: Height of the wet bulb zero isotherm in meters, or None if computation failed.
         """
-        # Create local aliases for MetPy calculation functions and units
-        _calc: Any = mpcalc
+        # Create local alias for MetPy calculation functions
+        metpy_calc: Any = mpcalc
 
         try:
             # Ensure the height profile is treated as a floating-point array for accurate calculations
-            h = np.asarray(height_m, dtype=np.float64)
+            height_arr = np.asarray(height_m, dtype=np.float64)
 
             # Calculate the wet bulb temperature profile using MetPy's calculation function
-            wb = cast(Any, _calc.wet_bulb_temperature(p, T, Td))
+            wet_bulb_metpy = cast(Any, metpy_calc.wet_bulb_temperature(pressure_metpy, temperature_metpy, dewpoint_metpy))
 
             # Convert the wet bulb temperature to degrees Celsius for zero crossing detection
-            wb_c = np.asarray(wb.to('degC').magnitude, dtype=np.float64)
+            wet_bulb_celsius = np.asarray(wet_bulb_metpy.to('degC').magnitude, dtype=np.float64)
 
             # Find the indices where the wet bulb temperature crosses 0°C
-            crossings = np.nonzero(np.diff(np.sign(wb_c)))[0]
+            crossings = np.nonzero(np.diff(np.sign(wet_bulb_celsius)))[0]
 
             if len(crossings) > 0:
                 # Get the index of the first crossing of the 0°C isotherm in the wet bulb temperature profile
-                idx = crossings[0]
+                crossing_idx = crossings[0]
 
                 # Compute the fraction of the way between the two levels where the wet bulb zero crossing occurs for linear interpolation
-                frac = -wb_c[idx] / (wb_c[idx + 1] - wb_c[idx])
+                frac = -wet_bulb_celsius[crossing_idx] / (wet_bulb_celsius[crossing_idx + 1] - wet_bulb_celsius[crossing_idx])
 
                 # Return the interpolated height of the wet bulb zero isotherm in meters
-                return float(h[idx] + frac * (h[idx + 1] - h[idx]))
+                return float(height_arr[crossing_idx] + frac * (height_arr[crossing_idx + 1] - height_arr[crossing_idx]))
             
         # Catch any exceptions that occur during the wet bulb zero computation and return None
         except Exception:
             pass
         return None
 
-    def _compute_shear_indices(self: "SoundingDiagnostics", 
+    def _compute_shear_indices(self: 'SoundingDiagnostics', 
                                result: Dict[str, Optional[float]], 
                                pressure_hpa: np.ndarray, 
                                temperature_c: np.ndarray, 
@@ -669,22 +669,22 @@ class SoundingDiagnostics:
             None
         """
         # Create local aliases for MetPy calculation functions and units
-        _calc: Any = mpcalc
-        _units: Any = munits
+        metpy_calc: Any = mpcalc
+        metpy_units: Any = munits
 
         try:
             kt_to_ms = 1.0 / 1.94384
 
-            # Convert wind components from knots to meters per second 
-            u_ms = np.asarray(u_wind_kt, dtype=np.float64) * kt_to_ms * _units('m/s')
-            v_ms = np.asarray(v_wind_kt, dtype=np.float64) * kt_to_ms * _units('m/s')
+            # Convert wind components from knots to meters per second
+            u_ms = np.asarray(u_wind_kt, dtype=np.float64) * kt_to_ms * metpy_units('m/s')
+            v_ms = np.asarray(v_wind_kt, dtype=np.float64) * kt_to_ms * metpy_units('m/s')
 
             # Ensure the height profile is treated as a floating-point array for accurate calculations and convert to MetPy units
-            h_u = np.asarray(height_m, dtype=np.float64) * _units.m
+            height_metpy = np.asarray(height_m, dtype=np.float64) * metpy_units.m
 
             # Convert pressure to MetPy units for the shear calculations
-            p = pressure_hpa * _units.hPa
-        
+            pressure_metpy = pressure_hpa * metpy_units.hPa
+
         # Catch any exceptions that occur during the wind unit setup and skip shear-related calculations if it fails
         except Exception as exc:
             if self.verbose:
@@ -695,14 +695,14 @@ class SoundingDiagnostics:
                              (6000, 'bulk_shear_0_6km')]:
             try:
                 # Calculate the bulk shear for the specified depth range using MetPy's calculation function
-                bs_u, bs_v = cast(Any, _calc.bulk_shear(
-                    p, u_ms, v_ms, height=h_u,
-                    depth=depth_m * _units.m))
-                
-                # Store the magnitude of the bulk shear in knots in the result dictionary 
+                bulk_shear_u, bulk_shear_v = cast(Any, metpy_calc.bulk_shear(
+                    pressure_metpy, u_ms, v_ms, height=height_metpy,
+                    depth=depth_m * metpy_units.m))
+
+                # Store the magnitude of the bulk shear in knots in the result dictionary
                 result[key] = float(
-                    _calc.wind_speed(bs_u, bs_v).to('knots').magnitude)
-                
+                    metpy_calc.wind_speed(bulk_shear_u, bulk_shear_v).to('knots').magnitude)
+
             # Catch any exceptions that occur during the bulk shear computation and skip it
             except Exception:
                 pass
@@ -711,73 +711,73 @@ class SoundingDiagnostics:
                              (3000, 'srh_0_3km')]:
             try:
                 # Calculate the storm-relative helicity for the specified depth range using MetPy's calculation function
-                _, _, srh = cast(Any, _calc.storm_relative_helicity(
-                    h_u, u_ms, v_ms, depth=depth_m * _units.m))
-                
+                _, _, srh = cast(Any, metpy_calc.storm_relative_helicity(
+                    height_metpy, u_ms, v_ms, depth=depth_m * metpy_units.m))
+
                 # Store the magnitude of the storm-relative helicity in the result dictionary
                 result[key] = float(srh.magnitude)
-            
+
             # Catch any exceptions that occur during the storm-relative helicity computation and skip it
             except Exception:
                 pass
 
         try:
             # Check the dependencies for Significant Tornado Parameter: surface-based CAPE, LCL pressure, 0-1 km storm-relative helicity, and 0-6 km bulk shear
-            deps = [result.get('sbcape'), result.get('lcl_pressure'),
-                    result.get('srh_0_1km'), result.get('bulk_shear_0_6km')]
-            
-            if all(v is not None for v in deps):
+            stp_deps = [result.get('sbcape'), result.get('lcl_pressure'),
+                        result.get('srh_0_1km'), result.get('bulk_shear_0_6km')]
+
+            if all(v is not None for v in stp_deps):
                 # Calculate the height of the surface above ground level in meters for the STP calculation
-                sfc_h = float(h_u[0].magnitude)
+                surface_height_m = float(height_metpy[0].magnitude)
 
                 # Find the index of the level closest to the LCL pressure for the STP calculation
                 lcl_idx = int(np.argmin(
-                    np.abs(pressure_hpa - deps[1])))  # type: ignore[arg-type]
-                
+                    np.abs(pressure_hpa - stp_deps[1])))  # type: ignore[arg-type]
+
                 # Calculate the height of the LCL above the surface in meters for the STP calculation
-                lcl_h = float(h_u[lcl_idx].magnitude) - sfc_h
+                lcl_height_m = float(height_metpy[lcl_idx].magnitude) - surface_height_m
 
                 # Only attempt to compute STP if all dependencies are available, otherwise skip it
                 result['stp'] = self._safe_scalar(
-                    _calc.significant_tornado,
-                    deps[0] * _units('J/kg'), lcl_h * _units.m,
-                    deps[2] * _units('m^2/s^2'), deps[3] * _units.knots)
-        
+                    metpy_calc.significant_tornado,
+                    stp_deps[0] * metpy_units('J/kg'), lcl_height_m * metpy_units.m,
+                    stp_deps[2] * metpy_units('m^2/s^2'), stp_deps[3] * metpy_units.knots)
+
         # Catch any exceptions that occur during the STP computation and skip it
         except Exception:
             pass
 
         try:
             # Check the dependencies for Supercell Composite Parameter: most unstable CAPE, 0-3 km storm-relative helicity, and 0-6 km bulk shear
-            deps = [result.get('mucape'), result.get('srh_0_3km'),
-                    result.get('bulk_shear_0_6km')]
-            
+            scp_deps = [result.get('mucape'), result.get('srh_0_3km'),
+                        result.get('bulk_shear_0_6km')]
+
             # Only attempt to compute SCP if all dependencies are available, otherwise skip it
-            if all(v is not None for v in deps):
+            if all(v is not None for v in scp_deps):
                 result['scp'] = self._safe_scalar(
-                    _calc.supercell_composite,
-                    deps[0] * _units('J/kg'),
-                    deps[1] * _units('m^2/s^2'),
-                    deps[2] * _units.knots)
-        
+                    metpy_calc.supercell_composite,
+                    scp_deps[0] * metpy_units('J/kg'),
+                    scp_deps[1] * metpy_units('m^2/s^2'),
+                    scp_deps[2] * metpy_units.knots)
+
         # Catch any exceptions that occur during the STP and SCP computations and skip them
         except Exception:
             pass
 
         try:
             # Generate the full profile of temperature and dewpoint with units for SWEAT calculation
-            T_u = temperature_c * _units.degC
-            Td_u = dewpoint_c * _units.degC
+            temperature_metpy = temperature_c * metpy_units.degC
+            dewpoint_metpy = dewpoint_c * metpy_units.degC
 
             # Rebuild the temperature profile with units for SWEAT calculation
             result['sweat_index'] = self._safe_scalar(
-                _calc.sweat_index, p, T_u, Td_u, u_ms, v_ms)
+                metpy_calc.sweat_index, pressure_metpy, temperature_metpy, dewpoint_metpy, u_ms, v_ms)
 
         # Catch any exceptions that occur during the SWEAT index computation and skip it
         except Exception:
             pass
 
-    def _extract_pressure_profile(self: "SoundingDiagnostics", 
+    def _extract_pressure_profile(self: 'SoundingDiagnostics', 
                                   ds: xr.Dataset, 
                                   time_dim: str, 
                                   time_idx: int, 
@@ -796,26 +796,26 @@ class SoundingDiagnostics:
         """
         if 'pressure' in ds:
             # Extract the pressure values for the given time and cell index
-            p = ds['pressure'].isel({time_dim: time_idx, 'nCells': cell_idx})
+            pressure_vals = ds['pressure'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
             # Return the pressure profile in hPa
-            return np.asarray(p.values, dtype=np.float64).ravel()
+            return np.asarray(pressure_vals.values, dtype=np.float64).ravel()
 
         if 'pressure_p' in ds and 'pressure_base' in ds:
             # Extract the pressure perturbation for the given time and cell index
-            pp = ds['pressure_p'].isel({time_dim: time_idx, 'nCells': cell_idx})
+            pressure_perturbation = ds['pressure_p'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
-            # Extract the base pressure for the given time and cell index 
-            pb = ds['pressure_base'].isel({time_dim: time_idx, 'nCells': cell_idx})
+            # Extract the base pressure for the given time and cell index
+            base_pressure = ds['pressure_base'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
-            # Return the total pressure profile in hPa 
-            return np.asarray((pp + pb).values, dtype=np.float64).ravel()
+            # Return the total pressure profile in hPa
+            return np.asarray((pressure_perturbation + base_pressure).values, dtype=np.float64).ravel()
 
         # Raise an error if no pressure variable is found in the dataset
         raise ValueError("Cannot determine pressure: dataset lacks 'pressure', "
                          "'pressure_p', and 'pressure_base' variables.")
 
-    def _extract_temperature_profile(self: "SoundingDiagnostics",
+    def _extract_temperature_profile(self: 'SoundingDiagnostics',
                                      ds: xr.Dataset, 
                                      time_dim: str, 
                                      time_idx: int, 
@@ -840,10 +840,10 @@ class SoundingDiagnostics:
                 data = ds[name].isel({time_dim: time_idx, 'nCells': cell_idx})
 
                 # Convert temperature to a numpy array of floats
-                t_k = np.asarray(data.values, dtype=np.float64).ravel()
+                temperature_k = np.asarray(data.values, dtype=np.float64).ravel()
 
                 # Convert from Kelvin to Celsius if the mean temperature is above 100 K
-                return t_k - 273.15  # K → °C
+                return temperature_k - 273.15  # K → °C
 
         for name in ('theta', 'potential_temperature'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -851,22 +851,22 @@ class SoundingDiagnostics:
                 data = ds[name].isel({time_dim: time_idx, 'nCells': cell_idx})
 
                 # Convert potential temperature to a numpy array of floats
-                theta_k = np.asarray(data.values, dtype=np.float64).ravel()
+                potential_temp_k = np.asarray(data.values, dtype=np.float64).ravel()
 
                 # Convert potential temperature to actual temperature
-                t_k = self.potential_to_actual_temperature(theta_k, pressure_pa)
+                temperature_k = self.potential_to_actual_temperature(potential_temp_k, pressure_pa)
 
                 # If verbose mode is enabled, print a message about converting potential temperature to actual temperature
                 if self.verbose:
                     print(f"Converted '{name}' (potential temp) to actual temperature")
 
                 # Return the temperature profile in °C
-                return t_k - 273.15
+                return temperature_k - 273.15
 
         # Raise an error if no temperature or potential temperature variable is found
         raise ValueError("Cannot find temperature or theta variable in dataset.")
 
-    def _extract_dewpoint_profile(self: "SoundingDiagnostics", 
+    def _extract_dewpoint_profile(self: 'SoundingDiagnostics',
                                   ds: xr.Dataset, 
                                   time_dim: str, 
                                   time_idx: int, 
@@ -889,14 +889,14 @@ class SoundingDiagnostics:
             if name in ds and 'nVertLevels' in ds[name].dims:
                 # Extract the dewpoint values for the given time and cell index
                 data = ds[name].isel({time_dim: time_idx, 'nCells': cell_idx})
-                td = np.asarray(data.values, dtype=np.float64).ravel()
+                dewpoint_vals = np.asarray(data.values, dtype=np.float64).ravel()
 
-                # Convert from Kelvin to Celsius if the mean dewpoint is above 100 K 
-                if np.nanmean(td) > 100:
-                    td = td - 273.15
-                
+                # Convert from Kelvin to Celsius if the mean dewpoint is above 100 K
+                if np.nanmean(dewpoint_vals) > 100:
+                    dewpoint_vals = dewpoint_vals - 273.15
+
                 # Return the dewpoint profile in °C
-                return td
+                return dewpoint_vals
 
         for name in ('qv', 'q_vapor', 'scalars_qv', 'specific_humidity', 'vapor_mixing_ratio'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -921,7 +921,7 @@ class SoundingDiagnostics:
         # Return NaN array if dewpoint cannot be determined
         return np.full_like(pressure_pa, np.nan)
 
-    def _extract_wind_profiles(self: "SoundingDiagnostics",
+    def _extract_wind_profiles(self: 'SoundingDiagnostics',
                                ds: xr.Dataset,
                                time_dim: str,
                                time_idx: int,
@@ -966,7 +966,7 @@ class SoundingDiagnostics:
         # Return the extracted u and v wind profiles in knots
         return u_data, v_data
 
-    def _extract_height_profile(self: "SoundingDiagnostics", 
+    def _extract_height_profile(self: 'SoundingDiagnostics', 
                                 ds: xr.Dataset, 
                                 time_dim: str, 
                                 time_idx: int, 
@@ -997,20 +997,20 @@ class SoundingDiagnostics:
                 if time_dim in ds[name].dims:
                     isel_dict[time_dim] = time_idx
 
-                # Extract the raw height values for the specified time and cell index 
+                # Extract the raw height values for the specified time and cell index
                 raw = ds[name].isel(isel_dict)
-                h = np.asarray(raw.values, dtype=np.float64).ravel()
+                height_vals = np.asarray(raw.values, dtype=np.float64).ravel()
 
                 # Staggered grid: nVertLevelsP1 → nVertLevels via mid-level averaging
                 vert_dim = 'nVertLevels'
                 nlevs = ds.sizes.get(vert_dim, None)
 
-                # If the height variable has one more level than the pressure/temperature variables, perform mid-level averaging 
-                if nlevs is not None and len(h) == nlevs + 1:
-                    h = 0.5 * (h[:-1] + h[1:])
+                # If the height variable has one more level than the pressure/temperature variables, perform mid-level averaging
+                if nlevs is not None and len(height_vals) == nlevs + 1:
+                    height_vals = 0.5 * (height_vals[:-1] + height_vals[1:])
 
-                # Return the extracted height profile in meters 
-                return h
+                # Return the extracted height profile in meters
+                return height_vals
 
             # Catch any exceptions that occur during height extraction and return None 
             except Exception:

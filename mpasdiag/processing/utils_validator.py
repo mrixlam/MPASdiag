@@ -48,8 +48,8 @@ class DataValidator:
     
     @staticmethod
     def validate_data_array(data: np.ndarray, 
-                          min_val: Optional[float] = None,
-                          max_val: Optional[float] = None) -> Dict[str, Any]:
+                            min_val: Optional[float] = None,
+                            max_val: Optional[float] = None) -> Dict[str, Any]:
         """
         This method validates a numerical data array by checking for finite values, calculating basic statistics (min, max, mean, std, median), and identifying potential issues such as excessive missing values, uniform data artifacts, or out-of-range values based on optional minimum and maximum thresholds. The method returns a dictionary containing the overall validity status of the data array, a list of detected issues if any are found, and a nested dictionary of computed statistics including the total number of points, count and percentage of finite values, and the calculated min, max, mean, std, and median of the finite data. This comprehensive validation approach helps ensure that the numerical data is suitable for analysis or visualization in MPAS diagnostics and can highlight potential problems that may need to be addressed before further processing. 
 
@@ -62,7 +62,7 @@ class DataValidator:
             Dict[str, Any]: A dictionary containing the validation results with the following structure:
                 {
                     "valid": bool,  # Overall validity status of the data array
-                    "issues": List[str],  # List of detected issues if any
+                    "issues": List[str],  # List of detected issues if any are found
                     "stats": {  # Nested dictionary of computed statistics
                         "total_points": int,  # Total number of points in the data array
                         "finite_points": int,  # Count of finite values in the data array

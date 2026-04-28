@@ -249,13 +249,13 @@ class UnitConverter:
 
         for var_pattern, preferred_unit in display_unit_preferences.items():
             if var_pattern.lower() == var_name_lower:
-                result = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
-                return result if result is not None else preferred_unit
+                candidate_unit = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
+                return candidate_unit if candidate_unit is not None else preferred_unit
 
         for var_pattern, preferred_unit in display_unit_preferences.items():
             if len(var_pattern) > 2 and var_pattern.lower() in var_name_lower:
-                result = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
-                return result if result is not None else preferred_unit
+                candidate_unit = UnitConverter._preferred_unit_for_match(current_unit, preferred_unit)
+                return candidate_unit if candidate_unit is not None else preferred_unit
 
         return current_unit
 

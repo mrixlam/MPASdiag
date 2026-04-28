@@ -119,9 +119,9 @@ class MPAS3DProcessor(MPASBaseProcessor):
             try:
                 with xr.open_dataset(self.grid_file, decode_times=False) as probe:
                     all_vars = list(probe.data_vars)
-                drop = [v for v in all_vars if v not in needed_vars]
-                if drop:
-                    open_kwargs['drop_variables'] = drop
+                vars_to_drop = [v for v in all_vars if v not in needed_vars]
+                if vars_to_drop:
+                    open_kwargs['drop_variables'] = vars_to_drop
             except Exception:
                 pass
             
@@ -174,8 +174,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         if self.verbose:
             print(f"\nFound {len(files)} MPAS output files (recursive search):")
-            for i, f in enumerate(files[:5]):
-                print(f"  {i+1}: {os.path.basename(f)}")
+            for i, filepath in enumerate(files[:5]):
+                print(f"  {i+1}: {os.path.basename(filepath)}")
 
         return files
 
@@ -347,9 +347,9 @@ class MPAS3DProcessor(MPASBaseProcessor):
         pressure_p = ds_raw['pressure_p'].isel({time_dim: time_idx})
         pressure_base = ds_raw['pressure_base'].isel({time_dim: time_idx})
         total_pressure = pressure_p + pressure_base
-        vert_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
-        horiz_dims = [d for d in total_pressure.dims if d != vert_dim]
-        mean_pressure = total_pressure.mean(dim=horiz_dims) if horiz_dims else total_pressure
+        vertical_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
+        horizontal_dims = [d for d in total_pressure.dims if d != vertical_dim]
+        mean_pressure = total_pressure.mean(dim=horizontal_dims) if horizontal_dims else total_pressure
         return np.asarray(mean_pressure.values).ravel()
 
     def _lerp_variable(self: 'MPAS3DProcessor',
@@ -389,10 +389,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 interp_field = cast(Any, interp_field).compute()
             interp_field.attrs = getattr(var_lower, 'attrs', {})
             if self.verbose:
-                fin = interp_field.values.flatten()
-                fin = fin[np.isfinite(fin)]
-                if len(fin) > 0:
-                    print(f"Interpolated field range: {fin.min():.3f} to {fin.max():.3f}")
+                finite_values = interp_field.values.flatten()
+                finite_values = finite_values[np.isfinite(finite_values)]
+                if len(finite_values) > 0:
+                    print(f"Interpolated field range: {finite_values.min():.3f} to {finite_values.max():.3f}")
             return -1, interp_field
         except Exception:
             level_idx = int(np.argmin(np.abs(mean_p_vals - level)))
@@ -592,13 +592,13 @@ class MPAS3DProcessor(MPASBaseProcessor):
             self.dataset, time_index, self.verbose
         )
 
-        level_idx, early_data = self._resolve_level_index(
+        level_idx, interp_result = self._resolve_level_index(
             var_name, level, time_dim, validated_time_index
         )
 
-        if early_data is not None:
-            self._log_extracted_range(var_name, level, early_data)
-            return early_data
+        if interp_result is not None:
+            self._log_extracted_range(var_name, level, interp_result)
+            return interp_result
 
         if self.verbose:
             print(f"Extracting {var_name} data at level {level} (index {level_idx}), time index {validated_time_index}")
@@ -756,14 +756,14 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             np.ndarray: The repaired array of pressure levels.
         """
-        idx = np.arange(len(levels))
-        good_idx = np.nonzero(np.isfinite(levels) & (levels > 0))[0]
+        all_level_indices = np.arange(len(levels))
+        valid_level_indices = np.nonzero(np.isfinite(levels) & (levels > 0))[0]
 
-        if good_idx.size >= 2:
-            return np.interp(idx, good_idx, levels[good_idx])
+        if valid_level_indices.size >= 2:
+            return np.interp(all_level_indices, valid_level_indices, levels[valid_level_indices])
 
-        if good_idx.size == 1:
-            return np.linspace(mean_sp, levels[good_idx[0]], len(levels))
+        if valid_level_indices.size == 1:
+            return np.linspace(mean_sp, levels[valid_level_indices[0]], len(levels))
 
         return np.logspace(np.log10(mean_sp), np.log10(1.0), len(levels))
 
@@ -789,22 +789,22 @@ class MPAS3DProcessor(MPASBaseProcessor):
         try:
             ds_raw = self._get_plain_dataset(self.dataset)
             fzp = ds_raw['fzp'].isel({time_dim: time_idx}).values
-            sp = ds_raw['surface_pressure'].isel({time_dim: time_idx}).values
+            surface_pressure_vals = ds_raw['surface_pressure'].isel({time_dim: time_idx}).values
 
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
-                mean_sp = float(np.nanmean(sp))
+                mean_surface_pressure = float(np.nanmean(surface_pressure_vals))
 
-            levels = np.asarray(fzp, dtype=float).ravel() * mean_sp
+            levels = np.asarray(fzp, dtype=float).ravel() * mean_surface_pressure
 
             if not np.all(np.isfinite(levels)) or np.nanmin(levels) <= 0:
-                levels = self._repair_pressure_levels(levels, mean_sp)
+                levels = self._repair_pressure_levels(levels, mean_surface_pressure)
 
             levels = self._pad_p1_levels(levels, num_levels, vertical_dim)
 
             if self.verbose:
                 print(f"Reconstructed pressure levels from hybrid coefficients for {var_name} ({num_levels} levels):")
-                print(f"  Surface (mean): {mean_sp:.1f} Pa")
+                print(f"  Surface (mean): {mean_surface_pressure:.1f} Pa")
                 print(f"  Top: {float(levels[-1]):.1f} Pa")
 
             return levels

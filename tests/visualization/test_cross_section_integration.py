@@ -26,25 +26,8 @@ from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from tests.visualization.cross_section_test_helpers import (
     GRID_FILE, 
     MPASOUT_DIR,
-    check_default_levels, 
-    check_input_validation,
     check_great_circle_path,
-    check_plotter_initialization, 
-    check_interpolation_along_path,
 )
-
-
-def test_vertical_cross_section_plotter_initialization() -> None:
-    """
-    This test validates the initialization of the MPASVerticalCrossSectionPlotter class, ensuring that default parameters are set correctly and that custom parameters are properly assigned. The test checks that the default figure size is (10, 12) inches and the default DPI is 100. It also verifies that when custom parameters are provided during instantiation, they override the defaults as expected. This ensures that the plotter can be configured flexibly for different visualization needs while maintaining sensible defaults for typical use cases.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_plotter_initialization()
 
 
 def test_great_circle_path_generation() -> None:
@@ -60,50 +43,11 @@ def test_great_circle_path_generation() -> None:
     check_great_circle_path()
 
 
-def test_default_levels_generation() -> None:
-    """
-    This test validates the default level generation method in the MPASVerticalCrossSectionPlotter class for different variable types. It checks that the generated levels for temperature (theta) and wind (uwind) data are appropriate based on the input data range, ensuring that the levels encompass the minimum and maximum values of the data. The test also verifies that for constant data, at least one level is generated, and that for NaN-filled data, the method still returns a valid set of levels without errors. This ensures that the plotter can robustly determine suitable contour levels for a variety of data scenarios, which is critical for effective visualization of cross-sections.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_default_levels()
-
-
-def test_interpolation_along_path() -> None:
-    """
-    This test verifies the interpolation of grid data along a specified path defined by longitude and latitude coordinates. It checks that the interpolated values are returned for each point along the path and that they are not all NaN, indicating that the interpolation is functioning correctly. The test uses a simple synthetic dataset to validate the interpolation logic, ensuring that the method can handle typical scenarios encountered in cross-section plotting where data values need to be estimated at specific locations along the path. This validation confirms that the plotter can accurately interpolate data for visualization purposes, enhancing the quality and reliability of the generated cross-section plots.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_interpolation_along_path()
-
-
-def test_input_validation() -> None:
-    """
-    This test validates the input handling of the `create_vertical_cross_section` method in the MPASVerticalCrossSectionPlotter class. It checks that when an invalid MPAS3DProcessor object is passed, the method raises a ValueError with an appropriate error message indicating the issue. This ensures that the plotter can gracefully handle incorrect inputs and provide informative feedback to users, preventing unexpected crashes and guiding them towards correct usage of the plotting functionality. The test intentionally passes an invalid processor (a string) to trigger the error handling mechanism and confirms that the expected exception is raised.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_input_validation()
-
-
 class TestRealDataIntegration:
     """ Integration tests with real MPAS data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestRealDataIntegration", 
+    def setup_method(self: 'TestRealDataIntegration', 
                      mpas_3d_processor: MPAS3DProcessor) -> Generator[None, None, None]:
         """
         This fixture sets up the necessary environment for integration tests using real MPAS data. It checks for the availability of the MPAS3DProcessor fixture, which should provide access to real MPAS data files. If the processor is not available, it skips the tests that depend on real data. The fixture also creates a temporary directory for storing any output files generated during the tests and initializes an instance of the MPASVerticalCrossSectionPlotter for use in the test methods. After the tests are completed, it ensures that any temporary files or directories created during testing are cleaned up to maintain a tidy testing environment.
@@ -127,7 +71,7 @@ class TestRealDataIntegration:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     
-    def test_complete_workflow_with_real_data(self: "TestRealDataIntegration") -> None:
+    def test_complete_workflow_with_real_data(self: 'TestRealDataIntegration') -> None:
         """
         This test validates the complete workflow of creating a vertical cross-section plot using real MPAS data. It uses the MPAS3DProcessor to access the data, generates a cross-section for the 'theta' variable along a specified path, and saves the resulting plot to a temporary directory. The test asserts that the output file is created successfully, confirming that the entire process from data access to visualization works correctly with real datasets. This integration test ensures that the MPASVerticalCrossSectionPlotter can handle actual MPAS data and produce expected outputs without errors.
 
@@ -151,7 +95,7 @@ class TestRealDataIntegration:
         assert os.path.exists(output_path)
         plt.close(fig)
     
-    def test_all_plot_types_with_real_data(self: "TestRealDataIntegration") -> None:
+    def test_all_plot_types_with_real_data(self: 'TestRealDataIntegration') -> None:
         """
         This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different plot types ('contourf', 'contour', 'pcolormesh') with real MPAS data. It iterates over the specified plot types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for all plot types, confirming that the plotter can handle various visualization styles when working with real datasets.
 
@@ -173,7 +117,7 @@ class TestRealDataIntegration:
             )
             plt.close(fig)
     
-    def test_all_vertical_coords_with_real_data(self: "TestRealDataIntegration") -> None:
+    def test_all_vertical_coords_with_real_data(self: 'TestRealDataIntegration') -> None:
         """
         This test validates that the MPASVerticalCrossSectionPlotter can generate vertical cross-section plots using different vertical coordinate options ('pressure' and 'modlev') with real MPAS data. It iterates over the specified vertical coordinate types, creating a cross-section for the 'theta' variable along a defined path for each type. The test ensures that the plotting function executes without errors for both vertical coordinate options, confirming that the plotter can handle different vertical representations when working with real datasets.
 
@@ -200,7 +144,7 @@ class TestRealMPASDataIntegration:
     """ Test with real MPAS data files. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestRealMPASDataIntegration") -> None:
+    def setup_method(self: 'TestRealMPASDataIntegration') -> None:
         """
         This fixture sets up the necessary environment for testing the integration of real MPAS data with the MPASVerticalCrossSectionPlotter. It initializes an instance of the plotter that will be used across multiple test methods to create vertical cross-section plots from real MPAS datasets. The fixture ensures that the plotter is ready for use in the tests, allowing them to focus on validating the functionality of the plotting methods when applied to actual data. This setup is crucial for confirming that the plotter can handle real-world scenarios and produce expected outputs without errors.
 
@@ -212,8 +156,8 @@ class TestRealMPASDataIntegration:
         """
         self.plotter = MPASVerticalCrossSectionPlotter()
         
-    def test_real_data_cross_section_with_pressure(self: "TestRealMPASDataIntegration", 
-                                                   mpas_3d_processor: "MPAS3DProcessor") -> None:
+    def test_real_data_cross_section_with_pressure(self: 'TestRealMPASDataIntegration', 
+                                                   mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This test validates the creation of a vertical cross-section plot using pressure as the vertical coordinate with real MPAS data. It checks that the plot is generated successfully and that the pressure axis is labeled correctly in the resulting plot. The test ensures that the MPASVerticalCrossSectionPlotter can handle real datasets and produce accurate visualizations when using pressure levels, which is a common vertical coordinate in atmospheric science. This validation confirms that the plotter can effectively utilize real MPAS data to create meaningful cross-section visualizations.
 
@@ -248,8 +192,8 @@ class TestRealMPASDataIntegration:
         
         plt.close(fig)
     
-    def test_real_data_cross_section_with_height(self: "TestRealMPASDataIntegration", 
-                                                 mpas_3d_processor: "MPAS3DProcessor") -> None:
+    def test_real_data_cross_section_with_height(self: 'TestRealMPASDataIntegration', 
+                                                 mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This test validates the creation of a vertical cross-section plot using height as the vertical coordinate with real MPAS data. It checks that the plot is generated successfully and that the height axis is labeled correctly in the resulting plot. The test ensures that the MPASVerticalCrossSectionPlotter can handle real datasets and produce accurate visualizations when using height levels, which is a common vertical coordinate in atmospheric science. This validation confirms that the plotter can effectively utilize real MPAS data to create meaningful cross-section visualizations.
 
@@ -285,7 +229,7 @@ class TestRealMPASDataIntegration:
         
         plt.close(fig)
     
-    def test_real_data_batch_processing(self: "TestRealMPASDataIntegration") -> None:
+    def test_real_data_batch_processing(self: 'TestRealMPASDataIntegration') -> None:
         """
         This test validates the batch processing capability of the MPASVerticalCrossSectionPlotter when working with real MPAS data. It checks that the method for creating batch cross-section plots can successfully generate multiple plots for a specified variable across available time steps. The test ensures that the output files are created correctly in a temporary directory and that they exist after the plotting process is completed. This validation confirms that the plotter can handle batch processing of real datasets, which is essential for analyzing temporal evolution in atmospheric simulations.
 

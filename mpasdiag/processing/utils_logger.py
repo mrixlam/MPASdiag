@@ -20,7 +20,7 @@ from typing import Optional
 class MPASLogger:
     """ MPASLogger provides a standardized logging interface for MPAS diagnostic processing workflows, enabling consistent reporting of informational messages, warnings, and errors. """
     
-    def __init__(self: "MPASLogger", 
+    def __init__(self: 'MPASLogger', 
                  name: str = "MPASdiag", 
                  level: int = logging.INFO,
                  log_file: Optional[str] = None, 
@@ -60,7 +60,7 @@ class MPASLogger:
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
     
-    def info(self: "MPASLogger", 
+    def info(self: 'MPASLogger', 
              message: str) -> None:
         """
         This method logs an informational message at INFO level (20) to configured output handlers for reporting general workflow progress, completion events, or other non-critical information. It forwards the message string to the underlying Python logger's info() method, which writes to console and/or file handlers based on logger configuration. INFO-level messages are used for routine updates such as successful completion of processing steps, key milestones reached, or any other relevant information that helps users understand the flow of execution without indicating any problems or issues. These messages provide users with insights into the normal operation of the MPAS diagnostic processing workflow and can be helpful for tracking progress and confirming successful execution. 
@@ -73,7 +73,7 @@ class MPASLogger:
         """
         self.logger.info(message)
     
-    def warning(self: "MPASLogger", 
+    def warning(self: 'MPASLogger', 
                 message: str) -> None:
         """
         This method logs a warning message at WARNING level (30) to configured output handlers for reporting potential issues, unexpected conditions, or non-critical problems that may require user attention but do not prevent successful execution of the workflow. It forwards the message string to the underlying Python logger's warning() method, which writes to console and/or file handlers based on logger configuration. WARNING-level messages are used for situations such as missing optional input files, deprecated configuration settings, minor data inconsistencies, or any other conditions that may indicate a potential issue but do not necessarily cause workflow failure. These messages provide users with important information about potential concerns or areas that may require further investigation without indicating a critical failure. 
@@ -86,7 +86,7 @@ class MPASLogger:
         """
         self.logger.warning(message)
     
-    def error(self: "MPASLogger", 
+    def error(self: 'MPASLogger', 
               message: str) -> None:
         """
         This method logs an error message at ERROR level (40) to configured output handlers for reporting critical failures, exceptions, or conditions that prevent successful execution of the workflow. It forwards the message string to the underlying Python logger's error() method, which writes to console and/or file handlers based on logger configuration. ERROR-level messages are used for situations such as missing required input files, invalid configuration settings, unhandled exceptions, or any other conditions that indicate a critical failure in the workflow. These messages provide users with clear and concise information about the nature of the failure, allowing them to identify and address the underlying issue to restore successful execution of the MPAS diagnostic processing workflow. 
@@ -99,7 +99,7 @@ class MPASLogger:
         """
         self.logger.error(message)
     
-    def debug(self: "MPASLogger", 
+    def debug(self: 'MPASLogger', 
               message: str) -> None:
         """
         This method logs a debug message at DEBUG level (10) to configured output handlers for reporting detailed diagnostic information, variable values, execution flow details, or any other information that may be useful for troubleshooting and debugging purposes. It forwards the message string to the underlying Python logger's debug() method, which writes to console and/or file handlers based on logger configuration. DEBUG-level messages are typically used during development or when troubleshooting specific issues, as they can provide in-depth insights into the internal workings of the workflow without overwhelming users with too much information during normal execution. These messages can include details such as variable states, function entry and exit points, loop iterations, or any other relevant information that helps developers understand the behavior of the code and identify potential issues. 

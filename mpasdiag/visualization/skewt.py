@@ -80,11 +80,11 @@ class MPASSkewTPlotter(MPASVisualizer):
         Returns:
             Tuple[Figure, Axes]: Matplotlib Figure and Axes objects with the Skew-T diagram rendered. 
         """
-        p = np.asarray(pressure, dtype=np.float64)
-        t = np.asarray(temperature, dtype=np.float64)
-        td = np.asarray(dewpoint, dtype=np.float64)
+        pressure_arr = np.asarray(pressure, dtype=np.float64)
+        temp_arr = np.asarray(temperature, dtype=np.float64)
+        dewpoint_arr = np.asarray(dewpoint, dtype=np.float64)
 
-        fig, ax = self._create_metpy_skewt(p, t, td, u_wind, v_wind,
+        fig, ax = self._create_metpy_skewt(pressure_arr, temp_arr, dewpoint_arr, u_wind, v_wind,
                                             show_parcel, indices)
 
         if title is None:
@@ -111,79 +111,79 @@ class MPASSkewTPlotter(MPASVisualizer):
         return fig, ax
 
     @staticmethod
-    def _plot_wind_barbs(skew: Any, 
-                         p_u: Any, 
-                         u_wind: Optional[np.ndarray], 
+    def _plot_wind_barbs(skew: Any,
+                         pressure_hpa: Any,
+                         u_wind: Optional[np.ndarray],
                          v_wind: Optional[np.ndarray]) -> None:
         """
         This static method plots wind barbs on the Skew-T diagram if both zonal and meridional wind components are provided. It converts the wind components from knots to the appropriate units for plotting and uses MetPy's plot_barbs function to add the wind barbs at the corresponding pressure levels. The method checks for the presence of both u_wind and v_wind before attempting to plot, ensuring that it only adds wind barbs when complete wind data is available. This method is typically called during the Skew-T diagram creation process after plotting the temperature and dew point profiles, and before adding any parcel profiles or thermodynamic overlays.
 
         Parameters:
             skew (Any): The SkewT object from MetPy on which to plot the wind barbs.
-            p_u (Any): Pressure levels with units for plotting.
+            pressure_hpa (Any): Pressure levels with units for plotting.
             u_wind (Optional[np.ndarray]): Zonal wind component in knots.
-            v_wind (Optional[np.ndarray]): Meridional wind component in knots.
+            v_wind (Optional[np.ndarray]): Meridional wind component in knots. 
 
         Returns:
             None
         """
         if u_wind is not None and v_wind is not None:
-            u_u = np.asarray(u_wind, dtype=np.float64) * munits.knots
-            v_u = np.asarray(v_wind, dtype=np.float64) * munits.knots
-            skew.plot_barbs(p_u, u_u, v_u)
+            u_knots = np.asarray(u_wind, dtype=np.float64) * munits.knots
+            v_knots = np.asarray(v_wind, dtype=np.float64) * munits.knots
+            skew.plot_barbs(pressure_hpa, u_knots, v_knots)
 
-    def _plot_parcel_profile(self: 'MPASSkewTPlotter', 
-                             skew: Any, 
-                             p_u: Any,
-                             t_u: Any, 
-                             td_u: Any,
+    def _plot_parcel_profile(self: 'MPASSkewTPlotter',
+                             skew: Any,
+                             pressure_hpa: Any,
+                             temp_degc: Any,
+                             dewpoint_degc: Any,
                              indices: Optional[Dict[str, Optional[float]]]) -> None:
         """
         This private method calculates and plots the lifted parcel profile on the Skew-T diagram based on the surface conditions defined by the temperature and dew point at the lowest pressure level. It uses MetPy's parcel_profile function to compute the temperature of a parcel lifted from the surface through the atmosphere, and then plots this profile as a dashed line on the Skew-T diagram. If indices for CAPE and CIN are provided, it also shades the areas of positive CAPE and negative CIN accordingly. The method includes error handling to catch any exceptions that may occur during the parcel profile calculation or plotting, and it will print a warning message if verbose mode is enabled. This method is typically called during the Skew-T diagram creation process after plotting the main temperature and dew point profiles, and before adding any thermodynamic overlays or level markers.
 
         Parameters:
             skew (Any): The SkewT object from MetPy on which to plot the parcel profile.
-            p_u (Any): Pressure levels with units for plotting.
-            t_u (Any): Temperature profile with units for plotting.
-            td_u (Any): Dew point profile with units for plotting.
+            pressure_hpa (Any): Pressure levels with units for plotting.
+            temp_degc (Any): Temperature profile with units for plotting.
+            dewpoint_degc (Any): Dew point profile with units for plotting.
             indices (Optional[Dict[str, Optional[float]]]): Dictionary of thermodynamic indices for CAPE/CIN shading.
 
         Returns:
             None
         """
         try:
-            prof = mpcalc.parcel_profile(p_u, t_u[0], td_u[0]).to('degC')
-            skew.plot(p_u, prof, 'k--', linewidth=1.5, label='Parcel')
+            lifted_parcel = mpcalc.parcel_profile(pressure_hpa, temp_degc[0], dewpoint_degc[0]).to('degC')
+            skew.plot(pressure_hpa, lifted_parcel, 'k--', linewidth=1.5, label='Parcel')
             if indices is not None:
                 cape_val = indices.get('cape')
                 cin_val = indices.get('cin')
                 if cape_val is not None and cape_val > 0:
-                    skew.shade_cape(p_u, t_u, prof)
+                    skew.shade_cape(pressure_hpa, temp_degc, lifted_parcel)
                 if cin_val is not None and cin_val < 0:
-                    skew.shade_cin(p_u, t_u, prof)
+                    skew.shade_cin(pressure_hpa, temp_degc, lifted_parcel)
         except Exception as exc:
             if self.verbose:
                 print(f"Warning: parcel profile plotting failed: {exc}")
 
     def _create_metpy_skewt(self: 'MPASSkewTPlotter',
-                            p: np.ndarray,
-                            t: np.ndarray,
-                            td: np.ndarray, 
-                            u_wind: Optional[np.ndarray], 
-                            v_wind: Optional[np.ndarray], 
-                            show_parcel: bool, 
+                            pressure_arr: np.ndarray,
+                            temp_arr: np.ndarray,
+                            dewpoint_arr: np.ndarray,
+                            u_wind: Optional[np.ndarray],
+                            v_wind: Optional[np.ndarray],
+                            show_parcel: bool,
                             indices: Optional[Dict[str, Optional[float]]],) -> Tuple[Figure, Axes]:
         """
         This private method creates the Skew-T diagram using MetPy's SkewT class. It takes the pressure, temperature, dew point, and optional wind data, converts them to the appropriate units, and plots the temperature and dew point profiles on the Skew-T diagram. It also calls helper methods to plot wind barbs, the lifted parcel profile, and thermodynamic overlays such as dry adiabats, moist adiabats, and mixing ratio lines. If indices for CAPE/CIN are provided, it adds level markers for LCL, LFC, and EL. The method sets the axes limits and legend before returning the Figure and Axes objects. This method is typically called by the main create_skewt_diagram method after preparing the input data. 
 
         Parameters: 
-            p (np.ndarray): Pressure levels in hPa.
-            t (np.ndarray): Temperature profile in °C.
-            td (np.ndarray): Dew point profile in °C.
+            pressure_arr (np.ndarray): Pressure levels in hPa.
+            temp_arr (np.ndarray): Temperature profile in °C.
+            dewpoint_arr (np.ndarray): Dew point profile in °C.
             u_wind (Optional[np.ndarray]): Zonal wind component in knots.
             v_wind (Optional[np.ndarray]): Meridional wind component in knots.
             show_parcel (bool): Whether to plot the lifted parcel profile.
-            indices (Optional[Dict[str, Optional[float]]]): Dictionary of thermodynamic indices for CAPE/CIN shading and level markers.
+            indices (Optional[Dict[str, Optional[float]]]): Dictionary of thermodynamic indices for CAPE/CIN shading and level markers. 
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib Figure and Axes objects with the Skew-T diagram rendered. 
@@ -191,17 +191,17 @@ class MPASSkewTPlotter(MPASVisualizer):
         fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
         skew = SkewT(fig, rotation=45)
 
-        p_u = p * munits.hPa
-        t_u = t * munits.degC
-        td_u = td * munits.degC
+        pressure_hpa = pressure_arr * munits.hPa
+        temp_degc = temp_arr * munits.degC
+        dewpoint_degc = dewpoint_arr * munits.degC
 
-        skew.plot(p_u, t_u, 'r', linewidth=2, label='Temperature')
-        skew.plot(p_u, td_u, 'g', linewidth=2, label='Dewpoint')
+        skew.plot(pressure_hpa, temp_degc, 'r', linewidth=2, label='Temperature')
+        skew.plot(pressure_hpa, dewpoint_degc, 'g', linewidth=2, label='Dewpoint')
 
-        self._plot_wind_barbs(skew, p_u, u_wind, v_wind)
+        self._plot_wind_barbs(skew, pressure_hpa, u_wind, v_wind)
 
         if show_parcel:
-            self._plot_parcel_profile(skew, p_u, t_u, td_u, indices)
+            self._plot_parcel_profile(skew, pressure_hpa, temp_degc, dewpoint_degc, indices)
 
         self._add_thermodynamic_overlays(skew)
 
@@ -247,10 +247,10 @@ class MPASSkewTPlotter(MPASVisualizer):
             'lfc_pressure': ('LFC', 'tab:orange', '--'),
             'el_pressure': ('EL', 'tab:purple', '--'),
         }
-        for key, (label, color, ls) in marker_styles.items():
+        for key, (label, color, linestyle) in marker_styles.items():
             val = indices.get(key)
             if val is not None and np.isfinite(val):
-                ax.axhline(val, color=color, linestyle=ls, linewidth=1.2, alpha=0.7)
+                ax.axhline(val, color=color, linestyle=linestyle, linewidth=1.2, alpha=0.7)
                 ax.text(
                     ax.get_xlim()[1], val, f' {label} ({val:.0f} hPa)',
                     fontsize=8, color=color, va='center', ha='left',

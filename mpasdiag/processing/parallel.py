@@ -37,6 +37,7 @@ except ImportError:
 
 class LoadBalanceStrategy(Enum):
     """ Enumeration of load balancing strategies for distributing tasks across parallel workers. """
+
     STATIC = "static"      # Equal distribution at start
     DYNAMIC = "dynamic"    # Dynamic work stealing
     BLOCK = "block"        # Contiguous blocks per worker
@@ -45,6 +46,7 @@ class LoadBalanceStrategy(Enum):
 
 class ErrorPolicy(Enum):
     """ Enumeration of error handling policies for managing task execution failures in parallel processing. """
+    
     ABORT = "abort"        # Abort all on first error
     CONTINUE = "continue"  # Continue despite errors
     COLLECT = "collect"    # Collect all errors and report
@@ -182,18 +184,18 @@ class MPASTaskDistributor:
         Returns:
             List[Tuple[int, Any]]: List of (task_id, task) tuples assigned to this worker based on static distribution. 
         """
-        n_tasks = len(tasks)
-        tasks_per_worker = n_tasks // self.size
-        remainder = n_tasks % self.size
-        
-        if self.rank < remainder:
+        total_tasks = len(tasks)
+        tasks_per_worker = total_tasks // self.size
+        leftover_tasks = total_tasks % self.size
+
+        if self.rank < leftover_tasks:
             start = self.rank * (tasks_per_worker + 1)
             end = start + tasks_per_worker + 1
         else:
-            start = self.rank * tasks_per_worker + remainder
+            start = self.rank * tasks_per_worker + leftover_tasks
             end = start + tasks_per_worker
-        
-        return [(i, tasks[i]) for i in range(start, min(end, n_tasks))]
+
+        return [(i, tasks[i]) for i in range(start, min(end, total_tasks))]
     
     def _block_distribution(self: 'MPASTaskDistributor', 
                             tasks: List[Any]) -> List[Tuple[int, Any]]:
@@ -206,11 +208,11 @@ class MPASTaskDistributor:
         Returns:
             List[Tuple[int, Any]]: List of (task_id, task) tuples assigned to this worker based on block distribution. 
         """
-        n_tasks = len(tasks)
-        block_size = (n_tasks + self.size - 1) // self.size
-        start = self.rank * block_size
-        end = min(start + block_size, n_tasks)
-        
+        total_tasks = len(tasks)
+        tasks_per_block = (total_tasks + self.size - 1) // self.size
+        start = self.rank * tasks_per_block
+        end = min(start + tasks_per_block, total_tasks)
+
         return [(i, tasks[i]) for i in range(start, end)]
     
     def _cyclic_distribution(self: 'MPASTaskDistributor', 
@@ -291,18 +293,18 @@ class MPASResultCollector:
         """
         stats = ParallelStats()
         stats.total_tasks = len(results)
-        stats.completed_tasks = sum(1 for r in results if r.success)
-        stats.failed_tasks = sum(1 for r in results if not r.success)
-        stats.total_time = sum(r.execution_time for r in results)
-        
+        stats.completed_tasks = sum(1 for task_result in results if task_result.success)
+        stats.failed_tasks = sum(1 for task_result in results if not task_result.success)
+        stats.total_time = sum(task_result.execution_time for task_result in results)
+
         for result in results:
-            rank = result.worker_rank
-            stats.worker_times[rank] = stats.worker_times.get(rank, 0.0) + result.execution_time
-        
+            worker_rank = result.worker_rank
+            stats.worker_times[worker_rank] = stats.worker_times.get(worker_rank, 0.0) + result.execution_time
+
         if stats.worker_times:
-            max_time = max(stats.worker_times.values())
-            avg_time = sum(stats.worker_times.values()) / len(stats.worker_times)
-            stats.load_imbalance = (max_time - avg_time) / avg_time if avg_time > 0 else 0.0
+            max_worker_time = max(stats.worker_times.values())
+            avg_worker_time = sum(stats.worker_times.values()) / len(stats.worker_times)
+            stats.load_imbalance = (max_worker_time - avg_worker_time) / avg_worker_time if avg_worker_time > 0 else 0.0
         
         return stats
 
@@ -542,17 +544,17 @@ class MPASParallelManager:
         Returns:
             List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. The results are returned in the same order as the input task arguments, regardless of whether multiprocessing was successful or if the method had to fall back to serial execution.
         """
-        ctx_methods = self._get_mp_context_methods()
+        context_methods = self._get_mp_context_methods()
 
-        for ctx_method in ctx_methods:
+        for context_method in context_methods:
             try:
-                ctx = get_context(ctx_method)
-                with ctx.Pool(processes=self.size) as pool:
+                mp_context = get_context(context_method)
+                with mp_context.Pool(processes=self.size) as pool:
                     return pool.map(_multiprocessing_task_wrapper, task_args)
             except Exception as e:
                 if self.verbose:
-                    print(f"Multiprocessing with '{ctx_method}' failed: {e}")
-                    if ctx_method != ctx_methods[-1]:
+                    print(f"Multiprocessing with '{context_method}' failed: {e}")
+                    if context_method != context_methods[-1]:
                         print("Trying next method...")
                     else:
                         print("Falling back to serial execution")

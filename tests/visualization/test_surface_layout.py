@@ -29,12 +29,12 @@ class TestGlobalExtent:
     """ Tests for global extent handling. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestGlobalExtent", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def setup_method(self: 'TestGlobalExtent', mpas_coordinates, mpas_surface_temp_data) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and prepares real MPAS coordinate and surface temperature data for testing global and regional extent plotting. It ensures that the test methods have access to realistic data arrays for longitude, latitude, and surface temperature, which are essential for verifying the plotting functionality under different geographic extents.
 
         Parameters:
-            self ("TestGlobalExtent"): Test instance which will receive fixture attributes.
+            self ('TestGlobalExtent'): Test instance which will receive fixture attributes.
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             mpas_surface_temp_data: Session fixture providing real surface temperature data.
 
@@ -53,12 +53,12 @@ class TestGlobalExtent:
         temp_full = mpas_surface_temp_data
         self.data = temp_full[:200] if len(temp_full) >= 200 else np.tile(temp_full, (200 // len(temp_full) + 1))[:200]
     
-    def test_global_extent(self: "TestGlobalExtent") -> None:
+    def test_global_extent(self: 'TestGlobalExtent') -> None:
         """
         This test verifies that the plotting function can handle a global geographic extent correctly. It checks that when the full range of longitude and latitude is provided, the plotter generates a figure without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully for a global domain.
 
         Parameters:
-            self ("TestGlobalExtent"): Test instance containing prepared fixtures.
+            self ('TestGlobalExtent'): Test instance containing prepared fixtures.
 
         Returns:
             None: Assertion validates returned Figure type.
@@ -72,12 +72,12 @@ class TestGlobalExtent:
         assert isinstance(fig, Figure)
         plt.close(fig)
     
-    def test_regional_extent(self: "TestGlobalExtent") -> None:
+    def test_regional_extent(self: 'TestGlobalExtent') -> None:
         """
         This test checks that the plotting function can handle a regional geographic extent correctly. It uses a subset of the longitude and latitude data to define a smaller geographic area and verifies that the plotter can generate a figure for this region without errors. The test asserts that a Figure object is returned, confirming that the plotting process completed successfully for a regional domain.
 
         Parameters:
-            self ("TestGlobalExtent"): Test instance containing prepared fixtures.
+            self ('TestGlobalExtent'): Test instance containing prepared fixtures.
 
         Returns:
             None: Assertion validates returned Figure type.
@@ -105,12 +105,12 @@ class TestTitleAndTimestamp:
     """ Tests for title and timestamp handling. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestTitleAndTimestamp", mpas_coordinates, mpas_surface_temp_data) -> None:
+    def setup_method(self: 'TestTitleAndTimestamp', mpas_coordinates, mpas_surface_temp_data) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and prepares real MPAS coordinate and surface temperature data for testing title and timestamp generation in the plotting functions. It ensures that the test methods have access to realistic data arrays for longitude, latitude, and surface temperature, which are essential for verifying that titles and timestamps are correctly generated and displayed on the plots.
 
         Parameters:
-            self ("TestTitleAndTimestamp"): Test instance which will receive fixture attributes.
+            self ('TestTitleAndTimestamp'): Test instance which will receive fixture attributes.
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             mpas_surface_temp_data: Session fixture providing real surface temperature data.
 
@@ -133,12 +133,12 @@ class TestTitleAndTimestamp:
             float(self.lat.min()), float(self.lat.max())
         )
     
-    def test_default_title_with_timestamp(self: "TestTitleAndTimestamp") -> None:
+    def test_default_title_with_timestamp(self: 'TestTitleAndTimestamp') -> None:
         """
         This test verifies that when a timestamp is provided without a custom title, the plotter generates a default title that includes the timestamp information. It checks that the plotting function can handle the inclusion of a timestamp in the title and still returns a valid Figure object. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully with the default title and timestamp.
 
         Parameters:
-            self ("TestTitleAndTimestamp"): Test instance containing prepared fixtures.
+            self ('TestTitleAndTimestamp'): Test instance containing prepared fixtures.
 
         Returns:
             None: Assertion validates returned Figure type.
@@ -156,12 +156,12 @@ class TestTitleAndTimestamp:
         assert isinstance(fig, Figure)
         plt.close(fig)
     
-    def test_custom_title_with_timestamp(self: "TestTitleAndTimestamp") -> None:
+    def test_custom_title_with_timestamp(self: 'TestTitleAndTimestamp') -> None:
         """
         This test verifies that when a custom title is provided alongside a timestamp, the plotter preserves the custom title verbatim while still including the timestamp information. It checks that the plotting function can handle both a custom title and a timestamp without modifying the provided title string. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully with the custom title and timestamp.
 
         Parameters:
-            self ("TestTitleAndTimestamp"): Test instance containing prepared fixtures.
+            self ('TestTitleAndTimestamp'): Test instance containing prepared fixtures.
 
         Returns:
             None: Assertion validates returned Figure type.
@@ -181,12 +181,12 @@ class TestTitleAndTimestamp:
         assert isinstance(fig, Figure)
         plt.close(fig)
     
-    def test_timestamp_text_box(self: "TestTitleAndTimestamp") -> None:
+    def test_timestamp_text_box(self: 'TestTitleAndTimestamp') -> None:
         """
         This test ensures that when a timestamp is provided with the option to display it in a text box, the plotter correctly renders the timestamp in a boxed annotation on the plot. It checks that the plotting function can handle the inclusion of a timestamp in a text box and still returns a valid Figure object. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully with the timestamp displayed in a text box.
 
         Parameters:
-            self ("TestTitleAndTimestamp"): Test instance containing prepared fixtures.
+            self ('TestTitleAndTimestamp'): Test instance containing prepared fixtures.
             
         Returns:
             None: Assertion validates returned Figure type.

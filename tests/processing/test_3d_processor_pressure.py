@@ -36,7 +36,7 @@ from tests.processing.mock_dataset_helpers import (
 class TestGet3DVariableDataPressureInterpolation:
     """ Test pressure level interpolation in get_3d_variable_data. """
     
-    def test_pressure_interpolation_with_synthetic_pressure_components(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_interpolation_with_synthetic_pressure_components(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test verifies that the `get_3d_variable_data` method can perform pressure level interpolation when synthetic pressure components (`pressure_p` and `pressure_base`) are added to the dataset. By creating these components based on an existing pressure variable and requesting data at specific model levels, the test checks that the method returns valid data slices with appropriate attributes, confirming that the interpolation logic can function correctly even when using synthetic pressure information. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -79,7 +79,7 @@ class TestGet3DVariableDataPressureInterpolation:
             assert 'level_index' in var_data_low.attrs
             assert var_data_low.attrs['level_index'] > 50
     
-    def test_pressure_interpolation_with_pressure_data(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_interpolation_with_pressure_data(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test ensures that the `get_3d_variable_data` method can perform pressure level interpolation when actual pressure data is available in the dataset. By requesting data at a specific model level (e.g., level 10), the test checks that the returned data slice contains valid values and that the `level_index` attribute reflects the requested level, confirming that the interpolation process is functioning as intended when real pressure information is present. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -103,7 +103,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert 'level_index' in var_data.attrs
         assert var_data.attrs['level_index'] == pytest.approx(10, abs=1e-3)
     
-    def test_pressure_level_above_surface_fallback(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_level_above_surface_fallback(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test verifies that when a pressure level above the surface is requested, the `get_3d_variable_data` method correctly falls back to selecting the surface level. The test asserts that the returned data slice corresponds to the surface level by checking the `level_index` attribute, ensuring that the processor handles requests for levels above the surface gracefully without errors. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -127,7 +127,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert 'level_index' in var_data.attrs
         assert var_data.attrs['level_index'] == pytest.approx(0, abs=1e-3)
     
-    def test_pressure_level_below_top_fallback(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_level_below_top_fallback(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test verifies that when a pressure level below the top of the model is requested, the `get_3d_variable_data` method correctly falls back to selecting the topmost model level. The test asserts that the returned data slice corresponds to the top level by checking the `level_index` attribute, ensuring that the processor handles requests for levels below the top of the model gracefully without errors. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -153,7 +153,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert 'level_index' in var_data.attrs
         assert var_data.attrs['level_index'] == top_level
     
-    def test_pressure_interpolation_weight_calculation(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_interpolation_weight_calculation(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test ensures that the `get_3d_variable_data` method calculates interpolation weights correctly when pressure data is available. By requesting data at a mid-level pressure (e.g., level 20), the test checks that the returned data slice contains valid values and that the `level_index` attribute reflects the requested level, confirming that the interpolation process is functioning as intended. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -180,7 +180,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert 'level_index' in var_data.attrs
         assert var_data.attrs['level_index'] == mid_level
     
-    def test_pressure_interpolation_equal_pressures(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_interpolation_equal_pressures(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test checks the behavior of the `get_3d_variable_data` method when the requested pressure level matches exactly with one of the model levels. The test asserts that the method returns the data slice corresponding to that exact level without performing interpolation and that the `level_index` attribute correctly reflects the requested level, confirming that the processor handles exact pressure matches appropriately. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -208,7 +208,7 @@ class TestGet3DVariableDataPressureInterpolation:
         assert np.all(valid_vals > 200) 
         assert np.all(valid_vals < 500) 
     
-    def test_pressure_interpolation_multiple_levels(self: "TestGet3DVariableDataPressureInterpolation") -> None:
+    def test_pressure_interpolation_multiple_levels(self: 'TestGet3DVariableDataPressureInterpolation') -> None:
         """
         This test exercises the extraction of data across several representative model levels to ensure consistent indexing and returned-array shapes. By iterating through a small list of levels (e.g., 0, 10, 20, 30, 40), the test validates that for each requested level, the `get_3d_variable_data` method returns a non-empty data slice with the correct `level_index` attribute, confirming that the processor can handle multiple levels correctly and consistently. If the test data is not available, the test will be skipped to avoid false failures.
 
@@ -238,7 +238,7 @@ class TestGet3DVariableDataPressureInterpolation:
 class TestGet3DVariableDataAttributes:
     """ Test attribute handling in get_3d_variable_data. """
     
-    def test_attributes_with_pressure_level(self: "TestGet3DVariableDataAttributes") -> None:
+    def test_attributes_with_pressure_level(self: 'TestGet3DVariableDataAttributes') -> None:
         """
         This test verifies that when a pressure level is requested in the `get_3d_variable_data` method, the returned data slice includes appropriate attributes such as `selected_level` and `level_index`. By requesting data at a specific model level (e.g., level 10), the test checks that these attributes are present in the returned object and that they correctly reflect the requested level, confirming that the processor provides useful metadata for extracted data slices. If the test data is not available, the test will be skipped to avoid false failures.
 
@@ -260,7 +260,7 @@ class TestGet3DVariableDataAttributes:
             assert 'selected_level' in var_data.attrs
             assert 'level_index' in var_data.attrs
     
-    def test_verbose_output_with_units(self: "TestGet3DVariableDataAttributes") -> None:
+    def test_verbose_output_with_units(self: 'TestGet3DVariableDataAttributes') -> None:
         """
         This test checks that when the processor is initialized with `verbose=True`, the `get_3d_variable_data` method provides expected output information about the variable being extracted, including its name and units. By requesting data for a specific variable (e.g., 'theta'), the test validates that verbose mode does not interfere with data extraction and that it provides useful feedback about the variable's metadata when enabled. If the test data is not available, the test will be skipped to avoid false failures.
 
@@ -280,7 +280,7 @@ class TestGet3DVariableDataAttributes:
         
         assert var_data is not None
     
-    def test_warning_for_no_finite_values(self: "TestGet3DVariableDataAttributes") -> None:
+    def test_warning_for_no_finite_values(self: 'TestGet3DVariableDataAttributes') -> None:
         """
         This test ensures that the `get_3d_variable_data` method issues a warning when the extracted data slice contains no finite values. By mocking a variable to return an array filled with NaNs, the test checks that the method returns a data slice with the expected attributes while also providing feedback about the lack of valid data, confirming that the processor can handle such cases gracefully without raising unhandled exceptions. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -324,7 +324,7 @@ class TestGet3DVariableDataAttributes:
 class TestGetVerticalLevelsEdgeCases:
     """ Test edge cases in get_vertical_levels. """
     
-    def test_pressure_from_pressure_variable_non_positive_warning(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_pressure_variable_non_positive_warning(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test checks that the `get_vertical_levels` method issues a warning when the pressure variable contains non-positive values, which are invalid for pressure levels. By mocking the pressure variable to include negative and NaN values, the test verifies that the method returns a list of vertical levels while also providing feedback about the presence of non-positive pressure values, confirming that the processor can handle such cases gracefully without raising unhandled exceptions. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -363,7 +363,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert len(levels) == pytest.approx(5)
         assert levels == [0, 1, 2, 3, 4]
     
-    def test_pressure_from_components_nVertLevelsP1_extension(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_components_nVertLevelsP1_extension(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test verifies that the `get_vertical_levels` method can successfully extract vertical levels when the dataset includes the `nVertLevelsP1` dimension, which indicates an extended vertical grid. By iterating through available 3D variables and checking for the presence of this dimension, the test ensures that the method can handle datasets with extended vertical levels and returns a list of pressure levels without errors. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -386,7 +386,7 @@ class TestGetVerticalLevelsEdgeCases:
                 assert isinstance(levels, list)
                 break
     
-    def test_pressure_from_hybrid_coords_interpolation(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_hybrid_coords_interpolation(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test validates that the `get_vertical_levels` method can perform interpolation to reconstruct pressure levels when hybrid-coordinate arrays (`fzp` and `surface_pressure`) contain some non-finite values. By mocking these arrays with a mix of valid and invalid entries, the test checks that the method successfully interpolates to produce a complete list of pressure levels and that it handles the presence of non-finite values gracefully without raising unhandled exceptions. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -429,7 +429,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert isinstance(levels, list)
         assert len(levels) == pytest.approx(5)
     
-    def test_pressure_from_hybrid_coords_single_good_value(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_hybrid_coords_single_good_value(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test checks that the `get_vertical_levels` method can still produce a valid list of pressure levels when the hybrid-coordinate arrays contain only a single good value. By mocking the `fzp` array to have one valid entry and the rest as non-finite, the test verifies that the method can use that single good value along with the surface pressure to reconstruct a complete list of pressure levels without raising exceptions, confirming that the processor can handle this edge case gracefully. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -472,7 +472,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert isinstance(levels, list)
         assert len(levels) == pytest.approx(5)
     
-    def test_pressure_from_hybrid_coords_no_good_values(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_hybrid_coords_no_good_values(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test ensures that the `get_vertical_levels` method can still produce a valid list of pressure levels when the hybrid-coordinate arrays contain no good values. By mocking the `fzp` array to have all non-finite entries, the test checks that the method falls back to a robust reconstruction (e.g., using logspace) to generate a complete list of pressure levels without raising exceptions, confirming that the processor can handle this edge case gracefully. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -515,7 +515,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert isinstance(levels, list)
         assert len(levels) == pytest.approx(5)
     
-    def test_pressure_from_hybrid_coords_exception_fallback(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_pressure_from_hybrid_coords_exception_fallback(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test checks that if an exception occurs while accessing the `fzp` array during pressure level reconstruction, the `get_vertical_levels` method falls back to using model-level indices instead of pressure values. By mocking the dataset to raise an exception when `fzp` is accessed, the test ensures that the method handles this scenario gracefully and returns a list of model level indices without raising unhandled exceptions, confirming that the processor can manage unexpected issues with hybrid-coordinate data. If the test data is not available, the test will be skipped to avoid false failures. 
 
@@ -546,7 +546,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert isinstance(levels, list)
         assert levels == [0, 1, 2, 3, 4] 
     
-    def test_model_level_indices_verbose(self: "TestGetVerticalLevelsEdgeCases") -> None:
+    def test_model_level_indices_verbose(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test verifies that when the `get_vertical_levels` method is called in verbose mode and the dataset does not contain pressure information, the method returns a list of model level indices while providing informative output about the lack of pressure data. By ensuring that the returned levels are valid indices and that verbose output includes messages about missing pressure information, the test confirms that the processor can handle this scenario gracefully while keeping users informed. If the test data is not available, the test will be skipped to avoid false failures. 
 

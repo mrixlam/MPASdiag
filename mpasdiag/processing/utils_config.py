@@ -43,6 +43,9 @@ class MPASConfig:
     grid_resolution: Optional[float] = None
     regrid_method: str = "linear"
 
+    remap_engine: str = "kdtree"
+    remap_method: str = "nearest"
+
     u_variable: str = "u10"
     v_variable: str = "v10"
     wind_level: str = "surface"
@@ -118,9 +121,11 @@ class MPASConfig:
         """
         if self.output_formats is None:
             self.output_formats = ["png"]
-        
+
         if not self._validate_spatial_extent():
             raise ValueError("Invalid spatial extent parameters")
+
+        self._validate_remap_settings()
     
     def _validate_spatial_extent(self: 'MPASConfig') -> bool:
         """
@@ -144,6 +149,46 @@ class MPASConfig:
             self.lat_max > self.lat_min
         )
     
+    def _validate_remap_settings(self: 'MPASConfig') -> None:
+        """
+        This method validates the remapping settings specified in the configuration. It checks if the remap_engine parameter is set to a known value (either "kdtree" or "esmf") and raises a ValueError if it is not. If the remap_engine is "esmf" and the remap_method is set to "nearest", it automatically changes the remap_method to "bilinear" since "nearest" is not a valid method for ESMF. Then, it checks if the remap_method is valid for the specified remap_engine by comparing it against a predefined set of allowed methods for each engine. If the remap_method is not valid for the chosen remap_engine, it raises a ValueError with an appropriate message indicating the allowed methods. This validation ensures that the remapping settings are consistent and compatible with the underlying remapping libraries, preventing errors during the remapping process.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        _KDTREE_METHODS = {"nearest", "linear"}
+
+        try:
+            from .remapping import MPASRemapper
+            _ESMF_METHODS = set(MPASRemapper._METHOD_MAP.keys())
+        except Exception:
+            _ESMF_METHODS = {
+                "bilinear", "conservative", "conservative_normed",
+                "patch", "nearest_s2d", "nearest_d2s",
+            }
+        _KNOWN_ENGINES = {"kdtree", "esmf"}
+
+        if self.remap_engine not in _KNOWN_ENGINES:
+            raise ValueError(
+                f"Invalid remap_engine '{self.remap_engine}'. "
+                f"Must be one of: {sorted(_KNOWN_ENGINES)}"
+            )
+
+        if self.remap_engine == "esmf" and self.remap_method == "nearest":
+            self.remap_method = "bilinear"
+
+        allowed = _KDTREE_METHODS if self.remap_engine == "kdtree" else _ESMF_METHODS
+
+        if self.remap_method not in allowed:
+            raise ValueError(
+                f"Invalid remap_method '{self.remap_method}' for "
+                f"remap_engine='{self.remap_engine}'. "
+                f"Allowed methods: {sorted(allowed)}"
+            )
+
     def to_dict(self: 'MPASConfig') -> Dict[str, Any]:
         """
         This method converts the MPASConfig dataclass instance into a dictionary format. It uses the asdict function from the dataclasses module to create a dictionary representation of the dataclass. Additionally, it iterates through the dictionary items and checks if any values are tuples (such as figure_size) and converts them to lists, since YAML serialization does not support tuples. This method ensures that all configuration parameters are in a format suitable for saving to a YAML file or for other uses where a dictionary representation is needed. 
@@ -161,7 +206,8 @@ class MPASConfig:
         return config_dict
     
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> 'MPASConfig':
+    def from_dict(cls: 'MPASConfig', 
+                  config_dict: Dict[str, Any]) -> 'MPASConfig':
         """
         This class method creates an instance of MPASConfig from a given dictionary of configuration parameters. It takes a dictionary as input, which should contain keys that match the attribute names of the MPASConfig dataclass. The method checks if the 'figure_size' key is present in the dictionary and if its value is a list; if so, it converts it to a tuple since the MPASConfig class expects figure_size to be a tuple. Finally, it uses the unpacking operator (**) to pass the dictionary items as keyword arguments to the MPASConfig constructor, which will initialize the instance with the provided configuration values. This method allows for easy creation of configuration objects from dictionaries, such as those loaded from YAML files or other sources.  
 
@@ -175,7 +221,8 @@ class MPASConfig:
             config_dict['figure_size'] = tuple(config_dict['figure_size'])
         return cls(**config_dict)
     
-    def save_to_file(self: 'MPASConfig', filepath: str) -> None:
+    def save_to_file(self: 'MPASConfig', 
+                     filepath: str) -> None:
         """
         This method saves the current configuration parameters of the MPASConfig instance to a YAML file at the specified filepath. It first converts the configuration to a dictionary format using the to_dict method, which also handles any necessary conversions (such as tuples to lists). Then, it opens the specified file in write mode and uses the yaml.dump function to write the configuration dictionary to the file in a human-readable format with proper indentation. After successfully saving the configuration, it prints a confirmation message indicating where the configuration has been saved. This method allows users to easily export their current configuration settings for later use or sharing with others. 
 
@@ -187,13 +234,14 @@ class MPASConfig:
         """
         config_dict = self.to_dict()
         
-        with open(filepath, 'w') as f:
-            yaml.dump(config_dict, f, default_flow_style=False, indent=2)
+        with open(filepath, 'w') as yaml_file:
+            yaml.dump(config_dict, yaml_file, default_flow_style=False, indent=2)
         
         print(f"Configuration saved to: {filepath}")
     
     @classmethod
-    def load_from_file(cls, filepath: str) -> 'MPASConfig':
+    def load_from_file(cls: 'MPASConfig', 
+                       filepath: str) -> 'MPASConfig':
         """
         This class method loads configuration parameters from a specified YAML file and creates an instance of MPASConfig with those parameters. It opens the YAML file in read mode and uses the yaml.safe_load function to parse the contents of the file into a dictionary. Then, it calls the from_dict class method to convert the loaded dictionary into an MPASConfig instance, which will be initialized with the parameters from the file. This method allows users to easily load previously saved configurations or configurations shared by others, ensuring that all parameters are correctly set up for use in analysis and plotting operations. 
 
@@ -203,7 +251,7 @@ class MPASConfig:
         Returns:
             MPASConfig: An instance of MPASConfig initialized with parameters loaded from the specified YAML file. 
         """
-        with open(filepath, 'r') as f:
-            config_dict = yaml.safe_load(f)
+        with open(filepath, 'r') as yaml_file:
+            config_dict = yaml.safe_load(yaml_file)
         
         return cls.from_dict(config_dict)

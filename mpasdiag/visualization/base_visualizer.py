@@ -26,10 +26,18 @@ from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+from pathlib import Path
 from typing import Tuple, Optional, List, Any, Union, Sequence, cast
 
 from ..processing.processors_3d import MPAS3DProcessor
-from ..processing.remapping import remap_mpas_to_latlon_with_masking
+
+from ..processing.remapping import (
+    remap_mpas_to_latlon_with_masking,
+    MPASRemapper,
+    ESMPY_AVAILABLE,
+    _convert_coordinates_to_degrees,
+)
+
 from .styling import MPASVisualizationStyle
 
 plt.rcParams.update({"font.family": "serif", "mathtext.fontset": "cm", "text.usetex": False})
@@ -41,7 +49,7 @@ warnings.filterwarnings('ignore', category=RuntimeWarning, module='shapely')
 class MPASVisualizer:
     """ Base class for MPAS model output visualization with comprehensive functionality for publication-quality cartographic presentations of unstructured mesh data. """
     
-    def __init__(self: "MPASVisualizer", 
+    def __init__(self: 'MPASVisualizer', 
                  figsize: Tuple[float, float] = (10, 14), 
                  dpi: int = 100, 
                  verbose: bool = True) -> None:
@@ -61,8 +69,14 @@ class MPASVisualizer:
         self.verbose: bool = verbose
         self.fig: Optional[Figure] = None
         self.ax: Optional[Union[Axes, GeoAxes]] = None
+        self._remapper: Optional[MPASRemapper] = None
+        self._remapper_key: Optional[tuple] = None
+        self._remapper_weights_dir: Optional[Path] = None
+        self._bounds_cache_key: Optional[tuple] = None
+        self._bounds_lon_b: Optional[np.ndarray] = None
+        self._bounds_lat_b: Optional[np.ndarray] = None
     
-    def add_timestamp_and_branding(self: "MPASVisualizer") -> None:
+    def add_timestamp_and_branding(self: 'MPASVisualizer') -> None:
         """
         This method adds a timestamp and MPASdiag branding annotation to the current figure for consistent identification and attribution of visualizations. It retrieves the current UTC time, formats it as a human-readable string, and uses MPASVisualizationStyle to add this timestamp along with a standardized MPASdiag logo or text annotation to the figure. This method should be called after creating a plot but before saving it to ensure that all visualizations include clear metadata about when they were generated and their association with the MPASdiag project. 
 
@@ -75,7 +89,7 @@ class MPASVisualizer:
         assert self.fig is not None, "Figure must be created before adding branding"
         MPASVisualizationStyle.add_timestamp_and_branding(self.fig)
     
-    def format_latitude(self: "MPASVisualizer", 
+    def format_latitude(self: 'MPASVisualizer', 
                         value: float, _) -> str:
         """
         This method formats a numeric latitude value for axis tick labels using standardized geographic conventions with degree symbols and hemisphere indicators. It delegates to MPASVisualizationStyle to ensure consistent latitude formatting across all plot types, converting decimal degrees to readable strings with N/S suffixes (e.g., 45.0 becomes '45°N', -30.0 becomes '30°S'). The method accepts a placeholder second argument to satisfy matplotlib's FuncFormatter interface requirements, which allows it to be used directly as a formatter for axis ticks in cartopy plots. 
@@ -89,7 +103,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.format_latitude(value, _)
 
-    def format_longitude(self: "MPASVisualizer", 
+    def format_longitude(self: 'MPASVisualizer', 
                          value: float, _) -> str:
         """
         This method formats a numeric longitude value for axis tick labels using standardized geographic conventions with degree symbols and hemisphere indicators. It delegates to MPASVisualizationStyle to ensure consistent longitude formatting across all plot types, converting decimal degrees to readable strings with E/W suffixes (e.g., 120.0 becomes '120°E', -75.0 becomes '75°W'). The method accepts a placeholder second argument to satisfy matplotlib's FuncFormatter interface requirements, which allows it to be used directly as a formatter for axis ticks in cartopy plots.
@@ -103,7 +117,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.format_longitude(value, _)
     
-    def calculate_adaptive_marker_size(self: "MPASVisualizer", 
+    def calculate_adaptive_marker_size(self: 'MPASVisualizer', 
                                        map_extent: Tuple[float, float, float, float], 
                                        num_points: int, 
                                        fig_size: Tuple[float, float] = (12, 10)) -> float:
@@ -120,7 +134,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.calculate_adaptive_marker_size(map_extent, num_points, fig_size)
 
-    def _format_ticks_dynamic(self: "MPASVisualizer", 
+    def _format_ticks_dynamic(self: 'MPASVisualizer', 
                               ticks: List[float]) -> List[str]:
         """
         This method formats a list of numeric tick values for axis labeling using a dynamic approach that adjusts precision and notation style based on the range and magnitude of the tick values. It delegates to MPASVisualizationStyle to analyze the distribution of tick values, determine appropriate formatting (e.g., fixed-point, scientific notation), and return a list of formatted tick label strings that maintain readability and consistency across different plot types and variable ranges. This dynamic formatting ensures that axis labels are clean and informative without excessive decimal places or unwieldy scientific notation, enhancing the overall presentation quality of MPAS visualizations. 
@@ -133,7 +147,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.format_ticks_dynamic(ticks)
     
-    def get_variable_specific_settings(self: "MPASVisualizer", 
+    def get_variable_specific_settings(self: 'MPASVisualizer', 
                                        var_name: str, 
                                        data: np.ndarray) -> Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]:
         """
@@ -148,7 +162,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.get_variable_specific_settings(var_name, data)
     
-    def setup_map_projection(self: "MPASVisualizer", 
+    def setup_map_projection(self: 'MPASVisualizer', 
                              lon_min: float, 
                              lon_max: float, 
                              lat_min: float, 
@@ -169,7 +183,7 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.setup_map_projection(lon_min, lon_max, lat_min, lat_max, projection)
     
-    def add_regional_features(self: "MPASVisualizer", 
+    def add_regional_features(self: 'MPASVisualizer', 
                               lon_min: float, 
                               lon_max: float, 
                               lat_min: float, 
@@ -199,7 +213,7 @@ class MPASVisualizer:
             self.ax.add_feature(cfeature.STATES, linewidth=0.5,
                                 edgecolor='red', facecolor='none')
     
-    def save_plot(self: "MPASVisualizer", 
+    def save_plot(self: 'MPASVisualizer', 
                   output_path: str, 
                   formats: List[str] = ['png'],
                   bbox_inches: str = 'tight',
@@ -219,7 +233,7 @@ class MPASVisualizer:
         assert self.fig is not None, "Figure must be created before saving"
         MPASVisualizationStyle.save_plot(self.fig, output_path, formats, bbox_inches, pad_inches, self.dpi)
     
-    def close_plot(self: "MPASVisualizer") -> None:
+    def close_plot(self: 'MPASVisualizer') -> None:
         """
         This method closes the current figure and resets the figure and axes attributes to None to free up memory and prepare for the next plot. It checks if self.fig is not None before attempting to close it, and then sets self.fig and self.ax back to None after closing. This is important for managing resources when creating multiple plots in a session, ensuring that old figures do not consume memory unnecessarily. 
 
@@ -236,12 +250,12 @@ class MPASVisualizer:
             self.ax = None
             gc.collect()
     
-    def create_time_series_plot(self: "MPASVisualizer",
-                              times: List[datetime],
-                              values: List[float],
-                              title: str = "Time Series",
-                              ylabel: str = "Value",
-                              xlabel: str = "Time") -> Tuple[Figure, Axes]:
+    def create_time_series_plot(self: 'MPASVisualizer',
+                                times: List[datetime],
+                                values: List[float],
+                                title: str = "Time Series",
+                                ylabel: str = "Value",
+                                xlabel: str = "Time") -> Tuple[Figure, Axes]:
         """
         This method creates a time series plot of the provided values against their corresponding time coordinates. It generates a line plot with markers for each time point, formats the x-axis with datetime labels, and applies consistent styling for the title and axis labels. The method also adds grid lines for better readability and automatically formats the x-axis dates to prevent overlap. After creating the plot, it calls add_timestamp_and_branding() to include metadata about when the plot was generated and its association with MPASdiag. The resulting figure and axes are returned for further customization or saving by the caller. 
 
@@ -275,13 +289,13 @@ class MPASVisualizer:
         
         return self.fig, self.ax
     
-    def create_histogram(self: "MPASVisualizer",
-                        data: np.ndarray,
-                        bins: Union[int, np.ndarray] = 50,
-                        title: str = "Data Distribution",
-                        xlabel: str = "Value",
-                        ylabel: str = "Frequency",
-                        log_scale: bool = False) -> Tuple[Figure, Axes]:
+    def create_histogram(self: 'MPASVisualizer',
+                         data: np.ndarray,
+                         bins: Union[int, np.ndarray] = 50,
+                         title: str = "Data Distribution",
+                         xlabel: str = "Value",
+                         ylabel: str = "Frequency",
+                         log_scale: bool = False) -> Tuple[Figure, Axes]:
         """
         This method creates a histogram plot of the provided data array, automatically flattening multi-dimensional data and excluding non-finite values from the analysis. It generates a histogram with the specified number of bins or custom bin edges, applies consistent styling for the title and axis labels, and adds grid lines for better readability. The method also calculates and overlays vertical lines for the mean and standard deviation of the data to provide additional context about the distribution. If log_scale is True, it applies a logarithmic scale to the y-axis to enhance visualization of skewed distributions. After creating the plot, it calls add_timestamp_and_branding() to include metadata about when the plot was generated and its association with MPASdiag. The resulting figure and axes are returned for further customization or saving by the caller. 
 
@@ -308,8 +322,8 @@ class MPASVisualizer:
                 except Exception:
                     bins_arg = list(bins)
 
-            _, bins, _ = self.ax.hist(valid_data, bins=bins_arg, alpha=0.7,  
-                                          edgecolor='black', linewidth=0.5)
+            _, _hist_bin_edges, _ = self.ax.hist(valid_data, bins=bins_arg, alpha=0.7,
+                                                  edgecolor='black', linewidth=0.5)
             
             mean_val = float(np.mean(valid_data))
             std_val = float(np.std(valid_data))
@@ -334,12 +348,12 @@ class MPASVisualizer:
         
         return self.fig, self.ax
 
-    def extract_2d_from_3d(self: "MPASVisualizer", 
-                          data_3d: Union[np.ndarray, xr.DataArray],
-                          level_index: Optional[int] = None,
-                          level_value: Optional[float] = None,
-                          level_dim: str = 'nVertLevels',
-                          method: str = 'nearest') -> np.ndarray:
+    def extract_2d_from_3d(self: 'MPASVisualizer', 
+                           data_3d: Union[np.ndarray, xr.DataArray],
+                           level_index: Optional[int] = None,
+                           level_value: Optional[float] = None,
+                           level_dim: str = 'nVertLevels',
+                           method: str = 'nearest') -> np.ndarray:
         """
         This method extracts a 2D horizontal slice from a 3D data array based on either a specified vertical level index or a physical value in the vertical coordinate. It delegates to MPAS3DProcessor to perform the actual extraction, which handles both raw numpy arrays and xarray DataArrays, and supports interpolation methods for value-based extraction. The method ensures that the resulting 2D array is suitable for surface plotting on map projections by removing the vertical dimension and maintaining the horizontal coordinate structure. This functionality is essential for visualizing variables like wind components, temperature, or humidity at specific atmospheric levels (e.g., surface, 850 hPa) in MPAS visualizations. 
 
@@ -355,7 +369,7 @@ class MPASVisualizer:
         """
         return MPAS3DProcessor.extract_2d_from_3d(data_3d, level_index, level_value, level_dim, method)
 
-    def create_wind_plot(self: "MPASVisualizer", 
+    def create_wind_plot(self: 'MPASVisualizer', 
                          lon: np.ndarray, 
                          lat: np.ndarray, 
                          u_data: np.ndarray, 
@@ -413,30 +427,30 @@ class MPASVisualizer:
         
         self.add_regional_features(lon_min, lon_max, lat_min, lat_max)
         
-        gl = self.ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {'size': 10}
-        gl.ylabel_style = {'size': 10}
-        gl.xformatter = LongitudeFormatter()
-        gl.yformatter = LatitudeFormatter()
-        
+        gridlines = self.ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+        gridlines.top_labels = False
+        gridlines.right_labels = False
+        gridlines.xlabel_style = {'size': 10}
+        gridlines.ylabel_style = {'size': 10}
+        gridlines.xformatter = LongitudeFormatter()
+        gridlines.yformatter = LatitudeFormatter()
+
         wind_speed = np.sqrt(u_data**2 + v_data**2)
-        
-        mask = ((lon >= lon_min) & (lon <= lon_max) & 
-                (lat >= lat_min) & (lat <= lat_max) & 
-                np.isfinite(u_data) & np.isfinite(v_data))
-        
-        if not np.any(mask):
+
+        valid_wind_mask = ((lon >= lon_min) & (lon <= lon_max) &
+                           (lat >= lat_min) & (lat <= lat_max) &
+                           np.isfinite(u_data) & np.isfinite(v_data))
+
+        if not np.any(valid_wind_mask):
             raise ValueError("No valid wind data points found within the specified map extent.")
-        
-        lon_filtered = lon[mask]
-        lat_filtered = lat[mask]
-        u_filtered = u_data[mask]
-        v_filtered = v_data[mask]
-        wind_speed_filtered = wind_speed[mask]
-        
-        print(f"Plotting {np.sum(mask)} wind vectors")
+
+        lon_filtered = lon[valid_wind_mask]
+        lat_filtered = lat[valid_wind_mask]
+        u_filtered = u_data[valid_wind_mask]
+        v_filtered = v_data[valid_wind_mask]
+        wind_speed_filtered = wind_speed[valid_wind_mask]
+
+        print(f"Plotting {np.sum(valid_wind_mask)} wind vectors")
         print(f"Wind speed range: {np.min(wind_speed_filtered):.1f} to {np.max(wind_speed_filtered):.1f} m/s")
 
         if show_background:
@@ -455,11 +469,11 @@ class MPASVisualizer:
             print(f"Auto-subsampling: using every {subsample} point(s)")
 
         if subsample > 1:
-            indices = np.arange(0, len(lon_filtered), subsample)
-            lon_plot = lon_filtered[indices]
-            lat_plot = lat_filtered[indices] 
-            u_plot = u_filtered[indices]
-            v_plot = v_filtered[indices]
+            subsample_indices = np.arange(0, len(lon_filtered), subsample)
+            lon_plot = lon_filtered[subsample_indices]
+            lat_plot = lat_filtered[subsample_indices]
+            u_plot = u_filtered[subsample_indices]
+            v_plot = v_filtered[subsample_indices]
         else:
             lon_plot, lat_plot = lon_filtered, lat_filtered
             u_plot, v_plot = u_filtered, v_filtered
@@ -488,7 +502,7 @@ class MPASVisualizer:
         
         return self.fig, self.ax
 
-    def _create_wind_background(self: "MPASVisualizer", 
+    def _create_wind_background(self: 'MPASVisualizer', 
                                 lon: np.ndarray, 
                                 lat: np.ndarray, 
                                 wind_speed: np.ndarray, 
@@ -508,23 +522,26 @@ class MPASVisualizer:
             None: Modifies self.ax by adding a scatter plot of wind speed as a background layer, raises AssertionError if self.ax is None. 
         """
         assert self.ax is not None, "Axes must be created before adding wind background"
+
         marker_size = self.calculate_adaptive_marker_size(
             (lon.min(), lon.max(), lat.min(), lat.max()), 
             len(wind_speed), self.figsize
         ) * 0.5  
         
-        sc = self.ax.scatter(lon, lat, c=wind_speed, cmap=colormap,
-                           alpha=0.6, s=marker_size, edgecolors='none',
-                           transform=data_crs)
-        
+        scatter_collection = self.ax.scatter(lon, lat, c=wind_speed, cmap=colormap,
+                                             alpha=0.6, s=marker_size, edgecolors='none',
+                                             transform=data_crs)
+
         from mpasdiag.visualization.styling import MPASVisualizationStyle
-        cbar = MPASVisualizationStyle.add_colorbar(
-            plt.gcf(), self.ax, sc,
+
+        colorbar = MPASVisualizationStyle.add_colorbar(
+            plt.gcf(), self.ax, scatter_collection,
             label=MPASVisualizationStyle.build_colorbar_label({'long_name': 'Wind Speed', 'units': 'm s$^{-1}$'}),
             orientation='vertical', fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=4, label_pos='right', tick_labelsize=10
         )
-        if cbar is not None:
-            cbar.ax.tick_params(labelsize=10)
+        
+        if colorbar is not None:
+            colorbar.ax.tick_params(labelsize=10)
     
     @staticmethod
     def convert_to_numpy(x: Any) -> np.ndarray:
@@ -539,21 +556,21 @@ class MPASVisualizer:
         """
         try:
             if isinstance(x, xr.DataArray):
-                arr = x.values
+                converted_array = x.values
             else:
-                arr = x
+                converted_array = x
         except Exception:
-            arr = x
+            converted_array = x
 
         try:
-            if hasattr(arr, 'compute'):
-                arr = cast(Any, arr).compute()
+            if hasattr(converted_array, 'compute'):
+                converted_array = cast(Any, converted_array).compute()
         except Exception:
             pass
 
-        return np.asarray(arr)
+        return np.asarray(converted_array)
 
-    def _add_gridlines(self: "MPASVisualizer", 
+    def _add_gridlines(self: 'MPASVisualizer', 
                        data_crs: ccrs.CRS) -> None:
         """
         This method adds gridlines to the map axes with labels formatted as degrees of longitude and latitude. It uses cartopy's gridlines functionality to draw dashed gray lines at regular intervals, and configures the label formatting using FuncFormatter to display the coordinates in a human-readable format (e.g., "120°W", "45°N"). The method ensures that gridlines are only added if the axes are of type GeoAxes, which is necessary for cartopy-based plotting. This enhances the readability of the map by providing clear geographic reference points for interpreting the location of data points and features on the map. 
@@ -566,19 +583,239 @@ class MPASVisualizer:
         """
         assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for gridlines"
 
-        gl = self.ax.gridlines(
+        gridlines = self.ax.gridlines(
             crs=data_crs, draw_labels=True,
             linewidth=0.5, color='gray', alpha=0.5, linestyle='--'
         )
 
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {'size': 10}
-        gl.ylabel_style = {'size': 10}
-        gl.xformatter = LongitudeFormatter()
-        gl.yformatter = LatitudeFormatter()
+        gridlines.top_labels = False
+        gridlines.right_labels = False
+        gridlines.xlabel_style = {'size': 10}
+        gridlines.ylabel_style = {'size': 10}
+        gridlines.xformatter = LongitudeFormatter()
+        gridlines.yformatter = LatitudeFormatter()
 
-    def _interpolate_to_grid(self: "MPASVisualizer",
+    @staticmethod
+    def _has_boundary_data(dataset: Optional[xr.Dataset]) -> bool:
+        """
+        This static method checks whether the provided xarray Dataset contains the necessary cell-boundary coordinate variables ('lon_b' and 'lat_b') that are required for certain types of MPAS visualizations, such as pcolormesh or contourf plots that rely on cell boundaries for accurate rendering. It returns True if both 'lon_b' and 'lat_b' are present in the dataset, indicating that boundary data is available, and False otherwise. This check is important for determining whether additional processing is needed to compute boundary coordinates from the mesh topology before plotting. 
+
+        Parameters:
+            dataset (Optional[xr.Dataset]): An xarray Dataset that may or may not contain the 'lon_b' and 'lat_b' variables representing cell-boundary coordinates.
+
+        Returns:
+            bool: True if both 'lon_b' and 'lat_b' are present in the dataset, indicating that boundary data is available for plotting; False otherwise. 
+        """
+        return (
+            dataset is not None
+            and 'lon_b' in dataset
+            and 'lat_b' in dataset
+        )
+
+    def _ensure_boundary_data(self: 'MPASVisualizer',
+                              dataset: Optional[xr.Dataset]) -> Optional[xr.Dataset]:
+        """
+        This method checks if the provided xarray Dataset contains the necessary cell-boundary coordinate variables ('lon_b' and 'lat_b'). If they are already present, it returns the dataset unchanged. If they are missing but the dataset contains the required mesh topology variables ('verticesOnCell', 'lonVertex', 'latVertex', 'nEdgesOnCell'), it computes the boundary coordinates based on the vertex information and adds 'lon_b' and 'lat_b' to the dataset. The method uses caching to avoid redundant calculations for datasets with the same grid configuration, improving performance when processing multiple time steps or variables on the same mesh. If the dataset does not contain enough information to compute boundaries, it returns the original dataset without modification. 
+
+        Parameters:
+            dataset (Optional[xr.Dataset]): An xarray Dataset that may or may not contain the 'lon_b' and 'lat_b' variables, and may contain the necessary mesh topology variables to compute them if they are missing. 
+
+        Returns:
+            Optional[xr.Dataset]: The original dataset if 'lon_b' and 'lat_b' are already present or cannot be computed; otherwise, a new dataset with 'lon_b' and 'lat_b' added based on the mesh topology. 
+        """
+        if dataset is None:
+            return None
+
+        if 'lon_b' in dataset and 'lat_b' in dataset:
+            return dataset
+
+        required_mesh_vars = {'verticesOnCell', 'lonVertex', 'latVertex', 'nEdgesOnCell'}
+
+        if not required_mesh_vars.issubset(dataset.variables.keys()):
+            return dataset
+
+        vertices_on_cell = dataset['verticesOnCell'].values   # (nCells, maxEdges), 1-indexed
+        n_cells = vertices_on_cell.shape[0]
+        max_edges = vertices_on_cell.shape[1]
+        cache_key = (n_cells, max_edges)
+
+        if self._bounds_cache_key != cache_key:
+            vertex_lon = dataset['lonVertex'].values.flatten()
+            vertex_lat = dataset['latVertex'].values.flatten()
+            edges_per_cell = dataset['nEdgesOnCell'].values.flatten().astype(int)
+            most_common_vertex_count = int(np.bincount(edges_per_cell).argmax())
+            lon_b = np.zeros((n_cells, most_common_vertex_count), dtype=np.float64)
+            lat_b = np.zeros((n_cells, most_common_vertex_count), dtype=np.float64)
+            for i in range(n_cells):
+                num_vertices = edges_per_cell[i]
+                vertex_indices = vertices_on_cell[i, :num_vertices] - 1
+                padded_indices = np.minimum(np.arange(most_common_vertex_count), num_vertices - 1)
+                lon_b[i] = vertex_lon[vertex_indices[padded_indices]]
+                lat_b[i] = vertex_lat[vertex_indices[padded_indices]]
+            self._bounds_cache_key = cache_key
+            self._bounds_lon_b = lon_b
+            self._bounds_lat_b = lat_b
+        return dataset.assign({
+            'lon_b': xr.DataArray(self._bounds_lon_b, dims=['nCells', 'nv']),
+            'lat_b': xr.DataArray(self._bounds_lat_b, dims=['nCells', 'nv']),
+        })
+
+    @staticmethod
+    def _extract_full_grid(dataset: xr.Dataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        This static method extracts the full longitude and latitude coordinates for the MPAS cell centers from the provided xarray Dataset. It looks for common variable names that represent longitude and latitude (e.g., 'lonCell', 'latCell', 'lon', 'lat', 'longitude', 'latitude') and retrieves their values, flattening them into 1D arrays. The method then converts the coordinates to degrees if they are in radians, and normalizes longitude values to the range [-180, 180] degrees for consistency in plotting. If the required longitude or latitude variables cannot be found in the dataset, it raises a KeyError with an informative message. This method is essential for obtaining the spatial coordinates needed for mapping MPAS data onto geographic projections. 
+
+        Parameters:
+            dataset (xr.Dataset): An xarray Dataset containing the longitude and latitude variables for the MPAS cell centers, which may be named in various ways.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: A tuple containing two 1D NumPy arrays: the first is the longitude coordinates in degrees (normalized to [-180, 180]), and the second is the latitude coordinates in degrees. 
+        """
+        for lon_key in ('lonCell', 'lon', 'longitude'):
+            if lon_key in dataset:
+                lon_raw = dataset[lon_key].values.flatten().astype(float)
+                break
+        else:
+            raise KeyError("Cannot find longitude coordinate (lonCell/lon/longitude) in dataset")
+        for lat_key in ('latCell', 'lat', 'latitude'):
+            if lat_key in dataset:
+                lat_raw = dataset[lat_key].values.flatten().astype(float)
+                break
+        else:
+            raise KeyError("Cannot find latitude coordinate (latCell/lat/latitude) in dataset")
+        lon_deg, lat_deg = _convert_coordinates_to_degrees(lon_raw, lat_raw)
+        lon_deg = ((lon_deg + 180) % 360) - 180
+        return lon_deg, lat_deg
+
+    @staticmethod
+    def _backmap_to_full_grid(lon_valid: np.ndarray,
+                              lat_valid: np.ndarray,
+                              data_valid: np.ndarray,
+                              lon_full: np.ndarray,
+                              lat_full: np.ndarray) -> np.ndarray:
+        """
+        This static method performs a back-mapping of data values from a subset of valid longitude and latitude coordinates to the full grid of longitude and latitude coordinates. It uses a KDTree from scipy.spatial to efficiently find the nearest valid point for each full grid point, and assigns the corresponding data value to the full grid. If the distance between a full grid point and its nearest valid point exceeds a small threshold (e.g., 1e-4 degrees), it assigns NaN to that full grid point to indicate that it is not close enough to any valid data point. This method is useful for reconstructing a complete data array on the original MPAS grid after processing or interpolation has been performed on a subset of points. 
+
+        Parameters:
+            lon_valid (np.ndarray): 1D array of longitude coordinates for the valid data points in degrees.
+            lat_valid (np.ndarray): 1D array of latitude coordinates for the valid data points in degrees.
+            data_valid (np.ndarray): 1D array of data values corresponding to the valid (lon, lat) points.
+            lon_full (np.ndarray): 1D array of longitude coordinates for the full grid in degrees.
+            lat_full (np.ndarray): 1D array of latitude coordinates for the full grid in degrees.
+
+        Returns:
+            np.ndarray: A 1D array of data values corresponding to the full grid, where values are assigned from data_valid based on the nearest valid point, and NaN is assigned to points that are not close enough to any valid point. 
+        """
+        from scipy.spatial import KDTree
+        tree = KDTree(np.column_stack([lon_valid, lat_valid]))
+        nearest_distances, nearest_indices = tree.query(np.column_stack([lon_full, lat_full]))
+        full_data = np.full(len(lon_full), np.nan)
+        within_threshold = nearest_distances < 1e-4
+        full_data[within_threshold] = data_valid[nearest_indices[within_threshold]]
+        return full_data
+
+    def _get_or_build_remapper(self: 'MPASVisualizer',
+                               lon_full: np.ndarray,
+                               lat_full: np.ndarray,
+                               lon_b: np.ndarray,
+                               lat_b: np.ndarray,
+                               lon_min: float,
+                               lon_max: float,
+                               lat_min: float,
+                               lat_max: float,
+                               resolution: float,
+                               comm: Optional[Any] = None,
+                               method: str = 'conservative') -> MPASRemapper:
+        """
+        This method retrieves a cached MPASRemapper instance if it matches the specified grid configuration and remapping parameters, or builds a new MPASRemapper if the configuration has changed. It constructs a unique key based on the dimensions of the full grid, the geographic bounds, and the resolution to determine if an existing remapper can be reused. If a new remapper is needed, it prepares the source grid using the full longitude and latitude coordinates along with their boundaries, creates a target grid based on the specified geographic extent and resolution, and builds the regridder for conservative remapping. The method also supports parallel execution by accepting an optional communicator object for distributed computing environments. This caching mechanism improves performance when processing multiple variables or time steps on the same grid configuration by avoiding redundant remapper construction. 
+
+        Parameters:
+            lon_full (np.ndarray): 1D array of longitude coordinates for the full grid in degrees.
+            lat_full (np.ndarray): 1D array of latitude coordinates for the full grid in degrees.
+            lon_b (np.ndarray): 2D array of longitude coordinates for the cell boundaries in degrees.
+            lat_b (np.ndarray): 2D array of latitude coordinates for the cell boundaries in degrees.
+            lon_min (float): Western longitude bound in degrees for the target grid extent.
+            lon_max (float): Eastern longitude bound in degrees for the target grid extent.
+            lat_min (float): Southern latitude bound in degrees for the target grid extent.
+            lat_max (float): Northern latitude bound in degrees for the target grid extent.
+            resolution (float): Desired grid resolution in degrees for the target lat/lon grid.
+            comm (Optional[Any]): Optional communicator object for parallel execution in distributed computing environments (default: None).
+
+        Returns:
+            MPASRemapper: An instance of MPASRemapper configured for conservative remapping from the full MPAS grid to the specified regular lat/lon grid, either retrieved from cache or newly built based on the provided parameters. 
+        """
+        cache_key = (
+            len(lon_full),
+            round(lon_min, 6), round(lon_max, 6),
+            round(lat_min, 6), round(lat_max, 6),
+            round(resolution, 6),
+            method,
+        )
+
+        if self._remapper is None or self._remapper_key != cache_key:
+            remapper = MPASRemapper(
+                method=method,
+                reuse_weights=True,
+                weights_dir=self._remapper_weights_dir,
+                skipna=True,
+            )
+
+            remapper.prepare_source_grid(lon_full, lat_full, lon_bounds=lon_b, lat_bounds=lat_b)
+
+            remapper.create_target_grid(
+                lon_min=lon_min, lon_max=lon_max,
+                lat_min=lat_min, lat_max=lat_max,
+                dlon=resolution, dlat=resolution,
+            )
+
+            remapper.build_regridder(comm=comm)
+            self._remapper = remapper
+            self._remapper_key = cache_key
+        return self._remapper
+
+    def _remap_conservative(self: 'MPASVisualizer',
+                            data_full: np.ndarray,
+                            lon_full: np.ndarray,
+                            lat_full: np.ndarray,
+                            dataset: xr.Dataset,
+                            lon_min: float,
+                            lon_max: float,
+                            lat_min: float,
+                            lat_max: float,
+                            resolution: float,
+                            comm: Optional[Any] = None,
+                            method: str = 'conservative') -> xr.DataArray:
+        """
+        This method performs conservative remapping of data values from the full MPAS grid to a regular lat/lon grid defined by the specified geographic bounds and resolution. It first ensures that the dataset contains the necessary boundary coordinate variables ('lon_b' and 'lat_b') for accurate remapping, then retrieves or builds an MPASRemapper instance configured for the current grid and remapping parameters. The method uses the remapper to perform the remapping operation, which conservatively redistributes data values while preserving integral properties across grid cells. The resulting remapped data is returned as an xarray DataArray with dimensions corresponding to the target lat/lon grid, suitable for plotting with pcolormesh or contourf on map projections. This functionality is essential for visualizing MPAS data that may be originally defined on an unstructured grid or at irregular locations, enabling consistent and accurate representation on regular lat/lon maps. 
+
+        Parameters:
+            data_full (np.ndarray): 1D array of data values corresponding to the full MPAS grid points, typically obtained from back-mapping valid data to the full grid.
+            lon_full (np.ndarray): 1D array of longitude coordinates for the full MPAS grid in degrees.
+            lat_full (np.ndarray): 1D array of latitude coordinates for the full MPAS grid in degrees.
+            dataset (xr.Dataset): An xarray Dataset containing the original MPAS grid information, which can be used by MPASRemapper for more accurate interpolation and remapping. This dataset should include the necessary variables for defining the source grid and its boundaries.
+            lon_min (float): Western longitude bound in degrees for the target grid extent.
+            lon_max (float): Eastern longitude bound in degrees for the target grid extent.
+            lat_min (float): Southern latitude bound in degrees for the target grid extent.
+            lat_max (float): Northern latitude bound in degrees for the target grid extent.
+            resolution (float): Desired grid resolution in degrees for the target lat/lon grid.
+            comm (Optional[Any]): Optional communicator object for parallel execution in distributed computing environments (default: None).
+
+        Returns:
+            xr.DataArray: An xarray DataArray containing the remapped data values on the regular lat/lon grid, with dimensions corresponding to the target grid coordinates. This DataArray is suitable for plotting with pcolormesh or contourf on map projections. 
+        """
+        lon_b = dataset['lon_b'].values
+        lat_b = dataset['lat_b'].values
+
+        remapper = self._get_or_build_remapper(
+            lon_full, lat_full, lon_b, lat_b,
+            lon_min, lon_max, lat_min, lat_max, resolution,
+            comm=comm,
+            method=method,
+        )
+        
+        return remapper.remap(xr.DataArray(data_full, dims=['nCells']))
+
+    def _interpolate_to_grid(self: 'MPASVisualizer',
                              lon: np.ndarray,
                              lat: np.ndarray,
                              data: np.ndarray,
@@ -589,7 +826,9 @@ class MPASVisualizer:
                              grid_resolution: Optional[float] = None,
                              dataset: Optional[xr.Dataset] = None,
                              method: str = 'linear',
-                             resolution_bounds: Optional[Tuple[float, float]] = None,) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                             resolution_bounds: Optional[Tuple[float, float]] = None,
+                             comm: Optional[Any] = None,
+                             config: Optional[Any] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         This method performs interpolation of scattered data points defined by longitude, latitude, and corresponding values onto a regular lat/lon grid within specified geographic bounds. It uses the remap_mpas_to_latlon_with_masking function from MPASRemapper to handle the interpolation, which is optimized for MPAS data and can apply masking to exclude invalid points. The method allows for automatic selection of grid resolution based on the geographic extent, with optional bounds to prevent excessively coarse or fine grids. The resulting interpolated data is returned as 2D arrays corresponding to the meshgrid of longitude and latitude coordinates, suitable for use in contour or pcolormesh plots on map projections. This functionality is essential for visualizing MPAS data that may be originally defined on an unstructured grid or at irregular locations, enabling consistent and accurate representation on regular lat/lon maps. 
 
@@ -605,26 +844,75 @@ class MPASVisualizer:
             dataset (Optional[xr.Dataset]): Optional xarray Dataset containing the original MPAS grid information, which can be used by MPASRemapper for more accurate interpolation. If None, the method will attempt to create a minimal dataset from the provided lon and lat arrays (default: None).
             method (str): Interpolation method to use, options include 'nearest', 'linear', 'cubic', etc., as supported by MPASRemapper (default: 'linear').
             resolution_bounds (Optional[Tuple[float, float]]): Optional tuple specifying the minimum and maximum allowable grid resolution in degrees (default: None).
+            comm (Optional[Any]): Optional communicator object for parallel execution in distributed computing environments (default: None).
+            config (Optional[Any]): Optional configuration object that may contain settings for remapping engine and method, used to determine whether to use ESMPy or KDTree for interpolation (default: None).
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing the longitude meshgrid, latitude meshgrid, and interpolated data array on the regular lat/lon grid, suitable for plotting on map projections. The longitude and latitude meshgrids correspond to the coordinates of the interpolated data points. 
         """
         if grid_resolution is not None:
-            step = float(grid_resolution)
-            if step <= 0:
+            resolution = float(grid_resolution)
+            if resolution <= 0:
                 raise ValueError("grid_resolution must be > 0")
-            resolution = step
-            print(f"Using MPASRemapper with target resolution: {resolution}°")
         else:
             lon_range = lon_max - lon_min
             lat_range = lat_max - lat_min
             resolution = max(lon_range / 100, lat_range / 100)
             if resolution_bounds is not None:
-                lo, hi = resolution_bounds
-                resolution = max(lo, min(resolution, hi))
-            print(f"Auto-selected grid resolution: {resolution:.4f}°")
+                resolution_min, resolution_max = resolution_bounds
+                resolution = max(resolution_min, min(resolution, resolution_max))
 
-        print(f"Interpolating {len(data)} points using MPASRemapper (KDTree→xESMF {method})...")
+        # Determine engine and method from config, or auto-select legacy behaviour.
+        engine = getattr(config, 'remap_engine', None) if config else None
+        esmf_method = getattr(config, 'remap_method', 'conservative') if config else 'conservative'
+        kdtree_method = getattr(config, 'remap_method', method) if config else method
+
+        use_esmf = (
+            engine == 'esmf'                           # explicit engine request
+            or (engine is None                         # legacy auto-select
+                and ESMPY_AVAILABLE
+                and self._has_boundary_data(self._ensure_boundary_data(dataset)))
+        )
+
+        # --- ESMPy path ---
+        if use_esmf:
+            dataset = self._ensure_boundary_data(dataset)
+            if self._has_boundary_data(dataset):
+                try:
+                    lon_full, lat_full = self._extract_full_grid(dataset)  # type: ignore[arg-type]
+                    full_data = self._backmap_to_full_grid(lon, lat, data, lon_full, lat_full)
+                    print(
+                        f"Remapping {len(lon_full):,} cells via ESMPy/{esmf_method} "
+                        f"(resolution {resolution:.3f}°)..."
+                    )
+                    remap_result = self._remap_conservative(
+                        full_data, lon_full, lat_full, dataset,  # type: ignore[arg-type]
+                        lon_min, lon_max, lat_min, lat_max, resolution,
+                        comm=comm,
+                        method=esmf_method,
+                    )
+                    remapped_values = remap_result.values
+                    lon_coords = remap_result.lon.values
+                    lat_coords = remap_result.lat.values
+                    lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+                    return lon_mesh, lat_mesh, remapped_values
+                except Exception as exc:
+                    if engine == 'esmf':
+                        raise
+                    warnings.warn(
+                        f"ESMPy/{esmf_method} remapping failed ({exc}); "
+                        "falling back to KD-Tree.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+            elif engine == 'esmf':
+                raise ValueError(
+                    "remap_engine='esmf' requires boundary coordinates "
+                    "('lon_b'/'lat_b') in the dataset."
+                )
+
+        # --- KDTree path ---
+        print(f"Interpolating {len(data)} points using KDTree ({kdtree_method})...")
 
         if dataset is None:
             lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
@@ -644,7 +932,7 @@ class MPASVisualizer:
             lat_min=lat_min,
             lat_max=lat_max,
             resolution=resolution,
-            method=method,
+            method=kdtree_method,
             apply_mask=True,
             lon_convention='auto'
         )
@@ -654,10 +942,10 @@ class MPASVisualizer:
         lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
         data_interp = remapped_result.values
 
-        print(f"MPASRemapper produced {data_interp.shape[0]}x{data_interp.shape[1]} grid")
+        print(f"KDTree produced {data_interp.shape[0]}x{data_interp.shape[1]} grid")
         return lon_mesh, lat_mesh, data_interp
 
-    def _create_scatter_plot(self: "MPASVisualizer",
+    def _create_scatter_plot(self: 'MPASVisualizer',
                              lon: np.ndarray,
                              lat: np.ndarray,
                              data: np.ndarray,
@@ -710,7 +998,7 @@ class MPASVisualizer:
                     getattr(self, '_current_var_metadata', None)
                 )
 
-            cbar = MPASVisualizationStyle.add_colorbar(
+            colorbar = MPASVisualizationStyle.add_colorbar(
                 self.fig, self.ax, scatter,
                 label=colorbar_label,
                 orientation='horizontal', extend='both',
@@ -718,19 +1006,19 @@ class MPASVisualizer:
                 fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
             )
 
-            if cbar is not None:
+            if colorbar is not None:
                 if colorbar_ticks is not None and len(colorbar_ticks) <= 15:
-                    cbar.set_ticks(colorbar_ticks)
-                    cbar.set_ticklabels(self._format_ticks_dynamic(colorbar_ticks))
+                    colorbar.set_ticks(colorbar_ticks)
+                    colorbar.set_ticklabels(self._format_ticks_dynamic(colorbar_ticks))
                 else:
-                    ticks = cbar.get_ticks().tolist()
-                    cbar.set_ticks(ticks)
-                    cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-                cbar.ax.tick_params(labelsize=8)
+                    ticks = colorbar.get_ticks().tolist()
+                    colorbar.set_ticks(ticks)
+                    colorbar.set_ticklabels(self._format_ticks_dynamic(ticks))
+                colorbar.ax.tick_params(labelsize=8)
         except Exception:
             pass
 
-    def _create_contour_plot(self: "MPASVisualizer",
+    def _create_contour_plot(self: 'MPASVisualizer',
                              lon: np.ndarray,
                              lat: np.ndarray,
                              data: np.ndarray,
@@ -743,7 +1031,8 @@ class MPASVisualizer:
                              levels: Optional[List[float]],
                              data_crs: ccrs.CRS,
                              grid_resolution: Optional[float] = None,
-                             dataset: Optional[xr.Dataset] = None,) -> None:
+                             dataset: Optional[xr.Dataset] = None,
+                             config: Optional[Any] = None,) -> None:
         """
         This method creates a contour plot by interpolating scattered data points onto a regular lat/lon grid and then using matplotlib's contour function to draw contour lines. It first calls the _interpolate_to_grid method to perform the interpolation using MPASRemapper, which handles the complexities of remapping MPAS data onto a regular grid. The method then creates contour lines based on the interpolated data, with options for specifying explicit contour levels or allowing matplotlib to determine them automatically. It also attempts to add inline labels to the contours for better readability. This contour plot is useful for visualizing spatial gradients and patterns in MPAS data, such as pressure or temperature fields, while ensuring that the underlying data is accurately represented on the map projection. 
 
@@ -770,18 +1059,18 @@ class MPASVisualizer:
 
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, dataset
+            grid_resolution, dataset, config=config
         )
 
         try:
             if levels is not None:
-                cs = self.ax.contour(
+                contour_set = self.ax.contour(
                     lon_mesh, lat_mesh, data_interp, levels=levels,
                     colors='black', linewidths=1.0, linestyles='solid',
                     transform=data_crs
                 )
             else:
-                cs = self.ax.contour(
+                contour_set = self.ax.contour(
                     lon_mesh, lat_mesh, data_interp,
                     colors='black', linewidths=1.0, linestyles='solid',
                     transform=data_crs
@@ -789,13 +1078,13 @@ class MPASVisualizer:
 
             if levels is not None:
                 try:
-                    self.ax.clabel(cs, inline=True, fontsize=8, fmt='%g')
+                    self.ax.clabel(contour_set, inline=True, fontsize=8, fmt='%g')
                 except Exception:
                     pass
         except Exception as e:
             raise RuntimeError(f"Contour plotting failed: {e}")
 
-    def _create_contourf_plot(self: "MPASVisualizer",
+    def _create_contourf_plot(self: 'MPASVisualizer',
                               lon: np.ndarray,
                               lat: np.ndarray,
                               data: np.ndarray,
@@ -810,7 +1099,8 @@ class MPASVisualizer:
                               grid_resolution: Optional[float] = None,
                               dataset: Optional[xr.Dataset] = None,
                               colorbar_label: Optional[str] = None,
-                              colorbar_ticks: Optional[List[float]] = None,) -> None:
+                              colorbar_ticks: Optional[List[float]] = None,
+                              config: Optional[Any] = None,) -> None:
         """
         This method creates a filled contour plot by interpolating scattered data points onto a regular lat/lon grid and then using matplotlib's contourf function to draw filled contours. It first calls the _interpolate_to_grid method to perform the interpolation using MPASRemapper, which handles the complexities of remapping MPAS data onto a regular grid. The method then creates filled contour areas based on the interpolated data, with options for specifying explicit contour levels or allowing matplotlib to determine them automatically. It also adds a colorbar to the plot with appropriate labeling and tick formatting to provide context for interpreting the colors in terms of the underlying data values. This filled contour plot is useful for visualizing spatial patterns and gradients in MPAS data, such as temperature or precipitation fields, while ensuring that the underlying data is accurately represented on the map projection. 
 
@@ -839,16 +1129,16 @@ class MPASVisualizer:
 
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, dataset
+            grid_resolution, dataset, config=config
         )
 
         if levels is not None:
-            cs = self.ax.contourf(
+            contour_set = self.ax.contourf(
                 lon_mesh, lat_mesh, data_interp, levels=levels,
                 cmap=cmap_obj, norm=norm, transform=data_crs, extend='both'
             )
         else:
-            cs = self.ax.contourf(
+            contour_set = self.ax.contourf(
                 lon_mesh, lat_mesh, data_interp,
                 cmap=cmap_obj, norm=norm, transform=data_crs, extend='both'
             )
@@ -859,22 +1149,22 @@ class MPASVisualizer:
                     getattr(self, '_current_var_metadata', None)
                 )
 
-            cbar = MPASVisualizationStyle.add_colorbar(
-                self.fig, self.ax, cs,
+            colorbar = MPASVisualizationStyle.add_colorbar(
+                self.fig, self.ax, contour_set,
                 label=colorbar_label,
                 orientation='horizontal',
                 fraction=0.04, pad=0.06, shrink=0.8,
                 fmt=None, labelpad=-60, label_pos='top', tick_labelsize=8
             )
 
-            if cbar is not None:
+            if colorbar is not None:
                 if colorbar_ticks is not None and len(colorbar_ticks) <= 15:
-                    cbar.set_ticks(colorbar_ticks)
-                    cbar.set_ticklabels(self._format_ticks_dynamic(colorbar_ticks))
+                    colorbar.set_ticks(colorbar_ticks)
+                    colorbar.set_ticklabels(self._format_ticks_dynamic(colorbar_ticks))
                 else:
-                    ticks = cbar.get_ticks().tolist()
-                    cbar.set_ticks(ticks)
-                    cbar.set_ticklabels(self._format_ticks_dynamic(ticks))
-                cbar.ax.tick_params(labelsize=8)
+                    ticks = colorbar.get_ticks().tolist()
+                    colorbar.set_ticks(ticks)
+                    colorbar.set_ticklabels(self._format_ticks_dynamic(ticks))
+                colorbar.ax.tick_params(labelsize=8)
         except Exception:
             pass

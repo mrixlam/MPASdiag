@@ -22,7 +22,7 @@ from mpasdiag.processing.constants import WIND_SPEED_UNITS
 class WindDiagnostics:
     """ Computes diagnostics related to wind fields in MPAS model output, including wind speed, direction, shear, and component analysis. """
     
-    def __init__(self: "WindDiagnostics", 
+    def __init__(self: 'WindDiagnostics', 
                  verbose: bool = True) -> None:
         """
         This constructor initializes the WindDiagnostics class with an optional verbose flag that enables detailed output messages during wind calculations. The verbose mode provides insights into the ranges and means of computed wind diagnostics, which can be helpful for identifying potential issues with the input data or understanding the characteristics of the wind fields being analyzed. By default, verbose mode is enabled, but it can be turned off if a quieter output is preferred during processing. 
@@ -35,7 +35,7 @@ class WindDiagnostics:
         """
         self.verbose = verbose
     
-    def compute_wind_speed(self: "WindDiagnostics", 
+    def compute_wind_speed(self: 'WindDiagnostics', 
                            u_component: xr.DataArray, 
                            v_component: xr.DataArray) -> xr.DataArray:
         """
@@ -73,7 +73,7 @@ class WindDiagnostics:
         
         return wind_speed
     
-    def compute_wind_direction(self: "WindDiagnostics", 
+    def compute_wind_direction(self: 'WindDiagnostics', 
                                u_component: xr.DataArray, 
                                v_component: xr.DataArray, 
                                degrees: bool = True) -> xr.DataArray:
@@ -137,7 +137,7 @@ class WindDiagnostics:
             
             return direction_rad
     
-    def analyze_wind_components(self: "WindDiagnostics", 
+    def analyze_wind_components(self: 'WindDiagnostics', 
                                 u_component: xr.DataArray, 
                                 v_component: xr.DataArray, 
                                 w_component: Optional[xr.DataArray] = None) -> Dict[str, Any]:
@@ -222,7 +222,7 @@ class WindDiagnostics:
         
         return analysis
     
-    def compute_wind_shear(self: "WindDiagnostics", 
+    def compute_wind_shear(self: 'WindDiagnostics', 
                            u_upper: xr.DataArray, 
                            v_upper: xr.DataArray, 
                            u_lower: xr.DataArray, 
@@ -239,12 +239,12 @@ class WindDiagnostics:
         Returns:
             Tuple[xr.DataArray, xr.DataArray]: A tuple containing the wind shear magnitude (in m/s) and shear direction (in degrees) as xarray DataArrays with CF-compliant attributes.
         """
-        du = u_upper - u_lower
-        dv = v_upper - v_lower
-        
+        delta_u = u_upper - u_lower
+        delta_v = v_upper - v_lower
+
         shear_magnitude = xr.apply_ufunc(
             np.sqrt,
-            du**2 + dv**2,
+            delta_u**2 + delta_v**2,
             keep_attrs=True
         )
         shear_magnitude.attrs.update({
@@ -252,8 +252,8 @@ class WindDiagnostics:
             'standard_name': 'wind_shear_magnitude',
             'long_name': 'wind shear magnitude',
         })
-        
-        shear_direction = self.compute_wind_direction(du, dv, degrees=True)
+
+        shear_direction = self.compute_wind_direction(delta_u, delta_v, degrees=True)
         shear_direction.attrs['long_name'] = 'wind shear direction'
         
         if self.verbose:
@@ -264,7 +264,7 @@ class WindDiagnostics:
         
         return shear_magnitude, shear_direction
 
-    def _validate_3d_variable(self: "WindDiagnostics", 
+    def _validate_3d_variable(self: 'WindDiagnostics', 
                               dataset: xr.Dataset, 
                               var_name: str) -> None:
         """
@@ -285,7 +285,7 @@ class WindDiagnostics:
         if 'nVertLevels' not in var_dims and 'nVertLevelsP1' not in var_dims:
             raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
 
-    def _get_vertical_dimension(self: "WindDiagnostics", 
+    def _get_vertical_dimension(self: 'WindDiagnostics', 
                                 dataset: xr.Dataset, 
                                 var_name: str) -> str:
         """
@@ -301,7 +301,7 @@ class WindDiagnostics:
         var_dims = dataset[var_name].dims
         return 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
 
-    def _compute_level_index_from_pressure(self: "WindDiagnostics", 
+    def _compute_level_index_from_pressure(self: 'WindDiagnostics', 
                                            dataset: xr.Dataset, 
                                            pressure_level: float, 
                                            time_dim: str, 
@@ -330,12 +330,12 @@ class WindDiagnostics:
         level_idx = int(pressure_diff.argmin())
         
         if self.verbose:
-            target_p = mean_pressure.isel(nVertLevels=level_idx).values
-            print(f"Requested pressure: {pressure_level:.1f} Pa, using level {level_idx}: {target_p:.1f} Pa")
+            actual_pressure_at_level = mean_pressure.isel(nVertLevels=level_idx).values
+            print(f"Requested pressure: {pressure_level:.1f} Pa, using level {level_idx}: {actual_pressure_at_level:.1f} Pa")
         
         return level_idx
 
-    def _compute_level_index(self: "WindDiagnostics", 
+    def _compute_level_index(self: 'WindDiagnostics', 
                              dataset: xr.Dataset, 
                              var_name: str, 
                              level_spec: Union[str, int, float], 
@@ -376,7 +376,7 @@ class WindDiagnostics:
         else:
             raise ValueError(f"Invalid level specification: {level_spec}")
 
-    def _extract_variable_slice(self: "WindDiagnostics", 
+    def _extract_variable_slice(self: 'WindDiagnostics', 
                                 dataset: xr.Dataset, 
                                 var_name: str, 
                                 time_dim: str, 
@@ -409,7 +409,7 @@ class WindDiagnostics:
         
         return var_data
 
-    def get_3d_variable_at_level(self: "WindDiagnostics", 
+    def get_3d_variable_at_level(self: 'WindDiagnostics', 
                                  dataset: xr.Dataset, 
                                  var_name: str, 
                                  level: Union[str, int, float], 
@@ -449,7 +449,7 @@ class WindDiagnostics:
         
         return var_data
 
-    def _extract_w_component_with_fallback(self: "WindDiagnostics", 
+    def _extract_w_component_with_fallback(self: 'WindDiagnostics', 
                                            dataset: xr.Dataset, 
                                            w_variable: str, 
                                            level: Union[str, int, float], 
@@ -481,7 +481,7 @@ class WindDiagnostics:
             w_data.attrs['long_name'] = f'Zero vertical velocity (could not extract {w_variable})'
             return w_data
 
-    def _print_wind_component_diagnostics(self: "WindDiagnostics", 
+    def _print_wind_component_diagnostics(self: 'WindDiagnostics', 
                                           u_data: xr.DataArray, 
                                           v_data: xr.DataArray, 
                                           w_data: xr.DataArray, 
@@ -520,7 +520,7 @@ class WindDiagnostics:
         u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
         print(f"Units: {u_units}")
 
-    def get_3d_wind_components(self: "WindDiagnostics", 
+    def get_3d_wind_components(self: 'WindDiagnostics', 
                                dataset: xr.Dataset, 
                                u_variable: str, 
                                v_variable: str, 
@@ -565,7 +565,7 @@ class WindDiagnostics:
             else:
                 raise e
 
-    def get_2d_wind_components(self: "WindDiagnostics", 
+    def get_2d_wind_components(self: 'WindDiagnostics', 
                                dataset: xr.Dataset, 
                                u_variable: str, 
                                v_variable: str, 

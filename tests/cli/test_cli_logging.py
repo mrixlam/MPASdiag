@@ -18,15 +18,15 @@ import pytest
 class TestLoggingSetup:
     """ Test logging setup functionality for different verbosity modes. """
 
-    def test_setup_logging_normal_mode(self: "TestLoggingSetup") -> None:
+    def test_setup_logging_normal_mode(self: 'TestLoggingSetup') -> None:
         """
         This test verifies that the `setup_logging` method of the MPASUnifiedCLI class correctly initializes a logger and attaches it to the CLI instance in normal mode (neither verbose nor quiet). 
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises on failure to configure logging.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -39,15 +39,15 @@ class TestLoggingSetup:
         assert logger is not None
         assert cli.logger is logger
 
-    def test_setup_logging_verbose_mode(self: "TestLoggingSetup") -> None:
+    def test_setup_logging_verbose_mode(self: 'TestLoggingSetup') -> None:
         """
         This test checks that when `verbose=True` is set in the configuration, the `setup_logging` method configures a logger with a low numeric log level (DEBUG or lower). This ensures that verbose mode results in detailed logging output.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises if the logger level is not verbose enough.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -60,15 +60,15 @@ class TestLoggingSetup:
         assert logger is not None
         assert logger.logger.level <= 10  
 
-    def test_setup_logging_quiet_mode(self: "TestLoggingSetup") -> None:
+    def test_setup_logging_quiet_mode(self: 'TestLoggingSetup') -> None:
         """
         This test verifies that when `quiet=True` is set in the configuration, the `setup_logging` method configures a logger with a high numeric log level (ERROR or higher). This ensures that quiet mode suppresses most logging output.
 
         Parameters:
-            self (unittest.TestCase): The test instance.
+            None
 
         Returns:
-            None: Raises if the logger level is too verbose.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -85,15 +85,15 @@ class TestLoggingSetup:
 class TestSetupLoggingEdgeCases:
     """ Test logging setup with log file. """
     
-    def test_setup_logging_with_log_file(self) -> None:
+    def test_setup_logging_with_log_file(self: 'TestSetupLoggingEdgeCases') -> None:
         """
         This test verifies that the `setup_logging` method can accept a log file path and properly configure a file handler for logging output. It checks that the logger is created and that the specified log file is created on the filesystem.
 
         Parameters:
-            self (TestSetupLoggingEdgeCases): The test instance.
+            None
 
         Returns:
-            None: The test asserts the returned logger and filesystem effects.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig

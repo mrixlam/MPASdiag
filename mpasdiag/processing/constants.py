@@ -54,9 +54,11 @@ PERFORMANCE_MONITOR_MSG = "Performance monitor must be initialized"
 DATASET_NOT_LOADED_3D_MSG = "Dataset not loaded. Call load_3d_data() first."
 COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
 PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
+
 # ---------------------------------------------------------------------------
 # Physical constants
 # ---------------------------------------------------------------------------
+
 GRAVITY = 9.80665          # Gravitational acceleration (m/s²)
 P0_REF_PA = 100000.0       # Reference pressure for potential temperature (Pa)
 KAPPA = 0.2854             # Poisson constant R_d / c_p (dimensionless)
@@ -66,27 +68,32 @@ EPSILON_RD_RV = 0.622      # Ratio of molar masses: Rd / Rv
 # ---------------------------------------------------------------------------
 # Dimension names
 # ---------------------------------------------------------------------------
+
 NVERT_LEVELS_DIM = 'nVertLevels'
 
 # ---------------------------------------------------------------------------
 # Diagnostic unit strings
 # ---------------------------------------------------------------------------
+
 WIND_SPEED_UNITS = 'm s^{-1}'
 
 # ---------------------------------------------------------------------------
 # Log / status message strings
 # ---------------------------------------------------------------------------
+
 COORDS_FALLBACK_MSG = "Workers will extract coordinates individually"
 PRELOAD_COORDS_MSG  = "Pre-loading coordinates into cache..."
 
 # ---------------------------------------------------------------------------
 # CLI help strings
 # ---------------------------------------------------------------------------
+
 BATCH_MODE_HELP = 'Process all time steps in batch mode'
 
 # ---------------------------------------------------------------------------
 # Required variable lists for different diagnostic types
 # ---------------------------------------------------------------------------
+
 PRECIP_REQUIRED_VARS: dict = {
     'total':  ['rainc', 'rainnc'],
     'rainc':  ['rainc'],

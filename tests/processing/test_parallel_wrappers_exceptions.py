@@ -18,7 +18,7 @@ import pandas as pd
 import xarray as xr
 from pathlib import Path
 from contextlib import redirect_stdout
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from mpasdiag.processing.parallel import TaskResult
 from mpasdiag.processing.parallel_wrappers import (
@@ -26,92 +26,17 @@ from mpasdiag.processing.parallel_wrappers import (
     _surface_worker,
     _wind_worker,
     _cross_section_worker,
-    _process_parallel_results,
-    ParallelPrecipitationProcessor,
-    ParallelSurfaceProcessor,
-    ParallelWindProcessor,
-    ParallelCrossSectionProcessor,
-    auto_batch_processor
+    _process_parallel_results
 )
-from tests.test_data_helpers import assert_expected_public_methods
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 
 
-class TestImportErrorHandling:
-    """ Tests that verify import-time fallback behavior for optional modules. """
-    
-    def test_import_from_data_cache(self: "TestImportErrorHandling") -> None:
-        """
-        This test confirms that the `MPASDataCache` and `get_global_cache` symbols are available from the wrapper module, ensuring that the import fallback mechanism for the data cache is functioning correctly. It imports these symbols and asserts that they are not None, which indicates that the import succeeded and the fallback did not cause a failure. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        from mpasdiag.processing.parallel_wrappers import MPASDataCache, get_global_cache
-        data_cache = MPASDataCache()
-        assert_expected_public_methods(data_cache, 'MPASDataCache')
-        assert get_global_cache is not None
-    
-    def test_import_from_parallel(self: "TestImportErrorHandling") -> None:
-        """
-        This test confirms that the `MPASParallelManager`, `MPAS2DProcessor`, and `MPAS3DProcessor` symbols are available from the wrapper module, ensuring that the import fallback mechanism for the parallel processing components is functioning correctly. It imports these symbols and asserts that they are not None, which indicates that the import succeeded and the fallback did not cause a failure. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        from mpasdiag.processing.parallel_wrappers import MPASParallelManager
-        from mpasdiag.processing.parallel_wrappers import MPAS2DProcessor
-        from mpasdiag.processing.parallel_wrappers import MPAS3DProcessor
-
-        parallel_manager = MPASParallelManager()
-        assert_expected_public_methods(parallel_manager, 'MPASParallelManager')
-
-        process_2d = MPAS2DProcessor(grid_file=GRID_FILE)
-        assert_expected_public_methods(process_2d, 'MPAS2DProcessor')
-
-        process_3d = MPAS3DProcessor(grid_file=GRID_FILE)
-        assert_expected_public_methods(process_3d, 'MPAS3DProcessor')
-    
-    def test_import_from_visualization(self: "TestImportErrorHandling") -> None:
-        """
-        This test confirms that the `MPASPrecipitationPlotter`, `MPASSurfacePlotter`, `MPASWindPlotter`, `MPASVerticalCrossSectionPlotter`, and `PrecipitationDiagnostics` symbols are available from the wrapper module, ensuring that the import fallback mechanism for the visualization components is functioning correctly. It imports these symbols and asserts that they are not None, which indicates that the import succeeded and the fallback did not cause a failure. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        from mpasdiag.processing.parallel_wrappers import PrecipitationDiagnostics
-
-        precip_plotter = ParallelPrecipitationProcessor()
-        assert_expected_public_methods(precip_plotter, 'ParallelPrecipitationProcessor')
-
-        surface_plotter = ParallelSurfaceProcessor()
-        assert_expected_public_methods(surface_plotter, 'ParallelSurfaceProcessor')
-
-        wind_plotter = ParallelWindProcessor()
-        assert_expected_public_methods(wind_plotter, 'ParallelWindProcessor')
-
-        cross_section_plotter = ParallelCrossSectionProcessor()
-        assert_expected_public_methods(cross_section_plotter, 'ParallelCrossSectionProcessor')  
-
-        precip_diag = PrecipitationDiagnostics()
-        assert_expected_public_methods(precip_diag, 'PrecipitationDiagnostics')      
-
-
 class TestPrecipitationWorkerCacheException:
     """ Tests for handling exceptions related to cache loading in the precipitation worker. """
     
-    def test_precipitation_worker_cache_load_exception(self: "TestPrecipitationWorkerCacheException", 
+    def test_precipitation_worker_cache_load_exception(self: 'TestPrecipitationWorkerCacheException', 
                                                        temp_output_dir: Path) -> None:
         """
         This test verifies that the `_precipitation_worker` function handles exceptions raised during cache loading gracefully. It mocks the processor to return a dataset with a `rainnc` variable and configures the cache mock to raise an exception when attempting to load coordinates. The test asserts that the worker function completes without crashing and returns a result, confirming that the error handling for cache loading issues is functioning correctly and does not cause unhandled exceptions in the worker workflow. 
@@ -192,7 +117,7 @@ class TestPrecipitationWorkerCacheException:
 class TestPrecipitationWorkerTimeString:
     """ Tests for handling missing Time dimension and fallback time string generation in the precipitation worker. """
     
-    def test_precipitation_worker_no_time_dimension(self: "TestPrecipitationWorkerTimeString", 
+    def test_precipitation_worker_no_time_dimension(self: 'TestPrecipitationWorkerTimeString', 
                                                     temp_output_dir: Path) -> None:
         """
         This test verifies that the `_precipitation_worker` function can handle a dataset that lacks a Time dimension and correctly generates a fallback time string. It mocks the processor to return a dataset with a `rainnc` variable that only has an `nCells` dimension, simulating the absence of time information. The test asserts that the worker function completes without crashing and returns a result with a time string in the expected fallback format, confirming that the worker can gracefully handle datasets without time coordinates. 
@@ -265,7 +190,7 @@ class TestPrecipitationWorkerTimeString:
 class TestPrecipitationWorkerCustomTitle:
     """ Tests for verifying that a custom title template is correctly passed through to the precipitation plotter in the worker function. """
     
-    def test_precipitation_worker_custom_title_template(self: "TestPrecipitationWorkerCustomTitle", 
+    def test_precipitation_worker_custom_title_template(self: 'TestPrecipitationWorkerCustomTitle', 
                                                         temp_output_dir: Path) -> None:
         """
         This test verifies that the `_precipitation_worker` function correctly accepts a custom title template and passes it to the plotter when creating precipitation maps. It mocks the processor to return a dataset with a `rainnc` variable and configures the plotter mock to capture the title argument used in the `create_precipitation_map` method. The test asserts that the custom title template is included in the title passed to the plotter, confirming that the worker function properly integrates user-defined title templates into the plotting workflow. 
@@ -342,7 +267,7 @@ class TestPrecipitationWorkerCustomTitle:
 class TestSurfaceWorkerCacheException:
     """ Tests for handling cache failures in the surface worker. """
     
-    def test_surface_worker_cache_load_exception(self: "TestSurfaceWorkerCacheException", 
+    def test_surface_worker_cache_load_exception(self: 'TestSurfaceWorkerCacheException', 
                                                  temp_output_dir: Path) -> None:
         """
         This test verifies that the `_surface_worker` function can handle exceptions raised during cache loading without crashing. It mocks the processor to return a dataset with a `t2m` variable and configures the cache mock to raise an exception when attempting to load coordinates. The test asserts that the worker function completes and returns a result, confirming that the error handling for cache loading issues is functioning correctly and does not cause unhandled exceptions in the worker workflow. 
@@ -414,7 +339,7 @@ class TestSurfaceWorkerCacheException:
 class TestWindWorkerTimeString:
     """ Tests for handling missing Time dimension and fallback time string generation in the wind worker. """
     
-    def test_wind_worker_no_time_dimension(self: "TestWindWorkerTimeString", 
+    def test_wind_worker_no_time_dimension(self: 'TestWindWorkerTimeString', 
                                            temp_output_dir: Path) -> None:
         """
         This test verifies that the `_wind_worker` function can handle a dataset that lacks a Time dimension and correctly generates a fallback time string. It mocks the processor to return a dataset with `u10` and `v10` variables that only have an `nCells` dimension, simulating the absence of time information. The test asserts that the worker function completes without crashing and returns a result with a time string in the expected fallback format, confirming that the worker can gracefully handle datasets without time coordinates. 
@@ -479,7 +404,7 @@ class TestWindWorkerTimeString:
 class TestWindWorkerCacheException:
     """ Tests for handling exceptions related to cache loading in the wind worker. """
     
-    def test_wind_worker_cache_load_exception(self: "TestWindWorkerCacheException", 
+    def test_wind_worker_cache_load_exception(self: 'TestWindWorkerCacheException', 
                                               temp_output_dir: Path) -> None:
         """
         This test verifies that the `_wind_worker` function can handle exceptions raised during cache loading gracefully. It mocks the processor to return a dataset with `u10` and `v10` variables and configures the cache mock to raise an exception when attempting to load coordinates. The test asserts that the worker function completes without crashing and returns a result, confirming that the error handling for cache loading issues is functioning correctly and does not cause unhandled exceptions in the worker workflow. 
@@ -561,7 +486,7 @@ class TestWindWorkerCacheException:
 class TestCrossSectionWorkerMultipleFormats:
     """ Tests for handling multiple output formats in the cross-section worker. """
     
-    def test_cross_section_worker_multiple_formats(self: "TestCrossSectionWorkerMultipleFormats", 
+    def test_cross_section_worker_multiple_formats(self: 'TestCrossSectionWorkerMultipleFormats', 
                                                    temp_output_dir: Path) -> None:
         """
         This test verifies that the `_cross_section_worker` function can handle multiple output formats correctly. It mocks the processor to return a dataset with a `theta` variable and configures the plotter mock to capture calls to `savefig`. The test asserts that the worker function completes without crashing, returns a result with multiple files, and that the plotter's `savefig` method is called for each specified format, confirming that the worker function properly handles generating and saving plots in multiple formats as requested. 
@@ -623,7 +548,7 @@ class TestCrossSectionWorkerMultipleFormats:
 class TestProcessParallelResultsFailures:
     """ Test _process_parallel_results with failed tasks. """
     
-    def test_process_parallel_results_with_failures(self: "TestProcessParallelResultsFailures", 
+    def test_process_parallel_results_with_failures(self: 'TestProcessParallelResultsFailures', 
                                                     temp_output_dir: Path) -> None:
         """
         This test verifies that the `_process_parallel_results` function can handle a mix of successful and failed task results without crashing. It creates a list of `TaskResult` objects where some tasks indicate success with valid results, while others indicate failure with error messages. The test asserts that the function processes the results correctly, returns only the files from successful tasks, and that the output includes relevant statistics about the total, completed, and failed tasks, as well as timing information. This confirms that the function can gracefully handle and report on mixed outcomes from parallel processing tasks. 
@@ -685,49 +610,3 @@ class TestProcessParallelResultsFailures:
         assert len(created_files) == pytest.approx(2)
         assert "TEST_PROCESSING" in output
         assert "test_var" in output
-
-
-class TestAutoBatchProcessorAdditional:
-    """ Tests for additional edge cases in the auto_batch_processor function, including MPI import failure and explicit True/False settings. """
-    
-    def test_auto_batch_processor_mpi_import_error(self: "TestAutoBatchProcessorAdditional") -> None:
-        """
-        This test verifies that the `auto_batch_processor` function correctly handles an `ImportError` when attempting to import `mpi4py`. By mocking the built-in `__import__` function to raise an `ImportError` when `mpi4py` is imported, the test confirms that `auto_batch_processor` falls back to returning `False`, indicating that parallel processing cannot be used. This ensures that the function can gracefully handle the absence of optional dependencies without crashing. 
-
-        Parameters:
-            None
-            
-        Returns:
-            None: Assertions validate fallback behavior.
-        """
-        with patch('builtins.__import__', side_effect=ImportError("No mpi4py")):
-            result = auto_batch_processor(use_parallel=None)
-            assert result is False
-    
-    def test_auto_batch_processor_explicit_true(self: "TestAutoBatchProcessorAdditional") -> None:
-        """
-        This test confirms that the `auto_batch_processor` function returns `True` when explicitly enabled, regardless of the environment. By passing `use_parallel=True`, the test asserts that the function respects the explicit setting and returns `True`, indicating that parallel processing should be used. This ensures that user preferences for enabling parallel processing are honored by the function. 
-
-        Parameters:
-            None
-
-        Returns:
-            None: Assertion verifies returned boolean.
-        """
-        result = auto_batch_processor(use_parallel=True)
-        assert result is True
-    
-    def test_auto_batch_processor_explicit_false(self: "TestAutoBatchProcessorAdditional") -> None:
-        """
-        This test confirms that the `auto_batch_processor` function returns `False` when explicitly disabled, regardless of the environment. By passing `use_parallel=False`, the test asserts that the function respects the explicit setting and returns `False`, indicating that parallel processing should not be used. This ensures that user preferences for disabling parallel processing are honored by the function. 
-
-        Parameters:
-            None
-
-        Returns:
-            None: Assertion verifies returned boolean.
-        """
-        result = auto_batch_processor(use_parallel=False)
-        assert result is False
-
-

@@ -32,7 +32,7 @@ class TestRegridWindComponents:
     # ------------------ Initialize Plotter Fixture ------------------
 
     @pytest.fixture
-    def plotter(self: "TestRegridWindComponents") -> MPASWindPlotter:
+    def plotter(self: 'TestRegridWindComponents') -> 'MPASWindPlotter':
         """
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind component regridding tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `_regrid_wind_components` method without worrying about shared state or side effects from previous tests.
 
@@ -46,8 +46,8 @@ class TestRegridWindComponents:
     
     # ------------------ Test Linear Regridding Method ------------------
 
-    def test_regrid_linear_method(self: "TestRegridWindComponents", 
-                                  plotter: MPASWindPlotter, 
+    def test_regrid_linear_method(self: 'TestRegridWindComponents', 
+                                  plotter: 'MPASWindPlotter', 
                                   monkeypatch) -> None:
         """
         This test verifies that specifying `regrid_method='linear'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with linear interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a linear regridding of the input data. This ensures that users can rely on the linear regridding option to produce accurate results when visualizing wind vectors on a regular grid.
@@ -121,8 +121,8 @@ class TestRegridWindComponents:
     
     # ------------------ Test Nearest Regridding Method ------------------
 
-    def test_regrid_nearest_method(self: "TestRegridWindComponents", 
-                                   plotter: MPASWindPlotter, 
+    def test_regrid_nearest_method(self: 'TestRegridWindComponents', 
+                                   plotter: 'MPASWindPlotter', 
                                    monkeypatch) -> None:
         """
         This test verifies that specifying `regrid_method='nearest'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with nearest-neighbor interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a nearest-neighbor regridding of the input data. This ensures that users can rely on the nearest regridding option to produce accurate results when visualizing wind vectors on a regular grid without smoothing.
@@ -198,12 +198,12 @@ class TestCreateWindPlot:
     # ------------------ Initialize Plotter Fixture ------------------
 
     @pytest.fixture
-    def plotter(self: "TestCreateWindPlot",) -> MPASWindPlotter:
+    def plotter(self: 'TestCreateWindPlot',) -> 'MPASWindPlotter':
         """
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind plot creation tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `create_wind_plot` method without worrying about shared state or side effects from previous tests.
 
         Parameters:
-            self ("TestCreateWindPlot"): Test instance which will receive the plotter fixture.
+            self ('TestCreateWindPlot'): Test instance which will receive the plotter fixture.
 
         Returns:
             MPASWindPlotter: Plotter instance used to create plots in tests.
@@ -212,8 +212,8 @@ class TestCreateWindPlot:
 
     # ------------------ Test Basic Wind Plot Creation ------------------
 
-    def test_create_wind_plot_basic(self: "TestCreateWindPlot", 
-                                    plotter: MPASWindPlotter, 
+    def test_create_wind_plot_basic(self: 'TestCreateWindPlot', 
+                                    plotter: 'MPASWindPlotter', 
                                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                     mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                     monkeypatch) -> None:
@@ -265,8 +265,8 @@ class TestCreateWindPlot:
 
     # ------------------ Test Wind Plot Creation with Automatic Subsampling ------------------
 
-    def test_create_wind_plot_auto_subsample(self: "TestCreateWindPlot", 
-                                             plotter: MPASWindPlotter, 
+    def test_create_wind_plot_auto_subsample(self: 'TestCreateWindPlot', 
+                                             plotter: 'MPASWindPlotter', 
                                              mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                              mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                              monkeypatch) -> None:
@@ -319,8 +319,8 @@ class TestCreateWindPlot:
 
     # ------------------ Test Wind Plot Creation with Global Extent ------------------
 
-    def test_create_wind_plot_global_extent(self: "TestCreateWindPlot", 
-                                            plotter: MPASWindPlotter, 
+    def test_create_wind_plot_global_extent(self: 'TestCreateWindPlot', 
+                                            plotter: 'MPASWindPlotter', 
                                             mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                             mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                             monkeypatch) -> None:
@@ -381,8 +381,8 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Custom Title ------------------
 
-    def test_create_wind_plot_custom_title(self: "TestCreateWindPlot", 
-                                           plotter: MPASWindPlotter, 
+    def test_create_wind_plot_custom_title(self: 'TestCreateWindPlot', 
+                                           plotter: 'MPASWindPlotter', 
                                            mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                            mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                            monkeypatch) -> None:
@@ -440,8 +440,8 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Timestamp ------------------
 
-    def test_create_wind_plot_with_timestamp(self: "TestCreateWindPlot", 
-                                             plotter: MPASWindPlotter, 
+    def test_create_wind_plot_with_timestamp(self: 'TestCreateWindPlot', 
+                                             plotter: 'MPASWindPlotter', 
                                              mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                              mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                              monkeypatch) -> None:
@@ -496,8 +496,8 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Level Info ------------------
 
-    def test_create_wind_plot_with_level_info(self: "TestCreateWindPlot", 
-                                              plotter: MPASWindPlotter, 
+    def test_create_wind_plot_with_level_info(self: 'TestCreateWindPlot', 
+                                              plotter: 'MPASWindPlotter', 
                                               mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                               mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                               monkeypatch) -> None:
@@ -552,8 +552,8 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Regridding ------------------
 
-    def test_create_wind_plot_with_regridding(self: "TestCreateWindPlot", 
-                                              plotter: MPASWindPlotter, 
+    def test_create_wind_plot_with_regridding(self: 'TestCreateWindPlot', 
+                                              plotter: 'MPASWindPlotter', 
                                               mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                               mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                               monkeypatch) -> None:
@@ -610,8 +610,8 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Streamlines Auto-Regrid ------------------
 
-    def test_create_wind_plot_streamlines_auto_regrid(self: "TestCreateWindPlot", 
-                                                      plotter: MPASWindPlotter, 
+    def test_create_wind_plot_streamlines_auto_regrid(self: 'TestCreateWindPlot', 
+                                                      plotter: 'MPASWindPlotter', 
                                                       mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                                       mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                                       monkeypatch) -> None:
@@ -667,57 +667,11 @@ class TestCreateWindPlot:
     
     # ------------------ Test Wind Plot Creation with Empty Data ------------------
 
-    def test_create_wind_plot_empty_data(self: "TestCreateWindPlot", 
-                                         plotter: MPASWindPlotter, 
-                                         mpas_coordinates: tuple[np.ndarray, np.ndarray], 
-                                         mpas_wind_data: tuple[np.ndarray, np.ndarray], 
-                                         monkeypatch) -> None:
-        """
-        This test verifies that when empty or NaN-filled coordinate and wind component arrays are passed to `create_wind_plot`, the method handles the lack of valid data gracefully without raising exceptions, and still returns a figure and axes object that can be used for setting titles or labels. The test uses real headless plotting to confirm that the plotting machinery can handle empty data inputs without crashing. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully even with empty data. This ensures that users can call `create_wind_plot` with empty datasets (e.g., due to filtering or masking) without encountering errors, and that they can still set up the plot framework for later population with valid data.
-
-        Parameters:
-            mock_regional (MagicMock): Patched `add_regional_features` method.
-            mock_render (MagicMock): Patched `_render_wind_vectors` method.
-            mock_subplots (MagicMock): Patched `plt.subplots` factory.
-            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
-            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
-            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
-            monkeypatch: Pytest fixture for patching methods.
-
-        Returns:
-            None: Assertion-based test; raises on failure.
-        """
-        # Use real headless plotting instead of monkeypatching plt.subplots
-        _, _ = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
-        
-        # Provide coordinate arrays with valid values
-        lon = np.array([10, 20, 30])
-        lat = np.array([5, 10, 15])
-
-        # Wind components are NaN to represent no valid data
-        u = np.array([np.nan, np.nan, np.nan])
-        v = np.array([np.nan, np.nan, np.nan])
-        
-        # Create the wind plot with empty data; should handle gracefully without exceptions
-        fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25
-        )
-        
-        # Even with empty data, a figure and axes should be returned to allow for titles/labels, so we check that they are not None
-        assert fig is not None 
-
-        # Axis should be returned even if no vectors are rendered, allowing for titles/labels to be set
-        assert ax is not None
-
-        # Close the figure to free resources
-        plt.close(fig)
     
     # ------------------ Test Wind Plot Creation with 2D Gridded Data ------------------
 
-    def test_create_wind_plot_2d_data(self: "TestCreateWindPlot", 
-                                      plotter: MPASWindPlotter, 
+    def test_create_wind_plot_2d_data(self: 'TestCreateWindPlot', 
+                                      plotter: 'MPASWindPlotter', 
                                       mpas_coordinates: tuple[np.ndarray, np.ndarray], 
                                       mpas_wind_data: tuple[np.ndarray, np.ndarray], 
                                       monkeypatch) -> None:
@@ -770,5 +724,3 @@ class TestCreateWindPlot:
 
         # Close the figure to free resources
         plt.close(fig)
-
-

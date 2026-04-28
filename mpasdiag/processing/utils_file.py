@@ -59,8 +59,8 @@ class FileManager:
             return []
 
         if recursive:
-            return sorted([str(p) for p in path.rglob(pattern)])
-        return sorted([str(p) for p in path.glob(pattern)])
+            return sorted([str(file_path) for file_path in path.rglob(pattern)])
+        return sorted([str(file_path) for file_path in path.glob(pattern)])
     
     @staticmethod
     def get_file_info(filepath: str) -> Dict[str, Any]:
@@ -78,14 +78,14 @@ class FileManager:
         if not path.exists():
             return {"exists": False}
 
-        stat = path.stat()
+        file_stat = path.stat()
 
         return {
             "exists": True,
-            "size": stat.st_size,
-            "size_mb": stat.st_size / (1024 * 1024),
-            "modified": datetime.fromtimestamp(stat.st_mtime),
-            "created": datetime.fromtimestamp(stat.st_ctime),
+            "size": file_stat.st_size,
+            "size_mb": file_stat.st_size / (1024 * 1024),
+            "modified": datetime.fromtimestamp(file_stat.st_mtime),
+            "created": datetime.fromtimestamp(file_stat.st_ctime),
         }
     
     @staticmethod
@@ -225,12 +225,12 @@ class FileManager:
         files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=False)
 
         if not files:
-            diag_sub = os.path.join(data_dir, 'diag')
-            mpasout_sub = os.path.join(data_dir, 'mpasout')
-            files = FileManager.find_files(diag_sub, DIAG_GLOB, recursive=False)
+            diag_subdir = os.path.join(data_dir, 'diag')
+            mpasout_subdir = os.path.join(data_dir, 'mpasout')
+            files = FileManager.find_files(diag_subdir, DIAG_GLOB, recursive=False)
 
             if not files:
-                files = FileManager.find_files(mpasout_sub, DIAG_GLOB, recursive=False)
+                files = FileManager.find_files(mpasout_subdir, DIAG_GLOB, recursive=False)
 
         if not files:
             files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=True)

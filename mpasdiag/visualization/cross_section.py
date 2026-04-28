@@ -125,7 +125,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                   vertical_coords: np.ndarray,
                                   vertical_coord_type: str,
                                   desired_display: str,
-                                  mpas_3d_processor: MPAS3DProcessor,
+                                  mpas_3d_processor: 'MPAS3DProcessor',
                                   time_index: int) -> Tuple[np.ndarray, str]:
         """
         This internal method resolves the vertical coordinate values for display based on the desired vertical coordinate type. It accepts the original vertical coordinates and their type, along with the desired display type (e.g., 'height', 'pressure', 'modlev'). Depending on the desired display, it performs the necessary conversions using the MPAS3DProcessor methods to convert model levels to height or pressure as needed. If the desired display is 'pressure' but the vertical coordinates contain non-positive or non-finite values, it issues a warning and falls back to displaying model levels. The method returns the vertical coordinates formatted for display and a string indicating the type of vertical coordinate being displayed.
@@ -134,7 +134,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             vertical_coords (np.ndarray): The original vertical coordinate values extracted from the dataset.
             vertical_coord_type (str): The type of the original vertical coordinates (e.g., 'pressure', 'height', 'modlev').
             desired_display (str): The desired vertical coordinate type for display ('pressure', 'height', 'modlev').
-            mpas_3d_processor (MPAS3DProcessor): The processor instance used for any necessary conversions.
+            mpas_3d_processor ('MPAS3DProcessor'): The processor instance used for any necessary conversions.
             time_index (int): The time index for selecting temporal data if needed for conversions. 
 
         Returns:
@@ -153,13 +153,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         if desired_display == 'pressure':
             try:
-                v = vertical_coords.astype(float).copy()
+                pressure_values = vertical_coords.astype(float).copy()
             except Exception:
-                v = np.asarray(vertical_coords, dtype=float)
-            if not np.all(np.isfinite(v)) or np.nanmin(v) <= 0:
+                pressure_values = np.asarray(vertical_coords, dtype=float)
+            if not np.all(np.isfinite(pressure_values)) or np.nanmin(pressure_values) <= 0:
                 print("Warning: vertical coordinates contain non-positive or non-finite values; cannot display as pressure. Falling back to model levels.")
                 return np.arange(len(vertical_coords), dtype=float), 'modlev'
-            return (v / 100.0 if np.nanmax(v) > 10000 else v), 'pressure_hPa'
+            return (pressure_values / 100.0 if np.nanmax(pressure_values) > 10000 else pressure_values), 'pressure_hPa'
 
         if desired_display == 'modlev':
             return vertical_coords, 'modlev'
@@ -285,17 +285,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         assert self.ax is not None, "Axes must be initialized before rendering the plot"
 
         if plot_type == 'contourf':
-            cs = self.ax.contourf(X, Y, data_values, levels=levels, cmap=colormap, extend=extend, **kwargs)
-            cs_lines = self.ax.contour(X, Y, data_values, levels=levels, colors='black', linewidths=0.5, alpha=0.6)
-            self.ax.clabel(cs_lines, inline=True, fontsize=8, fmt='%.1f')
+            contour_set = self.ax.contourf(X, Y, data_values, levels=levels, cmap=colormap, extend=extend, **kwargs)
+            contour_lines = self.ax.contour(X, Y, data_values, levels=levels, colors='black', linewidths=0.5, alpha=0.6)
+            self.ax.clabel(contour_lines, inline=True, fontsize=8, fmt='%.1f')
         elif plot_type == 'contour':
-            cs = self.ax.contour(X, Y, data_values, levels=levels, cmap=colormap, **kwargs)
-            self.ax.clabel(cs, inline=True, fontsize=8, fmt='%.1f')
+            contour_set = self.ax.contour(X, Y, data_values, levels=levels, cmap=colormap, **kwargs)
+            self.ax.clabel(contour_set, inline=True, fontsize=8, fmt='%.1f')
         elif plot_type == 'pcolormesh':
-            cs = self.ax.pcolormesh(X, Y, data_values, cmap=colormap, **kwargs)
+            contour_set = self.ax.pcolormesh(X, Y, data_values, cmap=colormap, **kwargs)
         else:
             raise ValueError(f"Unknown plot_type: {plot_type}. Use 'contourf', 'contour', or 'pcolormesh'")
-        
+
         if plot_type in ['contourf', 'pcolormesh']:
             label = (
                 f"{metadata.get('long_name', var_name)} [{metadata.get('units', '')}]"
@@ -305,14 +305,14 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             assert self.fig is not None, "Figure must be initialized before adding a colorbar"
 
             MPASVisualizationStyle.add_colorbar(
-                self.fig, self.ax, cs,
+                self.fig, self.ax, contour_set,
                 label=label,
                 orientation='vertical', fraction=0.03, pad=0.05, shrink=0.8,
                 fmt=None, labelpad=4, label_pos='right', tick_labelsize=10
             )
 
     def _generate_cross_section_title(self: 'MPASVerticalCrossSectionPlotter',
-                                      mpas_3d_processor: MPAS3DProcessor,
+                                      mpas_3d_processor: 'MPAS3DProcessor',
                                       var_name: str,
                                       time_index: int,
                                       title: Optional[str]) -> str:
@@ -320,7 +320,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This internal method generates a title for the vertical cross-section plot based on the variable name and time information. If a custom title is provided, it returns that title directly. Otherwise, it attempts to retrieve a time string from the MPAS3DProcessor using the specified time index and formats a default title that includes the variable name and valid time. If there is an issue retrieving the time information, it falls back to a simpler title that only includes the variable name. This method ensures that the plot has an informative title that provides context about the variable being visualized and the time of the data, while also allowing for user customization when desired.
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): The processor instance used to retrieve time information for the title.
+            mpas_3d_processor ('MPAS3DProcessor'): The processor instance used to retrieve time information for the title.
             var_name (str): The name of the variable being plotted, used in the title.
             time_index (int): The time index for selecting temporal data from the dataset, used to retrieve valid time information for the title.
             title (Optional[str]): A custom title provided by the user; if None, a default title will be generated based on variable name and time information. 
@@ -454,7 +454,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         
 
     def _resolve_vertical_levels(self: 'MPASVerticalCrossSectionPlotter',
-                                 mpas_3d_processor: MPAS3DProcessor,
+                                 mpas_3d_processor: 'MPAS3DProcessor',
                                  var_name: str,
                                  vertical_coord: str,
                                  time_index: int) -> Tuple[np.ndarray, str]:
@@ -462,7 +462,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This internal method resolves the vertical levels for the specified variable and vertical coordinate type. It attempts to retrieve the vertical levels from the MPAS3DProcessor using the get_vertical_levels method, which may return either pressure levels or model levels based on the vertical_coord argument. If the retrieved vertical levels are integer indices, it assumes they represent model levels and updates the vertical_coord accordingly. If there is an issue retrieving the vertical levels (e.g., due to missing metadata or unexpected data structure), it falls back to generating a default range of model level indices based on the dataset dimensions. The method returns the resolved vertical levels as a numpy array and a string indicating the type of vertical coordinate being used for display.
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): The processor instance used to retrieve vertical levels from the dataset.
+            mpas_3d_processor ('MPAS3DProcessor'): The processor instance used to retrieve vertical levels from the dataset.
             var_name (str): The name of the variable for which to retrieve vertical levels.
             vertical_coord (str): The type of vertical coordinate to retrieve ('pressure' or 'modlev').
             time_index (int): The time index for selecting temporal data if needed for retrieving vertical levels.
@@ -511,7 +511,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return np.arange(n_levels), 'modlev'
 
     def _extract_cross_section_coords(self: 'MPASVerticalCrossSectionPlotter',
-                                      mpas_3d_processor: MPAS3DProcessor,
+                                      mpas_3d_processor: 'MPAS3DProcessor',
                                       var_name: str,
                                       path_lons: np.ndarray,
                                       path_lats: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -519,7 +519,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This internal method extracts the longitude and latitude coordinates from the MPAS3DProcessor dataset for the specified variable. It first attempts to use the extract_2d_coordinates_for_variable method, which may provide variable-specific coordinate extraction logic. If that fails (e.g., due to missing metadata or unexpected data structure), it falls back to using the 'lonCell' and 'latCell' variables from the dataset as default coordinates. The method also checks if the longitude values are in radians (i.e., within ±π) and converts them to degrees if necessary. Finally, it prints information about the grid domain and cross-section path, and checks whether the path extends outside the grid domain, issuing a warning if so. The method returns the longitude and latitude coordinates as numpy arrays for use in spatial interpolation along the cross-section path.
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): The processor instance used to access the dataset and extract coordinates.
+            mpas_3d_processor ('MPAS3DProcessor'): The processor instance used to access the dataset and extract coordinates.
             var_name (str): The name of the variable for which to extract coordinates, used to determine if variable-specific coordinate extraction logic should be applied.
             path_lons (np.ndarray): The longitude coordinates of the cross-section path, used to check if the path extends outside the grid domain.
             path_lats (np.ndarray): The latitude coordinates of the cross-section path, used to check if the path extends outside the grid domain.
@@ -551,13 +551,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         return lon_coords, lat_coords
 
     @staticmethod
-    def _unwrap_dataset_var(mpas_3d_processor: MPAS3DProcessor,
+    def _unwrap_dataset_var(mpas_3d_processor: 'MPAS3DProcessor',
                             var_name: str) -> Tuple[xr.DataArray, Optional[str], Optional[str]]:
         """
         This static method unwraps the specified variable from the MPAS3DProcessor dataset and identifies the time and vertical dimension names. It first checks if the dataset is an xarray Dataset or can be converted to one, then retrieves the DataArray for the specified variable. It looks for common time dimension names ('Time' or 'time') and vertical dimension names ('nVertLevels' or 'nVertLevelsP1') in the variable's dimensions. The method returns the variable's DataArray along with the identified time and vertical dimension names, which are used later for indexing and interpolation when generating the cross-section data. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): The processor instance used to access the dataset.
+            mpas_3d_processor ('MPAS3DProcessor'): The processor instance used to access the dataset.
             var_name (str): The name of the variable for which to extract data.
 
         Returns:
@@ -653,19 +653,19 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
                 isel_dict[vert_dim] = level_idx
                 data_values = self._extract_level_data(var_da, isel_dict, lon_coords.shape[0])
-                
+
                 cross_section_data[level_idx, :] = self._interpolate_along_path(
                     lon_coords, lat_coords, data_values, path_lons, path_lats
                 )
             except Exception as e:
                 print(f"Warning: Could not extract data for level {level}: {e}")
 
-        valid = ~np.isnan(cross_section_data)
+        valid_mask = ~np.isnan(cross_section_data)
 
-        if np.any(valid):
-            data_min = np.min(cross_section_data[valid])
-            data_max = np.max(cross_section_data[valid])
-            print(f"Final cross-section data: {data_min:.3f} to {data_max:.3f} ({np.sum(valid)}/{cross_section_data.size} valid points)")
+        if np.any(valid_mask):
+            data_min = np.min(cross_section_data[valid_mask])
+            data_max = np.max(cross_section_data[valid_mask])
+            print(f"Final cross-section data: {data_min:.3f} to {data_max:.3f} ({np.sum(valid_mask)}/{cross_section_data.size} valid points)")
         else:
             print("WARNING: Final cross-section data contains NO valid values!")
 
@@ -673,7 +673,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
 
     def _generate_cross_section_data(self: 'MPASVerticalCrossSectionPlotter', 
-                                     mpas_3d_processor: MPAS3DProcessor, 
+                                     mpas_3d_processor: 'MPAS3DProcessor', 
                                      var_name: str, 
                                      start_point: Tuple[float, float], 
                                      end_point: Tuple[float, float], 
@@ -684,7 +684,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This internal method generates the cross-section data by interpolating the specified 3D variable along a great-circle path defined by the start and end points. It retrieves the vertical levels for the variable, extracts the corresponding data slices for each level, and performs spatial interpolation to obtain data values along the cross-section path. The method handles different vertical coordinate types, checks for valid data, and returns a dictionary containing the distances along the path, vertical coordinates, interpolated data values, and other relevant information for plotting. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance providing dataset access and processing capabilities.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance providing dataset access and processing capabilities.
             var_name (str): Name of the 3D variable to extract and interpolate for the cross-section.
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
@@ -746,8 +746,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         dlat = lat2 - lat1
         dlon = lon2 - lon1
 
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        total_distance = 2 * asin(sqrt(a)) * 6371.0  
+        haversine_val = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        total_distance = 2 * asin(sqrt(haversine_val)) * 6371.0
         
         fractions = np.linspace(0, 1, num_points)
         lons = np.zeros(num_points)
@@ -760,27 +760,27 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             distances.fill(0)
             return lons, lats, distances
         
-        for i, f in enumerate(fractions):
-            if f == 0:
+        for i, path_fraction in enumerate(fractions):
+            if path_fraction == 0:
                 lons[i] = start_point[0]
                 lats[i] = start_point[1]
                 distances[i] = 0
-            elif f == 1:
+            elif path_fraction == 1:
                 lons[i] = end_point[0]
                 lats[i] = end_point[1]
                 distances[i] = total_distance
             else:
-                angular_distance = total_distance / 6371.0  
-                A = sin((1-f) * angular_distance) / sin(angular_distance)
-                B = sin(f * angular_distance) / sin(angular_distance)
-                
-                x = A * cos(lat1) * cos(lon1) + B * cos(lat2) * cos(lon2)
-                y = A * cos(lat1) * sin(lon1) + B * cos(lat2) * sin(lon2)
-                z = A * sin(lat1) + B * sin(lat2)
-                
-                lats[i] = degrees(atan2(z, sqrt(x**2 + y**2)))
-                lons[i] = degrees(atan2(y, x))
-                distances[i] = f * total_distance
+                angular_distance = total_distance / 6371.0
+                slerp_coeff_a = sin((1-path_fraction) * angular_distance) / sin(angular_distance)
+                slerp_coeff_b = sin(path_fraction * angular_distance) / sin(angular_distance)
+
+                cart_x = slerp_coeff_a * cos(lat1) * cos(lon1) + slerp_coeff_b * cos(lat2) * cos(lon2)
+                cart_y = slerp_coeff_a * cos(lat1) * sin(lon1) + slerp_coeff_b * cos(lat2) * sin(lon2)
+                cart_z = slerp_coeff_a * sin(lat1) + slerp_coeff_b * sin(lat2)
+
+                lats[i] = degrees(atan2(cart_z, sqrt(cart_x**2 + cart_y**2)))
+                lons[i] = degrees(atan2(cart_y, cart_x))
+                distances[i] = path_fraction * total_distance
             
         return lons, lats, distances
         
@@ -906,7 +906,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         return self._compute_var_levels(var_lower, var_name, data_min, data_max, data_range)
                 
     def _extract_height_from_dataset(self: 'MPASVerticalCrossSectionPlotter', 
-                                     mpas_3d_processor: MPAS3DProcessor, 
+                                     mpas_3d_processor: 'MPAS3DProcessor', 
                                      time_index: int, 
                                      vertical_coords: np.ndarray, 
                                      var_name: str) -> Optional[np.ndarray]:
@@ -914,7 +914,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This internal method attempts to extract geometric height data from the MPAS dataset for the specified variable name (e.g., 'zgrid' or 'height') at the given time index. It checks if the variable exists in the dataset, retrieves the height data for the first cell (assuming it's representative of the vertical structure), and processes it to match the expected length based on the vertical coordinates. If the height data has one more level than the vertical coordinates, it computes mid-level heights by averaging adjacent levels. If it matches the length of vertical coordinates, it returns it directly. If neither condition is met, it attempts to interpolate the height data to match the vertical coordinates. The method includes error handling to return None if extraction fails or if the variable is unavailable, allowing for fallback methods to determine height when necessary. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance providing access to the dataset for height variable extraction.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance providing access to the dataset for height variable extraction.
             time_index (int): Time index for selecting the appropriate temporal slice of the height variable.
             vertical_coords (np.ndarray): Array of vertical coordinate values used for the cross-section, which determines the expected length of the height data.
             var_name (str): Name of the height variable to extract from the dataset (e.g., 'zgrid' or 'height'). 
@@ -934,9 +934,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     try:
                         with xr.open_dataset(mpas_3d_processor.grid_file, decode_times=False) as probe:
                             all_vars = list(probe.data_vars)
-                        drop = [v for v in all_vars if v != var_name]
-                        if drop:
-                            open_kwargs['drop_variables'] = drop
+                        vars_to_drop = [v for v in all_vars if v != var_name]
+                        if vars_to_drop:
+                            open_kwargs['drop_variables'] = vars_to_drop
                     except Exception:
                         pass
                     with xr.open_dataset(mpas_3d_processor.grid_file, **open_kwargs) as grid_ds:
@@ -958,25 +958,25 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             else:
                 try:
                     from scipy.interpolate import interp1d
-                    xp = np.linspace(0, 1, len(height_data))
-                    fp = height_data
-                    f = interp1d(xp, fp, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                    xq = np.linspace(0, 1, len(vertical_coords))
-                    return f(xq)
+                    interp_x_known = np.linspace(0, 1, len(height_data))
+                    interp_y_known = height_data
+                    height_interp_fn = interp1d(interp_x_known, interp_y_known, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
+                    interp_x_query = np.linspace(0, 1, len(vertical_coords))
+                    return height_interp_fn(interp_x_query)
                 except Exception:
                     return None
         except Exception:
             return None
     
     def _try_extract_height_km(self: 'MPASVerticalCrossSectionPlotter',
-                               mpas_3d_processor: MPAS3DProcessor,
+                               mpas_3d_processor: 'MPAS3DProcessor',
                                time_index: int,
                                vertical_coords: np.ndarray,) -> Optional[Tuple[np.ndarray, str]]:
         """
         This helper method attempts to extract geometric height from the dataset using known variable names ('zgrid' or 'height') and convert it to kilometers. It calls the _extract_height_from_dataset method for each variable name, and if successful, it converts the height from meters to kilometers and returns it along with the coordinate type string. If extraction fails for both variable names, it returns None, allowing the calling method to proceed with alternative methods for determining height. This approach provides a way to utilize available geometric height data in the dataset when pressure coordinates are used, enhancing the accuracy of the vertical axis in the cross-section plot. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance for accessing the dataset to extract height information.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance for accessing the dataset to extract height information.
             time_index (int): Time index for selecting the appropriate temporal slice when extracting height from the dataset.
             vertical_coords (np.ndarray): Array of vertical coordinate values used for the cross-section, which may be needed to determine the expected length of the height data.
 
@@ -1027,26 +1027,26 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         height_m = np.empty_like(pressure_pa)
 
         for i in range(len(pressure_pa)):
-            p = pressure_pa[i]
+            pressure_val = pressure_pa[i]
 
             # Find which layer this pressure falls in (layers sorted by decreasing base pressure)
             layer_idx = len(layers) - 1
 
             for j in range(len(layers) - 1):
-                if p >= layers[j + 1][3]:
+                if pressure_val >= layers[j + 1][3]:
                     layer_idx = j
                     break
-            
-            # Extract layer parameters for the identified layer
-            h_b, T_b, L, P_b = layers[layer_idx]
 
-            if abs(L) < 1e-10:
-                # Isothermal layer: h = h_b - (R*T_b/g) * ln(P/P_b)
-                height_m[i] = h_b - (R * T_b / g) * np.log(p / P_b)
+            # Extract layer parameters for the identified layer
+            base_height, base_temp, lapse_rate, base_pressure = layers[layer_idx]
+
+            if abs(lapse_rate) < 1e-10:
+                # Isothermal layer: h = base_height - (R*base_temp/g) * ln(P/base_pressure)
+                height_m[i] = base_height - (R * base_temp / g) * np.log(pressure_val / base_pressure)
             else:
-                # Layer with lapse rate: h = h_b + (T_b/L) * ((P/P_b)^(-R*L/g) - 1)
-                exponent = -R * L / g
-                height_m[i] = h_b + (T_b / L) * ((p / P_b) ** exponent - 1.0)
+                # Layer with lapse rate: h = base_height + (base_temp/lapse_rate) * ((P/base_pressure)^(-R*lapse_rate/g) - 1)
+                exponent = -R * lapse_rate / g
+                height_m[i] = base_height + (base_temp / lapse_rate) * ((pressure_val / base_pressure) ** exponent - 1.0)
 
         return height_m
 
@@ -1105,7 +1105,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
     def _convert_vertical_to_height(self: 'MPASVerticalCrossSectionPlotter', 
                                     vertical_coords: np.ndarray, 
                                     vertical_coord_type: str, 
-                                    mpas_3d_processor: MPAS3DProcessor, 
+                                    mpas_3d_processor: 'MPAS3DProcessor', 
                                     time_index: int) -> Tuple[np.ndarray, str]:
         """
         This internal method converts vertical coordinate values to geometric height in kilometers based on the specified vertical coordinate type. If the input coordinate type is 'height', it simply converts from meters to kilometers. If the input type is 'pressure', it first attempts to extract geometric height from the dataset using known variable names ('zgrid' or 'height'). If successful, it converts to kilometers and returns. If extraction fails, it applies a standard atmosphere approximation to convert pressure to height, while handling potential issues with non-positive or non-finite pressure values. For 'modlev', it also tries to extract geometric height if available, otherwise it returns the original model level indices. The method ensures that the returned vertical coordinates are in a consistent format for plotting and includes error handling for various edge cases. 
@@ -1113,7 +1113,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Parameters:
             vertical_coords (np.ndarray): Array of vertical coordinate values to convert.
             vertical_coord_type (str): Type of vertical coordinate ('height', 'pressure', 'modlev') indicating how to interpret the input coordinates.
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance for accessing the dataset to extract height information if needed.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance for accessing the dataset to extract height information if needed.
             time_index (int): Time index for selecting the appropriate temporal slice when extracting height from the dataset. 
 
         Returns:
@@ -1311,13 +1311,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                      bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
     
     def _get_time_string(self: 'MPASVerticalCrossSectionPlotter', 
-                         mpas_3d_processor: MPAS3DProcessor, 
+                         mpas_3d_processor: 'MPAS3DProcessor', 
                          time_index: int) -> str:
         """
         This internal method retrieves a formatted time string for the given time index from the MPAS3DProcessor instance. It first checks if the processor has a method to get time information directly; if so, it uses that method. If not, it attempts to access a 'Time' variable in the dataset and convert it to a datetime object for formatting. If both methods fail, it falls back to returning a simple string with the time index. This approach ensures that the plot can display meaningful time information when available while maintaining robustness in cases where time data is not accessible or formatted differently. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance that may contain methods or variables for retrieving time information.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance that may contain methods or variables for retrieving time information.
             time_index (int): Time index for which to retrieve the formatted time string. 
 
         Returns:
@@ -1335,13 +1335,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return f"Time Index: {time_index}"
 
     def _resolve_batch_time_str(self: 'MPASVerticalCrossSectionPlotter',
-                                mpas_3d_processor: MPAS3DProcessor,
+                                mpas_3d_processor: 'MPAS3DProcessor',
                                 time_idx: int,) -> str:
         """
         This helper method resolves a formatted time string for a given time index during batch processing of cross-section plots. It first checks if the MPAS3DProcessor instance has a method to retrieve time information directly; if so, it uses that method. If not, it attempts to access a 'Time' variable in the dataset and convert it to a datetime object for formatting. If both methods fail, it falls back to returning a simple string with the time index. This method ensures that each plot generated in the batch process can include meaningful time information when available, while maintaining robustness in cases where time data is not accessible or formatted differently. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance that may contain methods or variables for retrieving time information.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance that may contain methods or variables for retrieving time information.
             time_idx (int): Time index for which to resolve the formatted time string during batch processing.
 
         Returns:
@@ -1356,7 +1356,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         return f"t{time_idx:03d}"
 
     def _process_batch_time_step(self: 'MPASVerticalCrossSectionPlotter',
-                                 mpas_3d_processor: MPAS3DProcessor,
+                                 mpas_3d_processor: 'MPAS3DProcessor',
                                  output_dir: str,
                                  var_name: str,
                                  start_point: Tuple[float, float],
@@ -1376,7 +1376,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This helper method processes a single time step for creating a vertical cross-section plot in the batch processing workflow. It retrieves a formatted time string for the current time index, constructs a descriptive title for the plot, and calls the create_vertical_cross_section method with the appropriate parameters. After creating the plot, it constructs the output file path based on the variable name, vertical coordinate type, and time information, saves the plot in the specified formats, and returns a list of created file paths. This method encapsulates the logic for handling each time step in the batch process, including error handling and progress updates. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): MPAS3DProcessor instance with loaded 3D data for plotting.
+            mpas_3d_processor ('MPAS3DProcessor'): MPAS3DProcessor instance with loaded 3D data for plotting.
             output_dir (str): Directory where the generated plot will be saved.
             var_name (str): Name of the variable to plot from the dataset.
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.
@@ -1433,7 +1433,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         return [f"{output_path}.{fmt}" for fmt in formats]
 
     def create_batch_cross_section_plots(self: 'MPASVerticalCrossSectionPlotter', 
-                                         mpas_3d_processor: MPAS3DProcessor, 
+                                         mpas_3d_processor: 'MPAS3DProcessor', 
                                          output_dir: str, 
                                          var_name: str, 
                                          start_point: Tuple[float, float], 
@@ -1451,7 +1451,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         This method creates vertical cross-section plots for a specified 3D atmospheric variable across all available time steps in the MPAS dataset. It generates a plot for each time step, saving them to the specified output directory with filenames that include the variable name, vertical coordinate type, and valid time information. The method handles various vertical coordinate systems (pressure, height, model levels) and allows for customization of contour levels, colormap, plot type, and maximum height. It includes error handling to ensure that issues with data loading or variable availability are reported clearly, and it provides progress updates during batch processing. The resulting list of created file paths is returned upon completion. 
 
         Parameters:
-            mpas_3d_processor (MPAS3DProcessor): An instance of MPAS3DProcessor with loaded 3D data for plotting.
+            mpas_3d_processor ('MPAS3DProcessor'): An instance of MPAS3DProcessor with loaded 3D data for plotting.
             output_dir (str): Directory where the generated plots will be saved.
             var_name (str): Name of the variable to plot from the dataset.
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees.

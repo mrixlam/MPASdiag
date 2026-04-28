@@ -18,17 +18,18 @@ from pathlib import Path
 class TestOverlayAndCompositeAnalysis:
     """ Test overlay and composite analysis paths in the CLI. """
     
-    def test_overlay_analysis_without_type(self: "TestOverlayAndCompositeAnalysis", grid_file: str, test_data_dir: str) -> None:
+    def test_overlay_analysis_without_type(self: 'TestOverlayAndCompositeAnalysis', 
+                                           grid_file: str, 
+                                           test_data_dir: str) -> None:
         """
         This test verifies that the overlay analysis path can be executed without specifying a special overlay type, ensuring that the default handling is correct. It constructs an `MPASConfig` with an `overlay_type` that does not match the special cases and checks that `run_analysis` returns `True` when sample data are available. The test is skipped if the required sample data files are not present in the test environment to avoid false failures.
 
         Parameters:
-            self (TestOverlayAndCompositeAnalysis): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts `run_analysis` returns `True` on success.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -55,17 +56,18 @@ class TestOverlayAndCompositeAnalysis:
         
         assert result is True
 
-    def test_run_overlay_analysis_precip_wind(self: "TestOverlayAndCompositeAnalysis", grid_file: str, test_data_dir: str) -> None:
+    def test_run_overlay_analysis_precip_wind(self: 'TestOverlayAndCompositeAnalysis', 
+                                               grid_file: str, 
+                                               test_data_dir: str) -> None:
         """
         This test verifies that the 'precip_wind' overlay type is correctly processed by the `run_analysis` method. It constructs an `MPASConfig` with `overlay_type='precip_wind'` and checks that the analysis runs successfully, returning `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayAndCompositeAnalysis): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: The test asserts the boolean result returned by `run_analysis`.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -92,17 +94,18 @@ class TestOverlayAndCompositeAnalysis:
         
         assert result is True
     
-    def test_run_overlay_analysis_temp_pressure(self: "TestOverlayAndCompositeAnalysis", grid_file: str, test_data_dir: str) -> None:
+    def test_run_overlay_analysis_temp_pressure(self: 'TestOverlayAndCompositeAnalysis', 
+                                               grid_file: str, 
+                                               test_data_dir: str) -> None:
         """
         This test verifies that the 'temp_pressure' overlay type is correctly processed by the `run_analysis` method. It constructs an `MPASConfig` with `overlay_type='temp_pressure'` and checks that the analysis runs successfully, returning `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayAndCompositeAnalysis): The test instance.
-            grid_file: Session fixture providing path to MPAS grid file.
-            test_data_dir: Session fixture providing path to test data directory.
+            grid_file (str): Session fixture providing path to MPAS grid file.
+            test_data_dir (str): Session fixture providing path to test data directory.
 
         Returns:
-            None: Assertions validate successful completion of the analysis.
+            None
         """
         import pytest
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
@@ -133,15 +136,15 @@ class TestOverlayAndCompositeAnalysis:
 class TestOverlayTypePaths:
     """ Test different overlay type paths in _run_overlay_analysis. """
     
-    def test_overlay_other_type_fallthrough(self: "TestOverlayTypePaths") -> None:
+    def test_overlay_other_type_fallthrough(self: 'TestOverlayTypePaths') -> None:
         """
         This test verifies that when an `overlay_type` is provided that does not match the special cases (e.g., 'precip_wind' or 'temp_pressure'), the `run_analysis` method still completes successfully. It constructs an `MPASConfig` with a custom `overlay_type` and checks that `run_analysis` returns `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayTypePaths): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when the overlay fallback path completes successfully.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -169,15 +172,15 @@ class TestOverlayTypePaths:
 class TestOverlayWithLogger:
     """ Test overlay analysis with logger. """
     
-    def test_overlay_precip_wind_with_logger(self: "TestOverlayWithLogger") -> None:
+    def test_overlay_precip_wind_with_logger(self: 'TestOverlayWithLogger') -> None:
         """
         This test verifies that the 'precip_wind' overlay type can be executed successfully when an `MPASLogger` is attached to the CLI. It constructs an `MPASConfig` for the 'precip_wind' overlay type, attaches a logger, and checks that `run_analysis` returns `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when the overlay workflow executes successfully with data present.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -203,15 +206,15 @@ class TestOverlayWithLogger:
         result = cli.run_analysis(config)
         assert result is True
     
-    def test_overlay_temp_pressure_with_logger(self: "TestOverlayWithLogger") -> None:
+    def test_overlay_temp_pressure_with_logger(self: 'TestOverlayWithLogger') -> None:
         """
         This test verifies that the 'temp_pressure' overlay type can be executed successfully when an `MPASLogger` is attached to the CLI. It constructs an `MPASConfig` for the 'temp_pressure' overlay type, attaches a logger, and checks that `run_analysis` returns `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns True when data exist and the overlay completes successfully.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig
@@ -237,15 +240,15 @@ class TestOverlayWithLogger:
         result = cli.run_analysis(config)
         assert result is True
     
-    def test_overlay_other_type_with_logger(self: "TestOverlayWithLogger") -> None:
+    def test_overlay_other_type_with_logger(self: 'TestOverlayWithLogger') -> None:
         """
         This test verifies that a custom `overlay_type` can be executed successfully when an `MPASLogger` is attached to the CLI. It constructs an `MPASConfig` with a custom `overlay_type`, attaches a logger, and checks that `run_analysis` returns `True`. The test is skipped if the required sample data files are not available to ensure that it only fails when there is an actual issue with the code rather than missing data.
 
         Parameters:
-            self (TestOverlayWithLogger): The test instance.
+            None
 
         Returns:
-            None: The test asserts that `run_analysis` returns True for custom overlay types when sample data are available.
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         from mpasdiag.processing.utils_config import MPASConfig

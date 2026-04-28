@@ -200,10 +200,10 @@ class MPASGeographicUtils:
             dlat = sample_lat[i+1] - sample_lat[i]
             dlon = sample_lon[i+1] - sample_lon[i]
 
-            dist = np.sqrt(dlat**2 + dlon**2)
+            point_distance = np.sqrt(dlat**2 + dlon**2)
 
-            if dist > 0:
-                distances.append(dist)
+            if point_distance > 0:
+                distances.append(point_distance)
         
         if not distances:
             return 0.0

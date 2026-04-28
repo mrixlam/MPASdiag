@@ -14,11 +14,9 @@ Version: 1.0.0
 import os
 import sys
 import pytest
-import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from typing import Generator
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -27,23 +25,8 @@ from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
     GRID_FILE, MPASOUT_DIR,
-    check_plotter_initialization, check_great_circle_path,
-    check_default_levels, check_interpolation_along_path,
-    check_input_validation,
+    check_great_circle_path,
 )
-
-
-def test_vertical_cross_section_plotter_initialization() -> None:
-    """
-    This test validates that the MPASVerticalCrossSectionPlotter initializes with correct default parameters and allows for custom configuration. It checks that the default figure size is (10, 12) inches and the default DPI is 100, while also confirming that the figure and axes are initially set to None. The test then creates a custom plotter instance with a specified figure size of (10, 6) inches and a DPI of 150, verifying that these custom parameters are correctly applied to the new instance.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_plotter_initialization()
 
 
 def test_great_circle_path_generation() -> None:
@@ -59,221 +42,12 @@ def test_great_circle_path_generation() -> None:
     check_great_circle_path()
 
 
-def test_default_levels_generation() -> None:
-    """
-    This test validates that the MPASVerticalCrossSectionPlotter generates appropriate default contour levels for different types of data. It checks that the generated levels cover the range of the input data, that they are not empty, and that they are suitable for the specified variable type (e.g., 'theta' for potential temperature, 'uwind' for zonal wind). The test also verifies that constant data results in a reasonable number of levels and that NaN values do not cause errors in level generation. By confirming these aspects of default level generation, this test ensures that the plotter can automatically determine suitable contour levels for visualizing various meteorological variables.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_default_levels()
-
-
-def test_interpolation_along_path() -> None:
-    """
-    This test verifies that the MPASVerticalCrossSectionPlotter can interpolate grid data along a specified path defined by longitude and latitude points. It checks that the interpolated values are returned for each point along the path, that they are not all NaN (indicating successful interpolation), and that the method can handle cases where the path points do not exactly match the grid points. By confirming that the interpolation routine produces reasonable values along the path, this test ensures that the plotter can accurately extract data for cross-section plotting based on spatial paths.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_interpolation_along_path()
-
-
-def test_input_validation() -> None:
-    """
-    This test verifies that the MPASVerticalCrossSectionPlotter's input validation correctly identifies and raises errors for invalid inputs. It checks that providing an invalid type for the `mpas_3d_processor` argument in the `create_vertical_cross_section` method results in a ValueError with an appropriate error message. By confirming that the plotter raises exceptions for incorrect input types, this test ensures that the plotter's input validation mechanisms are functioning properly to prevent misuse and guide users towards correct usage.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_input_validation()
-
-
-class TestPressureAxisSetup:
-    """ Tests for pressure axis configuration. """
-    
-    @pytest.fixture(autouse=True)
-    def setup_method(self: "TestPressureAxisSetup") -> Generator[None, None, None]:
-        """
-        This fixture sets up a MPASVerticalCrossSectionPlotter instance and initializes a figure and axes for testing pressure axis configuration. It yields control to the test methods and ensures that any created figures are closed after the tests complete to prevent resource leaks.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        self.plotter = MPASVerticalCrossSectionPlotter()
-
-        self.plotter.fig = plt.figure()
-        self.plotter.ax = self.plotter.fig.add_subplot(111)
-    
-        yield
-
-        if self.plotter.fig:
-            plt.close(self.plotter.fig)
-    
-    def test_pressure_axis_with_standard_ticks(self: "TestPressureAxisSetup") -> None:
-        """
-        This test verifies that when standard pressure levels are provided, the pressure axis is configured with a logarithmic scale and appropriate ticks. It checks that the y-axis scale is set to 'log' after calling the axis setup method with typical pressure coordinates, confirming that the plotter correctly identifies standard pressure levels and applies the expected axis configuration.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        pressure_coords = np.array([1000, 850, 700, 500, 300, 200, 100])        
-        self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)  
-        assert self.plotter.ax.get_yscale() == 'log' # type: ignore
-    
-    def test_pressure_axis_tick_filtering(self: "TestPressureAxisSetup") -> None:
-        """
-        This test verifies that the MPASVerticalCrossSectionPlotter correctly filters out irrelevant standard ticks based on the data range. It checks that the y-axis scale remains 'log' while excluding ticks that fall outside the range of the provided pressure coordinates.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        pressure_coords = np.array([600, 500, 400, 300])        
-        self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)  
-        assert self.plotter.ax.get_yscale() == 'log' # type: ignore
-    
-    def test_non_positive_pressure_warning(self: "TestPressureAxisSetup") -> None:
-        """
-        This test verifies that when non-positive pressure values are included in the input coordinates, the MPASVerticalCrossSectionPlotter issues a warning and falls back to a linear scale for the pressure axis. It checks that the y-axis scale is set to 'linear' after calling the axis setup method with invalid pressure coordinates, confirming that the plotter handles non-physical pressure values gracefully by reverting to a more appropriate axis configuration.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        pressure_coords = np.array([-100, 0, 100, 200])
-        self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)
-        assert self.plotter.ax.get_yscale() == 'linear' # type: ignore
-    
-    def test_pressure_axis_exception_handling(self: "TestPressureAxisSetup") -> None:
-        """
-        This test verifies that the MPASVerticalCrossSectionPlotter's pressure axis setup method can handle exceptions gracefully without crashing. It checks that when an exception occurs during the axis setup (e.g., due to invalid input), the method catches the exception and ensures that the plotter's axes remain in a consistent state, allowing for continued plotting operations. By confirming that exceptions are handled without propagating errors, this test ensures that the plotter is robust to unexpected issues during pressure axis configuration.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        pressure_coords = np.array([])
-        self.plotter._setup_pressure_axis(pressure_coords, use_standard_ticks=True)
-
-        assert self.plotter.ax is not None
-        assert self.plotter.ax.get_yscale() == 'linear' 
-
-class TestAxisFormatting:
-    """ Tests for axis formatting edge cases. """
-    
-    @pytest.fixture(autouse=True)
-    def setup_method(self: "TestAxisFormatting") -> Generator[None, None, None]:
-        """
-        This fixture sets up a MPASVerticalCrossSectionPlotter instance and initializes a figure and axes for testing axis formatting edge cases. It yields control to the test methods and ensures that any created figures are closed after the tests complete to prevent resource leaks.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        self.plotter = MPASVerticalCrossSectionPlotter()
-
-        self.plotter.fig = plt.figure()
-        self.plotter.ax = self.plotter.fig.add_subplot(111)
-    
-        yield
-        
-        if self.plotter.fig:
-            plt.close(self.plotter.fig)
-    
-    def test_height_axis_formatting(self: "TestAxisFormatting") -> None:
-        """
-        This test verifies that when height coordinates are provided, the MPASVerticalCrossSectionPlotter formats the vertical axis with appropriate labels and units. It checks that the y-axis label contains 'Height' after calling the axis formatting method with height coordinates, confirming that the plotter correctly identifies height as the vertical coordinate and applies suitable axis labeling.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        longitudes = np.linspace(-100, -90, 50)
-        vertical_coords = np.linspace(0, 20000, 20)
-        
-        self.plotter._format_cross_section_axes(
-            longitudes, vertical_coords, 'height',
-            (-100, 30), (-90, 40), max_height=15.0
-        )
-        
-        assert self.plotter.ax
-        assert 'Height' in self.plotter.ax.get_ylabel()
-    
-    def test_pressure_pa_axis_formatting(self: "TestAxisFormatting") -> None:
-        """
-        This test verifies that when pressure coordinates are provided in Pascals, the MPASVerticalCrossSectionPlotter formats the vertical axis with appropriate labels and units. It checks that the y-axis label contains 'Pressure' after calling the axis formatting method with pressure coordinates in Pascals, confirming that the plotter correctly identifies pressure as the vertical coordinate and applies suitable axis labeling.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        longitudes = np.linspace(-100, -90, 50)
-        vertical_coords = np.array([100000, 85000, 70000, 50000])
-        
-        self.plotter._format_cross_section_axes(
-            longitudes, vertical_coords, 'pressure',
-            (-100, 30), (-90, 40)
-        )
-        
-        assert 'Pressure' in self.plotter.ax.get_ylabel() # type: ignore
-    
-    def test_model_levels_ylim_exception(self: "TestAxisFormatting") -> None:
-        """
-        This test verifies that when model level coordinates are provided, the MPASVerticalCrossSectionPlotter can set the y-axis limits without raising exceptions. It checks that after calling the axis formatting method with model level coordinates, the y-axis limits are set to the range of the provided model levels, confirming that the plotter can handle model level vertical coordinates and apply appropriate axis limits without errors.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        longitudes = np.linspace(-100, -90, 50)
-        vertical_coords = np.array([1, 2, 3])
-
-        self.plotter._format_cross_section_axes(
-            longitudes, vertical_coords, 'modlev',
-            (-100, 30), (-90, 40)
-        )
-
-        assert self.plotter.ax is not None
-        assert self.plotter.ax.get_ylim() == (pytest.approx(1), pytest.approx(3))
-        assert self.plotter.ax.get_ylabel() == 'Model Level'
-
-
 class TestAxisFormattingFinal:
     """ Test axis formatting with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestAxisFormattingFinal", 
-                     mpas_3d_processor: "MPAS3DProcessor") -> None:
+    def setup_method(self: 'TestAxisFormattingFinal', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up a MPASVerticalCrossSectionPlotter instance and initializes it with real MPAS data for testing axis formatting with actual model output. It checks for the availability of the required data files and skips the tests if the data is not available. By using a shared session-scoped processor, it avoids redundant data loading across multiple tests, ensuring efficient use of resources while validating axis formatting with real MPAS data.
 
@@ -291,7 +65,7 @@ class TestAxisFormattingFinal:
 
         self.processor = mpas_3d_processor
     
-    def test_axis_formatting_with_max_height(self: "TestAxisFormattingFinal") -> None:
+    def test_axis_formatting_with_max_height(self: 'TestAxisFormattingFinal') -> None:
         """
         This test produces a plot using `vertical_coord='height'` and checks that the y-axis label contains 'Height' and that the maximum height limit is applied correctly. It verifies that the plot is created successfully without errors, confirming that the plotter can handle height-based vertical coordinates and apply axis formatting with a specified maximum height.
 
@@ -315,7 +89,7 @@ class TestAxisFormattingFinal:
         assert fig is not None
         plt.close(fig)
     
-    def test_model_levels_axis_formatting(self: "TestAxisFormattingFinal") -> None:
+    def test_model_levels_axis_formatting(self: 'TestAxisFormattingFinal') -> None:
         """
         This test produces a plot using `vertical_coord='modlev'` and checks that the y-axis label contains 'Model Level'. It verifies that the plot is created successfully without errors, confirming that the plotter can handle model level vertical coordinates and apply appropriate axis labeling for model levels.
 

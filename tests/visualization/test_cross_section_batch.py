@@ -24,25 +24,8 @@ from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
-    check_default_levels, 
-    check_input_validation,
     check_great_circle_path,
-    check_plotter_initialization, 
-    check_interpolation_along_path,
 )
-
-
-def test_vertical_cross_section_plotter_initialization() -> None:
-    """
-    This test validates that the MPASVerticalCrossSectionPlotter initializes with correct default parameters and allows for custom configuration. It checks that the default figure size is (10, 12) inches and the default DPI is 100, ensuring that the plotter's visual settings are set as expected. The test also confirms that the figure and axis attributes are initialized to None, indicating that no plot has been created yet. Additionally, it verifies that when custom parameters are provided during initialization (e.g., figsize=(10, 6) and dpi=150), the plotter correctly applies these settings, allowing for flexible configuration of the plotting environment.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_plotter_initialization()
 
 
 def test_great_circle_path_generation() -> None:
@@ -56,45 +39,6 @@ def test_great_circle_path_generation() -> None:
         None
     """
     check_great_circle_path()
-
-
-def test_default_levels_generation() -> None:
-    """
-    This test validates that the MPASVerticalCrossSectionPlotter generates appropriate default contour levels for different types of data. It checks that the generated levels cover the range of the input data, that they are not empty, and that they are suitable for the variable type (e.g., potential temperature vs. wind speed). The test also verifies that the method can handle edge cases such as constant data or data containing NaN values without failing, ensuring that it produces reasonable levels in these scenarios. By confirming the correctness and robustness of the default level generation, this test ensures that the plotter can create meaningful visualizations even when users do not specify custom levels.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_default_levels()
-
-
-def test_interpolation_along_path() -> None:
-    """
-    This test verifies that the MPASVerticalCrossSectionPlotter can interpolate grid data along a specified path defined by longitude and latitude points. It checks that the interpolated values are returned for each point along the path, that they are not all NaN (indicating successful interpolation), and that the method can handle cases where the path points do not exactly match the grid points. By confirming that the interpolation routine produces reasonable values along the path, this test ensures that the plotter can accurately extract data for cross-section plotting based on spatial paths.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_interpolation_along_path()
-
-
-def test_input_validation() -> None:
-    """
-    This test verifies that the MPASVerticalCrossSectionPlotter's create_vertical_cross_section method properly validates its inputs and raises appropriate exceptions when invalid data is provided. It checks that passing an invalid type for the mpas_3d_processor argument (e.g., a string instead of an MPAS3DProcessor instance) results in a ValueError with a clear error message indicating the expected type. By confirming that the method enforces input validation, this test ensures that users receive informative feedback when they provide incorrect inputs, improving the robustness and usability of the plotter.
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    check_input_validation()
 
 
 def failing_on_first_call(self: MPASVerticalCrossSectionPlotter, 
@@ -127,8 +71,8 @@ class TestBatchProcessing:
     """ Tests for batch cross-section processing. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestBatchProcessing", 
-                     mpas_3d_processor: MPAS3DProcessor) -> Generator[None, None, None]:
+    def setup_method(self: 'TestBatchProcessing', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> Generator[None, None, None]:
         """
         This fixture sets up the MPASVerticalCrossSectionPlotter and a mock MPAS3DProcessor for use in batch processing tests. It initializes the plotter and processor before each test and ensures that all matplotlib figures are closed after the test to prevent resource leaks. The fixture is automatically applied to all test methods in the TestBatchProcessing class, providing a consistent testing environment for validating batch cross-section processing functionality.
 
@@ -145,7 +89,7 @@ class TestBatchProcessing:
         yield
         plt.close('all')
     
-    def test_batch_cross_sections_validation(self: "TestBatchProcessing") -> None:
+    def test_batch_cross_sections_validation(self: 'TestBatchProcessing') -> None:
         """
         This test validates that the batch cross-section processing function correctly calls the create_vertical_cross_section method for each specified path. It uses the unittest.mock.patch decorator to replace the create_vertical_cross_section method with a mock that tracks how many times it is called and with what arguments. The test defines multiple start and end points for cross-sections and asserts that the create_vertical_cross_section method is called the expected number of times (once for each path) with the correct parameters. By confirming that the batch processing function invokes the plotting routine as intended, this test ensures that the batch functionality is correctly orchestrating multiple cross-section generations.
 
@@ -182,8 +126,8 @@ class TestBatchProcessingFinal:
     """ Tests for batch cross-section processing with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: "TestBatchProcessingFinal", 
-                     mpas_3d_processor: "MPAS3DProcessor") -> Generator[None, None, None]:
+    def setup_method(self: 'TestBatchProcessingFinal', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> Generator[None, None, None]:
         """
         This fixture sets up the MPASVerticalCrossSectionPlotter and a real MPAS3DProcessor for use in batch processing tests. It initializes the plotter and processor before each test and ensures that all matplotlib figures are closed after the test to prevent resource leaks. The fixture is automatically applied to all test methods in the TestBatchProcessingFinal class, providing a consistent testing environment for validating batch cross-section processing functionality.
 
@@ -205,7 +149,7 @@ class TestBatchProcessingFinal:
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
     
-    def test_batch_processing_exception_handling(self: "TestBatchProcessingFinal") -> None:
+    def test_batch_processing_exception_handling(self: 'TestBatchProcessingFinal') -> None:
         """
         This test verifies that the batch processing function can handle exceptions raised during the creation of individual cross-section plots without crashing the entire batch process. It uses unittest.mock.patch to simulate an exception being raised on the first call to create_vertical_cross_section, while allowing subsequent calls to succeed. The test asserts that the batch processing function continues to generate plots for the remaining time steps and that it returns a list of output files, confirming that it can gracefully handle errors in individual plot generation while still completing the batch process.
 
@@ -231,7 +175,7 @@ class TestBatchProcessingFinal:
 
         assert files is not None
     
-    def test_batch_processing_multiple_formats(self: "TestBatchProcessingFinal") -> None:
+    def test_batch_processing_multiple_formats(self: 'TestBatchProcessingFinal') -> None:
         """
         This test validates that the batch processing function can generate cross-section plots in multiple specified formats (e.g., PNG and PDF) and that the output files are created with the correct extensions. It uses a temporary directory to store the generated files and asserts that the returned list of files includes entries for each requested format, confirming that the batch processing function correctly handles multiple output formats as intended.
 
@@ -256,7 +200,7 @@ class TestBatchProcessingFinal:
         assert len(png_files ) > 0
         assert len(pdf_files ) > 0
 
-    def test_batch_processing_all_times(self: "TestBatchProcessingFinal") -> None:
+    def test_batch_processing_all_times(self: 'TestBatchProcessingFinal') -> None:
         """
         This test validates that the batch processing function generates cross-section plots for all time steps in the dataset. It uses a temporary directory to store the output files and asserts that the number of generated files corresponds to the number of time steps, confirming that the batch processing loop iterates over all time steps as expected.
 
@@ -285,20 +229,8 @@ class TestBatchProcessingFinal:
             for file_path in result:
                 assert os.path.exists(file_path)
     
-    def test_batch_processing_without_time_dimension(self: "TestBatchProcessingFinal") -> None:
-        """
-        This test verifies that the batch processing function can handle a dataset that does not contain a 'Time' dimension without crashing. It checks that the function can still generate cross-section plots for the available data and that it does not raise an exception due to the missing time dimension. By confirming that the batch processing function can operate with datasets lacking a 'Time' dimension, this test ensures that it is robust to variations in dataset structure and can still produce visualizations when time information is not present.
-
-        Parameters:
-            None
-
-        Returns:
-            None: Asserts that 'Time' is present in dataset dimensions.
-        """
-        processor = self.processor        
-        assert 'Time' in processor.dataset.dims
     
-    def test_batch_processing_with_valid_output(self: "TestBatchProcessingFinal") -> None:
+    def test_batch_processing_with_valid_output(self: 'TestBatchProcessingFinal') -> None:
         """
         This test validates that the batch processing function can successfully generate cross-section plots and save them to a specified output directory. It uses a temporary directory to store the generated files and asserts that the function completes without errors and returns a list of output file paths, confirming that the batch processing function can produce valid output files as expected.
 

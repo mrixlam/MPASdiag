@@ -21,7 +21,7 @@ from mpasdiag.processing.utils_config import MPASConfig
 class TestCreateParser:
     """ Test general parser creation. """
     
-    def test_create_parser_returns_argument_parser(self: "TestCreateParser") -> None:
+    def test_create_parser_returns_argument_parser(self: 'TestCreateParser') -> None:
         """
         This test verifies that the `create_parser` factory method returns an instance of `argparse.ArgumentParser`. The returned parser should be properly initialized and ready to accept command-line arguments for the general plotting workflow. This test confirms the type of the returned object to ensure it is a valid argument parser. 
 
@@ -35,7 +35,7 @@ class TestCreateParser:
         assert isinstance(parser, argparse.ArgumentParser)
         assert parser is not None
     
-    def test_create_parser_has_required_arguments(self: "TestCreateParser") -> None:
+    def test_create_parser_has_required_arguments(self: 'TestCreateParser') -> None:
         """
         This test checks that the parser created by `create_parser` correctly defines required arguments such as `--grid-file` and `--data-dir`. By parsing a minimal set of required arguments, we can confirm that the parser is structured to accept these essential inputs and that they are accessible as attributes on the parsed namespace. This ensures that users will be prompted for necessary information when using the CLI. 
 
@@ -54,7 +54,7 @@ class TestCreateParser:
 class TestParseArgsToConfig:
     """ Test general argument-to-config conversion. """
     
-    def test_parse_args_basic(self: "TestParseArgsToConfig") -> None:
+    def test_parse_args_basic(self: 'TestParseArgsToConfig') -> None:
         """
         This test verifies that the `parse_args_to_config` method correctly converts a parsed argument namespace into an `MPASConfig` instance. By providing a comprehensive set of arguments, we can confirm that each relevant field is properly mapped onto the configuration object, including type conversions for numeric values and handling of optional parameters. This test ensures that the conversion logic is robust and produces a configuration object that downstream plotting functions can utilize effectively. 
 
@@ -93,7 +93,7 @@ class TestParseArgsToConfig:
         assert config.variable == 'rainnc'
         assert config.dpi == pytest.approx(150)
     
-    def test_parse_args_with_figure_size(self: "TestParseArgsToConfig") -> None:
+    def test_parse_args_with_figure_size(self: 'TestParseArgsToConfig') -> None:
         """
         This test checks that the `figure_size` argument is correctly converted into a tuple on the `MPASConfig`. When a list of two floats is provided for `figure_size`, the converter should transform it into a tuple of (width, height) and assign it to the appropriate attributes on the configuration object. This ensures that figure sizing options are properly handled and can be used by plotting functions to set the dimensions of generated figures. 
 
@@ -114,7 +114,7 @@ class TestParseArgsToConfig:
         assert config.figure_width == pytest.approx(12.0)
         assert config.figure_height == pytest.approx(8.0)
     
-    def test_parse_args_with_xarray_data_type(self: "TestParseArgsToConfig") -> None:
+    def test_parse_args_with_xarray_data_type(self: 'TestParseArgsToConfig') -> None:
         """
         This test ensures that when `data_type='xarray'` is specified in the arguments, the resulting configuration has `use_pure_xarray` set to True. This flag indicates that the application should use pure xarray-based data handling for MPAS files, which may affect how data is loaded and processed. The test confirms that the converter correctly interprets the `data_type` argument and sets the appropriate configuration attribute to enable xarray functionality. 
 
@@ -133,7 +133,7 @@ class TestParseArgsToConfig:
         config = ArgumentParser.parse_args_to_config(args)        
         assert config.use_pure_xarray is True
     
-    def test_parse_args_with_uxarray_data_type(self: "TestParseArgsToConfig") -> None:
+    def test_parse_args_with_uxarray_data_type(self: 'TestParseArgsToConfig') -> None:
         """
         This test verifies that when `data_type='uxarray'` is specified, the resulting configuration does not have `use_pure_xarray` set to True. The 'uxarray' data type may indicate a different data handling approach that does not rely on pure xarray functionality. This test confirms that the converter correctly distinguishes between 'xarray' and 'uxarray' data types and does not erroneously set the xarray flag when 'uxarray' is chosen. 
 
@@ -152,7 +152,7 @@ class TestParseArgsToConfig:
         config = ArgumentParser.parse_args_to_config(args)
         assert not (hasattr(config, 'use_pure_xarray') and config.use_pure_xarray)
     
-    def test_parse_args_with_real_mpas_paths(self: "TestParseArgsToConfig", grid_file, test_data_dir) -> None:
+    def test_parse_args_with_real_mpas_paths(self: 'TestParseArgsToConfig', grid_file, test_data_dir) -> None:
         """
         This test performs an integration check by parsing arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values. This test ensures that the argument parsing and config conversion logic works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -193,7 +193,7 @@ class TestParseArgsToConfig:
 class TestCreateSurfaceParser:
     """ Test surface parser creation. """
     
-    def test_create_surface_parser_returns_parser(self: "TestCreateSurfaceParser") -> None:
+    def test_create_surface_parser_returns_parser(self: 'TestCreateSurfaceParser') -> None:
         """
         This test verifies that the `create_surface_parser` factory method returns an instance of `argparse.ArgumentParser`. The returned parser should be configured to accept command-line arguments specific to surface plotting, such as variable selection, plotting options, and output settings. This test confirms the type of the returned object to ensure it is a valid argument parser ready for use in the surface plotting workflow. 
 
@@ -206,7 +206,7 @@ class TestCreateSurfaceParser:
         parser = ArgumentParser.create_surface_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
     
-    def test_create_surface_parser_required_args(self: "TestCreateSurfaceParser") -> None:
+    def test_create_surface_parser_required_args(self: 'TestCreateSurfaceParser') -> None:
         """
         This test checks that the surface parser correctly handles required arguments such as `--grid-file`, `--data-dir`, and `--variable`. By parsing a minimal set of required arguments, we can confirm that the parser is structured to accept these essential inputs for surface plotting and that they are accessible as attributes on the parsed namespace. This ensures that users will be prompted for necessary information when using the surface plotting CLI. 
 
@@ -228,7 +228,7 @@ class TestCreateSurfaceParser:
         assert args.data_dir == './data'
         assert args.variable == 't2m'
     
-    def test_create_surface_parser_optional_args(self: "TestCreateSurfaceParser") -> None:
+    def test_create_surface_parser_optional_args(self: 'TestCreateSurfaceParser') -> None:
         """
         This test verifies that the surface parser correctly handles a comprehensive set of optional arguments related to surface plotting. By providing a rich set of command-line options, we can confirm that the parser accepts and correctly types these arguments, making them available on the parsed namespace for use in the plotting workflow. This test ensures that users have flexibility in customizing their surface plots through various CLI options and that these options are properly parsed. 
 
@@ -269,7 +269,7 @@ class TestCreateSurfaceParser:
 class TestParseSurfaceArgsToConfig:
     """ Test surface argument-to-config conversion. """
     
-    def test_parse_surface_args_basic(self: "TestParseSurfaceArgsToConfig") -> None:
+    def test_parse_surface_args_basic(self: 'TestParseSurfaceArgsToConfig') -> None:
         """
         This test verifies that the `parse_surface_args_to_config` method correctly converts a parsed argument namespace specific to surface plotting into an `MPASConfig` instance. By providing a comprehensive set of surface-related arguments, we can confirm that each relevant field is properly mapped onto the configuration object, including type conversions for numeric values and handling of optional parameters. This test ensures that the conversion logic for surface plotting arguments is robust and produces a configuration object that downstream plotting functions can utilize effectively. 
 
@@ -317,7 +317,7 @@ class TestParseSurfaceArgsToConfig:
         assert config.grid_resolution == pytest.approx(200)
         assert config.figure_size == (pytest.approx(10.0), pytest.approx(12.0))
     
-    def test_parse_surface_args_with_batch_all(self: "TestParseSurfaceArgsToConfig") -> None:
+    def test_parse_surface_args_with_batch_all(self: 'TestParseSurfaceArgsToConfig') -> None:
         """
         This test ensures that when the `batch_all` flag is set to True in the parsed arguments, the resulting configuration has `batch_mode` set to True. This indicates that the application should run in batch processing mode, which may affect how plots are generated and saved. The test confirms that the converter correctly interprets the `batch_all` argument and sets the appropriate configuration attribute to enable batch processing functionality. 
 
@@ -338,7 +338,7 @@ class TestParseSurfaceArgsToConfig:
         config = ArgumentParser.parse_surface_args_to_config(args)        
         assert config.batch_mode is True
     
-    def test_parse_surface_args_default_plot_type(self: "TestParseSurfaceArgsToConfig") -> None:
+    def test_parse_surface_args_default_plot_type(self: 'TestParseSurfaceArgsToConfig') -> None:
         """
         This test checks that when no `plot_type` is specified in the parsed arguments, the resulting configuration defaults to 'scatter'. This verifies that the converter applies a sensible default for the type of plot to generate when the user does not explicitly choose one. The test confirms that the default behavior for surface plotting is correctly implemented in the argument-to-config conversion logic. 
 
@@ -359,7 +359,7 @@ class TestParseSurfaceArgsToConfig:
         config = ArgumentParser.parse_surface_args_to_config(args)        
         assert config.plot_type == 'scatter'
     
-    def test_parse_surface_args_default_time_index(self: "TestParseSurfaceArgsToConfig") -> None:
+    def test_parse_surface_args_default_time_index(self: 'TestParseSurfaceArgsToConfig') -> None:
         """
         This test verifies that when no `time_index` is provided in the parsed arguments, the resulting configuration defaults to 0. This ensures that if the user does not specify a time index for plotting, the application will use the first time step by default. The test confirms that the default value for `time_index` is correctly applied during the argument-to-config conversion process.
 
@@ -381,7 +381,7 @@ class TestParseSurfaceArgsToConfig:
         assert config.time_index == pytest.approx(0)
 
 
-    def test_parse_surface_args_with_real_mpas_paths(self: "TestParseSurfaceArgsToConfig", grid_file, test_data_dir) -> None:
+    def test_parse_surface_args_with_real_mpas_paths(self: 'TestParseSurfaceArgsToConfig', grid_file, test_data_dir) -> None:
         """
         This test performs an integration check by parsing surface plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_surface_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with surface-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for surface plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -422,7 +422,7 @@ class TestParseSurfaceArgsToConfig:
 class TestCreateWindParser:
     """ Test wind parser creation. """
     
-    def test_create_wind_parser_returns_parser(self: "TestCreateWindParser") -> None:
+    def test_create_wind_parser_returns_parser(self: 'TestCreateWindParser') -> None:
         """
         This test verifies that the `create_wind_parser` factory method returns an instance of `argparse.ArgumentParser`. The returned parser should be configured to accept command-line arguments specific to wind plotting, such as variable selection, level options, plotting styles, and output settings. This test confirms the type of the returned object to ensure it is a valid argument parser ready for use in the wind plotting workflow. 
 
@@ -435,7 +435,7 @@ class TestCreateWindParser:
         parser = ArgumentParser.create_wind_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
     
-    def test_create_wind_parser_defaults(self: "TestCreateWindParser") -> None:
+    def test_create_wind_parser_defaults(self: 'TestCreateWindParser') -> None:
         """
         This test checks that the wind parser correctly applies default values for optional arguments when they are not provided. By parsing a minimal set of required arguments, we can confirm that the parser assigns sensible defaults for parameters such as variable names, level, plotting style, sampling options, and time index. This ensures that users can run the wind plotting CLI with minimal input and still get a functional plot with reasonable defaults. 
 
@@ -459,7 +459,7 @@ class TestCreateWindParser:
         assert args.subsample_factor == pytest.approx(0)
         assert args.time_index == pytest.approx(0)
     
-    def test_create_wind_parser_custom_args(self: "TestCreateWindParser") -> None:
+    def test_create_wind_parser_custom_args(self: 'TestCreateWindParser') -> None:
         """
         This test verifies that the wind parser correctly handles a comprehensive set of custom arguments related to wind plotting. By providing a rich set of command-line options, we can confirm that the parser accepts and correctly types these arguments, making them available on the parsed namespace for use in the plotting workflow. This test ensures that users have flexibility in customizing their wind plots through various CLI options and that these options are properly parsed. 
 
@@ -507,7 +507,7 @@ class TestCreateWindParser:
 class TestParseWindArgsToConfig:
     """ Test wind argument-to-config conversion. """
     
-    def test_parse_wind_args_with_extent(self: "TestParseWindArgsToConfig") -> None:
+    def test_parse_wind_args_with_extent(self: 'TestParseWindArgsToConfig') -> None:
         """
         This test verifies that when a specific `extent` is provided in the parsed arguments, the resulting configuration correctly maps the longitude and latitude bounds onto the appropriate attributes. The converter should take the list of extent values and assign them to `lon_min`, `lon_max`, `lat_min`, and `lat_max` on the configuration object. This ensures that spatial subsetting for wind plots is properly configured based on user input. 
 
@@ -558,7 +558,7 @@ class TestParseWindArgsToConfig:
         assert config.lat_max == pytest.approx(45.0)
         assert config.figure_size == (pytest.approx(12.0), pytest.approx(10.0))
     
-    def test_parse_wind_args_without_extent(self: "TestParseWindArgsToConfig") -> None:
+    def test_parse_wind_args_without_extent(self: 'TestParseWindArgsToConfig') -> None:
         """
         This test checks that when no `extent` is provided in the parsed arguments, the resulting configuration defaults to a global extent. The converter should assign default values of `lon_min=-180.0`, `lon_max=180.0`, `lat_min=-90.0`, and `lat_max=90.0` to the configuration object when the `extent` argument is None. This ensures that if users do not specify a spatial extent for their wind plots, the application will use a global view by default. 
 
@@ -598,7 +598,7 @@ class TestParseWindArgsToConfig:
         assert config.lat_min == pytest.approx(-90.0)
         assert config.lat_max == pytest.approx(90.0)
     
-    def test_parse_wind_args_with_batch_all(self: "TestParseWindArgsToConfig") -> None:
+    def test_parse_wind_args_with_batch_all(self: 'TestParseWindArgsToConfig') -> None:
         """
         This test ensures that when the `batch_all` flag is set to True in the parsed arguments, the resulting configuration has `batch_mode` set to True. This indicates that the application should run in batch processing mode for wind plotting, which may affect how plots are generated and saved. The test confirms that the converter correctly interprets the `batch_all` argument and sets the appropriate configuration attribute to enable batch processing functionality for wind plots. 
 
@@ -634,7 +634,7 @@ class TestParseWindArgsToConfig:
         config = ArgumentParser.parse_wind_args_to_config(args)        
         assert config.batch_mode is True
     
-    def test_parse_wind_args_with_real_mpas_paths(self: "TestParseWindArgsToConfig", grid_file, test_data_dir) -> None:
+    def test_parse_wind_args_with_real_mpas_paths(self: 'TestParseWindArgsToConfig', grid_file, test_data_dir) -> None:
         """
         This test performs an integration check by parsing wind plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_wind_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with wind-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for wind plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -686,7 +686,7 @@ class TestParseWindArgsToConfig:
 class TestCreateCrosssectionParser:
     """ Test cross-section parser creation. """
     
-    def test_create_crosssection_parser_returns_parser(self: "TestCreateCrosssectionParser") -> None:
+    def test_create_crosssection_parser_returns_parser(self: 'TestCreateCrosssectionParser') -> None:
         """
         This test verifies that the `create_crosssection_parser` factory method returns an instance of `argparse.ArgumentParser`. The returned parser should be configured to accept command-line arguments specific to cross-section plotting, such as start/end coordinates, vertical options, plotting styles, and output settings. This test confirms the type of the returned object to ensure it is a valid argument parser ready for use in the cross-section plotting workflow. 
 
@@ -699,7 +699,7 @@ class TestCreateCrosssectionParser:
         parser = ArgumentParser.create_crosssection_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
     
-    def test_create_crosssection_parser_required_args(self: "TestCreateCrosssectionParser") -> None:
+    def test_create_crosssection_parser_required_args(self: 'TestCreateCrosssectionParser') -> None:
         """
         This test checks that the cross-section parser correctly handles required arguments such as `--grid-file`, `--data-dir`, `--variable`, and the start/end coordinates. By parsing a minimal set of required arguments, we can confirm that the parser is structured to accept these essential inputs for cross-section plotting and that they are accessible as attributes on the parsed namespace. This ensures that users will be prompted for necessary information when using the cross-section plotting CLI. 
 
@@ -729,7 +729,7 @@ class TestCreateCrosssectionParser:
         assert args.end_lon == pytest.approx(-94.6)
         assert args.end_lat == pytest.approx(39.1)
     
-    def test_create_crosssection_parser_defaults(self: "TestCreateCrosssectionParser") -> None:
+    def test_create_crosssection_parser_defaults(self: 'TestCreateCrosssectionParser') -> None:
         """
         This test verifies that the cross-section parser correctly applies default values for optional arguments when they are not provided. By parsing a minimal set of required arguments, we can confirm that the parser assigns sensible defaults for parameters such as time index, vertical coordinate, number of points, plotting style, colormap, and output settings. This ensures that users can run the cross-section plotting CLI with minimal input and still get a functional plot with reasonable defaults. 
 
@@ -760,7 +760,7 @@ class TestCreateCrosssectionParser:
         assert args.output_dir == './output'
         assert args.dpi == pytest.approx(100)
     
-    def test_create_crosssection_parser_custom_args(self: "TestCreateCrosssectionParser") -> None:
+    def test_create_crosssection_parser_custom_args(self: 'TestCreateCrosssectionParser') -> None:
         """
         This test verifies that the cross-section parser correctly handles a comprehensive set of custom arguments related to cross-section plotting. By providing a rich set of command-line options, we can confirm that the parser accepts and correctly types these arguments, making them available on the parsed namespace for use in the plotting workflow. This test ensures that users have flexibility in customizing their cross-section plots through various CLI options and that these options are properly parsed. 
 
@@ -811,7 +811,7 @@ class TestCreateCrosssectionParser:
 class TestParseCrosssectionArgsToConfig:
     """ Test cross-section argument-to-config conversion. """
     
-    def test_parse_crosssection_args_basic(self: "TestParseCrosssectionArgsToConfig") -> None:
+    def test_parse_crosssection_args_basic(self: 'TestParseCrosssectionArgsToConfig') -> None:
         """
         This test verifies that the `parse_crosssection_args_to_config` method correctly converts a parsed argument namespace specific to cross-section plotting into an `MPASConfig` instance. By providing a comprehensive set of cross-section-related arguments, we can confirm that each relevant field is properly mapped onto the configuration object, including type conversions for numeric values and handling of optional parameters. This test ensures that the conversion logic for cross-section plotting arguments is robust and produces a configuration object that downstream plotting functions can utilize effectively. 
 
@@ -866,7 +866,7 @@ class TestParseCrosssectionArgsToConfig:
         assert config.extend == 'both'
         assert config.figure_size == (14.0, 8.0)
     
-    def test_parse_crosssection_args_with_levels(self: "TestParseCrosssectionArgsToConfig") -> None:
+    def test_parse_crosssection_args_with_levels(self: 'TestParseCrosssectionArgsToConfig') -> None:
         """
         This test checks that when specific `levels` are provided in the parsed arguments, the resulting configuration correctly includes these levels as a list of floats. The converter should take the list of level values from the arguments and assign them to the `levels` attribute on the configuration object. This ensures that if users specify particular contour levels for their cross-section plots, these levels are properly reflected in the configuration for use during plotting. 
 
@@ -904,7 +904,7 @@ class TestParseCrosssectionArgsToConfig:
         config = ArgumentParser.parse_crosssection_args_to_config(args)        
         assert config.levels == [250.0, 260.0, 270.0, 280.0, 290.0]
     
-    def test_parse_crosssection_args_without_max_height(self: "TestParseCrosssectionArgsToConfig") -> None:
+    def test_parse_crosssection_args_without_max_height(self: 'TestParseCrosssectionArgsToConfig') -> None:
         """
         This test verifies that when no `max_height` is provided in the parsed arguments, the resulting configuration has `max_height` set to None. This ensures that if users do not specify a maximum height for their cross-section plots, the application will not apply any height limit by default. The test confirms that the absence of the `max_height` argument is correctly handled during the argument-to-config conversion process, allowing for flexible plotting without height constraints when desired. 
 
@@ -941,7 +941,7 @@ class TestParseCrosssectionArgsToConfig:
         config = ArgumentParser.parse_crosssection_args_to_config(args)        
         assert config.max_height is None
     
-    def test_parse_crosssection_args_with_real_mpas_paths(self: "TestParseCrosssectionArgsToConfig", grid_file, test_data_dir) -> None:
+    def test_parse_crosssection_args_with_real_mpas_paths(self: 'TestParseCrosssectionArgsToConfig', grid_file, test_data_dir) -> None:
         """
         This test performs an integration check by parsing cross-section plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_crosssection_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with cross-section-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for cross-section plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -993,5 +993,130 @@ class TestParseCrosssectionArgsToConfig:
         assert config.end_lon == pytest.approx(-90.0)
         assert config.vertical_coord == 'pressure'
 
-if __name__ == "__main__": 
-    pytest.main([__file__]) 
+class TestRemapEngineMethodCLIArgs:
+    """ Test that remap engine/method CLI args are parsed correctly for different subcommands. """
+
+    def _parse(self: 'TestRemapEngineMethodCLIArgs', 
+               subcommand: str, 
+               extra_args: list) -> object:
+        """
+        This helper method creates a main parser using the `MPASUnifiedCLI` class and parses a set of command-line arguments for a given subcommand. It constructs the argument list by combining the specified subcommand with a base set of required arguments (such as grid file, data directory, and spatial bounds) and any additional arguments provided in `extra_args`. The method then returns the parsed namespace object containing all the command-line arguments, which can be used in tests to verify that remap engine and method options are correctly parsed for different subcommands. 
+
+        Parameters:
+            subcommand (str): The subcommand to parse arguments for.
+            extra_args (list): Additional command-line arguments to include.
+
+        Returns:
+            object: The parsed namespace object containing the command-line arguments.
+        """
+        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        cli = MPASUnifiedCLI()
+        parser = cli.create_main_parser()
+        base = ['--grid-file', 'g.nc', '--data-dir', '/data',
+                '--lon-min', '-110', '--lon-max', '-100',
+                '--lat-min', '30', '--lat-max', '40']
+        argv = [subcommand] + base + extra_args
+        return parser.parse_args(argv)
+
+    def test_precipitation_default_engine(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test verifies that when parsing command-line arguments for the 'precipitation' subcommand with a specified variable (e.g., 'rainnc') but without explicitly providing remap engine or method options, the resulting parsed namespace defaults to using the 'kdtree' remap engine and 'nearest' remap method. This ensures that the CLI provides sensible defaults for remapping when users do not specify these options, allowing for a functional precipitation plotting experience without requiring additional input for remapping configuration. 
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertions on `ns.remap_engine` and `ns.remap_method`. 
+        """
+        ns = self._parse('precipitation', ['--variable', 'rainnc'])
+        assert ns.remap_engine == 'kdtree'
+        assert ns.remap_method == 'nearest'
+
+    def test_precipitation_esmf_engine(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test checks that when parsing command-line arguments for the 'precipitation' subcommand with a specified variable and explicit remap engine and method options (e.g., '--remap-engine esmf' and '--remap-method bilinear'), the resulting parsed namespace correctly reflects these specified values. This ensures that the CLI properly recognizes and applies user-provided remapping configurations for precipitation plotting, allowing users to customize their remapping approach as needed. 
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertions on `ns.remap_engine` and `ns.remap_method`. 
+        """
+        ns = self._parse('precipitation', ['--variable', 'rainnc',
+                                           '--remap-engine', 'esmf',
+                                           '--remap-method', 'bilinear'])
+        assert ns.remap_engine == 'esmf'
+        assert ns.remap_method == 'bilinear'
+
+    def test_surface_default_engine(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test verifies that when parsing command-line arguments for the 'surface' subcommand with a specified variable (e.g., 't2m') but without explicitly providing remap engine or method options, the resulting parsed namespace defaults to using the 'kdtree' remap engine. This ensures that the CLI provides a sensible default for remapping when users do not specify these options for surface plotting, allowing for a functional plotting experience without requiring additional input for remapping configuration. 
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertion on `ns.remap_engine`. 
+        """
+        ns = self._parse('surface', ['--variable', 't2m'])
+        assert ns.remap_engine == 'kdtree'
+
+    def test_surface_custom_method(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test verifies that when parsing command-line arguments for the 'surface' subcommand with a specified variable (e.g., 't2m') and explicit remap engine and method options (e.g., '--remap-engine kdtree' and '--remap-method linear'), the resulting parsed namespace correctly reflects these specified values. This ensures that the CLI properly recognizes and applies user-provided remapping configurations for surface plotting, allowing users to customize their remapping approach as needed. 
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertion on `ns.remap_method`. 
+        """
+        ns = self._parse('surface', ['--variable', 't2m',
+                                     '--remap-engine', 'kdtree',
+                                     '--remap-method', 'linear'])
+        assert ns.remap_method == 'linear'
+
+    def test_wind_default_engine(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test checks that when parsing command-line arguments for the 'wind' subcommand with specified u and v variables (e.g., 'uReconstructZonal' and 'uReconstructMeridional') but without explicitly providing remap engine or method options, the resulting parsed namespace defaults to using the 'kdtree' remap engine. This ensures that the CLI provides a sensible default for remapping when users do not specify these options for wind plotting, allowing for a functional plotting experience without requiring additional input for remapping configuration. 
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertion on `ns.remap_engine`. 
+        """
+        ns = self._parse('wind', ['--u-variable', 'uReconstructZonal',
+                                  '--v-variable', 'uReconstructMeridional'])
+        assert ns.remap_engine == 'kdtree'
+
+    def test_parse_args_to_config_maps_remap_fields(self: 'TestRemapEngineMethodCLIArgs') -> None:
+        """
+        This test verifies that when parsing command-line arguments for the 'precipitation' subcommand with specified remap engine and method options, the resulting configuration correctly maps these fields. This ensures that the CLI properly translates user-provided remapping configurations into the internal configuration used for processing.
+
+        Parameters:
+            None
+
+        Returns:
+            None: Verified by assertions on `config.remap_engine` and `config.remap_method`. 
+        """
+        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        cli = MPASUnifiedCLI()
+        parser = cli.create_main_parser()
+        argv = [
+            'precipitation',
+            '--grid-file', 'g.nc', '--data-dir', '/data',
+            '--lon-min', '-110', '--lon-max', '-100',
+            '--lat-min', '30', '--lat-max', '40',
+            '--variable', 'rainnc',
+            '--remap-engine', 'kdtree',
+            '--remap-method', 'linear',
+        ]
+        ns = parser.parse_args(argv)
+        config = cli.parse_args_to_config(ns)
+        assert config.remap_engine == 'kdtree'
+        assert config.remap_method == 'linear'
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

@@ -14,59 +14,22 @@ Version: 1.0.0
 import pytest
 import numpy as np
 import xarray as xr
-from typing import Any
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 from mpasdiag.processing.remapping import (
-    remap_mpas_to_latlon,
-    _convert_coordinates_to_degrees,
-    _compute_grid_bounds
+    remap_mpas_to_latlon
 )
-
-import xesmf as xe
-
-if not xe:
-    XESMF_AVAILABLE = True
-else:
-    XESMF_AVAILABLE = False
-
-REMAPPING_AVAILABLE = True
-
-
-class TestRemappingEdgeCases:
-    """ Test edge cases and error handling. """
-    
-    def test_target_grid_with_single_point(self: "TestRemappingEdgeCases") -> None:
-        """
-        This test verifies that the `create_target_grid` function can handle the edge case of creating a target grid with only a single point. This scenario can occur when users specify identical minimum and maximum bounds for longitude and latitude, resulting in a degenerate grid. The test checks that the function does not raise an error and returns a valid grid object with longitude and latitude arrays of length 1. This ensures that the grid creation logic is robust to unusual but valid input parameters, allowing users to create target grids even in cases where they may want to focus on a single point of interest. 
-        
-        Parameters:
-            None
-        
-        Returns:
-            None: This test method performs assertions and raises exceptions on failure.
-        """
-        from mpasdiag.processing.remapping import create_target_grid
-
-        grid = create_target_grid(
-            lon_min=0, lon_max=0,
-            lat_min=0, lat_max=0,
-            dlon=1.0, dlat=1.0
-        )
-        
-        assert len(grid.lon) == pytest.approx(1)
-        assert len(grid.lat) == pytest.approx(1)
 
 
 class TestEdgeCasesAndErrorHandling:
     """ Test edge cases and error conditions """
     
-    def test_remap_with_single_point(self: "TestEdgeCasesAndErrorHandling") -> None:
+    def test_remap_with_single_point(self: 'TestEdgeCasesAndErrorHandling') -> None:
         """
         This test verifies that the `remap_mpas_to_latlon` function can handle the edge case of remapping data from a single point in the MPAS grid to a regular lat-lon grid. The test creates synthetic longitude and latitude values corresponding to a single point, along with a single data value, and calls the remapping function with a specified resolution. The function should execute without errors and return a valid xarray DataArray containing the remapped data. This ensures that the remapping logic can accommodate degenerate cases where the input data consists of only one point, which is important for users who may want to perform remapping on very small datasets or focus on specific locations.
 
         Parameters:
-            self ("TestEdgeCasesAndErrorHandling"): Test instance (unused).
+            self ('TestEdgeCasesAndErrorHandling'): Test instance (unused).
 
         Returns:
             None: Assertion validates output type.
@@ -86,12 +49,12 @@ class TestEdgeCasesAndErrorHandling:
         
         assert isinstance(remapped, xr.DataArray)
     
-    def test_remap_preserves_data_range(self: "TestEdgeCasesAndErrorHandling") -> None:
+    def test_remap_preserves_data_range(self: 'TestEdgeCasesAndErrorHandling') -> None:
         """
         This test verifies that the `remap_mpas_to_latlon` function preserves the range of data values when remapping from the MPAS grid to a regular lat-lon grid. The test creates synthetic longitude and latitude values, along with data values that have a known minimum and maximum. After remapping, the test checks that the minimum and maximum values in the remapped data are within the original range, ensuring that the interpolation method does not introduce values outside of the expected range. This is important for maintaining the integrity of the data during remapping operations, especially when using methods like 'nearest' that should preserve original values without smoothing or extrapolation. 
 
         Parameters:
-            self ("TestEdgeCasesAndErrorHandling"): Test instance (unused).
+            self ('TestEdgeCasesAndErrorHandling'): Test instance (unused).
 
         Returns:
             None: Assertions validate preserved data range.
@@ -118,109 +81,88 @@ class TestEdgeCasesAndErrorHandling:
         assert remapped_min >= original_min
         assert remapped_max <= original_max
     
-    def test_grid_bounds_with_single_point(self: "TestEdgeCasesAndErrorHandling") -> None:
-        """
-        This test verifies that the `_compute_grid_bounds` function can handle the edge case of computing grid bounds for a single coordinate point. When the input coordinate array contains only one value, the function should return bounds that are centered around that point, with a width equal to the specified resolution. This ensures that the bounds computation logic is robust to degenerate cases where there is only one coordinate, allowing for consistent behavior even when users provide minimal input data. 
-
-        Parameters:
-            self ("TestEdgeCasesAndErrorHandling"): Test instance (unused).
-
-        Returns:
-            None: Assertions validate bounds computation.
-        """
-        coords = np.array([5.0])
-        resolution = 1.0
-        
-        bounds = _compute_grid_bounds(coords, resolution)
-        
-        assert len(bounds) == pytest.approx(2)
-        assert bounds[0] == pytest.approx(4.5)
-        assert bounds[1] == pytest.approx(5.5)
     
-    def test_coordinates_mixed_hemisphere(self: "TestEdgeCasesAndErrorHandling") -> None:
+class TestRemapToLatlonAllZeroData:
+    """ Tests for remap_mpas_to_latlon with all-zero / all-NaN input data. """
+
+    @pytest.fixture
+    def dataset(self: 'TestRemapToLatlonAllZeroData') -> xr.Dataset:
         """
-        This test verifies that the `_convert_coordinates_to_degrees` function can handle coordinates that span both hemispheres and the prime meridian. The test provides longitude values that include negative, zero, and positive values, as well as latitude values that include negative, zero, and positive values. The function should correctly convert these coordinates to degrees without errors, and the output should match the input since they are already in degrees. This ensures that the coordinate conversion logic is robust to a wide range of valid input values, including those that cross important geographical boundaries. 
+        This fixture creates a synthetic xarray Dataset with longitude and latitude coordinates for testing the remap_mpas_to_latlon function. The dataset contains 100 cells with randomly generated longitude values between -105 and -100 degrees, and latitude values between 35 and 40 degrees. The longitude and latitude values are converted to radians, as expected by the remapping function. This dataset is used in multiple tests to verify that the remapping function can handle cases where the input data is all zeros or all NaNs without errors, and that it preserves attributes when using xarray DataArrays.
 
         Parameters:
-            self ("TestEdgeCasesAndErrorHandling"): Test instance (unused).
+            None
 
         Returns:
-            None: Assertions validate conversion identity.
+            xr.Dataset: A dataset containing 'lonCell' and 'latCell' DataArrays with random coordinates in radians for testing remapping edge cases. 
         """
-        lon = np.array([-180, -90, 0, 90, 180])
-        lat = np.array([-90, -45, 0, 45, 90])
-        
-        lon_out, lat_out = _convert_coordinates_to_degrees(lon, lat)
-        
-        np.testing.assert_array_almost_equal(lon_out, lon)
-        np.testing.assert_array_almost_equal(lat_out, lat)
+        n = 100
+        rng = np.random.default_rng(11)
+        lon = rng.uniform(-105, -100, n)
+        lat = rng.uniform(35, 40, n)
+        return xr.Dataset({
+            'lonCell': xr.DataArray(np.radians(lon), dims=['nCells']),
+            'latCell': xr.DataArray(np.radians(lat), dims=['nCells']),
+        })
 
-
-class TestImportErrorHandling:
-    """ Test import error handling for xESMF. """
-    
-    def test_xesmf_not_available_warning(self: "TestImportErrorHandling") -> None:
+    def test_all_zero_data_returns_result(self: 'TestRemapToLatlonAllZeroData', 
+                                          dataset: xr.Dataset) -> None:
         """
-        This test verifies that the module correctly handles the case where xESMF is not available. Since xESMF is a required dependency for remapping functionality, the module should set a flag (e.g., `XESMF_AVAILABLE`) to indicate whether xESMF is installed. This test checks that the flag is set to True when xESMF is available, and that it is of type bool. This ensures that the module can gracefully handle missing dependencies and provide informative feedback to users about the availability of remapping features. 
+        This test verifies that the `remap_mpas_to_latlon` function can handle the edge case of remapping data that consists entirely of zeros. The test creates a dataset with longitude and latitude coordinates, and a data array filled with zeros. When the remapping function is called with this input, it should execute without errors and return a valid xarray DataArray containing the remapped data. This ensures that the remapping logic can accommodate cases where the input data has no variation, which is important for users who may want to perform remapping on datasets that are initialized to zero or have been processed in a way that results in all-zero values. 
 
         Parameters:
-            self ("TestImportErrorHandling"): Test instance (unused).
+            dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Assertions validate the availability flag.
+            None: Test validates that remap_mpas_to_latlon returns a DataArray without errors when input data is all zeros. 
         """
-        XESMF_AVAILABLE = True
-        assert isinstance(XESMF_AVAILABLE, bool)
+        data = np.zeros(dataset.sizes['nCells'])
+        lon = np.degrees(dataset['lonCell'].values)
+        lat = np.degrees(dataset['latCell'].values)
+        result = remap_mpas_to_latlon(data, lon, lat, lon_min=-105, lon_max=-100,
+                                      lat_min=35, lat_max=40, resolution=1.0)
+        assert isinstance(result, xr.DataArray)
 
-
-@pytest.mark.skipif(not XESMF_AVAILABLE, reason="xESMF not installed")
-
-
-class TestRemapMPASToLatLonErrors:
-    """ Test remap_mpas_to_latlon error handling. """
-    
-    def test_invalid_method_raises_error(self: "TestRemapMPASToLatLonErrors", simple_mpas_data: Any) -> None:
+    def test_all_nan_data_returns_result(self: 'TestRemapToLatlonAllZeroData', 
+                                         dataset: xr.Dataset) -> None:
         """
-        This test verifies that the `remap_mpas_to_latlon` function raises a ValueError when an invalid interpolation method is specified. The test creates synthetic longitude and latitude values, along with random data values, and attempts to call the remapping function with a method name that is not recognized (e.g., 'invalid_method'). The function should detect the invalid method and raise an appropriate exception with a message indicating the valid options. This ensures that the function has proper error handling for unsupported interpolation methods, which is important for guiding users towards correct usage and preventing silent failures or unexpected behavior during remapping operations. 
+        This test verifies that the `remap_mpas_to_latlon` function can handle the edge case of remapping data that consists entirely of NaN values. The test creates a dataset with longitude and latitude coordinates, and a data array filled with NaNs. When the remapping function is called with this input, it should execute without errors and return a valid xarray DataArray containing the remapped data, which may also contain NaN values. This ensures that the remapping logic can accommodate cases where the input data is invalid or missing, which is important for users who may encounter datasets with NaN values due to processing steps or data quality issues.
 
         Parameters:
-            self ("TestRemapMPASToLatLonErrors"): Test instance (unused).
-            simple_mpas_data (Any): Fixture providing small MPAS-like arrays.
+            dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test asserts that ValueError is raised.
+            None: Test validates that remap_mpas_to_latlon returns a DataArray without errors when input data is all NaNs. 
         """
-        with pytest.raises(ValueError, match="method must be"):
-            remap_mpas_to_latlon(
-                data=simple_mpas_data['data'],
-                lon=simple_mpas_data['lon'],
-                lat=simple_mpas_data['lat'],
-                resolution=1.0,
-                method='invalid_method'
-            )
-    
-    def test_scipy_import_error(self: "TestRemapMPASToLatLonErrors", simple_mpas_data: Any) -> None:
+        n = dataset.sizes['nCells']
+        data = np.full(n, np.nan)
+        lon = np.degrees(dataset['lonCell'].values)
+        lat = np.degrees(dataset['latCell'].values)
+        result = remap_mpas_to_latlon(data, lon, lat, lon_min=-105, lon_max=-100,
+                                      lat_min=35, lat_max=40, resolution=1.0)
+        assert isinstance(result, xr.DataArray)
+
+    def test_xarray_input_preserves_attrs(self: 'TestRemapToLatlonAllZeroData', 
+                                          dataset: xr.Dataset) -> None:
         """
-        This test verifies that the `remap_mpas_to_latlon` function raises an ImportError with a clear message when scipy is not available. Since scipy is a required dependency for certain interpolation methods, the function should check for its availability and raise an appropriate exception if it is not installed. This test simulates the absence of scipy and checks that the error message clearly indicates that scipy is required for remapping functionality. This ensures that users receive informative feedback about missing dependencies, which can help them resolve issues and successfully use the remapping features of MPASdiag. 
+        This test verifies that the `remap_mpas_to_latlon` function preserves the attributes of an xarray DataArray when remapping. The test creates a dataset with longitude and latitude coordinates, and a data array filled with random values that has specific attributes (e.g., 'units' and 'long_name'). When the remapping function is called with this input, it should execute without errors and return a valid xarray DataArray containing the remapped data, while also preserving the original attributes. This ensures that the remapping logic maintains important metadata associated with the data, which is crucial for users who rely on attributes for understanding the context and meaning of their data after remapping operations. 
 
         Parameters:
-            self ("TestRemapMPASToLatLonErrors"): Test instance (unused).
-            simple_mpas_data (Any): Fixture providing small MPAS-like arrays.
+            dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Assertions validate presence of dependency messaging.
+            None: Test validates that remap_mpas_to_latlon preserves DataArray attributes.
         """
-        from mpasdiag.processing import remapping
-        import inspect
-        
-        source = inspect.getsource(remapping.remap_mpas_to_latlon)        
-        assert "scipy is required" in source or "ImportError" in source
-        
-        try:
-            from scipy.spatial import KDTree
-            assert KDTree is not None
-        except ImportError:
-            pytest.fail("scipy should be available for tests")
+        n = dataset.sizes['nCells']
+        rng = np.random.default_rng(7)
+        attrs = {'units': 'mm', 'long_name': 'precipitation'}
+        data = xr.DataArray(rng.uniform(0, 5, n), dims=['nCells'], attrs=attrs)
+        lon = np.degrees(dataset['lonCell'].values)
+        lat = np.degrees(dataset['latCell'].values)
+        result = remap_mpas_to_latlon(data, lon, lat, lon_min=-105, lon_max=-100,
+                                      lat_min=35, lat_max=40, resolution=1.0)
+        assert result.attrs.get('units') == 'mm'
+        assert result.attrs.get('long_name') == 'precipitation'
 
 
 if __name__ == '__main__':

@@ -33,8 +33,14 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
 from ..processing.utils_unit import UnitConverter
-from ..processing.remapping import remap_mpas_to_latlon_with_masking
 from ..diagnostics.precipitation import PrecipitationDiagnostics
+
+# Import remapping utilities and check for ESMPy availability
+from ..processing.remapping import (
+    remap_mpas_to_latlon_with_masking,
+    dispatch_remap,
+    ESMPY_AVAILABLE,
+)
 
 # Filter warnings from cartopy and shapely to avoid cluttering output with non-critical warnings during map rendering
 warnings.filterwarnings('ignore', category=UserWarning, module='cartopy')
@@ -46,7 +52,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
     _GEOAXES_MSG = "Axes must be GeoAxes for cartopy plots"
 
-    def __init__(self: "MPASPrecipitationPlotter", 
+    def __init__(self: 'MPASPrecipitationPlotter', 
                  figsize: Tuple[float, float] = (10, 14), 
                  dpi: int = 100) -> None:
         """
@@ -60,8 +66,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             None
         """
         super().__init__(figsize, dpi)
-    
-    def create_precip_colormap(self: "MPASPrecipitationPlotter",
+
+    def create_precip_colormap(self: 'MPASPrecipitationPlotter',
                                accum: str = "a24h") -> Tuple[mcolors.ListedColormap, List[float]]:
         """
         This method creates a discrete colormap and corresponding contour levels for precipitation visualization based on the specified accumulation period. It delegates to the MPASVisualizationStyle class to generate a colormap that is appropriate for the given accumulation period (e.g., hourly, daily) and returns both the colormap and a sorted list of contour level values that can be used for consistent coloring and colorbar ticks in precipitation maps. The accumulation period identifier (e.g., 'a24h' for 24-hour accumulation) is used to select predefined color schemes and levels that are meteorologically meaningful for visualizing precipitation fields. 
@@ -75,7 +81,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Delegate to MPASVisualizationStyle to create a discrete colormap and contour levels based on the specified accumulation period
         return MPASVisualizationStyle.create_precip_colormap(accum)
     
-    def _convert_precipitation_units(self: "MPASPrecipitationPlotter",
+    def _convert_precipitation_units(self: 'MPASPrecipitationPlotter',
                                      precip_data: np.ndarray,
                                      data_array: Optional[xr.DataArray],
                                      var_name: str) -> Tuple[np.ndarray, str]:
@@ -137,7 +143,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the converted precipitation data and the unit label for colorbar annotation
         return precip_data, unit_label
     
-    def _setup_precipitation_figure(self: "MPASPrecipitationPlotter",
+    def _setup_precipitation_figure(self: 'MPASPrecipitationPlotter',
                                     lon_min: float,
                                     lon_max: float,
                                     lat_min: float,
@@ -196,7 +202,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the map projection and data CRS 
         return map_proj, data_crs
     
-    def _prepare_precipitation_colormap(self: "MPASPrecipitationPlotter",
+    def _prepare_precipitation_colormap(self: 'MPASPrecipitationPlotter',
                                         colormap: Optional[str],
                                         levels: Optional[List[float]],
                                         accum_period: str,
@@ -254,7 +260,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the colormap, normalization, and sorted contour levels 
         return cmap, norm, color_levels_sorted
     
-    def _prepare_precipitation_data(self: "MPASPrecipitationPlotter",
+    def _prepare_precipitation_data(self: 'MPASPrecipitationPlotter',
                                     lon: np.ndarray,
                                     lat: np.ndarray,
                                     precip_data: np.ndarray,
@@ -313,7 +319,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return only valid points for plotting
         return lon_flat[valid_mask], lat_flat[valid_mask], precip_data_flat[valid_mask]
     
-    def _add_time_annotation(self: "MPASPrecipitationPlotter",
+    def _add_time_annotation(self: 'MPASPrecipitationPlotter',
                              time_end: Optional[datetime],
                              time_start: Optional[datetime],
                              accum_period: str) -> None:
@@ -343,21 +349,21 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             start_utc = time_start.strftime('%Y-%m-%d %H:%M UTC')
             end_utc = time_end.strftime('%Y-%m-%d %H:%M UTC')
             n_hours = int((time_end - time_start).total_seconds() / 3600)
-            txt = f"Accumulation: {start_utc} to {end_utc} ({n_hours} h)"
+            annotation_text = f"Accumulation: {start_utc} to {end_utc} ({n_hours} h)"
         elif accum_period:
             # Use accumulation period string if time_end is not provided but accum_period is specified
             accum_hours_map = {'a01h': '1-h', 'a03h': '3-h', 'a06h': '6-h', 'a12h': '12-h', 'a24h': '24-h'}
             accum_display = accum_hours_map.get(accum_period, accum_period)
-            txt = f"Accumulation: {accum_display}"
+            annotation_text = f"Accumulation: {accum_display}"
         else:
             return
-        
+
         # Add annotation text box to the plot with styling
-        self.ax.text(0.01, 0.02, txt, transform=self.ax.transAxes, fontsize=9,
+        self.ax.text(0.01, 0.02, annotation_text, transform=self.ax.transAxes, fontsize=9,
                     verticalalignment='bottom', horizontalalignment='left',
                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
     
-    def create_precipitation_map(self: "MPASPrecipitationPlotter",
+    def create_precipitation_map(self: 'MPASPrecipitationPlotter',
                                  lon: np.ndarray,
                                  lat: np.ndarray,
                                  precip_data: np.ndarray,
@@ -378,7 +384,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                  data_array: Optional[xr.DataArray] = None,
                                  var_name: str = 'precipitation',
                                  grid_resolution: Optional[float] = None,
-                                 dataset: Optional[xr.Dataset] = None) -> Tuple[Figure, Axes]:
+                                 dataset: Optional[xr.Dataset] = None,
+                                 config: Optional[Any] = None) -> Tuple[Figure, Axes]:
         """
         This method creates a precipitation map from MPAS unstructured mesh data using cartopy for geographic visualization. It supports multiple rendering options including scatter plots of cell values and interpolated contour/filled contour maps. The method handles unit conversion, colormap selection, data validation, and geographic features to produce a professional-quality visualization of precipitation fields. It also includes robust handling of edge cases such as empty or invalid data, and provides informative annotations about the accumulation period. The resulting figure and axes are returned for further customization or saving. 
 
@@ -458,7 +465,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     lon_valid, lat_valid, precip_valid,
                     lon_min, lon_max, lat_min, lat_max,
                     cmap, norm, color_levels_sorted, data_crs,
-                    grid_resolution, dataset,
+                    grid_resolution, dataset, config=config,
                 )
             elif plot_type == 'contourf':
                 # Contourf requires interpolation to a regular grid, which is handled in the helper method using MPASRemapper
@@ -469,6 +476,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     grid_resolution, dataset,
                     colorbar_label=f'Precipitation [{unit_label}]',
                     colorbar_ticks=color_levels_sorted,
+                    config=config,
                 )
         else:
             print(f"Warning: No valid precipitation data points found for {var_name}")
@@ -491,7 +499,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the figure and axes for further manipulation or saving
         return self.fig, self.ax
     
-    def _interpolate_to_grid(self: "MPASPrecipitationPlotter",
+    def _interpolate_to_grid(self: 'MPASPrecipitationPlotter',
                              lon: np.ndarray,
                              lat: np.ndarray,
                              data: np.ndarray,
@@ -502,39 +510,43 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                              grid_resolution: Optional[float] = None,
                              dataset: Optional[xr.Dataset] = None,
                              method: str = 'linear',
-                             resolution_bounds: Optional[Tuple[float, float]] = (0.1, 1.0),) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                             resolution_bounds: Optional[Tuple[float, float]] = (0.1, 1.0),
+                             comm: Optional[Any] = None,
+                             config: Optional[dict] = None, ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        This method performs interpolation of the unstructured MPAS data onto a regular grid suitable for contour and contourf plotting. It uses the MPASRemapper to handle the interpolation, which is designed to work with MPAS datasets and can account for the unstructured nature of the data. The method takes into account the geographic extent and desired grid resolution, and allows for different interpolation methods (e.g., 'linear', 'nearest') as well as optional resolution bounds to prevent over-interpolation. The resulting gridded longitude, latitude, and interpolated precipitation data arrays are returned for use in contour plotting. 
+        This method performs interpolation of the unstructured MPAS data onto a regular grid defined by the specified geographic extent and grid resolution. It uses the MPASRemapper to handle the interpolation, which can be computationally intensive for large datasets, so it includes options for parallel processing with MPI. The method also allows for specifying the interpolation method (e.g., 'linear', 'nearest') and bounds on the grid resolution to ensure that the resulting grid is appropriate for the data density and geographic extent. The returned longitude, latitude, and interpolated data arrays are suitable for contour and filled contour plotting with cartopy.
 
         Parameters:
             lon (np.ndarray): 1D array of longitude coordinates in degrees for MPAS cell centers.
             lat (np.ndarray): 1D array of latitude coordinates in degrees for MPAS cell centers.
-            data (np.ndarray): Precipitation values corresponding to the lon/lat points (in display units).
+            data (np.ndarray): Data values corresponding to the lon/lat points (in display units) that need to be interpolated onto a regular grid.
             lon_min (float): Western boundary of the map extent in degrees.
             lon_max (float): Eastern boundary of the map extent in degrees.
             lat_min (float): Southern boundary of the map extent in degrees.
             lat_max (float): Northern boundary of the map extent in degrees.
-            grid_resolution (Optional[float]): Desired grid resolution in degrees for interpolation. If None, a default resolution will be determined based on data density and geographic extent.
-            dataset (Optional[xr.Dataset]): Optional xarray Dataset containing the original MPAS data, which may be needed for interpolation and remapping. If None, interpolation will be attempted with available data arrays.
-            method (str): Interpolation method to use ('linear', 'nearest', etc.) for gridding the data. Default is 'linear'.
-            resolution_bounds (Optional[Tuple[float, float]]): Optional tuple specifying minimum and maximum allowed grid resolution in degrees to prevent over-interpolation or under-sampling. Default is (0.1, 1.0) degrees.
+            grid_resolution (Optional[float]): Optional grid resolution in degrees for the regular grid. If None, a default resolution will be determined based on the data density and geographic extent.
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset containing the original MPAS data, which may be needed for interpolation and remapping. If None, the method will attempt to perform interpolation without the dataset context, which may limit the interpolation options available.
+            method (str): Interpolation method to use (e.g., 'linear', 'nearest'). The choice of method can affect the appearance of the resulting contour plots, with 'linear' providing smoother results and 'nearest' preserving original data values but resulting in a more blocky appearance.
+            resolution_bounds (Optional[Tuple[float, float]]): Optional tuple specifying the minimum and maximum grid resolution in degrees to use for interpolation. This can help ensure that the resulting grid is not too coarse (which can miss important features) or too fine (which can be computationally expensive and may not be justified by the data density). The method will select an appropriate grid resolution within these bounds based on the geographic extent and the number of data points, ensuring a balance between detail and performance in the resulting contour plots.
+            comm (Optional[Any]): Optional MPI communicator for parallel processing of the interpolation. If provided, the method will use the communicator to distribute the interpolation workload across multiple processes, which can significantly reduce the time required for interpolation of large datasets. If None, the interpolation will be performed in a single process, which may be sufficient for smaller datasets but can be very slow for larger datasets.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing the gridded longitude, latitude, and interpolated precipitation data arrays suitable for contour plotting. The longitude and latitude arrays will be 2D grids corresponding to the shape of the interpolated data array. 
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing the longitude, latitude, and interpolated data arrays on the regular grid. The longitude and latitude arrays define the coordinates of the grid points, and the data array contains the interpolated values at those grid points. These arrays are suitable for use in contour and filled contour plotting with cartopy, allowing for smooth visualization of the precipitation field across the specified geographic extent. The method handles the complexities of interpolation from an unstructured mesh to a regular grid, ensuring that the resulting data is appropriate for visualization while also providing options for performance optimization through parallel processing and resolution control. 
         """
         return super()._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
-            grid_resolution, dataset, method=method,
-            resolution_bounds=resolution_bounds,
+            grid_resolution=grid_resolution, dataset=dataset, method=method,
+            resolution_bounds=resolution_bounds, comm=comm, config=config
         )
     
-    def _prepare_overlay_data(self: "MPASPrecipitationPlotter",
+    def _prepare_overlay_data(self: 'MPASPrecipitationPlotter',
                               lon: Union[np.ndarray, xr.DataArray],
                               lat: Union[np.ndarray, xr.DataArray],
                               precip_data: np.ndarray,
                               var_name: str,
                               original_units: Optional[str],
-                              plot_type: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
+                              plot_type: str,
+                              config: Optional[dict] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
         """
        This method prepares and validates the longitude, latitude, and precipitation data for overlay plotting. It handles unit conversion if original units are provided, checks for physically valid precipitation values (e.g., non-negative), and creates a validity mask based on the plot type. For scatter plots, it filters out points that fall outside the map extent in addition to invalid precipitation values. For contour and contourf plots, it focuses on validating the precipitation values since geographic masking will be handled during interpolation. The method returns only the valid points that can be plotted along with the geographic bounds for use in rendering the overlay. If no valid points exist after filtering, it raises a ValueError to indicate that the overlay cannot be plotted with the given data. 
         
@@ -632,7 +644,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return valid data and bounds for overlay rendering
         return lon_valid, lat_valid, precip_valid, lon_min, lon_max, lat_min, lat_max
     
-    def _setup_overlay_colormap(self: "MPASPrecipitationPlotter",
+    def _setup_overlay_colormap(self: 'MPASPrecipitationPlotter',
                                 colormap: Optional[str],
                                 levels: Optional[List[float]],
                                 accum_period: str) -> Tuple[mcolors.Colormap, BoundaryNorm, List[float]]:
@@ -673,7 +685,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return colormap, normalization, and sorted levels for consistent use in overlay rendering
         return cmap, norm, color_levels_sorted
     
-    def _calculate_overlay_grid_resolution(self: "MPASPrecipitationPlotter",
+    def _calculate_overlay_grid_resolution(self: 'MPASPrecipitationPlotter',
                                            grid_resolution_input: Optional[float],
                                            lon_min: float,
                                            lon_max: float,
@@ -706,7 +718,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return resolution clipped to reasonable bounds for precipitation maps
         return max(0.1, min(resolution, 1.0))
     
-    def _render_overlay_scatter(self: "MPASPrecipitationPlotter",
+    def _render_overlay_scatter(self: 'MPASPrecipitationPlotter',
                                 ax: Axes,
                                 lon_valid: np.ndarray,
                                 lat_valid: np.ndarray,
@@ -756,7 +768,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             transform=ccrs.PlateCarree(), edgecolors='none'
         )
     
-    def _render_overlay_interpolated(self: "MPASPrecipitationPlotter",
+    def _render_overlay_interpolated(self: 'MPASPrecipitationPlotter',
                                      ax: Axes,
                                      lon_valid: np.ndarray,
                                      lat_valid: np.ndarray,
@@ -774,7 +786,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                      color_levels_sorted: List[float],
                                      alpha: float,
                                      lon: np.ndarray,
-                                     lat: np.ndarray) -> None:
+                                     lat: np.ndarray,
+                                     config: Optional[Any] = None) -> None:
         """
         This method renders the precipitation overlay as either contour lines or filled contours based on the specified plot type. It first performs interpolation of the valid precipitation data onto a regular lat-lon grid using the MPASRemapper, which is designed to handle the unstructured nature of MPAS data and can apply masking to ensure that only valid data points contribute to the interpolation. The method then extracts the gridded longitude, latitude, and interpolated precipitation values for plotting. For contour plots, it draws contour lines with specified levels and adds labels to the contours for better readability. For filled contour plots, it fills the contours with colors based on the provided colormap and normalization, ensuring that the colorbar reflects the same levels for consistency. The method also applies a specified transparency level (alpha) to allow for better visualization of underlying map features while still clearly showing the precipitation patterns. This approach allows for a smooth and visually appealing representation of precipitation fields derived from unstructured MPAS data. 
         
@@ -801,37 +814,104 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Returns:
             None: This method modifies the provided axes in place by adding the contour lines or filled contours for the precipitation overlay. It does not return any value.
         """
-        print(f"Interpolating {var_name} overlay using MPASRemapper (resolution: {resolution:.3f}°)")
-        
-        # Create dataset if not provided, ensuring lon and lat are numpy arrays for remapping
-        if dataset is None:
-            # Ensure lon and lat are numpy arrays for dataset creation
-            lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
-            lat_arr = lat if isinstance(lat, np.ndarray) else lat.values
+        engine = getattr(config, 'remap_engine', None)
+        esmf_method = getattr(config, 'remap_method', 'conservative') if config else 'conservative'
+        kdtree_method = getattr(config, 'remap_method', 'linear') if config else 'linear'
 
-            # Create a minimal xarray Dataset with coordinate information for remapping
-            dataset = xr.Dataset({
-                'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
-                'latCell': xr.DataArray(lat_arr, dims=['nCells'])
-            })
-        
-        # Create DataArray for remapping with proper dimensions
-        data_xr = xr.DataArray(precip_valid, dims=['nCells'])
-
-        # Use remap_mpas_to_latlon_with_masking for high-quality interpolation with automatic masking
-        remapped_precip = remap_mpas_to_latlon_with_masking(
-            data=data_xr,
-            dataset=dataset,
-            lon_min=lon_min,
-            lon_max=lon_max,
-            lat_min=lat_min,
-            lat_max=lat_max,
-            resolution=resolution,
-            method='linear',
-            apply_mask=True,
-            lon_convention='auto'
+        use_esmf = (
+            engine == 'esmf'
+            or (engine is None and ESMPY_AVAILABLE and self._has_boundary_data(self._ensure_boundary_data(dataset)))
         )
-        
+
+        # --- config-aware dispatch (primary) ---------------------------------
+        remapped_precip = None
+
+        if config is not None:
+            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
+            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
+
+            if dataset is None:
+                dataset = xr.Dataset({
+                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+                })
+
+            data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+
+            remapped_precip = dispatch_remap(
+                data=data_xr,
+                dataset=dataset,
+                config=config,
+                lon_min=lon_min,
+                lon_max=lon_max,
+                lat_min=lat_min,
+                lat_max=lat_max,
+                resolution=resolution,
+                apply_mask=True,
+                lon_convention='auto',
+            )
+
+        # --- legacy ESMPy path (no config, auto-select) ---------------------
+        elif use_esmf:
+            dataset = self._ensure_boundary_data(dataset)
+
+            print(
+                f"Interpolating {var_name} overlay via ESMPy/{esmf_method} "
+                f"(resolution: {resolution:.3f}°)"
+            )
+
+            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
+            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
+
+            try:
+                full_data = self._backmap_to_full_grid(
+                    lon_valid, lat_valid, precip_valid, lon_arr, lat_arr
+                )
+                remapped_precip = self._remap_conservative(
+                    full_data, lon_arr, lat_arr, dataset,
+                    lon_min, lon_max, lat_min, lat_max, resolution,
+                    method=esmf_method,
+                )
+            except Exception as exc:
+                warnings.warn(
+                    f"ESMPy/{esmf_method} overlay remapping failed ({exc}); "
+                    "falling back to KD-Tree.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                remapped_precip = None
+
+        # --- KD-Tree fallback -----------------------------------------------
+        if remapped_precip is None:
+            print(
+                f"Interpolating {var_name} overlay using KD-Tree/{kdtree_method} "
+                f"(resolution: {resolution:.3f}°)"
+            )
+
+            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
+            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
+
+            if dataset is None:
+                dataset = xr.Dataset({
+                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+                })
+
+            data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+
+            remapped_precip = remap_mpas_to_latlon_with_masking(
+                data=data_xr,
+                dataset=dataset,
+                lon_min=lon_min,
+                lon_max=lon_max,
+                lat_min=lat_min,
+                lat_max=lat_max,
+                resolution=resolution,
+                method=kdtree_method,
+                apply_mask=True,
+                lon_convention='auto',
+            )
+
         # Extract grid and data for plotting
         lon_grid = remapped_precip.lon.values
         lat_grid = remapped_precip.lat.values
@@ -842,7 +922,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Special handling for contour vs contourf to ensure colorbar consistency and proper rendering
         if plot_type == 'contour':
             # Draw contour lines with labels and handle potential issues with too many levels or masked data
-            cs = ax.contour(
+            contour_set = ax.contour(
                 lon_grid, lat_grid, precip_grid,
                 levels=color_levels_sorted,
                 colors='black',
@@ -853,7 +933,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             )
             try:
                 # Add contour labels, handling potential issues with too many levels or masked data
-                ax.clabel(cs, inline=True, fontsize=8, fmt='%g')
+                ax.clabel(contour_set, inline=True, fontsize=8, fmt='%g')
             except Exception:
                 pass
         else:  
@@ -868,7 +948,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 extend='both'
             )
     
-    def add_precipitation_overlay(self: "MPASPrecipitationPlotter",
+    def add_precipitation_overlay(self: 'MPASPrecipitationPlotter',
                                   ax: Axes,
                                   lon: Union[np.ndarray, xr.DataArray],
                                   lat: Union[np.ndarray, xr.DataArray],
@@ -877,7 +957,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                   lon_max: Optional[float] = None,
                                   lat_min: Optional[float] = None,
                                   lat_max: Optional[float] = None,
-                                  dataset: Optional[xr.Dataset] = None) -> None:
+                                  dataset: Optional[xr.Dataset] = None,
+                                  config: Optional[Any] = None) -> None:
         """
         This method adds a precipitation overlay to an existing map axes (typically GeoAxes) using the provided longitude, latitude, and precipitation data along with a configuration dictionary. It supports rendering the overlay as either scatter points, contour lines, or filled contours based on the specified plot type in the configuration. The method handles unit conversion for the precipitation data if original units are provided, and it validates the data to ensure that only physically valid values are plotted. For scatter plots, it filters out points that fall outside the map extent to avoid plotting irrelevant data. For contour and contourf plots, it relies on interpolation and remapping to handle geographic masking. The method also sets up the colormap and normalization based on the accumulation period and any custom configuration provided. It calculates an appropriate grid resolution for interpolation if needed and uses the MPASRemapper for high-quality interpolation of unstructured MPAS data onto a regular grid suitable for contour plotting. Finally, it renders the overlay with a specified transparency level to allow for better visualization of underlying map features while still clearly showing the precipitation patterns. 
 
@@ -971,13 +1052,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 lon_min, lon_max, lat_min, lat_max,
                 plot_type, resolution, var_name, dataset,
                 cmap, norm, color_levels_sorted, alpha,
-                lon_orig, lat_orig
+                lon_orig, lat_orig,
+                config=config,
             )
         
         # Print summary of overlay addition for debugging
         print(f"Added {plot_type} precipitation overlay")
     
-    def _extract_coordinates_from_processor(self: "MPASPrecipitationPlotter",
+    def _extract_coordinates_from_processor(self: 'MPASPrecipitationPlotter',
                                             processor: Any,
                                             var_name: str) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -1006,7 +1088,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             # Fallback to direct dataset access if specific methods are not available
             return processor.dataset.lonCell.values, processor.dataset.latCell.values
     
-    def _setup_batch_time_indices(self: "MPASPrecipitationPlotter",
+    def _setup_batch_time_indices(self: 'MPASPrecipitationPlotter',
                                   processor: Any,
                                   accum_period: str,
                                   time_indices: Optional[List[int]]) -> Tuple[List[int], int]:
@@ -1055,7 +1137,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return validated time indices and accumulation hours for title formatting
         return time_indices, accum_hours
     
-    def _process_single_time_step(self: "MPASPrecipitationPlotter",
+    def _process_single_time_step(self: 'MPASPrecipitationPlotter',
                                   processor: Any,
                                   time_idx: int,
                                   lon: np.ndarray,
@@ -1143,7 +1225,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             colormap=colormap,
             levels=levels,
             data_array=precip_data,
-            var_name=var_name
+            var_name=var_name,
+            dataset=processor.dataset,
         )
         
         # Construct output file path with standardized naming convention
@@ -1161,7 +1244,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return list of created file paths
         return [f"{output_path}.{fmt}" for fmt in formats]
     
-    def create_batch_precipitation_maps(self: "MPASPrecipitationPlotter",
+    def create_batch_precipitation_maps(self: 'MPASPrecipitationPlotter',
                                         processor: Any,
                                         output_dir: str,
                                         lon_min: float,
@@ -1265,7 +1348,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return list of created file paths
         return created_files
     
-    def _setup_comparison_subplot(self: "MPASPrecipitationPlotter",
+    def _setup_comparison_subplot(self: 'MPASPrecipitationPlotter',
                                   ax: GeoAxes,
                                   lon_min: float,
                                   lon_max: float,
@@ -1339,7 +1422,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         gl.xformatter = LongitudeFormatter()
         gl.yformatter = LatitudeFormatter()
     
-    def _plot_precipitation_data(self: "MPASPrecipitationPlotter",
+    def _plot_precipitation_data(self: 'MPASPrecipitationPlotter',
                                  ax: Axes,
                                  lon: np.ndarray,
                                  lat: np.ndarray,
@@ -1419,7 +1502,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return scatter for colorbar reference
         return scatter
     
-    def create_precipitation_comparison_plot(self: "MPASPrecipitationPlotter",
+    def create_precipitation_comparison_plot(self: 'MPASPrecipitationPlotter',
                                              lon: np.ndarray,
                                              lat: np.ndarray,
                                              precip_data1: np.ndarray,
@@ -1526,7 +1609,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the figure and axes for further manipulation or saving
         return self.fig, axes
     
-    def save_plot(self: "MPASPrecipitationPlotter",
+    def save_plot(self: 'MPASPrecipitationPlotter',
                   output_path: str,
                   formats: List[str] = ['png'],
                   bbox_inches: str = 'tight',
@@ -1571,7 +1654,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             # Print confirmation message for the saved file
             print(f"Saved plot: {full_path}")
     
-    def close_plot(self: "MPASPrecipitationPlotter") -> None:
+    def close_plot(self: 'MPASPrecipitationPlotter') -> None:
         """
         This method closes the current matplotlib figure and clears the instance attributes self.fig and self.ax to free up memory and resources after saving or when the plot is no longer needed. It checks if there is an active figure (self.fig) and if so, it calls plt.close() on that figure to close it. After closing the figure, it sets self.fig and self.ax to None to clear references to the closed figure and axes, allowing for garbage collection. This method is important for managing memory usage when creating multiple plots in a batch process or when generating large figures that may consume significant resources. By closing the figure and clearing references, it helps prevent memory leaks and ensures that the system remains responsive during extended plotting sessions. 
 
@@ -1587,7 +1670,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             self.fig = None
             self.ax = None
     
-    def _format_ticks_dynamic(self: "MPASPrecipitationPlotter",
+    def _format_ticks_dynamic(self: 'MPASPrecipitationPlotter',
                               ticks: List[float]) -> List[str]:
         """
         This method formats tick labels dynamically based on the range and magnitude of the tick values for precipitation plots. It delegates to the MPASVisualizationStyle class to apply consistent formatting rules that adjust the number of decimal places, use scientific notation for very large or small values, and ensure that the tick labels are concise and readable. This dynamic formatting helps improve the clarity of the axis labels on precipitation maps, especially when dealing with a wide range of precipitation values that may include very small amounts (e.g., drizzle) or very large amounts (e.g., heavy rainfall). By centralizing the formatting logic in the MPASVisualizationStyle class, it allows for consistent styling across all plots and makes it easier to maintain and update the formatting rules in one place.  
@@ -1601,7 +1684,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Delegate to MPASVisualizationStyle for dynamic tick formatting based on value range and magnitude
         return MPASVisualizationStyle.format_ticks_dynamic(ticks)
     
-    def apply_style(self: "MPASPrecipitationPlotter",
+    def apply_style(self: 'MPASPrecipitationPlotter',
                     style_name: str = 'default') -> None:
         """
         This method applies a visualization style to the current plot by setting the axes background color to light gray for better contrast with precipitation colors and the figure background to white for improved contrast and printing. It also delegates to the style manager (if it exists) to apply broader matplotlib settings based on the specified style name. This allows for consistent styling across all precipitation plots while ensuring that the specific color choices enhance the visibility of precipitation data on the map. By centralizing style application in this method, it makes it easier to maintain and update the visual appearance of all plots in a consistent manner, while still allowing for customization through different registered styles in the style manager.  

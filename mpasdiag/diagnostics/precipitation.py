@@ -20,7 +20,7 @@ from typing import Any, Optional, cast
 class PrecipitationDiagnostics:
     """ Computes precipitation-related diagnostics for MPAS model output, including temporal differencing for accumulation calculations, data quality checks, and statistical summaries. """
     
-    def __init__(self: "PrecipitationDiagnostics", 
+    def __init__(self: 'PrecipitationDiagnostics', 
                  verbose: bool = True) -> None:
         """
         This constructor initializes the PrecipitationDiagnostics class with an optional verbose flag that controls the level of diagnostic output during precipitation calculations. When verbose mode is enabled, the class will print detailed messages about the processing steps, any issues encountered, and statistical summaries of the precipitation data being analyzed. This allows users to gain insights into the data quality and identify potential problems during the accumulation calculation process. The verbose flag can be set to False to suppress diagnostic messages for cleaner output when running in production or when detailed diagnostics are not needed. 
@@ -34,7 +34,7 @@ class PrecipitationDiagnostics:
         # Enable verbose output
         self.verbose = verbose
     
-    def compute_precipitation_difference(self: "PrecipitationDiagnostics",
+    def compute_precipitation_difference(self: 'PrecipitationDiagnostics',
                                          dataset: xr.Dataset, 
                                          time_index: int, 
                                          var_name: str = 'rainnc', 
@@ -83,33 +83,33 @@ class PrecipitationDiagnostics:
 
         # Compute the accumulated precipitation based on the specified variable name, handling 'total' as a special case that sums 'rainc' and 'rainnc'
         if var_name == 'total':
-            accum_precip = self._compute_total_precipitation_accumulation(
+            accumulated_precipitation = self._compute_total_precipitation_accumulation(
                 dataset, time_index, previous_index, time_dim, data_type
             )
         else:
-            accum_precip = self._compute_single_variable_accumulation(
+            accumulated_precipitation = self._compute_single_variable_accumulation(
                 dataset, var_name, time_index, previous_index, time_dim, data_type
             )
-        
-        # Apply quality filters and set attributes on the resulting accumulated precipitation field 
-        accum_precip = self._apply_precipitation_filters_and_attributes(accum_precip, var_name)
-        
+
+        # Apply quality filters and set attributes on the resulting accumulated precipitation field
+        accumulated_precipitation = self._apply_precipitation_filters_and_attributes(accumulated_precipitation, var_name)
+
         # Update attributes to include accumulation period and hours for clarity in downstream use
-        accum_precip.attrs.update({
+        accumulated_precipitation.attrs.update({
             'long_name': f'{accum_hours}-hour accumulated precipitation from {var_name}',
             'accumulation_period': accum_period,
             'accumulation_hours': accum_hours
         })
-        
+
         # Provide diagnostic output about the computed accumulation, including range and spatial coverage, to help identify potential issues in the results
         if self.verbose:
             print(f"Computed {accum_hours}-hour accumulated precipitation for period: {accum_period}")
-            self._analyze_precipitation_diagnostics(result_data=accum_precip, var_context=var_name)
-        
+            self._analyze_precipitation_diagnostics(result_data=accumulated_precipitation, var_context=var_name)
+
         # Return accumulated precipitation DataArray
-        return accum_precip
+        return accumulated_precipitation
     
-    def get_accumulation_hours(self: "PrecipitationDiagnostics", 
+    def get_accumulation_hours(self: 'PrecipitationDiagnostics', 
                                accum_period: str) -> int:
         """
         This helper function maps standard MPAS accumulation period identifiers (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') to their corresponding number of hours. If the provided identifier is not recognized, it defaults to 24 hours. This centralizes the mapping logic for accumulation periods and allows for easy extension in the future if additional periods are needed. 
@@ -121,12 +121,12 @@ class PrecipitationDiagnostics:
             int: Number of hours corresponding to the accumulation period, with default value of 24 hours if identifier is not recognized.
         """
         # Define mapping of accumulation period identifiers to hours
-        accum_hours_map = {'a01h': 1, 'a03h': 3, 'a06h': 6, 'a12h': 12, 'a24h': 24}
+        accumulation_hours_map = {'a01h': 1, 'a03h': 3, 'a06h': 6, 'a12h': 12, 'a24h': 24}
 
         # Return accumulation hours (default to 24 if identifier is not recognized)
-        return accum_hours_map.get(accum_period, 24)
+        return accumulation_hours_map.get(accum_period, 24)
 
-    def _extract_variable_at_time(self: "PrecipitationDiagnostics", 
+    def _extract_variable_at_time(self: 'PrecipitationDiagnostics', 
                                   dataset: xr.Dataset, 
                                   var_name: str, 
                                   time_index: int, 
@@ -159,7 +159,7 @@ class PrecipitationDiagnostics:
         # Return the extracted variable data as a DataArray
         return data
 
-    def _extract_precipitation_pair(self: "PrecipitationDiagnostics", 
+    def _extract_precipitation_pair(self: 'PrecipitationDiagnostics', 
                                     dataset: xr.Dataset, 
                                     var_name: str, 
                                     current_index: int, 
@@ -189,7 +189,7 @@ class PrecipitationDiagnostics:
         # Return the current and previous data as a tuple 
         return current_data, previous_data
 
-    def _compute_total_precipitation_accumulation(self: "PrecipitationDiagnostics", 
+    def _compute_total_precipitation_accumulation(self: 'PrecipitationDiagnostics', 
                                                   dataset: xr.Dataset, 
                                                   current_index: int, 
                                                   previous_index: int, 
@@ -231,7 +231,7 @@ class PrecipitationDiagnostics:
         # Return the difference between current and previous total precipitation as the accumulated value
         return current_total - previous_total
 
-    def _compute_single_variable_accumulation(self: "PrecipitationDiagnostics", 
+    def _compute_single_variable_accumulation(self: 'PrecipitationDiagnostics',
                                               dataset: xr.Dataset, 
                                               var_name: str, 
                                               current_index: int, 
@@ -264,7 +264,7 @@ class PrecipitationDiagnostics:
         # Return the difference between current and previous data as the accumulated value for the specified variable
         return current_data - previous_data
     
-    def _extract_sample_data_for_variable(self: "PrecipitationDiagnostics", 
+    def _extract_sample_data_for_variable(self: 'PrecipitationDiagnostics',
                                           dataset: xr.Dataset, 
                                           var_name: str, 
                                           time_index: int, 
@@ -296,7 +296,7 @@ class PrecipitationDiagnostics:
             # For a single variable, simply extract it at the specified time index
             return self._extract_variable_at_time(dataset, var_name, time_index, time_dim, data_type)
 
-    def _create_precipitation_field_with_attributes(self: "PrecipitationDiagnostics", 
+    def _create_precipitation_field_with_attributes(self: 'PrecipitationDiagnostics', 
                                                     data: xr.DataArray, 
                                                     var_name: str, 
                                                     accum_period: str, 
@@ -342,7 +342,7 @@ class PrecipitationDiagnostics:
         # Return the filtered and annotated precipitation DataArray
         return filtered_data
 
-    def _handle_time_index_zero(self: "PrecipitationDiagnostics", 
+    def _handle_time_index_zero(self: 'PrecipitationDiagnostics', 
                                 dataset: xr.Dataset, 
                                 time_dim: str, 
                                 var_name: str, 
@@ -375,7 +375,7 @@ class PrecipitationDiagnostics:
             sample_data, var_name, accum_period, accum_hours, is_insufficient_data=False
         )
 
-    def _handle_insufficient_lookback(self: "PrecipitationDiagnostics", 
+    def _handle_insufficient_lookback(self: 'PrecipitationDiagnostics', 
                                       dataset: xr.Dataset, 
                                       time_dim: str, 
                                       time_index: int, 
@@ -412,7 +412,7 @@ class PrecipitationDiagnostics:
             zero_precip, var_name, accum_period, accum_hours, is_insufficient_data=True
         )
 
-    def _handle_first_time_step(self: "PrecipitationDiagnostics", 
+    def _handle_first_time_step(self: 'PrecipitationDiagnostics',
                                 dataset: xr.Dataset, 
                                 time_dim: str, 
                                 time_index: int, 
@@ -452,7 +452,7 @@ class PrecipitationDiagnostics:
                 print(f"Error handling first time step: {e}")
             raise ValueError(f"Cannot handle time index {time_index} for variable {var_name}: {e}")
     
-    def _apply_precipitation_filters_and_attributes(self: "PrecipitationDiagnostics", 
+    def _apply_precipitation_filters_and_attributes(self: 'PrecipitationDiagnostics', 
                                                     data: xr.DataArray, 
                                                     var_context: str = "") -> xr.DataArray:
         """
@@ -482,7 +482,7 @@ class PrecipitationDiagnostics:
         # Return the filtered and attributed precipitation DataArray
         return data
     
-    def _extract_min_max_from_data(self: "PrecipitationDiagnostics", 
+    def _extract_min_max_from_data(self: 'PrecipitationDiagnostics', 
                                    data: Any) -> tuple[float, float]:
         """
         This helper function takes an array-like object (such as an xarray.DataArray or a numpy array) and extracts the minimum and maximum values, returning them as Python floats. This is used in diagnostic comparisons to summarize the range of values in the current and previous time slices of precipitation data, helping to identify potential issues such as decreasing cumulative values that may indicate data loading or differencing problems. By centralizing this logic, it promotes code reuse and ensures consistent handling of min/max extraction across different diagnostic functions in the precipitation analysis. 
@@ -496,7 +496,7 @@ class PrecipitationDiagnostics:
         # Return the minimum and maximum values from the data
         return float(data.min()), float(data.max())
 
-    def _print_current_previous_comparison(self: "PrecipitationDiagnostics", 
+    def _print_current_previous_comparison(self: 'PrecipitationDiagnostics', 
                                            current_data: Any, 
                                            previous_data: Any, 
                                            var_context: str) -> None:
@@ -513,21 +513,21 @@ class PrecipitationDiagnostics:
         """
         try:
             # Extract minimum and maximum values from the current and previous data arrays for comparison
-            curr_min, curr_max = self._extract_min_max_from_data(current_data)
-            prev_min, prev_max = self._extract_min_max_from_data(previous_data)
-            
+            current_min, current_max = self._extract_min_max_from_data(current_data)
+            previous_min, previous_max = self._extract_min_max_from_data(previous_data)
+
             # Format the variable context for labeling the output messages
-            var_label = var_context if var_context else "precipitation"
-            print(f"Current {var_label} range: {curr_min:.2f} to {curr_max:.2f} mm")
-            print(f"Previous {var_label} range: {prev_min:.2f} to {prev_max:.2f} mm")
-            
+            variable_label = var_context if var_context else "precipitation"
+            print(f"Current {variable_label} range: {current_min:.2f} to {current_max:.2f} mm")
+            print(f"Previous {variable_label} range: {previous_min:.2f} to {previous_max:.2f} mm")
+
             # Check if the current maximum is less than the previous maximum
-            if curr_max < prev_max:
-                print(f"WARNING: Current max ({curr_max:.2f}) < Previous max ({prev_max:.2f}) - possible data loading issue!")
+            if current_max < previous_max:
+                print(f"WARNING: Current max ({current_max:.2f}) < Previous max ({previous_max:.2f}) - possible data loading issue!")
         except Exception as e:
             print(f"Could not analyze current/previous data: {e}")
 
-    def _compute_result_statistics(self: "PrecipitationDiagnostics", 
+    def _compute_result_statistics(self: 'PrecipitationDiagnostics', 
                                    result_data: Any) -> Optional[dict[str, Any]]:
         """
         This function computes key statistics from the result data array, including minimum, maximum, mean, count of non-zero precipitation points, total count of finite values, and the percentage of non-zero points. It handles cases where there may be no finite values in the data by returning None and printing a warning message. This statistical summary provides insights into the range and spatial coverage of precipitation in the computed results, which can help identify potential issues such as excessive zero values or unrealistic ranges in the accumulation calculations. By centralizing this logic, it promotes code reuse and ensures consistent statistical analysis across different result data arrays in the precipitation diagnostics. 
@@ -573,7 +573,7 @@ class PrecipitationDiagnostics:
             print(f"Could not compute result statistics: {e}")
             return None
 
-    def _print_result_data_analysis(self: "PrecipitationDiagnostics", 
+    def _print_result_data_analysis(self: 'PrecipitationDiagnostics', 
                                     result_data: Any, 
                                     var_context: str) -> None:
         """
@@ -587,20 +587,20 @@ class PrecipitationDiagnostics:
             None: Only prints messages; does not modify data.
         """
         # Compute key statistics from the result data array for analysis
-        stats = self._compute_result_statistics(result_data)
-        
+        result_stats = self._compute_result_statistics(result_data)
+
         # Warn if there are no finite values in the result data
-        if stats is None:
+        if result_stats is None:
             print("Warning: No finite values found in result data")
             return
-        
-        # Format the variable context for labeling the output messages
-        var_label = var_context if var_context else "precipitation"
-        print(f"Result {var_label} range: {stats['min']:.3f} to {stats['max']:.3f} mm")
-        print(f"Result {var_label} mean: {stats['mean']:.3f} mm")
-        print(f"Points with precipitation > 0.01 mm: {stats['nonzero_count']:,}/{stats['total_count']:,} ({stats['nonzero_percentage']:.1f}%)")
 
-    def _analyze_precipitation_diagnostics(self: "PrecipitationDiagnostics", 
+        # Format the variable context for labeling the output messages
+        variable_label = var_context if var_context else "precipitation"
+        print(f"Result {variable_label} range: {result_stats['min']:.3f} to {result_stats['max']:.3f} mm")
+        print(f"Result {variable_label} mean: {result_stats['mean']:.3f} mm")
+        print(f"Points with precipitation > 0.01 mm: {result_stats['nonzero_count']:,}/{result_stats['total_count']:,} ({result_stats['nonzero_percentage']:.1f}%)")
+
+    def _analyze_precipitation_diagnostics(self: 'PrecipitationDiagnostics',
                                            current_data: Any = None, 
                                            previous_data: Any = None, 
                                            result_data: Any = None, 
@@ -629,7 +629,7 @@ class PrecipitationDiagnostics:
         if result_data is not None:
             self._print_result_data_analysis(result_data, var_context)
     
-    def _print_time_slice_info(self: "PrecipitationDiagnostics", 
+    def _print_time_slice_info(self: 'PrecipitationDiagnostics', 
                                dataset: xr.Dataset, 
                                time_index: int, 
                                var_context: str = "", 
@@ -660,8 +660,8 @@ class PrecipitationDiagnostics:
                 previous_time = dataset[time_dim].values[time_index - time_step_diff]
                 
                 # Format the variable context for labeling the output messages
-                var_label = f" for {var_context}" if var_context else ""
-                print(f"Time slice info{var_label}:")
+                variable_label = f" for {var_context}" if var_context else ""
+                print(f"Time slice info{variable_label}:")
                 print(f"  Current time (index {time_index}): {current_time}")
                 print(f"  Previous time (index {time_index - time_step_diff}): {previous_time}")
                 print(f"  Time step difference: {time_step_diff} steps")
