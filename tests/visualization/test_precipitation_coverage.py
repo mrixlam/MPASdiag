@@ -780,7 +780,7 @@ class TestProcessSingleTimeStep:
 class TestCreateBatchPrecipitationMaps:
     """ Covers validation raises, early-return, progress prints, and error handling. """
 
-    def test_processor_none_raises(self: 'TestCreateBatchPrecipitationMaps') -> None:
+    def test_processor_none_raises(self: 'TestCreateBatchPrecipitationMaps', tmp_path) -> None:
         """
         This test case verifies that when the processor argument is None, the create_batch_precipitation_maps method raises a ValueError indicating that the processor cannot be None. This covers the branch in the method where it checks if the processor is None before attempting to extract coordinates and process time steps, ensuring that it does not proceed with batch processing without a valid processor. The test asserts that a ValueError is raised with the expected message when None is passed as the processor argument. 
 
@@ -792,7 +792,7 @@ class TestCreateBatchPrecipitationMaps:
         """
         plotter = MPASPrecipitationPlotter()
         with pytest.raises(ValueError, match="Processor cannot be None"):
-            plotter.create_batch_precipitation_maps(None, '/tmp', LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+            plotter.create_batch_precipitation_maps(None, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
 
     def test_dataset_none_raises(self: 'TestCreateBatchPrecipitationMaps', 
                                  tmp_path: 'Path') -> None:
@@ -809,7 +809,7 @@ class TestCreateBatchPrecipitationMaps:
         proc = MagicMock()
         proc.dataset = None
         with pytest.raises(ValueError, match="No data loaded"):
-            plotter.create_batch_precipitation_maps(proc, '/tmp', LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+            plotter.create_batch_precipitation_maps(proc, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
 
     def test_empty_time_indices_returns_empty_list(self: 'TestCreateBatchPrecipitationMaps', 
                                                    tmp_path: 'Path') -> None:

@@ -710,8 +710,9 @@ class TestCreateBatchWindPlots:
         """
         return MPASWindPlotter()
 
-    def test_dataset_none_raises_value_error(self: 'TestCreateBatchWindPlots', 
-                                             plotter: MPASWindPlotter) -> None:
+    def test_dataset_none_raises_value_error(self: 'TestCreateBatchWindPlots',
+                                             plotter: MPASWindPlotter,
+                                             tmp_path) -> None:
         """
         This test verifies that the create_batch_wind_plots method raises a ValueError when the processor object's dataset attribute is None, ensuring that the method correctly identifies when there is no loaded dataset available for processing and provides appropriate feedback to the user about the issue. By testing with a processor object that has its dataset set to None, we can confirm that the method's error handling for missing datasets is functioning as intended and that it prevents further execution when the necessary data is not available, which is crucial for maintaining the integrity of the plot creation process and avoiding downstream errors. 
 
@@ -724,10 +725,11 @@ class TestCreateBatchWindPlots:
         proc = MagicMock()
         proc.dataset = None
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(proc, '/tmp', -100., -80., 30., 50.)
+            plotter.create_batch_wind_plots(proc, str(tmp_path), -100., -80., 30., 50.)
 
-    def test_no_dataset_attr_raises_value_error(self: 'TestCreateBatchWindPlots', 
-                                                 plotter: MPASWindPlotter) -> None:
+    def test_no_dataset_attr_raises_value_error(self: 'TestCreateBatchWindPlots',
+                                                 plotter: MPASWindPlotter,
+                                                 tmp_path) -> None:
         """
         This test verifies that the create_batch_wind_plots method raises a ValueError when the processor object does not have a dataset attribute, ensuring that the method correctly identifies when there is no loaded dataset available for processing and provides appropriate feedback to the user about the issue. By testing with a processor object that lacks the dataset attribute entirely, we can confirm that the method's error handling for missing datasets is functioning as intended and that it prevents further execution when the necessary data is not available, which is crucial for maintaining the integrity of the plot creation process and avoiding downstream errors. 
 
@@ -743,7 +745,7 @@ class TestCreateBatchWindPlots:
 
         proc = _ProcWithoutDataset()
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(proc, '/tmp', -100., -80., 30., 50.)
+            plotter.create_batch_wind_plots(proc, str(tmp_path), -100., -80., 30., 50.)
 
     def test_time_info_exception_falls_back_to_time_idx(self: 'TestCreateBatchWindPlots', 
                                                         plotter: MPASWindPlotter, 

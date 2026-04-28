@@ -16,7 +16,6 @@ import pytest
 import importlib
 import numpy as np
 import xarray as xr
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
 from scipy.sparse import csr_matrix, coo_matrix, eye as speye

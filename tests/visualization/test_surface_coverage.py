@@ -807,7 +807,7 @@ class TestValidateContourLevels:
 class TestCreateBatchSurfaceMaps:
     """ Test coverage for create_batch_surface_maps, specifically the branches for no dataset and progress printing at step 10. """
 
-    def test_no_dataset_raises_valueerror(self: 'TestCreateBatchSurfaceMaps') -> None:
+    def test_no_dataset_raises_valueerror(self: 'TestCreateBatchSurfaceMaps', tmp_path) -> None:
         """
         This test verifies that create_batch_surface_maps raises a ValueError when the processor's dataset is None. This covers the branch where the method should check if the dataset is loaded in the processor, and if it is not (i.e., it is None), it should raise a ValueError to inform the user that no data is available for plotting. The test creates a mock processor with dataset set to None, applies the create_batch_surface_maps method, and asserts that a ValueError is raised with an appropriate message, confirming that the method correctly handles the case of missing data. 
 
@@ -822,11 +822,12 @@ class TestCreateBatchSurfaceMaps:
         plotter = MPASSurfacePlotter()
         with pytest.raises(ValueError, match="No data loaded in processor"):
             plotter.create_batch_surface_maps(
-                proc, '/tmp', -100.0, -80.0, 30.0, 50.0
+                proc, str(tmp_path), -100.0, -80.0, 30.0, 50.0
             )
 
-    def test_progress_printed_at_step_10(self: 'TestCreateBatchSurfaceMaps', 
-                                         capsys: pytest.CaptureFixture) -> None:
+    def test_progress_printed_at_step_10(self: 'TestCreateBatchSurfaceMaps',
+                                         capsys: pytest.CaptureFixture,
+                                         tmp_path) -> None:
         """
         This test verifies that create_batch_surface_maps prints progress at step 10 when processing a batch of surface maps. This covers the branch where the method should print a progress message to the console after completing the 10th map, allowing users to see that the process is advancing through the batch. The test creates a mock processor with a dataset containing 11 time steps, applies the create_batch_surface_maps method, captures the console output, and asserts that the expected progress message "Completed 10/11" is present in the output, confirming that progress is being printed at the correct step. 
 
@@ -857,7 +858,7 @@ class TestCreateBatchSurfaceMaps:
             with patch.object(plotter, 'save_plot'):
                 with patch.object(plotter, 'close_plot'):
                     result = plotter.create_batch_surface_maps(
-                        proc, '/tmp', -100.0, -80.0, 30.0, 50.0, var_name='t2m'
+                        proc, str(tmp_path), -100.0, -80.0, 30.0, 50.0, var_name='t2m'
                     )
         captured = capsys.readouterr()
         assert "Completed 10/11" in captured.out
