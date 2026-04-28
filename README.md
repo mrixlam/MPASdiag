@@ -119,79 +119,98 @@ The package exposes a small, focused programmatic API in the `mpasdiag` package.
 
 #### Precipitation Analysis
 ```python
-# Correct import paths and usage for current package layout
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 
-# (1) Configure (use an existing grid file from the repository)
-cfg = MPASConfig(grid_file='data/grids/x1.10242.init.nc', data_dir='./data/u240k', output_dir='./output')
+# (1) Configure — set remap_engine and remap_method to control interpolation
+cfg = MPASConfig(
+    grid_file='data/grids/x1.10242.init.nc',
+    data_dir='./data/u240k',
+    output_dir='./output',
+    remap_engine='kdtree',   # change to 'esmf' for conservative remapping
+    remap_method='nearest',  # change to 'conservative' when engine='esmf'
+)
 
 # (2) Load data
 proc = MPAS2DProcessor(cfg.grid_file)
 proc.load_2d_data(cfg.data_dir)
-
-# extract lon/lat from the loaded dataset
 lon, lat = proc.extract_spatial_coordinates()
 
 # (3) Compute precipitation for a time index
 diag = PrecipitationDiagnostics(verbose=True)
 precip = diag.compute_precipitation_difference(proc.dataset, 0, var_name='total', accum_period='a01h', data_type=proc.data_type)
 
-# (4) Plot
+# (4) Plot — pass config so the contourf path uses the configured remap engine/method
 plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
 fig, ax = plotter.create_precipitation_map(lon, lat, precip.values,
                                            cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
-                                           title='Total precipitation', accum_period='a01h', data_array=precip)
+                                           title='Total precipitation', accum_period='a01h',
+                                           plot_type='contourf', grid_resolution=0.1,
+                                           data_array=precip, dataset=proc.dataset, config=cfg)
 plotter.save_plot('./output/total_precipitation', formats=['png'])
 ```
 
 #### Complex Wind Plot (Wind Speed + Barbs Overlay)
 ```python
+from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
 import numpy as np
 
-# (1) Load data
+# (1) Configure — set remap_engine and remap_method to control interpolation
+cfg = MPASConfig(
+    grid_file='data/grids/x1.10242.init.nc',
+    data_dir='./data/u240k',
+    output_dir='./output',
+    remap_engine='kdtree',   # change to 'esmf' for conservative remapping
+    remap_method='nearest',  # change to 'conservative' when engine='esmf'
+    lat_min=20,
+    lat_max=55,
+    lon_min=-130,
+    lon_max=-60,
+)
+
+# (2) Load data
 processor = MPAS2DProcessor(grid_file='data/grids/x1.10242.init.nc')
 processor.load_2d_data('./data/u240k/diag')
 
-# (2) Extract wind components at time index 0
+# (3) Extract wind components at time index 0
 u_data = processor.get_2d_variable_data('u10', 0)
 v_data = processor.get_2d_variable_data('v10', 0)
 lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
 
-# (3) Compute wind speed
+# (4) Compute wind speed
 wind_speed = np.sqrt(u_data.values**2 + v_data.values**2)
 
-# (4) Create wind speed background with filled contours
+# (5) Create wind speed background with filled contours — pass config to control remapping
 surface_plotter = MPASSurfacePlotter(figsize=(14, 11), dpi=150)
 fig, ax = surface_plotter.create_surface_map(
     lon=lon, lat=lat, data=wind_speed, var_name='wind_speed',
-    lon_min=-130, lon_max=-60, lat_min=20, lat_max=55,
+    lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max,
     title='MPAS Wind Analysis - Speed with Direction Barbs',
-    plot_type='contourf', colormap='YlOrRd'
+    plot_type='contourf', colormap='YlOrRd', config=cfg,
 )
 
-# (5) Add wind barbs overlay showing direction
+# (6) Add wind barbs overlay — pass config so overlay remapping matches the base map
 wind_plotter = MPASWindPlotter()
 wind_config = {
     'u_data': u_data.values,
     'v_data': v_data.values,
     'plot_type': 'barbs',
-    'subsample': -1,  # Auto-calculate optimal density
+    'subsample': -1,  # auto-calculate optimal density
     'color': 'black',
     'grid_resolution': 0.1,
-    'regrid_method': 'linear'
+    'regrid_method': 'linear',  # scipy method for wind component regridding
 }
 wind_plotter.add_wind_overlay(
     ax=ax, lon=lon, lat=lat, wind_config=wind_config,
-    lon_min=-130, lon_max=-60, lat_min=20, lat_max=55
+    lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg,
 )
 
-# (6) Save the multi-layer visualization
+# (7) Save the multi-layer visualization
 surface_plotter.save_plot('./output/wind_complex', formats=['png'])
 ```
 
@@ -258,17 +277,25 @@ ivt_u   = result['ivt_u']['data'].values.flatten()
 ivt_v   = result['ivt_v']['data'].values.flatten()
 lon, lat = processor.extract_2d_coordinates_for_variable('qv', result['ivt_u']['data'])
 
+# (5) Generate filled contour map for IVT magnitude
+cfg = MPASConfig(remap_engine='kdtree', remap_method='nearest')
 plotter = MPASSurfacePlotter(figsize=(12, 9), dpi=300)
+
 fig, ax = plotter.create_surface_map(
     lon=lon, lat=lat, data=ivt_mag, var_name='ivt',
     lon_min=-180, lon_max=180, lat_min=-90, lat_max=90,
-    plot_type='contourf', title='Vertically Integrated Water Vapor Transport (IVT)'
+    plot_type='contourf', title='Vertically Integrated Water Vapor Transport (IVT)',
+    config=cfg,
 )
+
+# (6) Generate vector maps for IVT components
 wind_plotter = MPASWindPlotter()
+
 wind_plotter.add_wind_overlay(
     ax, lon, lat, {'u_data': ivt_u, 'v_data': ivt_v, 'plot_type': 'arrows',
                    'subsample': '-1', 'scale': 15000, 'grid_resolution': 0.1},
-    lon_min=-180, lon_max=180, lat_min=-90, lat_max=90
+    lon_min=-180, lon_max=180, lat_min=-90, lat_max=90,
+    config=cfg,
 )
 plotter.save_plot('./output/ivt_map', formats=['png'])
 ```
@@ -298,58 +325,72 @@ mpasdiag precipitation \
 
 ### Surface Variable Analysis
 ```bash
-# Temperature scatter plot
+# Temperature scatter plot (no remapping needed for scatter)
 mpasdiag surface \
   --grid-file grid.nc --data-dir ./data \
   --variable t2m --plot-type scatter
 
-# Pressure contour plot with custom extent
+# Pressure contourf with KDTree linear interpolation
 mpasdiag surface \
   --grid-file grid.nc --data-dir ./data \
-  --variable surface_pressure --plot-type contour \
-  --lat-min -10 --lat-max 15 --lon-min 95 --lon-max 110
+  --variable surface_pressure --plot-type contourf \
+  --lat-min -10 --lat-max 15 --lon-min 95 --lon-max 110 \
+  --remap-engine kdtree --remap-method linear --grid-resolution 0.1
 
-# Sea level pressure with batch processing
+# Sea level pressure with ESMPy conservative remapping
 mpasdiag surface \
   --grid-file grid.nc --data-dir ./data \
-  --variable mslp --plot-type contour --batch-all
+  --variable mslp --plot-type contourf \
+  --remap-engine esmf --remap-method conservative --grid-resolution 0.1
+
+# Batch processing all time steps with KDTree nearest
+mpasdiag surface \
+  --grid-file grid.nc --data-dir ./data \
+  --variable mslp --plot-type contourf --batch-all \
+  --remap-engine kdtree --remap-method nearest --grid-resolution 0.1
 
 # Batch processing with parallel execution
 mpasdiag surface \
   --grid-file grid.nc --data-dir ./data \
-  --variable t2m --batch-all --parallel --workers 6
+  --variable t2m --plot-type contourf --batch-all --parallel --workers 6 \
+  --remap-engine kdtree --remap-method nearest --grid-resolution 0.1
 ```
 
 ### Wind Vector Analysis  
 ```bash
-# Wind barbs (meteorological convention)
+# Wind barbs with KDTree linear component regridding
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
   --u-variable u10 --v-variable v10 --wind-plot-type barbs \
-  --grid-resolution 0.1 --subsample -1
+  --grid-resolution 0.1 --subsample -1 \
+  --remap-engine kdtree --remap-method nearest
 
-# Wind arrows/vectors (quiver plot)
+# Wind arrows with KDTree nearest (faster, slightly less smooth)
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
   --u-variable u10 --v-variable v10 --wind-plot-type arrows \
-  --scale 300 --grid-resolution 0.1 --subsample -1 
+  --scale 300 --grid-resolution 0.1 --subsample -1 \
+  --remap-engine kdtree --remap-method linear
 
-# Wind streamlines (flow trajectories)
+# Wind streamlines with ESMPy conservative background shading
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
   --u-variable u10 --v-variable v10 --wind-plot-type streamlines \
-  --grid-resolution 0.5 --subsample -1
+  --show-background --grid-resolution 0.5 --subsample -1 \
+  --remap-engine esmf --remap-method conservative
 
 # Batch processing of wind vectors
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
-  --u-variable u10 --v-variable v10 --wind-plot-type barbs --subsample -1 --batch-all
+  --u-variable u10 --v-variable v10 --wind-plot-type barbs --subsample -1 --batch-all \
+  --remap-engine kdtree --remap-method nearest --grid-resolution 0.1
 
 # Parallel batch processing
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
   --u-variable u10 --v-variable v10 --wind-plot-type arrows \
-  --subsample -1 --batch-all --parallel --workers 4
+  --subsample -1 --batch-all --parallel --workers 4 \
+  --remap-engine kdtree --remap-method linear --grid-resolution 0.1
 ```
 
 ### 3D Vertical Cross-Section Analysis
@@ -490,6 +531,11 @@ dpi:             400
 output_formats:  ["png", "pdf"]
 # title: null                    # Custom plot title; auto-generated if omitted
 # output: null                   # Output filename stem; auto-generated if omitted
+
+# --- Remapping options (used by surface, wind, and precipitation contourf/contour plots) ---
+remap_engine: "kdtree"      # 'kdtree' (fast SciPy KDTree) or 'esmf' (ESMPy; requires esmpy)
+remap_method: "nearest"     # kdtree: 'nearest' | 'linear'
+                            # esmf:   'conservative' | 'nearest_s2d' | 'conservative_normed' | 
 
 # --- Processing options ---
 use_pure_xarray: false           # Use xarray-only backend (skip UXarray)

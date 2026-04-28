@@ -455,7 +455,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         return lon_valid, lat_valid, data_valid
     
     def _render_plot(self: 'MPASSurfacePlotter',
-                     plot_type: str, 
+                     plot_type: str,
                      lon_valid: np.ndarray,
                      lat_valid: np.ndarray,
                      data_valid: np.ndarray,
@@ -468,7 +468,8 @@ class MPASSurfacePlotter(MPASVisualizer):
                      levels: Optional[List[float]],
                      data_crs: ccrs.CRS,
                      grid_resolution: Optional[float],
-                     dataset: Optional[xr.Dataset]) -> None:
+                     dataset: Optional[xr.Dataset],
+                     config: Optional[Any] = None) -> None:
         """
         This helper function renders the plot based on the specified plot type ('scatter', 'contour', 'contourf', or 'both') using the filtered valid longitude, latitude, and data points. It calls the appropriate internal helper functions to create scatter plots directly from the valid points or to create contour/filled contour plots by interpolating the valid data onto a regular lat-lon grid. For the 'both' option, it first creates contour lines and then overlays a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization. The function ensures that all rendering is done directly onto the GeoAxes instance (self.ax) and that the figure is updated accordingly. Debug print statements can be included to confirm which rendering mode is being used and to verify that the plotting functions are being called with the correct parameters, which can assist in troubleshooting and verifying that the plot is being rendered as intended based on the inputs provided. 
 
@@ -487,6 +488,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             data_crs (ccrs.CRS): Coordinate reference system of the data for proper plotting.
             grid_resolution (Optional[float]): Optional grid resolution for contour interpolation.
             dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for contour interpolation.
+            config (Optional[Any]): Optional configuration object that may contain additional settings for plotting.
 
         Returns:
             None: This function renders the plot directly onto the GeoAxes instance and does not return any value.
@@ -499,21 +501,24 @@ class MPASSurfacePlotter(MPASVisualizer):
             self._create_contour_plot(
                 lon_valid, lat_valid, data_valid,
                 filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
-                cmap_obj, norm, levels, data_crs, grid_resolution, dataset
+                cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
+                config=config,
             )
         elif plot_type == 'contourf':
-            # For filled contour plots, we call the helper that creates filled contours by interpolating the valid data points onto a regular lat-lon grid 
+            # For filled contour plots, we call the helper that creates filled contours by interpolating the valid data points onto a regular lat-lon grid
             self._create_contourf_plot(
                 lon_valid, lat_valid, data_valid,
                 filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
-                cmap_obj, norm, levels, data_crs, grid_resolution, dataset
+                cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
+                config=config,
             )
         elif plot_type == 'both':
             # For the 'both' option, we first create contour lines and then overlay a scatter plot of the valid points to show the original data locations on top of the contours
             self._create_contour_plot(
                 lon_valid, lat_valid, data_valid,
                 filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
-                cmap_obj, norm, levels, data_crs, grid_resolution, dataset
+                cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
+                config=config,
             )
             # After plotting the contours, we overlay a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization.
             self._create_scatter_plot(lon_valid, lat_valid, data_valid, cmap_obj, norm, data_crs)
@@ -588,7 +593,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         if wind_overlay is not None:
             try:
                 wind_plotter = MPASWindPlotter()
-                wind_plotter.add_wind_overlay(self.ax, lon, lat, wind_overlay)
+                wind_plotter.add_wind_overlay(self.ax, lon, lat, wind_overlay, config=config)
                 print("Added wind overlay to surface map")
             except ValueError:
                 raise
@@ -725,7 +730,8 @@ class MPASSurfacePlotter(MPASVisualizer):
         self._render_plot(
             plot_type, lon_valid, lat_valid, data_valid,
             filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
-            cmap_obj, norm, levels, data_crs, grid_resolution, dataset
+            cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
+            config=config,
         )
         
         # Generate and set title based on variable metadata and timestamp information

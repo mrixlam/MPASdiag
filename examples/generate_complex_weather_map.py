@@ -67,6 +67,10 @@ cfg.lat_max = 60.0
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+
 # -------------- Create base surface map with 2-m specific humidity --------------
 
 # Main filled contour: 2-m specific humidity (interpolated)
@@ -81,7 +85,8 @@ fig, ax = plotter.create_surface_map(
     lat_max=cfg.lat_max,
     plot_type='contourf',
     grid_resolution=0.1,
-    title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}'
+    title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}',
+    config=cfg
 )
 
 print("\n" + "="*60)
@@ -105,7 +110,7 @@ mslp_config = {
 # Add MSLP contours as an overlay on the existing surface map
 plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
-                            lat_min=cfg.lat_min, lat_max=cfg.lat_max)
+                            lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # -------------- Overlay: 10-m wind vectors at 0.1° resolution --------------
 
@@ -122,7 +127,7 @@ wind_config = {
 # Add 10-m wind vectors as an overlay on the existing surface map
 wind_plotter.add_wind_overlay(ax, lon, lat, wind_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
-                            lat_min=cfg.lat_min, lat_max=cfg.lat_max)
+                            lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # Save the final plot with the filled contour, contour overlay, and wind vector overlay
 plotter.save_plot(f'./output/example_moisture_transport_with_mslp_valid_{valtime_str}', formats=['png'])

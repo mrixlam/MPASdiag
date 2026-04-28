@@ -266,7 +266,7 @@ class TestAddWindOverlay:
         v_2d = np.ones((10, 10))
 
         # Define a fake regrid method to return the dummy 2D grids and confirm it is called when grid_resolution is provided
-        def _fake_regrid(self, lon, lat, u, v, dataset, lon_min, lon_max, lat_min, lat_max, grid_resolution, regrid_method):
+        def _fake_regrid(self, lon, lat, u, v, dataset, lon_min, lon_max, lat_min, lat_max, grid_resolution, regrid_method, config):
             return (lon_2d, lat_2d, u_2d, v_2d)
 
         # Patch the _regrid_wind_components method with our fake regrid function to confirm it is called and its outputs are used when grid_resolution is provided in the wind configuration

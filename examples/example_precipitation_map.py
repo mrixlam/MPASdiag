@@ -55,17 +55,16 @@ cfg.lat_max = 90.0
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
-# Specify the remapping configuration
-remapconfig = {
-  'remap-engine': 'esmf',
-  'method': 'conservative',
-}
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
 # Create precipitation map for 1-hour accumulation over CONUS with filled contour plot
 fig, ax = plotter.create_precipitation_map(
   lon, lat, precip.values, cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
-  plot_type='contourf', title=f'Total precipitation over CONUS | Plot Type: Filled Contour | Valid Time: {valtime_str}',
-  accum_period='a01h', data_array=precip, grid_resolution=1.0, dataset=processor.dataset, config=remapconfig)
+  plot_type='contourf', title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}',
+  accum_period='a01h', data_array=precip, grid_resolution=1.0, dataset=processor.dataset, config=cfg)
 
 # Save the generated plot in PNG format
 plotter.save_plot(f'./output/total_precipitation_valid_{valtime_str}', formats=['png'])
+plotter.close_plot()

@@ -89,6 +89,10 @@ valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'
 # Define custom contour levels
 custom_levels = [250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting. 
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+
 # -------------- Create base surface map: IVT magnitude as shading --------------
 
 fig, ax = plotter.create_surface_map(
@@ -104,6 +108,7 @@ fig, ax = plotter.create_surface_map(
     grid_resolution=0.1,
     levels=custom_levels,
     title=f'Vertically Integrated Water Vapor Transport (IVT) | Valid Time: {valtime_str}',
+    config=cfg,
 )
 
 # -------------- Overlay: IVT vectors as arrows --------------
@@ -123,7 +128,7 @@ ivt_vector_config = {
 Q = wind_plotter.add_wind_overlay(
     ax, lon, lat, ivt_vector_config,
     lon_min=cfg.lon_min, lon_max=cfg.lon_max,
-    lat_min=cfg.lat_min, lat_max=cfg.lat_max,
+    lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg,
 )
 
 # Specify a reference IVT magnitude for the quiver key 

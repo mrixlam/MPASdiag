@@ -235,7 +235,7 @@ class MPASUnifiedCLI:
             default='nearest',
             help=(
                 'Remapping method. For --remap-engine kdtree: nearest (default), linear. '
-                'For --remap-engine esmf: bilinear (auto-selected default), conservative, '
+                'For --remap-engine esmf: conservative (auto-selected default), conservative, '
                 'conservative_normed, patch, nearest_s2d, nearest_d2s.'
             ),
         )
@@ -1159,7 +1159,9 @@ class MPASUnifiedCLI:
                 plot_type=getattr(config, 'plot_type', 'scatter'),
                 grid_resolution=getattr(config, 'grid_resolution', None),
                 formats=config.output_formats or ['png'],
-                n_processes=config.workers
+                n_processes=config.workers,
+                remap_engine=config.remap_engine,
+                remap_method=config.remap_method,
             )
         else:
             created_files = plotter.create_batch_precipitation_maps(
@@ -1170,7 +1172,8 @@ class MPASUnifiedCLI:
                 accum_period=config.accumulation_period,
                 plot_type=getattr(config, 'plot_type', 'scatter'),
                 grid_resolution=getattr(config, 'grid_resolution', None),
-                formats=config.output_formats or ['png']
+                formats=config.output_formats or ['png'],
+                config=config,
             )
 
         if self.logger and created_files:
@@ -1286,7 +1289,9 @@ class MPASUnifiedCLI:
                 plot_type=config.plot_type,
                 formats=config.output_formats or ['png'],
                 grid_resolution=getattr(config, 'grid_resolution', None),
-                n_processes=config.workers
+                n_processes=config.workers,
+                remap_engine=config.remap_engine,
+                remap_method=config.remap_method,
             )
         else:
             created_files = plotter.create_batch_surface_maps(
@@ -1296,7 +1301,8 @@ class MPASUnifiedCLI:
                 var_name=config.variable,
                 plot_type=config.plot_type,
                 formats=config.output_formats or ['png'],
-                grid_resolution=getattr(config, 'grid_resolution', None)
+                grid_resolution=getattr(config, 'grid_resolution', None),
+                config=config,
             )
 
         if self.logger and created_files:
@@ -1336,6 +1342,7 @@ class MPASUnifiedCLI:
             clim_max=config.clim_max,
             data_array=var_data,
             dataset=processor.dataset,
+            config=config,
         )
 
         output_path = config.output or os.path.join(
@@ -1414,7 +1421,9 @@ class MPASUnifiedCLI:
                 show_background=config.show_background,
                 grid_resolution=getattr(config, 'grid_resolution', None),
                 regrid_method=getattr(config, 'regrid_method', 'linear'),
-                n_processes=config.workers
+                n_processes=config.workers,
+                remap_engine=config.remap_engine,
+                remap_method=config.remap_method,
             )
         else:
             created_files = plotter.create_batch_wind_plots(
@@ -1429,7 +1438,8 @@ class MPASUnifiedCLI:
                 scale=config.wind_scale,
                 show_background=config.show_background,
                 grid_resolution=getattr(config, 'grid_resolution', None),
-                regrid_method=getattr(config, 'regrid_method', 'linear')
+                regrid_method=getattr(config, 'regrid_method', 'linear'),
+                config=config,
             )
 
         if self.logger and created_files:
@@ -1467,6 +1477,7 @@ class MPASUnifiedCLI:
             grid_resolution=getattr(config, 'grid_resolution', None),
             regrid_method=getattr(config, 'regrid_method', 'linear'),
             dataset=processor.dataset,
+            config=config,
         )
 
         time_str = MPASDateTimeUtils.get_time_info(processor.dataset, config.time_index, verbose=False)

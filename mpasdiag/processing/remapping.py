@@ -3,7 +3,7 @@
 """
 MPASdiag Core Processing Module: Data Remapping.
 
-This module provides the MPASRemapper class, which implements functionality to remap data from MPAS unstructured grids to regular latitude-longitude grids using ESMPy. It supports various remapping methods including bilinear, conservative, patch, and nearest-neighbour interpolation. The class includes methods for preparing source and target grid specifications, building the regridder with caching support for weights, and performing the remapping of data arrays and entire datasets. The module also handles coordinate conversions, NaN handling during remapping, and provides utilities for converting unstructured data to structured grids when necessary. 
+This module provides the MPASRemapper class, which implements functionality to remap data from MPAS unstructured grids to regular latitude-longitude grids using ESMPy. It supports various remapping methods including conservative, nearest_s2d, and nearest_d2s interpolation. The class includes methods for preparing source and target grid specifications, building the regridder with caching support for weights, and performing the remapping of data arrays and entire datasets. The module also handles coordinate conversions, NaN handling during remapping, and provides utilities for converting unstructured data to structured grids when necessary. 
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -91,7 +91,7 @@ class MPASRemapper:
     }
 
     def __init__(self: 'MPASRemapper',
-                 method: str = 'bilinear',
+                 method: str = 'nearest_s2d',
                  weights_dir: Optional[Union[str, Path]] = None,
                  reuse_weights: bool = True,
                  periodic: bool = False,
@@ -103,7 +103,7 @@ class MPASRemapper:
         This initialization method sets up the MPASRemapper instance with the specified remapping method and configuration options. It validates the chosen method against supported options, configures the weights caching mechanism if a directory is provided, and initializes internal variables for storing the source and target grid specifications, as well as the computed weights. The method also handles settings related to extrapolation for unmapped points and NaN handling during remapping. By setting these parameters during initialization, the MPASRemapper instance is prepared to build the regridder and perform remapping operations efficiently when the corresponding methods are called later in the workflow.  
 
         Parameters:
-            method (str): Remapping method to use. Supported options: 'bilinear', 'conservative', 'conservative_normed', 'patch', 'nearest_s2d', 'nearest_d2s' (default: 'bilinear').
+            method (str): Remapping method to use. Supported options: 'conservative', 'conservative_normed', 'nearest_s2d', 'nearest_d2s' (default: 'nearest_s2d').
             weights_dir (Optional[Union[str, Path]]): Directory to save/load pre-computed weights for caching (default: None).
             reuse_weights (bool): Whether to reuse weights from file if available (default: True).
             periodic (bool): Whether to treat longitude as periodic when building weights (default: False).
@@ -353,7 +353,7 @@ class MPASRemapper:
                 raise ValueError(
                     "Conservative remapping requires cell boundary coordinates. "
                     "Pass 'lon_b' and 'lat_b' (shape nCells x nVertices) to "
-                    "prepare_source_grid(), or use method='bilinear' for "
+                    "prepare_source_grid(), or use method='nearest_s2d' for "
                     "unstructured sources without boundaries."
                 )
             raw_lon_b = source_grid['lon_b'].values
@@ -390,7 +390,7 @@ class MPASRemapper:
             warnings.warn(
                 f"Method '{self.method}' is not supported for unstructured (LocStream) "
                 "sources. Falling back to 'nearest_s2d'. Convert source to structured "
-                "grid first (e.g. via unstructured_to_structured_grid()) for bilinear "
+                f"grid first (e.g. via unstructured_to_structured_grid()) for '{self.method}' "
                 "interpolation.",
                 UserWarning,
                 stacklevel=3,
@@ -1072,7 +1072,7 @@ class MPASRemapper:
             weight_matrix: The sparse weight matrix (scipy.sparse.csr_matrix) to be saved.
             n_src: The number of source grid points.
             tgt_shape: The shape of the target grid as a tuple (n_lat, n_lon).
-            method: The interpolation method used (e.g. 'nearest', 'bilinear', 'conservative').
+            method: The interpolation method used (e.g. 'nearest_s2d', 'nearest_d2s', 'conservative', 'conservative_normed').
             cell_of_element: Optional array mapping mesh elements to their parent cells (for fan-triangulated meshes).
 
         Returns:
@@ -1747,7 +1747,7 @@ if __name__ == '__main__':
         print("  conda install -c conda-forge esmpy")
     else:
         print("\nESMPy is available")
-        print("Supported methods: bilinear, conservative, conservative_normed, patch, nearest_s2d, nearest_d2s")
+        print("Supported methods: conservative, conservative_normed, nearest_s2d, nearest_d2s")
         print("\nExample usage:")
         print("""
 from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
@@ -1758,7 +1758,7 @@ remapped = remap_mpas_to_latlon(
     lon=mpas_lon,
     lat=mpas_lat,
     resolution=0.25,
-    method='bilinear'
+    method='nearest_s2d'
 )
 
 # Method 2: Full control with MPASRemapper

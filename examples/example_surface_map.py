@@ -52,11 +52,15 @@ cfg.lat_max = 90.0
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+
 # Create scatter plot of 2-meter temperature
 fig, ax = plotter.create_surface_map(
   lon=lon, lat=lat, data=surface_var.values, var_name='t2m', lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max,
-  plot_type='scatter', title=f'2-meter Temperature | Plot Type: Scatter | Valid Time: {valtime_str}', data_array=surface_var)
+  plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}', data_array=surface_var, config=cfg)
 
 # Save the generated plot in PNG format
-plotter.save_plot(f'./output/2m_temperature_scatter_{valtime_str}', formats=['png'])
-
+plotter.save_plot(f'./output/2m_temperature_contourf_{valtime_str}', formats=['png'])
+plotter.close_plot()

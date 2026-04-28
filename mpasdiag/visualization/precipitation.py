@@ -1155,7 +1155,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                   custom_title_template: Optional[str],
                                   output_dir: str,
                                   file_prefix: str,
-                                  formats: List[str]) -> List[str]:
+                                  formats: List[str],
+                                  config: Optional[Any] = None) -> List[str]:
         """
         This method processes a single time step for precipitation plotting in batch mode. It extracts the precipitation data for the specified time index using the PrecipitationDiagnostics class, which handles the calculation of precipitation differences based on the accumulation period and variable type. It then generates a title for the plot using either a custom template provided by the user or a default format that includes the variable name, valid time, accumulation period, and plot type. The method creates a precipitation map for this time step using the create_precipitation_map() method, passing all necessary parameters including coordinates, data, and visualization options. Finally, it saves the generated plot to files with standardized naming conventions that encode the variable type, accumulation type, valid time, and plot type for easy identification. The method returns a list of file paths for the created plots in the specified formats. This workflow allows for automated generation of precipitation maps for each time step in a batch processing context while ensuring that each plot is properly labeled and saved with consistent naming conventions. 
         
@@ -1178,6 +1179,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             output_dir (str): Directory path for saving the output plot files.
             file_prefix (str): Prefix string for the output filenames to ensure consistent naming conventions.
             formats (List[str]): List of file format extensions for saving the plot (e.g., ['png', 'pdf']).
+            config (Optional[Any]): Configuration object containing additional parameters for the plot. If None, default settings will be used.
             
         Returns:
             List[str]: A list of absolute file paths for all successfully created output files for this time step, with standardized naming conventions that encode the variable type, accumulation type, valid time, and plot type for easy identification. If an error occurs during processing, an empty list will be returned and the error will be logged.
@@ -1227,6 +1229,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             data_array=precip_data,
             var_name=var_name,
             dataset=processor.dataset,
+            config=config,
         )
         
         # Construct output file path with standardized naming convention
@@ -1260,7 +1263,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                         custom_title_template: Optional[str] = None,
                                         colormap: Optional[str] = None,
                                         levels: Optional[List[float]] = None,
-                                        time_indices: Optional[List[int]] = None) -> List[str]:
+                                        time_indices: Optional[List[int]] = None,
+                                        config: Optional[Any] = None) -> List[str]:
         """
         This method orchestrates the batch processing of precipitation maps for multiple time steps in a dataset using the provided MPAS2DProcessor instance. It first validates the processor input to ensure that it is not None and that it contains a loaded dataset. It then extracts the longitude and latitude coordinates from the processor using a dedicated method that handles different processor implementations. The method sets up the time indices for batch processing based on the specified accumulation period and any user-specified time indices, ensuring that there are enough time steps in the dataset to support the accumulation period. If there are not enough time steps, it logs a warning and returns an empty list of created files. If valid time indices are available, it iterates through each time index, calling a helper method to process each time step individually. This helper method extracts the precipitation data for the specific time step, generates a title, creates the precipitation map, and saves it to files with standardized naming conventions. The main method collects all created file paths and returns them as a list at the end of the batch processing. This approach allows for efficient generation of multiple precipitation maps while providing robust error handling and informative logging throughout the process. 
 
@@ -1281,6 +1285,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             colormap (Optional[str]): Custom colormap name for precipitation values. If None, a default colormap based on the accumulation period will be used.
             levels (Optional[List[float]]): Custom contour levels for precipitation values. If None, default levels based on the accumulation period will be used.
             time_indices (Optional[List[int]]): User-specified list of time indices to process. If None, all valid time indices starting from the minimum required index for the accumulation period will be used. 
+            config (Optional[Any]): Configuration object containing additional parameters for the plot. If None, default settings will be used.
 
         Returns:
             List[str]: A list of absolute file paths for all successfully created output files across all processed time steps, with standardized naming conventions that encode the variable type, accumulation type, valid time, and plot type for easy identification. If no valid time indices are available for processing, an empty list will be returned and a warning will be logged. 
@@ -1327,7 +1332,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     var_name, accum_period, plot_type,
                     grid_resolution, colormap, levels,
                     custom_title_template, output_dir,
-                    file_prefix, formats
+                    file_prefix, formats,
+                    config=config,
                 )
 
                 # Add created files to the list

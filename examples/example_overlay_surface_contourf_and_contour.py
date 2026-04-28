@@ -57,6 +57,10 @@ cfg.lat_max = 60.0
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+
 # -------------- Create base surface map with 2-m temperature --------------
 
 # Main filled contour: 2-m temperature (interpolated)
@@ -72,6 +76,7 @@ fig, ax = plotter.create_surface_map(
     plot_type='contourf',
     grid_resolution=0.1,
     title=f'2-m temperature (filled contour) with MSLP overlay (contours) | Valid Time: {valtime_str}',
+    config=cfg,
 )
 
 # -------------- Overlay: MSLP contours at 0.1° resolution --------------
@@ -95,7 +100,7 @@ print("="*60)
 # Add MSLP contours as an overlay on the existing surface map
 plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
-                            lat_min=cfg.lat_min, lat_max=cfg.lat_max)
+                            lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # Ensure the output directory exists
 os.makedirs('./output', exist_ok=True)

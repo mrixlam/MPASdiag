@@ -843,7 +843,8 @@ class MPASWindPlotter(MPASVisualizer):
                          lon_max: Optional[float] = None,
                          lat_min: Optional[float] = None,
                          lat_max: Optional[float] = None,
-                         dataset: Optional[xr.Dataset] = None) -> Optional[Any]:
+                         dataset: Optional[xr.Dataset] = None,
+                         config: Optional[Any] = None) -> Optional[Any]:
         """
         This method adds a wind vector overlay to an existing map axes (typically GeoAxes) based on the provided longitude, latitude, and wind configuration. It extracts and validates the necessary parameters from the wind configuration dictionary, converts the input data to NumPy arrays if they are xarray DataArrays for consistent processing, converts wind component units from original units to display units (m/s) if necessary, extracts a 2D slice from multi-dimensional wind arrays if needed, regrids the wind components to a regular lat-lon grid if requested, calculates an optimal subsampling factor if subsample is set to -1, prepares the wind data by applying subsampling and filtering out invalid values, validates that there are valid points to plot and logs the count before rendering the overlay, and finally renders the wind vectors on the provided axes using the specified plot type and styling from the configuration. This method allows for flexible addition of wind overlays to existing maps while ensuring that the data is properly processed and visualized according to user specifications. For arrow-type overlays the method returns the matplotlib Quiver object so that callers can optionally add a scale-reference arrow via ax.quiverkey() — this is particularly useful for IVT vectors whose magnitudes (kg m⁻¹ s⁻¹) are otherwise difficult to interpret from arrow length alone.
 
@@ -861,9 +862,18 @@ class MPASWindPlotter(MPASVisualizer):
         Returns:
             Optional[Any]: The matplotlib Quiver object when plot_type is 'arrows', which can be passed directly to ax.quiverkey() to add a labeled reference arrow showing the meaning of arrow length. Returns None for all other plot types or when no valid data points are found.
         """
+        # Preserve the MPASConfig object before it is shadowed by the wind config dict below
+        mpas_config = config
+
         # Extract and validate configuration parameters from the provided wind_config dictionary
         config = self._extract_wind_config(wind_config)
-        
+
+        # Effective regrid method: explicit wind_config key > mpas_config.remap_method > 'linear'
+        effective_regrid_method = wind_config.get(
+            'regrid_method',
+            getattr(mpas_config, 'remap_method', 'linear') if mpas_config is not None else 'linear'
+        )
+
         # Convert input data to NumPy arrays if they are xarray DataArrays for consistent processing in subsequent steps
         u_data = self.convert_to_numpy(config['u_data'])
         v_data = self.convert_to_numpy(config['v_data'])
@@ -884,7 +894,8 @@ class MPASWindPlotter(MPASVisualizer):
             lon, lat, u_data, v_data = self._regrid_wind_components(
                 lon, lat, u_data, v_data, dataset,
                 lon_min, lon_max, lat_min, lat_max,
-                config['grid_resolution'], config['regrid_method']
+                config['grid_resolution'], effective_regrid_method,
+                config=mpas_config,
             )
         
         # Extract subsample factor from config, allowing for automatic calculation when set to -1. 
@@ -934,7 +945,8 @@ class MPASWindPlotter(MPASVisualizer):
                                 scale: Optional[float] = None,
                                 show_background: bool = False,
                                 grid_resolution: Optional[float] = None,
-                                regrid_method: str = 'linear') -> List[str]:
+                                regrid_method: str = 'linear',
+                                config: Optional[Any] = None) -> List[str]:
         """
         This method creates a series of wind plots for each time step in the MPAS dataset using the specified U and V component variable names. It iterates through each time step, extracts the relevant wind data and coordinates, creates a wind plot using the create_wind_plot method with the specified parameters, generates a descriptive filename based on the variable names, plot type, and time information, adds timestamps and branding to the plot, saves the plot in all specified formats, and keeps track of the created file paths. The method returns a list of base file paths (without format extensions) for all successfully created wind plot files corresponding to each time step. This allows users to generate a comprehensive set of wind visualizations across multiple time steps while maintaining consistent styling and organization of output files. 
 
@@ -954,6 +966,7 @@ class MPASWindPlotter(MPASVisualizer):
             show_background (bool): Whether to show a background colormap based on wind speed when plot_type is 'streamlines' (default: False).
             grid_resolution (Optional[float]): Grid resolution in degrees for regridding the wind data to a regular lat-lon grid; if None, no regridding is performed (default: None).
             regrid_method (str): Interpolation method to use for regridding the wind data when grid_resolution is specified (e.g., 'nearest', 'linear', 'cubic') (default: 'linear').
+            config (Optional[Any]): Additional configuration object that may contain settings for regridding or other processing steps; passed to the regridding utilities if needed (default: None).
 
         Returns:
             List[str]: A list of base file paths (without format extensions) for all successfully created wind plot files corresponding to each time step, which can be used for reference or further processing.
@@ -995,6 +1008,7 @@ class MPASWindPlotter(MPASVisualizer):
                 grid_resolution=grid_resolution,
                 regrid_method=regrid_method,
                 dataset=dataset,
+                config=config,
             )
 
             # Attempt to extract time information from the dataset for the current time index to include in the plot title and filename

@@ -63,6 +63,10 @@ cfg.lat_max = 60.0
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting. 
+cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+
 # -------------- Create base surface map with 2-m temperature --------------
 
 # Main filled contour: 2-m temperature (interpolated)
@@ -77,7 +81,8 @@ fig, ax = plotter.create_surface_map(
     lat_max=cfg.lat_max,
     plot_type='contourf',
     grid_resolution=0.1,
-    title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}'
+    title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}',
+    config=cfg,
 )
 
 print("\n" + "="*60)
@@ -115,10 +120,10 @@ wind_config = {
     'grid_resolution': 0.1
 }
 
-# Add 10-m wind vectors as an overlay on the existing surface map
-wind_plotter.add_wind_overlay(ax, lon, lat, wind_config, 
-                            lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
-                            lat_min=cfg.lat_min, lat_max=cfg.lat_max)
+# Add 10-m wind vectors as an overlay on the existing surface map.
+wind_plotter.add_wind_overlay(ax, lon, lat, wind_config,
+                              lon_min=cfg.lon_min, lon_max=cfg.lon_max,
+                              lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # Create output directory if it doesn't exist
 os.makedirs('./output', exist_ok=True)
