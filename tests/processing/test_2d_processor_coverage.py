@@ -22,9 +22,9 @@ from mpasdiag.processing.processors_2d import MPAS2DProcessor
 
 
 @pytest.fixture
-def mock_proc() -> MPAS2DProcessor:
+def mock_proc(tmp_path) -> MPAS2DProcessor:
     """
-    This fixture creates a mock MPAS2DProcessor instance with default attributes set to allow testing of methods that do not require an actual dataset or file I/O. The dataset is initialized to None, and the data_type is set to 'xarray' to enable testing of the UXarray branch in load_2d_data. The grid_file and data_dir attributes are set to dummy paths. 
+    This fixture creates a mock MPAS2DProcessor instance with default attributes set to allow testing of methods that do not require an actual dataset or file I/O. The dataset is initialized to None, and the data_type is set to 'xarray' to enable testing of the UXarray branch in load_2d_data. The grid_file and data_dir attributes are set to dummy paths.
 
     Parameters:
         None
@@ -36,8 +36,8 @@ def mock_proc() -> MPAS2DProcessor:
     proc.verbose = False
     proc.dataset = None
     proc.data_type = 'xarray'
-    proc.grid_file = '/tmp/mock_grid.nc'
-    proc.data_dir = '/tmp/mock_data'
+    proc.grid_file = str(tmp_path / 'mock_grid.nc')
+    proc.data_dir = str(tmp_path / 'mock_data')
     return proc
 
 
@@ -71,8 +71,9 @@ def loaded_proc(mock_proc: 'MPAS2DProcessor') -> 'MPAS2DProcessor':
 class TestLoad2DDataUXarrayPath:
     """Test the UXarray branch (hasattr 'ds') inside load_2d_data."""
 
-    def test_uxarray_path_assigns_dataset_and_returns_self(self: 'TestLoad2DDataUXarrayPath', 
-                                                           mock_proc: 'MPAS2DProcessor') -> None:
+    def test_uxarray_path_assigns_dataset_and_returns_self(self: 'TestLoad2DDataUXarrayPath',
+                                                           mock_proc: 'MPAS2DProcessor',
+                                                           tmp_path) -> None:
         """
         This test verifies that when the load_2d_data method is called and the loaded data object has a 'ds' attribute (indicating it is a UXarray dataset), the method correctly assigns this dataset to the processor's dataset attribute and returns the processor instance itself. The test uses mocking to simulate the behavior of the _load_data method to return a mock object with a 'ds' attribute, and also mocks the add_spatial_coordinates method to return an enriched dataset. It asserts that the returned result is the processor instance and that the dataset attribute is set to the mock UXarray dataset. 
 
@@ -90,7 +91,7 @@ class TestLoad2DDataUXarrayPath:
 
         with patch.object(mock_proc, '_load_data', return_value=(mock_ux, 'uxarray')):
             with patch.object(mock_proc, 'add_spatial_coordinates', return_value=enriched_ds):
-                result = mock_proc.load_2d_data('/tmp/data_dir')
+                result = mock_proc.load_2d_data(str(tmp_path / 'data_dir'))
 
         assert result is mock_proc
         assert mock_proc.dataset is mock_ux
@@ -99,8 +100,9 @@ class TestLoad2DDataUXarrayPath:
 class TestFindDiagFilesRecursive:
     """Test _find_diag_files_recursive coverage."""
 
-    def test_returns_sorted_list_when_two_or_more_found(self: 'TestFindDiagFilesRecursive', 
-                                                        mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_sorted_list_when_two_or_more_found(self: 'TestFindDiagFilesRecursive',
+                                                        mock_proc: 'MPAS2DProcessor',
+                                                        tmp_path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method finds two or more diagnostic files, it returns a sorted list of their file paths. The test uses mocking to simulate the behavior of glob.glob to return a predefined list of file paths that are intentionally unsorted. It asserts that the returned result is a sorted version of the input list. 
 
@@ -110,13 +112,14 @@ class TestFindDiagFilesRecursive:
         Returns:
             None: The test asserts conditions but does not return a value. 
         """
-        fake_files = ['/tmp/diag_2025.nc', '/tmp/diag_2024.nc']  # intentionally unsorted
+        fake_files = [str(tmp_path / 'diag_2025.nc'), str(tmp_path / 'diag_2024.nc')]  # intentionally unsorted
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=fake_files):
-            result = mock_proc._find_diag_files_recursive('/tmp/data')
+            result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
         assert result == sorted(fake_files)
 
-    def test_verbose_prints_recursive_search_summary(self: 'TestFindDiagFilesRecursive', 
-                                                     mock_proc: 'MPAS2DProcessor') -> None:
+    def test_verbose_prints_recursive_search_summary(self: 'TestFindDiagFilesRecursive',
+                                                     mock_proc: 'MPAS2DProcessor',
+                                                     tmp_path) -> None:
         """
         This test checks that when the _find_diag_files_recursive method finds two or more diagnostic files and the processor's verbose attribute is set to True, it prints a summary message indicating that diagnostic files were found through a recursive search. The test uses mocking to simulate the behavior of glob.glob to return a predefined list of file paths, and captures the standard output to check for the expected message. 
 
@@ -127,18 +130,19 @@ class TestFindDiagFilesRecursive:
             None: The test asserts conditions but does not return a value. 
         """
         mock_proc.verbose = True
-        fake_files = [f'/tmp/diag_{i:04d}.nc' for i in range(6)]
+        fake_files = [str(tmp_path / f'diag_{i:04d}.nc') for i in range(6)]
 
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=fake_files):
             captured = StringIO()
             with patch('sys.stdout', new=captured):
-                result = mock_proc._find_diag_files_recursive('/tmp/data')
+                result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
 
         assert result is not None
         assert 'diagnostic files (recursive' in captured.getvalue()
 
-    def test_returns_none_when_fewer_than_two_files(self: 'TestFindDiagFilesRecursive', 
-                                                    mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_none_when_fewer_than_two_files(self: 'TestFindDiagFilesRecursive',
+                                                    mock_proc: 'MPAS2DProcessor',
+                                                    tmp_path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method finds fewer than two diagnostic files (i.e., glob.glob returns a list with one file), it returns None. The test uses mocking to simulate the behavior of glob.glob to return a list containing a single file path, and asserts that the method returns None in this case. 
 
@@ -148,12 +152,13 @@ class TestFindDiagFilesRecursive:
         Returns:
             None: The test asserts conditions but does not return a value. 
         """
-        with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=['/tmp/diag_2024.nc']):
-            result = mock_proc._find_diag_files_recursive('/tmp/data')
+        with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[str(tmp_path / 'diag_2024.nc')]):
+            result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
         assert result is None
 
-    def test_returns_none_when_no_files_found(self: 'TestFindDiagFilesRecursive', 
-                                              mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_none_when_no_files_found(self: 'TestFindDiagFilesRecursive',
+                                              mock_proc: 'MPAS2DProcessor',
+                                              tmp_path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method does not find any diagnostic files (i.e., glob.glob returns an empty list), it returns None. The test uses mocking to simulate the behavior of glob.glob to return an empty list, and asserts that the method returns None in this case. 
 
@@ -164,15 +169,16 @@ class TestFindDiagFilesRecursive:
             None: The test asserts conditions but does not return a value. 
         """
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[]):
-            result = mock_proc._find_diag_files_recursive('/tmp/data')
+            result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
         assert result is None
 
 
 class TestFindMpasoutFilesFallback:
     """Test _find_mpasout_files_fallback branching."""
 
-    def test_returns_files_when_pattern_finder_succeeds(self: 'TestFindMpasoutFilesFallback', 
-                                                        mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_files_when_pattern_finder_succeeds(self: 'TestFindMpasoutFilesFallback',
+                                                        mock_proc: 'MPAS2DProcessor',
+                                                        tmp_path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method successfully finds MPAS output files using the pattern-based finder (i.e., _find_files_by_pattern returns a list of file paths), it returns this list of file paths without attempting a recursive search. The test uses mocking to simulate the behavior of _find_files_by_pattern to return a predefined list of MPAS output file paths, and asserts that the method returns this list directly. 
 
@@ -182,15 +188,16 @@ class TestFindMpasoutFilesFallback:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/mpasout_2024.nc', '/tmp/mpasout_2025.nc']
+        fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', return_value=fake_files):
-            result = mock_proc._find_mpasout_files_fallback('/tmp/data')
+            result = mock_proc._find_mpasout_files_fallback(str(tmp_path / 'data'))
 
         assert result == fake_files
 
-    def test_raises_file_not_found_when_no_files_anywhere(self: 'TestFindMpasoutFilesFallback', 
-                                                          mock_proc: 'MPAS2DProcessor') -> None:
+    def test_raises_file_not_found_when_no_files_anywhere(self: 'TestFindMpasoutFilesFallback',
+                                                          mock_proc: 'MPAS2DProcessor',
+                                                          tmp_path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find MPAS output files using both the pattern-based finder (i.e., _find_files_by_pattern raises FileNotFoundError) and the recursive search (i.e., glob.glob returns an empty list), it raises a FileNotFoundError with an appropriate message. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return an empty list, and asserts that the method raises the expected exception with a message indicating that no diagnostic files were found. 
 
@@ -203,10 +210,11 @@ class TestFindMpasoutFilesFallback:
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[]):
                 with pytest.raises(FileNotFoundError, match="No diagnostic files"):
-                    mock_proc._find_mpasout_files_fallback('/tmp/data')
+                    mock_proc._find_mpasout_files_fallback(str(tmp_path / 'data'))
 
-    def test_raises_value_error_when_only_one_file_found(self: 'TestFindMpasoutFilesFallback', 
-                                                         mock_proc: 'MPAS2DProcessor') -> None:
+    def test_raises_value_error_when_only_one_file_found(self: 'TestFindMpasoutFilesFallback',
+                                                         mock_proc: 'MPAS2DProcessor',
+                                                         tmp_path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find MPAS output files using the pattern-based finder (i.e., _find_files_by_pattern raises FileNotFoundError) and the recursive search returns only one file (i.e., glob.glob returns a list with a single file path), it raises a ValueError indicating that there are insufficient MPAS output files. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a list containing a single file path, and asserts that the method raises the expected exception with a message indicating insufficient MPAS output files. 
 
@@ -218,12 +226,13 @@ class TestFindMpasoutFilesFallback:
         """
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob',
-                       return_value=['/tmp/mpasout_2024.nc']):
+                       return_value=[str(tmp_path / 'mpasout_2024.nc')]):
                 with pytest.raises(ValueError, match="Insufficient MPAS output files"):
-                    mock_proc._find_mpasout_files_fallback('/tmp/data')
+                    mock_proc._find_mpasout_files_fallback(str(tmp_path / 'data'))
 
-    def test_returns_files_from_recursive_search_verbose(self: 'TestFindMpasoutFilesFallback', 
-                                                         mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_files_from_recursive_search_verbose(self: 'TestFindMpasoutFilesFallback',
+                                                         mock_proc: 'MPAS2DProcessor',
+                                                         tmp_path) -> None:
         """
         This test checks that when the _find_mpasout_files_fallback method fails to find files using the pattern-based finder and falls back to a recursive search (i.e., glob.glob), it returns the list of file paths found. Additionally, if the processor's verbose attribute is set to True, it verifies that a summary message indicating that MPAS output files were found through a recursive search is printed. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a predefined list of MPAS output file paths. It captures the standard output to check for the expected message. 
 
@@ -234,19 +243,20 @@ class TestFindMpasoutFilesFallback:
             None: The test asserts conditions but does not return a value.
         """
         mock_proc.verbose = True
-        fake_files = ['/tmp/mpasout_2024.nc', '/tmp/mpasout_2025.nc']
+        fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=fake_files):
                 captured = StringIO()
                 with patch('sys.stdout', new=captured):
-                    result = mock_proc._find_mpasout_files_fallback('/tmp/data')
+                    result = mock_proc._find_mpasout_files_fallback(str(tmp_path / 'data'))
 
         assert result == sorted(fake_files)
         assert 'MPAS output files (recursive' in captured.getvalue()
 
-    def test_returns_files_from_recursive_search_silent(self: 'TestFindMpasoutFilesFallback', 
-                                                        mock_proc: 'MPAS2DProcessor') -> None:
+    def test_returns_files_from_recursive_search_silent(self: 'TestFindMpasoutFilesFallback',
+                                                        mock_proc: 'MPAS2DProcessor',
+                                                        tmp_path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find files using the pattern-based finder and falls back to a recursive search (i.e., glob.glob), it returns the list of file paths found without printing any messages if the processor's verbose attribute is set to False. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a predefined list of MPAS output file paths. It captures the standard output to ensure that no messages are printed. 
 
@@ -256,11 +266,11 @@ class TestFindMpasoutFilesFallback:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/mpasout_2024.nc', '/tmp/mpasout_2025.nc']
+        fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=fake_files):
-                result = mock_proc._find_mpasout_files_fallback('/tmp/data')
+                result = mock_proc._find_mpasout_files_fallback(str(tmp_path / 'data'))
 
         assert result == sorted(fake_files)
 
@@ -268,8 +278,9 @@ class TestFindMpasoutFilesFallback:
 class TestFindDiagnosticFiles:
     """Test every branch of find_diagnostic_files."""
 
-    def test_finds_files_in_main_directory(self: 'TestFindDiagnosticFiles', 
-                                           mock_proc: 'MPAS2DProcessor') -> None:
+    def test_finds_files_in_main_directory(self: 'TestFindDiagnosticFiles',
+                                           mock_proc: 'MPAS2DProcessor',
+                                           tmp_path) -> None:
         """
         This test verifies that the find_diagnostic_files method successfully finds diagnostic files in the main directory when they are present. The test uses mocking to simulate the behavior of the _find_files_by_pattern method to return a predefined list of diagnostic file paths, and asserts that the find_diagnostic_files method returns this list without attempting to search in subdirectories or perform a recursive search. 
 
@@ -279,15 +290,16 @@ class TestFindDiagnosticFiles:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/data/diag_2024.nc', '/tmp/data/diag_2025.nc']
+        fake_files = [str(tmp_path / 'data' / 'diag_2024.nc'), str(tmp_path / 'data' / 'diag_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', return_value=fake_files):
-            result = mock_proc.find_diagnostic_files('/tmp/data')
+            result = mock_proc.find_diagnostic_files(str(tmp_path / 'data'))
 
         assert result == fake_files
 
-    def test_finds_files_in_diag_subdir_when_main_dir_fails(self: 'TestFindDiagnosticFiles', 
-                                                            mock_proc: 'MPAS2DProcessor') -> None:
+    def test_finds_files_in_diag_subdir_when_main_dir_fails(self: 'TestFindDiagnosticFiles',
+                                                            mock_proc: 'MPAS2DProcessor',
+                                                            tmp_path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in the main directory (i.e., _find_files_by_pattern raises a FileNotFoundError), it successfully searches in the 'diag' subdirectory and returns the list of diagnostic file paths found there. The test uses mocking to simulate the behavior of _find_files_by_pattern to first raise a FileNotFoundError for the main directory search, and then return a predefined list of diagnostic file paths for the 'diag' subdirectory search. It asserts that the find_diagnostic_files method returns the list of files found in the 'diag' subdirectory. 
 
@@ -297,16 +309,17 @@ class TestFindDiagnosticFiles:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/data/diag/diag_2024.nc', '/tmp/data/diag/diag_2025.nc']
+        fake_files = [str(tmp_path / 'data' / 'diag' / 'diag_2024.nc'), str(tmp_path / 'data' / 'diag' / 'diag_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern',
                           side_effect=[FileNotFoundError(), fake_files]):
-            result = mock_proc.find_diagnostic_files('/tmp/data')
+            result = mock_proc.find_diagnostic_files(str(tmp_path / 'data'))
 
         assert result == fake_files
 
-    def test_falls_back_to_recursive_search(self: 'TestFindDiagnosticFiles', 
-                                            mock_proc: 'MPAS2DProcessor') -> None:
+    def test_falls_back_to_recursive_search(self: 'TestFindDiagnosticFiles',
+                                            mock_proc: 'MPAS2DProcessor',
+                                            tmp_path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, it successfully falls back to a recursive search. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, and _find_diag_files_recursive to return a predefined list of diagnostic file paths. The test asserts that the find_diagnostic_files method returns the list of files found by the recursive search. 
 
@@ -316,16 +329,17 @@ class TestFindDiagnosticFiles:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/data/sub/diag_2024.nc', '/tmp/data/sub/diag_2025.nc']
+        fake_files = [str(tmp_path / 'data' / 'sub' / 'diag_2024.nc'), str(tmp_path / 'data' / 'sub' / 'diag_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch.object(mock_proc, '_find_diag_files_recursive', return_value=fake_files):
-                result = mock_proc.find_diagnostic_files('/tmp/data')
+                result = mock_proc.find_diagnostic_files(str(tmp_path / 'data'))
 
         assert result == fake_files
 
-    def test_falls_back_to_mpasout_when_recursive_returns_none(self: 'TestFindDiagnosticFiles', 
-                                                                mock_proc: 'MPAS2DProcessor') -> None:
+    def test_falls_back_to_mpasout_when_recursive_returns_none(self: 'TestFindDiagnosticFiles',
+                                                                mock_proc: 'MPAS2DProcessor',
+                                                                tmp_path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, and the recursive search returns None, it successfully falls back to the _find_mpasout_files_fallback method. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, _find_diag_files_recursive to return None, and _find_mpasout_files_fallback to return a predefined list of diagnostic file paths. The test asserts that the find_diagnostic_files method returns the list of files found by the _find_mpasout_files_fallback method. 
 
@@ -335,17 +349,18 @@ class TestFindDiagnosticFiles:
         Returns:
             None: The test asserts conditions but does not return a value.
         """
-        fake_files = ['/tmp/data/mpasout_2024.nc', '/tmp/data/mpasout_2025.nc']
+        fake_files = [str(tmp_path / 'data' / 'mpasout_2024.nc'), str(tmp_path / 'data' / 'mpasout_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch.object(mock_proc, '_find_diag_files_recursive', return_value=None):
                 with patch.object(mock_proc, '_find_mpasout_files_fallback', return_value=fake_files):
-                    result = mock_proc.find_diagnostic_files('/tmp/data')
+                    result = mock_proc.find_diagnostic_files(str(tmp_path / 'data'))
 
         assert result == fake_files
 
-    def test_verbose_prints_no_diag_files_message_before_mpasout_fallback(self: 'TestFindDiagnosticFiles', 
-                                                                          mock_proc: 'MPAS2DProcessor') -> None:
+    def test_verbose_prints_no_diag_files_message_before_mpasout_fallback(self: 'TestFindDiagnosticFiles',
+                                                                          mock_proc: 'MPAS2DProcessor',
+                                                                          tmp_path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, and the recursive search returns None, if the processor's verbose attribute is set to True, it prints a message indicating that no diagnostic files were found before falling back to searching for MPAS output files. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, _find_diag_files_recursive to return None, and _find_mpasout_files_fallback to return a predefined list of diagnostic file paths. It captures the standard output to check for the expected message. 
 
@@ -356,14 +371,14 @@ class TestFindDiagnosticFiles:
             None: The test asserts conditions but does not return a value.
         """
         mock_proc.verbose = True
-        fake_files = ['/tmp/data/mpasout_2024.nc', '/tmp/data/mpasout_2025.nc']
+        fake_files = [str(tmp_path / 'data' / 'mpasout_2024.nc'), str(tmp_path / 'data' / 'mpasout_2025.nc')]
 
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch.object(mock_proc, '_find_diag_files_recursive', return_value=None):
                 with patch.object(mock_proc, '_find_mpasout_files_fallback', return_value=fake_files):
                     captured = StringIO()
                     with patch('sys.stdout', new=captured):
-                        mock_proc.find_diagnostic_files('/tmp/data')
+                        mock_proc.find_diagnostic_files(str(tmp_path / 'data'))
 
         assert 'No diagnostic files found' in captured.getvalue()
 

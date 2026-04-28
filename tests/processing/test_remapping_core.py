@@ -286,7 +286,7 @@ class TestRemapMpasToLatlon:
         
         assert isinstance(remapped, xr.DataArray)
         assert np.any(np.isfinite(remapped.values)), "expected at least some finite interpolated values"
-        assert not np.any(remapped.values == 0.0), "outside-hull points must be NaN, not 0"
+        assert not np.any(remapped.values == pytest.approx(0.0)), "outside-hull points must be NaN, not 0"
 
     
     def test_remap_with_dataarray_input(self: 'TestRemapMpasToLatlon') -> None:
@@ -676,7 +676,7 @@ class TestRemappingCoverageGaps:
                                        lat_min=30, lat_max=40, resolution=2.0, method='linear')
 
         assert isinstance(result, xr.DataArray)
-        assert not np.any(result.values == 0.0), "linear fill_value must be NaN, not 0"
+        assert not np.any(result.values == pytest.approx(0.0)), "linear fill_value must be NaN, not 0"
 
 
 class TestDispatchRemap:
@@ -992,7 +992,7 @@ class TestRemapWithMaskingConfigRouting:
 
         assert isinstance(result, xr.DataArray)
         # Linear interpolation leaves NaN outside convex hull — not 0.0
-        assert not np.any(result.values == 0.0)
+        assert not np.any(result.values == pytest.approx(0.0)), "linear fill_value must be NaN, not 0"
 
     def test_esmf_engine_via_config_routes_to_dispatch(self: 'TestRemapWithMaskingConfigRouting', 
                                                        data: xr.DataArray, 

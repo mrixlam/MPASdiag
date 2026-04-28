@@ -27,7 +27,7 @@ DEWPOINT = np.array([20.0, 10.0, 0.0, -15.0, -40.0])
 class TestCreateSkewTSaveVerbose:
     """ Test if the create_skewt_diagram method correctly prints the saved path when verbose is True, and does not print when verbose is False. """
 
-    def test_verbose_prints_saved_path(self: 'TestCreateSkewTSaveVerbose') -> None:
+    def test_verbose_prints_saved_path(self: 'TestCreateSkewTSaveVerbose', tmp_path) -> None:
         """
         This test verifies that when the MPASSkewTPlotter is initialized with verbose=True, the create_skewt_diagram method prints the path where the plot is saved after successfully saving the plot. It mocks the internal methods to avoid actual file I/O and captures the standard output to check for the expected print statement. 
 
@@ -41,6 +41,7 @@ class TestCreateSkewTSaveVerbose:
         mock_fig = MagicMock()
         mock_ax = MagicMock()
 
+        skewt_path = str(tmp_path / 'test_skewt.png')
         with patch.object(plotter, "_create_metpy_skewt", return_value=(mock_fig, mock_ax)):
             with patch("mpasdiag.visualization.skewt.MPASVisualizationStyle.save_plot"):
                 with patch.object(plotter, "add_timestamp_and_branding"):
@@ -48,16 +49,16 @@ class TestCreateSkewTSaveVerbose:
                     with patch("sys.stdout", new=captured):
                         fig, ax = plotter.create_skewt_diagram(
                             PRESSURE, TEMPERATURE, DEWPOINT,
-                            save_path="/tmp/test_skewt.png",
+                            save_path=skewt_path,
                         )
 
         out = captured.getvalue()
         assert "Skew-T diagram saved to:" in out
-        assert "/tmp/test_skewt.png" in out
+        assert skewt_path in out
         assert fig is mock_fig
         assert ax is mock_ax
 
-    def test_verbose_false_no_print_after_save(self: 'TestCreateSkewTSaveVerbose') -> None:
+    def test_verbose_false_no_print_after_save(self: 'TestCreateSkewTSaveVerbose', tmp_path) -> None:
         """
         This test checks that when the MPASSkewTPlotter is initialized with verbose=False, the create_skewt_diagram method does not print any output to the console after saving the plot. It mocks the necessary methods to prevent actual file I/O and captures the standard output to confirm that it remains empty.
 
@@ -78,7 +79,7 @@ class TestCreateSkewTSaveVerbose:
                     with patch("sys.stdout", new=captured):
                         plotter.create_skewt_diagram(
                             PRESSURE, TEMPERATURE, DEWPOINT,
-                            save_path="/tmp/test_skewt.png",
+                            save_path=str(tmp_path / 'test_skewt.png'),
                         )
 
         assert captured.getvalue() == ""

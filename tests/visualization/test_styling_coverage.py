@@ -622,7 +622,7 @@ class TestCreateFooterAxes:
 class TestSavePlot:
     """ Test coverage for save_plot, specifically the branches for None figure and missing output directory. """
 
-    def test_none_figure_raises_value_error(self: 'TestSavePlot') -> None:
+    def test_none_figure_raises_value_error(self: 'TestSavePlot', tmp_path) -> None:
         """
         This test verifies that when the figure is None, the save_plot function correctly raises a ValueError. This confirms that the specific branch for None figure is functioning as intended.
 
@@ -633,7 +633,7 @@ class TestSavePlot:
             None
         """
         with pytest.raises(ValueError, match="No figure to save"):
-            MPASVisualizationStyle.save_plot(None, '/tmp/test_output')
+            MPASVisualizationStyle.save_plot(None, str(tmp_path / 'test_output'))
 
     def test_creates_output_directory_if_missing(self: 'TestSavePlot', tmp_path) -> None:
         """
@@ -1051,7 +1051,7 @@ class TestCalculateAdaptiveMarkerSize:
             None
         """
         result = MPASVisualizationStyle.calculate_adaptive_marker_size(None, 100)
-        assert result == 5.0
+        assert result == pytest.approx(5.0)
 
     def test_density_10_to_50_branch(self: 'TestCalculateAdaptiveMarkerSize') -> None:
         """

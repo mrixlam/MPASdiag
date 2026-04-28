@@ -229,7 +229,7 @@ class TestSyncWeightsAcrossRanks:
         mock_comm.Barrier.assert_called_once()
         mock_comm.Bcast.assert_called()
 
-    def test_rank1_with_file_loads_weights(self: 'TestSyncWeightsAcrossRanks') -> None:
+    def test_rank1_with_file_loads_weights(self: 'TestSyncWeightsAcrossRanks', tmp_path) -> None:
         """
         This test simulates the rank-1 path when a weights file is provided. It patches the _load_weights_netcdf method to return a known weight matrix and shape, then calls _sync_weights_across_ranks with mpi_rank=1 and a fake weights path. The test verifies that Barrier is called and that the remapper's _n_src and _tgt_shape attributes are set to the expected values from the loaded weights. 
 
@@ -248,14 +248,14 @@ class TestSyncWeightsAcrossRanks:
         with patch.object(remapper, '_load_weights_netcdf',
                           return_value=(loaded_weights, loaded_shape, None)):
             remapper._sync_weights_across_ranks(
-                mock_comm, mpi_rank=1, weights_path=Path('/tmp/fake_weights.nc')
+                mock_comm, mpi_rank=1, weights_path=tmp_path / 'fake_weights.nc'
             )
 
         mock_comm.Barrier.assert_called_once()
         assert remapper._n_src == 4
         assert remapper._tgt_shape == loaded_shape
 
-    def test_rank0_with_file_only_calls_barrier(self: 'TestSyncWeightsAcrossRanks') -> None:
+    def test_rank0_with_file_only_calls_barrier(self: 'TestSyncWeightsAcrossRanks', tmp_path) -> None:
         """
         This test simulates the rank-0 path when a weights file is provided.  It patches the _broadcast_weights_in_memory method to track if it is called, then calls _sync_weights_across_ranks with mpi_rank=0 and a fake weights path. The test verifies that Barrier is called but that _broadcast_weights_in_memory is not called, since rank 0 should load the weights from the file and not broadcast them. 
 
@@ -270,7 +270,7 @@ class TestSyncWeightsAcrossRanks:
 
         with patch.object(remapper, '_broadcast_weights_in_memory') as mock_bcast:
             remapper._sync_weights_across_ranks(
-                mock_comm, mpi_rank=0, weights_path=Path('/tmp/fake.nc')
+                mock_comm, mpi_rank=0, weights_path=tmp_path / 'fake.nc'
             )
 
         mock_comm.Barrier.assert_called_once()

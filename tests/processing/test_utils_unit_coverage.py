@@ -34,7 +34,7 @@ class TestConvertUnitsNoOp:
             None
         """
         result = UnitConverter.convert_units(25.0, "°C", "°C")
-        assert result == 25.0
+        assert result == pytest.approx(25.0)
 
     def test_same_unit_array_returned_unchanged(self: 'TestConvertUnitsNoOp') -> None:
         """
@@ -61,7 +61,7 @@ class TestConvertUnitsNoOp:
             None
         """
         result = UnitConverter.convert_units(300.0, "kelvin", "K")
-        assert result == 300.0
+        assert result == pytest.approx(300.0)
 
     def test_same_unit_xarray_returned_unchanged(self: 'TestConvertUnitsNoOp') -> None:
         """

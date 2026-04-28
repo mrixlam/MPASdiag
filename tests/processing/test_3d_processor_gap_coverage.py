@@ -22,9 +22,9 @@ from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 
 @pytest.fixture
-def proc() -> 'MPAS3DProcessor':
+def proc(tmp_path) -> 'MPAS3DProcessor':
     """
-    This fixture creates a base instance of the MPAS3DProcessor class with default settings for testing. It initializes the processor with verbose mode disabled, no dataset loaded, a data type of 'xarray', and a mock grid file path. This setup provides a consistent starting point for tests that require an instance of MPAS3DProcessor, allowing them to focus on specific behaviors without needing to set up the processor attributes in each test. 
+    This fixture creates a base instance of the MPAS3DProcessor class with default settings for testing. It initializes the processor with verbose mode disabled, no dataset loaded, a data type of 'xarray', and a mock grid file path. This setup provides a consistent starting point for tests that require an instance of MPAS3DProcessor, allowing them to focus on specific behaviors without needing to set up the processor attributes in each test.
 
     Parameters:
         None
@@ -36,7 +36,7 @@ def proc() -> 'MPAS3DProcessor':
     p.verbose = False
     p.dataset = None
     p.data_type = 'xarray'
-    p.grid_file = '/tmp/mock_grid.nc'
+    p.grid_file = str(tmp_path / 'mock_grid.nc')
     return p
 
 
@@ -297,8 +297,9 @@ class TestExtract2DCoordinatesForVariable:
 class TestFindFilesRecursive:
     """ Test _find_files_recursive error paths and normal flows related to finding MPAS output files in a directory tree. """
 
-    def test_raises_file_not_found_when_no_files(self: 'TestFindFilesRecursive', 
-                                                 proc: 'MPAS3DProcessor') -> None:
+    def test_raises_file_not_found_when_no_files(self: 'TestFindFilesRecursive',
+                                                 proc: 'MPAS3DProcessor',
+                                                 tmp_path) -> None:
         """
         This test verifies that the _find_files_recursive method raises a FileNotFoundError when no MPAS output files are found in the specified directory or its subdirectories. This ensures that the method correctly handles cases where there are no relevant files to process, providing a clear error message to the user and preventing further processing with an empty file list. The test simulates a scenario where the glob function returns an empty list, confirming that the method raises the appropriate exception in this case. 
 
@@ -310,10 +311,11 @@ class TestFindFilesRecursive:
         """
         with patch('mpasdiag.processing.processors_3d.glob.glob', return_value=[]):
             with pytest.raises(FileNotFoundError, match="No MPAS output files"):
-                proc._find_files_recursive('/tmp/data')
+                proc._find_files_recursive(str(tmp_path / 'data'))
 
-    def test_raises_value_error_when_only_one_file(self: 'TestFindFilesRecursive', 
-                                                   proc: 'MPAS3DProcessor') -> None:
+    def test_raises_value_error_when_only_one_file(self: 'TestFindFilesRecursive',
+                                                   proc: 'MPAS3DProcessor',
+                                                   tmp_path) -> None:
         """
         This test verifies that the _find_files_recursive method raises a ValueError when only one MPAS output file is found in the specified directory or its subdirectories. This ensures that the method correctly handles cases where there are not enough files to perform meaningful processing, providing a clear error message to the user and preventing further processing with an insufficient file list. The test simulates a scenario where the glob function returns a list containing only one file path, confirming that the method raises the appropriate exception in this case. 
 
@@ -324,12 +326,13 @@ class TestFindFilesRecursive:
             None
         """
         with patch('mpasdiag.processing.processors_3d.glob.glob',
-                   return_value=['/tmp/mpasout_2024.nc']):
+                   return_value=[str(tmp_path / 'mpasout_2024.nc')]):
             with pytest.raises(ValueError, match="Insufficient MPAS output files"):
-                proc._find_files_recursive('/tmp/data')
+                proc._find_files_recursive(str(tmp_path / 'data'))
 
-    def test_returns_sorted_files_silent(self: 'TestFindFilesRecursive', 
-                                         proc: 'MPAS3DProcessor') -> None:
+    def test_returns_sorted_files_silent(self: 'TestFindFilesRecursive',
+                                         proc: 'MPAS3DProcessor',
+                                         tmp_path) -> None:
         """
         This test verifies that the _find_files_recursive method returns a sorted list of MPAS output file paths when multiple files are found, and that it does so without printing any messages when verbose mode is disabled. This ensures that the method provides a consistent and user-friendly output by sorting the file paths, while also respecting the user's preference for silent operation when verbose mode is not enabled. The test simulates a scenario where multiple MPAS output files are found in an unsorted order, confirming that the method returns the file paths sorted correctly without producing any output in silent mode. 
 
@@ -339,15 +342,16 @@ class TestFindFilesRecursive:
         Returns:
             None
         """
-        fake = ['/tmp/mpasout_2025.nc', '/tmp/mpasout_2024.nc'] 
+        fake = [str(tmp_path / 'mpasout_2025.nc'), str(tmp_path / 'mpasout_2024.nc')]
 
         with patch('mpasdiag.processing.processors_3d.glob.glob', return_value=fake):
-            result = proc._find_files_recursive('/tmp/data')
+            result = proc._find_files_recursive(str(tmp_path / 'data'))
 
         assert result == sorted(fake)
 
-    def test_verbose_prints_file_list(self: 'TestFindFilesRecursive', 
-                                       proc_v: 'MPAS3DProcessor') -> None:
+    def test_verbose_prints_file_list(self: 'TestFindFilesRecursive',
+                                       proc_v: 'MPAS3DProcessor',
+                                       tmp_path) -> None:
         """
         This test verifies that the _find_files_recursive method prints a message listing the found MPAS output files when verbose mode is enabled. This ensures that the method provides useful feedback to the user about the files that were found during the recursive search, enhancing the user experience in verbose mode. The test simulates a scenario where multiple MPAS output files are found, and captures the standard output to confirm that a message indicating the found files is printed when verbose mode is active. 
 
@@ -357,12 +361,12 @@ class TestFindFilesRecursive:
         Returns:
             None
         """
-        fake = [f'/tmp/mpasout_{i:04d}.nc' for i in range(6)]
+        fake = [str(tmp_path / f'mpasout_{i:04d}.nc') for i in range(6)]
 
         with patch('mpasdiag.processing.processors_3d.glob.glob', return_value=fake):
             captured = StringIO()
             with patch('sys.stdout', new=captured):
-                result = proc_v._find_files_recursive('/tmp/data')
+                result = proc_v._find_files_recursive(str(tmp_path / 'data'))
 
         assert result is not None
         assert 'MPAS output files (recursive' in captured.getvalue()
@@ -371,8 +375,9 @@ class TestFindFilesRecursive:
 class TestFindMpasoutFiles:
     """ Test find_mpasout_files branches related to searching for MPAS output files in main and subdirectory paths, and falling back to recursive search. """
 
-    def test_subdir_path_used_when_main_dir_fails(self: 'TestFindMpasoutFiles', 
-                                                  proc: 'MPAS3DProcessor') -> None:
+    def test_subdir_path_used_when_main_dir_fails(self: 'TestFindMpasoutFiles',
+                                                  proc: 'MPAS3DProcessor',
+                                                  tmp_path) -> None:
         """
         This test verifies that the find_mpasout_files method correctly falls back to searching in a subdirectory when the initial search in the main directory fails to find any MPAS output files. This ensures that the method is robust to cases where the MPAS output files are organized in a subdirectory (such as 'mpasout') rather than directly in the specified directory, allowing it to successfully find the files without requiring additional user input. The test simulates a scenario where the first call to find files in the main directory raises a FileNotFoundError, while the second call to search in the subdirectory returns a valid list of file paths, confirming that the method correctly handles this fallback behavior. 
 
@@ -382,16 +387,17 @@ class TestFindMpasoutFiles:
         Returns:
             None
         """
-        fake = ['/tmp/mpasout/mpasout_2024.nc', '/tmp/mpasout/mpasout_2025.nc']
+        fake = [str(tmp_path / 'mpasout' / 'mpasout_2024.nc'), str(tmp_path / 'mpasout' / 'mpasout_2025.nc')]
 
         with patch.object(proc, '_find_files_by_pattern',
                           side_effect=[FileNotFoundError(), fake]):
-            result = proc.find_mpasout_files('/tmp/data')
+            result = proc.find_mpasout_files(str(tmp_path / 'data'))
 
         assert result == fake
 
-    def test_recursive_used_when_both_dirs_fail(self: 'TestFindMpasoutFiles', 
-                                                proc: 'MPAS3DProcessor') -> None:
+    def test_recursive_used_when_both_dirs_fail(self: 'TestFindMpasoutFiles',
+                                                proc: 'MPAS3DProcessor',
+                                                tmp_path) -> None:
         """
         This test verifies that the find_mpasout_files method correctly falls back to a recursive search when both the initial search in the main directory and the subsequent search in the subdirectory fail to find any MPAS output files. This ensures that the method is robust to cases where the MPAS output files are organized in an unexpected way within the directory tree, allowing it to successfully find the files by searching through all subdirectories if necessary. The test simulates a scenario where both calls to find files in the main directory and subdirectory raise FileNotFoundError, while a call to search recursively returns a valid list of file paths, confirming that the method correctly handles this fallback behavior.
 
@@ -401,11 +407,11 @@ class TestFindMpasoutFiles:
         Returns:
             None
         """
-        fake = ['/tmp/sub/mpasout_2024.nc', '/tmp/sub/mpasout_2025.nc']
+        fake = [str(tmp_path / 'sub' / 'mpasout_2024.nc'), str(tmp_path / 'sub' / 'mpasout_2025.nc')]
 
         with patch.object(proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch.object(proc, '_find_files_recursive', return_value=fake):
-                result = proc.find_mpasout_files('/tmp/data')
+                result = proc.find_mpasout_files(str(tmp_path / 'data'))
 
         assert result == fake
 
@@ -413,8 +419,9 @@ class TestFindMpasoutFiles:
 class TestLoad3DDataUXarrayPath:
     """ Test load_3d_data when _load_data returns a uxarray dataset, covering the path where the dataset is assigned and self is returned. """
 
-    def test_uxarray_path_assigns_dataset_and_returns_self(self: 'TestLoad3DDataUXarrayPath', 
-                                                           proc: 'MPAS3DProcessor') -> None:
+    def test_uxarray_path_assigns_dataset_and_returns_self(self: 'TestLoad3DDataUXarrayPath',
+                                                           proc: 'MPAS3DProcessor',
+                                                           tmp_path) -> None:
         """
         This test verifies that when the _load_data method returns a dataset of type 'uxarray', the load_3d_data method correctly assigns this dataset to the processor's dataset attribute and returns the processor instance itself (self). This ensures that the load_3d_data method can handle datasets returned by _load_data in the 'uxarray' format, allowing it to integrate with different data loading mechanisms while maintaining a consistent interface. The test simulates a scenario where _load_data returns a mock dataset with the expected structure, confirming that load_3d_data assigns it correctly and returns self in this case.
 
@@ -431,7 +438,7 @@ class TestLoad3DDataUXarrayPath:
 
         with patch.object(proc, '_load_data', return_value=(mock_ux, 'uxarray')):
             with patch.object(proc, 'add_spatial_coordinates', return_value=enriched_ds):
-                result = proc.load_3d_data('/tmp/data')
+                result = proc.load_3d_data(str(tmp_path / 'data'))
 
         assert result is proc
         assert proc.dataset is mock_ux

@@ -149,7 +149,7 @@ class TestCoerceConvertedData:
         """
         result = MPASSurfacePlotter._coerce_converted_data(42.0)
         assert isinstance(result, np.ndarray)
-        assert float(result) == 42.0
+        assert float(result) == pytest.approx(42.0)
 
     def test_list_returns_ndarray(self: 'TestCoerceConvertedData') -> None:
         """
@@ -306,10 +306,10 @@ class TestSetupMapExtentAndFeatures:
             )
         (_, _, fl_min, fl_max, flat_min, flat_max,
          fld_min, fld_max, flatd_min, flatd_max) = result
-        assert fld_min == -100.0
-        assert fld_max == -80.0
-        assert flatd_min == 30.0
-        assert flatd_max == 50.0
+        assert fld_min == pytest.approx(-100.0)
+        assert fld_max == pytest.approx(-80.0)
+        assert flatd_min == pytest.approx(30.0)
+        assert flatd_max == pytest.approx(50.0)
 
 
 class _ComputableMask(np.ndarray):
@@ -940,8 +940,8 @@ class TestPlot3dVariableSlice:
             fig, ax = plotter.plot_3d_variable_slice(da, lon, lat, level=2, var_name='qv')
         mock_create.assert_called_once()
         _, kwargs = mock_create.call_args
-        assert kwargs.get('lon_min') == -180.0
-        assert kwargs.get('lat_max') == 90.0
+        assert kwargs.get('lon_min') == pytest.approx(-180.0)
+        assert kwargs.get('lat_max') == pytest.approx(90.0)
 
     def test_custom_title_is_forwarded(self: 'TestPlot3dVariableSlice') -> None:
         """

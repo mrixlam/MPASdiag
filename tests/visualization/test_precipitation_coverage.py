@@ -480,7 +480,7 @@ class TestCalculateOverlayGridResolution:
         """
         plotter = MPASPrecipitationPlotter()
         result = plotter._calculate_overlay_grid_resolution(0.25, LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
-        assert result == 0.25
+        assert result == pytest.approx(0.25)
 
     def test_adaptive_resolution_when_none(self: 'TestCalculateOverlayGridResolution') -> None:
         """
@@ -1159,7 +1159,7 @@ class TestPlotPrecipitationData:
 class TestSavePlot:
     """ Covers no-figure ValueError in save_plot. """
 
-    def test_no_figure_raises(self: 'TestSavePlot') -> None:
+    def test_no_figure_raises(self: 'TestSavePlot', tmp_path) -> None:
         """
         This test case verifies that when the save_plot method is called without a figure being set (i.e., self.fig is None), it raises a ValueError indicating that there is no figure to save. This covers the branch in the method where it checks if self.fig is None before attempting to save, ensuring that it does not proceed with saving when there is no figure available. The test creates an instance of MPASPrecipitationPlotter without setting a figure, then calls the save_plot method and asserts that a ValueError is raised with the expected message, confirming that the method correctly handles cases where there is no figure to save.  
 
@@ -1171,7 +1171,7 @@ class TestSavePlot:
         """
         plotter = MPASPrecipitationPlotter()
         with pytest.raises(ValueError, match="No figure to save"):
-            plotter.save_plot('/tmp/test_output')
+            plotter.save_plot(str(tmp_path / 'test_output'))
 
     def test_saves_to_disk(self: 'TestSavePlot', 
                            tmp_path: 'Path') -> None:

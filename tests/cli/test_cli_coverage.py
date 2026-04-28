@@ -179,6 +179,7 @@ class TestRunSingleCrossSectionLowerHalf:
         Returns:
             None
         """
+        import tempfile
         cli = MPASUnifiedCLI()
         cli.logger = MagicMock()
 
@@ -186,29 +187,30 @@ class TestRunSingleCrossSectionLowerHalf:
         mock_plotter = MagicMock()
         mock_plotter.create_vertical_cross_section.return_value = (None, None)
 
-        config = SimpleNamespace(
-            time_index=0,
-            title=None,
-            variable='temperature',
-            colormap='default',
-            output=None,
-            output_dir='/tmp/cross_out',
-            output_formats=['png'],
-        )
+        with tempfile.TemporaryDirectory() as safe_tmp_dir:
+            config = SimpleNamespace(
+                time_index=0,
+                title=None,
+                variable='temperature',
+                colormap='default',
+                output=None,
+                output_dir=safe_tmp_dir,
+                output_formats=['png'],
+            )
 
-        params: dict = {}
+            params: dict = {}
 
-        with patch(
-            'mpasdiag.processing.cli_unified.MPASDateTimeUtils.get_time_info',
-            return_value='2024010100',
-        ):
-            cli._run_single_cross_section(mock_processor, mock_plotter, config, params)
+            with patch(
+                'mpasdiag.processing.cli_unified.MPASDateTimeUtils.get_time_info',
+                return_value='2024010100',
+            ):
+                cli._run_single_cross_section(mock_processor, mock_plotter, config, params)
 
-        mock_plotter.save_plot.assert_called_once()
-        mock_plotter.close_plot.assert_called_once()
-        cli.logger.info.assert_called()
+            mock_plotter.save_plot.assert_called_once()
+            mock_plotter.close_plot.assert_called_once()
+            cli.logger.info.assert_called()
 
-    def test_uses_config_output_when_set(self: 'TestRunSingleCrossSectionLowerHalf') -> None:
+    def test_uses_config_output_when_set(self: 'TestRunSingleCrossSectionLowerHalf', tmp_path) -> None:
         """
         This test verifies that when config.output is explicitly set, _run_single_cross_section uses it as the output file stem instead of computing a name based on time information (line 1619). It checks that plotter.save_plot is called with the path that includes the explicit output name provided in the configuration. 
 
@@ -229,7 +231,7 @@ class TestRunSingleCrossSectionLowerHalf:
             variable='temperature',
             colormap='default',
             output='/explicit/path/plot',
-            output_dir='/tmp/cross_out',
+            output_dir=str(tmp_path / 'cross_out'),
             output_formats=['png'],
         )
 
@@ -246,7 +248,7 @@ class TestRunSingleCrossSectionLowerHalf:
 class TestLogCreatedFilesWithLogger:
     """ Test if _log_created_files correctly logs the file count and type when a logger is set, and does nothing when the files list is empty. """
 
-    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger') -> None:
+    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger', tmp_path) -> None:
         """
         This test verifies that _log_created_files calls self.logger.info with a message that includes the count of created files and the file type description when a logger is set (lines 1675-1676). It checks that the log message contains the number of files and the provided description to confirm that the logging is informative and accurate. 
 
@@ -258,7 +260,7 @@ class TestLogCreatedFilesWithLogger:
         """
         cli = MPASUnifiedCLI()
         cli.logger = MagicMock()
-        cli._log_created_files(['/tmp/a.png', '/tmp/b.png'], 'test plots')
+        cli._log_created_files([str(tmp_path / 'a.png'), str(tmp_path / 'b.png')], 'test plots')
         cli.logger.info.assert_called_once()
         log_msg = cli.logger.info.call_args.args[0]
         assert '2' in log_msg
@@ -565,8 +567,8 @@ class TestRunSoundingAnalysis:
         mock_diag.extract_sounding_profile.return_value = _make_profile()
 
         config = MPASConfig(
-            grid_file='/tmp/grid.nc',
-            data_dir='/tmp/data',
+            grid_file=str(tmp_path / 'grid.nc'),
+            data_dir=str(tmp_path / 'data'),
             analysis_type='sounding',
             output_dir=str(tmp_path),
             verbose=False,
@@ -606,8 +608,8 @@ class TestRunSoundingAnalysis:
         mock_diag.compute_thermodynamic_indices.return_value = {'CAPE': 500.0}
 
         config = MPASConfig(
-            grid_file='/tmp/grid.nc',
-            data_dir='/tmp/data',
+            grid_file=str(tmp_path / 'grid.nc'),
+            data_dir=str(tmp_path / 'data'),
             analysis_type='sounding',
             output_dir=str(tmp_path),
             verbose=False,

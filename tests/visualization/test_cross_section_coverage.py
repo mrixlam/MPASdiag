@@ -790,9 +790,9 @@ class TestGenerateGreatCirclePath:
         same = (-100.0, 40.0)
         lons, lats, dists = plotter._generate_great_circle_path(same, same, num_points=5)
         assert len(lons) == 5
-        assert np.all(lons == same[0])
-        assert np.all(lats == same[1])
-        assert np.all(dists == 0.0)
+        assert np.all(lons == pytest.approx(same[0]))
+        assert np.all(lats == pytest.approx(same[1]))
+        assert np.all(dists == pytest.approx(0.0))
 
 
 class TestInterpolateAlongPath:

@@ -10,6 +10,7 @@ Email: mrislam@ucar.edu
 Date: April 2026
 Version: 1.0.0
 """
+import tempfile
 import pytest
 import numpy as np
 import pandas as pd
@@ -37,7 +38,7 @@ def _make_proc(verbose: bool = False) -> MPASBaseProcessor:
     proc.verbose = verbose
     proc.dataset = None
     proc.data_type = 'xarray'
-    proc.grid_file = '/tmp/mock_grid.nc'
+    proc.grid_file = str(Path(tempfile.gettempdir()) / 'mock_grid.nc')
     return proc
 
 
@@ -959,7 +960,7 @@ class TestGetTimeInfo:
 class TestParseFileDatetimes:
     """ Tests for the MPASBaseProcessor parse_file_datetimes method to verify that it delegates to MPASDateTimeUtils and returns the result. """
 
-    def test_delegates_to_datetime_utils_and_returns_list(self: 'TestParseFileDatetimes') -> None:
+    def test_delegates_to_datetime_utils_and_returns_list(self: 'TestParseFileDatetimes', tmp_path) -> None:
         """
         This test verifies that parse_file_datetimes imports MPASDateTimeUtils and delegates to its parse_file_datetimes method, returning the result. The test uses unittest.mock.patch to mock the MPASDateTimeUtils.parse_file_datetimes method to return a predefined list of datetime objects. It then calls parse_file_datetimes with a list of file paths and asserts that the mocked method was called once with the correct arguments, and that the result returned by parse_file_datetimes matches the predefined list of datetime objects, which confirms that the method correctly delegates to the utility function and returns its output as expected. 
 
@@ -976,7 +977,7 @@ class TestParseFileDatetimes:
             return_value=fake_times,
         ) as mock_parse:
             result = proc.parse_file_datetimes(
-                ['/tmp/diag_2024010100.nc', '/tmp/diag_2024010200.nc']
+                [str(tmp_path / 'diag_2024010100.nc'), str(tmp_path / 'diag_2024010200.nc')]
             )
         mock_parse.assert_called_once()
         assert result == fake_times
