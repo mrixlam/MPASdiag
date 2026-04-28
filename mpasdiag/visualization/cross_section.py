@@ -566,7 +566,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         ds = mpas_3d_processor.dataset
 
         if type(ds) is not xr.Dataset and isinstance(ds, xr.Dataset):
-            ds = xr.Dataset(ds)
+            ds = xr.Dataset(dict(ds.data_vars), coords=ds.coords, attrs=ds.attrs)
 
         var_da = ds[var_name]
         time_dim = 'Time' if 'Time' in var_da.sizes else ('time' if 'time' in var_da.sizes else None)

@@ -85,7 +85,7 @@ class MPASBaseProcessor:
             xr.Dataset: A plain xarray.Dataset if the input can be converted, or the original dataset if it cannot be converted to an xarray.Dataset.
         """
         if type(dataset) is not xr.Dataset and isinstance(dataset, xr.Dataset):
-            return xr.Dataset(dataset)
+            return xr.Dataset(dict(dataset.data_vars), coords=dataset.coords, attrs=dataset.attrs)
         return dataset  
       
     def _find_files_by_pattern(self: 'MPASBaseProcessor', 
