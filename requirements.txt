@@ -45,5 +45,5 @@ execnet>=1.9.0
 # Thermodynamic diagnostics (Skew-T / sounding features)
 metpy>=1.4.0
 
-# Regridding
-esmpy>=8.4.0
+# Regridding (conda-only — not available on PyPI for all Python versions)
+# esmpy: conda install -c conda-forge esmpy
