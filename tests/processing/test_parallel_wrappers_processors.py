@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Parallel Processing Wrappers
 
@@ -45,7 +46,7 @@ class TestProcessParallelResults:
         This fixture prepares a temporary directory and a mock parallel manager for testing the `_process_parallel_results` function. The temporary directory is used to simulate file output locations, while the mock parallel manager allows for controlled testing of statistics retrieval without requiring an actual parallel execution environment. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestProcessParallelResults'): Test instance to receive temporary paths and mocks.
+            None
 
         Returns:
             None
@@ -58,7 +59,7 @@ class TestProcessParallelResults:
         This method cleans up temporary resources created for testing the `_process_parallel_results` function by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestProcessParallelResults'): Test instance owning the temporary directory.
+            None
 
         Returns:
             None
@@ -70,7 +71,7 @@ class TestProcessParallelResults:
         This test verifies that the `_process_parallel_results` function correctly processes a list of `TaskResult` objects where all tasks were successful. It mocks the parallel manager to return specific statistics, captures the printed output, and asserts that the expected number of files is returned and that the summary contains the correct success count. This confirms that the function accurately summarizes successful outcomes and integrates with the parallel manager's statistics. 
 
         Parameters:
-            self ('TestProcessParallelResults'): Test instance with prepared temporary directory and manager mock.
+            None
 
         Returns:
             None
@@ -120,7 +121,7 @@ class TestProcessParallelResults:
         This test verifies that the `_process_parallel_results` function correctly processes a list of `TaskResult` objects where some tasks were successful and others failed. It mocks the parallel manager to return specific statistics, captures the printed output, and asserts that the expected number of files is returned (only from successful tasks) and that the summary contains the correct counts for both successful and failed tasks. This confirms that the function accurately summarizes mixed outcomes and integrates with the parallel manager's statistics. 
 
         Parameters:
-            self ('TestProcessParallelResults'): Test instance with prepared temporary directory and manager mock.
+            None
 
         Returns:
             None
@@ -166,14 +167,10 @@ class TestProcessParallelResults:
 
     def test_process_results_success_with_error_key(self: 'TestProcessParallelResults') -> None:
         """
-        This test verifies that `_process_parallel_results` handles the case where a
-        TaskResult has `success=True` but its `result` dictionary contains an `'error'`
-        key (lines 663-665). Such results are counted as failures rather than successes.
-        The test asserts that the error result is not added to the file list and that the
-        failure count is correct.
+        This test verifies that the `_process_parallel_results` function correctly processes a list of `TaskResult` objects where a task is marked as successful but contains an 'error' key in its result. It mocks the parallel manager to return specific statistics, captures the printed output, and asserts that the expected number of files is returned (only from the successful task) and that the summary indicates a failure due to the presence of the error key. This confirms that the function can handle cases where tasks are technically successful but contain error information, and that it integrates with the parallel manager's statistics appropriately. 
 
         Parameters:
-            self ('TestProcessParallelResults'): Test instance with temporary directory and manager mock.
+            None
 
         Returns:
             None
@@ -221,7 +218,7 @@ class TestParallelPrecipitationProcessor:
         This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `rainnc` variable for testing the `ParallelPrecipitationProcessor` batch functions. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestParallelPrecipitationProcessor'): Test instance to receive prepared resources.
+            None
 
         Returns:
             None
@@ -246,7 +243,7 @@ class TestParallelPrecipitationProcessor:
         This method cleans up temporary resources created for testing the `ParallelPrecipitationProcessor` batch functions by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestParallelPrecipitationProcessor'): Test instance owning temporary resources.
+            None
 
         Returns:
             None
@@ -258,9 +255,7 @@ class TestParallelPrecipitationProcessor:
         This test verifies that the `create_batch_precipitation_maps_parallel` function successfully orchestrates parallel batch processing for precipitation maps. It mocks the `MPASDataCache` to return a mock cache object and the `MPASParallelManager` to simulate parallel execution with a successful task result. The test asserts that the function returns a non-None result and that the `parallel_map` method of the manager was called exactly once, confirming that the batch processing was initiated correctly and that the worker function executed as expected in a parallel context. 
 
         Parameters:
-            self ('TestParallelPrecipitationProcessor'): Test instance with temporary directory and mock processor.
-            mock_cache_class (Any): Pytest mock for the data cache constructor.
-            mock_manager_class (Any): Pytest mock for the parallel manager constructor.
+            None
 
         Returns:
             None
@@ -314,7 +309,7 @@ class TestParallelSurfaceProcessor:
         This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `t2m` variable for testing the `ParallelSurfaceProcessor` batch processing methods. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestParallelSurfaceProcessor'): Test instance to receive fixtures.
+            None
 
         Returns:
             None
@@ -338,7 +333,7 @@ class TestParallelSurfaceProcessor:
         This method cleans up temporary resources created for testing the `ParallelSurfaceProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestParallelSurfaceProcessor'): Test instance owning the temporary directory.
+            None
 
         Returns:
             None
@@ -350,9 +345,7 @@ class TestParallelSurfaceProcessor:
         This test verifies that the `create_batch_surface_maps_parallel` function successfully orchestrates parallel batch processing for surface variable maps. It mocks the `MPASDataCache` to return a mock cache object and the `MPASParallelManager` to simulate parallel execution with a successful task result. The test asserts that the function returns a non-None result, confirming that the batch processing was initiated correctly and that the worker function executed as expected in a parallel context. 
 
         Parameters:
-            self ('TestParallelSurfaceProcessor'): Test instance with temporary directory and mock processor.
-            mock_cache_class (Any): Pytest mock for the data cache constructor.
-            mock_manager_class (Any): Pytest mock for the parallel manager constructor.
+            None
 
         Returns:
             None
@@ -406,7 +399,7 @@ class TestParallelWindProcessor:
         This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing `u10` and `v10` wind components for testing the `ParallelWindProcessor` batch processing methods. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestParallelWindProcessor'): Test instance to receive mock processor and temp dir.
+            None
 
         Returns:
             None
@@ -428,7 +421,7 @@ class TestParallelWindProcessor:
         This method cleans up temporary resources created for testing the `ParallelWindProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestParallelWindProcessor'): Test instance owning temporary resources.
+            None
 
         Returns:
             None
@@ -440,9 +433,7 @@ class TestParallelWindProcessor:
         This test verifies that the `create_batch_wind_plots_parallel` function successfully orchestrates parallel batch processing for wind plots. It mocks the `MPASDataCache` to return a mock cache object and the `MPASParallelManager` to simulate parallel execution with a successful task result. The test asserts that the function returns a non-None result, confirming that the batch processing was initiated correctly and that the worker function executed as expected in a parallel context.
 
         Parameters:
-            self ('TestParallelWindProcessor'): Test instance with temporary directory and mock processor.
-            mock_cache_class (Any): Pytest mock for the data cache constructor.
-            mock_manager_class (Any): Pytest mock for the parallel manager constructor.
+            None
 
         Returns:
             None
@@ -497,7 +488,7 @@ class TestParallelCrossSectionProcessor:
         This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `temperature` variable for testing the `ParallelCrossSectionProcessor` batch processing methods. The dataset includes coordinate arrays for time, vertical levels, and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestParallelCrossSectionProcessor'): Test instance receiving the mock processor.
+            None
 
         Returns:
             None
@@ -521,7 +512,7 @@ class TestParallelCrossSectionProcessor:
         This method cleans up temporary resources created for testing the `ParallelCrossSectionProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestParallelCrossSectionProcessor'): Test instance owning temporary resources.
+            None
 
         Returns:
             None
@@ -533,8 +524,7 @@ class TestParallelCrossSectionProcessor:
         This test verifies that the `create_batch_cross_section_plots_parallel` function successfully orchestrates parallel batch processing for vertical cross-section plots. It mocks the `MPASParallelManager` to simulate parallel execution with a successful task result. The test asserts that the function returns a non-None result, confirming that the batch processing was initiated correctly and that the worker function executed as expected in a parallel context. 
 
         Parameters:
-            self ('TestParallelCrossSectionProcessor'): Test instance with temporary directory and mock processor.
-            mock_manager_class (Any): Pytest mock for the parallel manager constructor.
+            None
 
         Returns:
             None
@@ -577,7 +567,7 @@ class TestEdgeCases:
         This fixture sets up a temporary directory for edge case tests and ensures that it is cleaned up after the tests run. The temporary directory can be used by tests that require file output without affecting the actual filesystem. After yielding control to the test, the fixture removes the temporary directory to maintain a clean testing environment. 
 
         Parameters:
-            self ('TestEdgeCases'): Test instance to receive the temporary directory.
+            None
 
         Returns:
             None
@@ -591,9 +581,7 @@ class TestEdgeCases:
         This test verifies that the `create_batch_precipitation_maps_parallel` function handles a failure in loading coordinates from the data cache gracefully. It mocks the `MPASDataCache` to raise an exception when attempting to load coordinates, simulating a cache failure scenario. The test asserts that the function completes without crashing and returns a result (which may be None or an empty list), confirming that the error handling for cache loading issues is functioning correctly and does not cause unhandled exceptions in the batch processing workflow. 
 
         Parameters:
-            self ('TestEdgeCases'): Test instance with temporary output directory.
-            mock_cache_class (Any): Pytest mock for the data cache class.
-            mock_manager_class (Any): Pytest mock for the parallel manager class.
+            None
 
         Returns:
             None
@@ -643,11 +631,19 @@ class TestEdgeCases:
 
 
 class TestParallelPrecipitationProcessorEdgeCases:
-    """Edge-case tests for ParallelPrecipitationProcessor targeting uncovered branches."""
+    """ Edge-case tests for ParallelPrecipitationProcessor targeting uncovered branches. """
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestParallelPrecipitationProcessorEdgeCases') -> None:
-        """Set up a temporary directory and a mock processor with a rainnc dataset."""
+        """
+        This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `rainnc` variable for testing edge cases in the `ParallelPrecipitationProcessor` batch functions. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         self.mock_processor = Mock()
         n_time, n_cells = 5, 100
@@ -661,17 +657,20 @@ class TestParallelPrecipitationProcessorEdgeCases:
         self.mock_processor.dataset = self.mock_dataset
 
     def teardown_method(self: 'TestParallelPrecipitationProcessorEdgeCases') -> None:
-        """Remove the temporary directory after each test."""
+        """
+        This method cleans up temporary resources created for testing edge cases in the `ParallelPrecipitationProcessor` batch functions by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_empty_time_indices_after_filtering_returns_empty(
-        self: 'TestParallelPrecipitationProcessorEdgeCases',
-    ) -> None:
+    def test_empty_time_indices_after_filtering_returns_empty(self: 'TestParallelPrecipitationProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_precipitation_maps_parallel` returns an empty
-        list (lines 841-842) when all supplied `time_indices` are below the minimum required
-        index computed from `accum_period`. For `accum_period='a06h'`, `min_time_idx=6`, so
-        passing `time_indices=[0,1,2]` leaves no valid indices after filtering.
+        This test verifies that the `create_batch_precipitation_maps_parallel` function returns an empty list when the provided `time_indices` are filtered out due to the accumulation period requirements, resulting in no valid time indices to process. It uses a mock dataset with 5 time steps and an accumulation period of 'a06h', which requires at least 6 time steps for valid processing. The test asserts that the function returns an empty list, confirming that it correctly handles cases where no time indices meet the criteria for processing. 
 
         Parameters:
             None
@@ -689,13 +688,9 @@ class TestParallelPrecipitationProcessorEdgeCases:
         )
         assert result == []
 
-    def test_mpi_mode_without_data_dir_raises_attribute_error(
-        self: 'TestParallelPrecipitationProcessorEdgeCases',
-    ) -> None:
+    def test_mpi_mode_without_data_dir_raises_attribute_error(self: 'TestParallelPrecipitationProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_precipitation_maps_parallel` raises
-        `AttributeError` (line 855) when operating in MPI mode but the processor
-        lacks the required `data_dir` attribute.
+        This test verifies that the `create_batch_precipitation_maps_parallel` function raises an `AttributeError` when in MPI mode but the `data_dir` attribute is not set on the parallel manager. It mocks the `MPASParallelManager` to simulate MPI mode and ensures that the function checks for the required `data_dir` attribute, confirming that it raises the appropriate error when this condition is not met. 
 
         Parameters:
             None
@@ -728,14 +723,9 @@ class TestParallelPrecipitationProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_weights_dir_and_resolution_triggers_prebuild_remapper(
-        self: 'TestParallelPrecipitationProcessorEdgeCases',
-    ) -> None:
+    def test_weights_dir_and_resolution_triggers_prebuild_remapper(self: 'TestParallelPrecipitationProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_precipitation_maps_parallel` calls
-        `_prebuild_remapper_mpi` (line 917) when both `weights_dir` and
-        `grid_resolution` are provided. It mocks the parallel manager to return an
-        empty result and patches `_prebuild_remapper_mpi` to avoid real remapper work.
+        This test verifies that when both `weights_dir` and `grid_resolution` are provided to the `create_batch_precipitation_maps_parallel` function, it triggers the call to the `_prebuild_remapper_mpi` function. It mocks the `MPASParallelManager` and `MPASDataCache`, and uses a patch to monitor calls to `_prebuild_remapper_mpi`. The test asserts that `_prebuild_remapper_mpi` is called exactly once, confirming that the batch processor correctly identifies the need to pre-build remapping weights when these parameters are specified. 
 
         Parameters:
             None
@@ -772,13 +762,15 @@ class TestParallelPrecipitationProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_time_indices_none_uses_all_times(
-        self: 'TestParallelPrecipitationProcessorEdgeCases',
-    ) -> None:
+    def test_time_indices_none_uses_all_times(self: 'TestParallelPrecipitationProcessorEdgeCases',) -> None:
         """
-        Covers line 836: when time_indices is None the batch processor builds the list
-        from range(min_time_idx, total_times). For accum_period='a01h' (1 hour),
-        min_time_idx=1 and total_times=5 so the list should be [1,2,3,4].
+        This test verifies that when `time_indices` is set to `None`, the `create_batch_precipitation_maps_parallel` function uses all available time indices from the dataset for processing. It mocks the `MPASParallelManager` and `MPASDataCache`, and asserts that the `parallel_map` method is called with the correct list of time indices corresponding to all time steps in the mock dataset. This confirms that the function correctly defaults to using all time indices when `None` is provided. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
         """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr, orig_cache = _pw.MPASParallelManager, _pw.MPASDataCache
@@ -810,11 +802,19 @@ class TestParallelPrecipitationProcessorEdgeCases:
 
 
 class TestParallelSurfaceProcessorEdgeCases:
-    """Edge-case tests for ParallelSurfaceProcessor targeting uncovered branches."""
+    """ Edge-case tests for ParallelSurfaceProcessor targeting uncovered branches. """
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestParallelSurfaceProcessorEdgeCases') -> None:
-        """Set up a temporary directory and mock processor with t2m dataset."""
+        """
+        This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `t2m` variable for testing edge cases in the `ParallelSurfaceProcessor` batch processing methods. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         self.mock_processor = Mock()
         n_time, n_cells = 5, 100
@@ -827,16 +827,20 @@ class TestParallelSurfaceProcessorEdgeCases:
         self.mock_processor.dataset = self.mock_dataset
 
     def teardown_method(self: 'TestParallelSurfaceProcessorEdgeCases') -> None:
-        """Remove the temporary directory after each test."""
+        """
+        This method cleans up temporary resources created for testing edge cases in the `ParallelSurfaceProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_mpi_mode_without_data_dir_raises_attribute_error(
-        self: 'TestParallelSurfaceProcessorEdgeCases',
-    ) -> None:
+    def test_mpi_mode_without_data_dir_raises_attribute_error(self: 'TestParallelSurfaceProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_surface_maps_parallel` raises
-        `AttributeError` (lines 1012-1019) when in MPI mode but the processor lacks
-        the `data_dir` attribute.
+        This test verifies that the `create_batch_surface_maps_parallel` function raises an `AttributeError` when in MPI mode but the `data_dir` attribute is not set on the parallel manager. It mocks the `MPASParallelManager` to simulate MPI mode and ensures that the function checks for the required `data_dir` attribute, confirming that it raises the appropriate error when this condition is not met. 
 
         Parameters:
             None
@@ -866,13 +870,9 @@ class TestParallelSurfaceProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_cache_preload_exception_shows_warning(
-        self: 'TestParallelSurfaceProcessorEdgeCases',
-    ) -> None:
+    def test_cache_preload_exception_shows_warning(self: 'TestParallelSurfaceProcessorEdgeCases',) -> None:
         """
-        This test verifies that when `cache.load_coordinates_from_dataset` raises an
-        exception during the cache pre-load phase (lines 1045-1047), the surface batch
-        processor prints a warning and continues processing rather than crashing.
+        This test verifies that if the `MPASDataCache` raises an exception when attempting to load coordinates from the dataset, the `create_batch_surface_maps_parallel` function catches this exception and prints a warning message instead of crashing. It mocks the `MPASDataCache` to raise an exception on coordinate loading and captures the printed output to assert that the expected warning message is present. This confirms that the function has robust error handling for cache loading issues and provides informative feedback without causing unhandled exceptions. 
 
         Parameters:
             None
@@ -907,17 +907,13 @@ class TestParallelSurfaceProcessorEdgeCases:
                     lat_min=30, lat_max=50,
                     time_indices=[0, 1],
                 )
-            assert "Warning: Could not pre-load coordinates" in f.getvalue()
+            assert "Could not pre-load coordinates" in f.getvalue()
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_non_master_process_returns_none(
-        self: 'TestParallelSurfaceProcessorEdgeCases',
-    ) -> None:
+    def test_non_master_process_returns_none(self: 'TestParallelSurfaceProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_surface_maps_parallel` executes the
-        non-master cleanup path (lines 1088-1090) and returns `None` when
-        `manager.is_master` is False, as happens on worker ranks in MPI mode.
+        This test verifies that if the current process is not the master process in a parallel execution context, the `create_batch_surface_maps_parallel` function returns `None` without attempting to perform any processing. It mocks the `MPASParallelManager` to simulate a non-master process and asserts that the function returns `None`, confirming that it correctly identifies non-master processes and avoids unnecessary processing or errors in those cases. 
 
         Parameters:
             None
@@ -949,10 +945,16 @@ class TestParallelSurfaceProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_time_indices_none_uses_all_times(
-        self: 'TestParallelSurfaceProcessorEdgeCases',
-    ) -> None:
-        """Covers line 1000: time_indices=None causes batch processor to use all time steps."""
+    def test_time_indices_none_uses_all_times(self: 'TestParallelSurfaceProcessorEdgeCases',) -> None:
+        """
+        This test verifies that when `time_indices` is set to `None`, the `create_batch_surface_maps_parallel` function uses all available time indices from the dataset for processing. It mocks the `MPASParallelManager` and `MPASDataCache`, and asserts that the `parallel_map` method is called with the correct list of time indices corresponding to all time steps in the mock dataset. This confirms that the function correctly defaults to using all time indices when `None` is provided.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr, orig_cache = _pw.MPASParallelManager, _pw.MPASDataCache
 
@@ -979,10 +981,16 @@ class TestParallelSurfaceProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_mpi_mode_with_data_dir_constructs_kwargs(
-        self: 'TestParallelSurfaceProcessorEdgeCases',
-    ) -> None:
-        """Covers lines 1019-1037: surface batch in MPI mode WITH data_dir builds worker_kwargs."""
+    def test_mpi_mode_with_data_dir_constructs_kwargs(self: 'TestParallelSurfaceProcessorEdgeCases',) -> None:
+        """
+        This test verifies that when in MPI mode and the `data_dir` attribute is set on the parallel manager, the `create_batch_surface_maps_parallel` function successfully constructs the worker kwargs and initiates parallel processing. It mocks the `MPASParallelManager` to simulate MPI mode with a specified `data_dir`, and asserts that the `parallel_map` method is called, confirming that the function correctly handles MPI mode with the necessary attributes for processing.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr = _pw.MPASParallelManager
 
@@ -1012,11 +1020,19 @@ class TestParallelSurfaceProcessorEdgeCases:
 
 
 class TestParallelWindProcessorEdgeCases:
-    """Edge-case tests for ParallelWindProcessor targeting uncovered branches."""
+    """ Edge-case tests for ParallelWindProcessor targeting uncovered branches. """
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestParallelWindProcessorEdgeCases') -> None:
-        """Set up a temporary directory and mock processor with u10/v10 dataset."""
+        """
+        This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing `u10` and `v10` wind components for testing edge cases in the `ParallelWindProcessor` batch processing methods. The dataset includes coordinate arrays for time and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         self.mock_processor = Mock()
         n_time, n_cells = 5, 100
@@ -1027,16 +1043,20 @@ class TestParallelWindProcessorEdgeCases:
         self.mock_processor.dataset = self.mock_dataset
 
     def teardown_method(self: 'TestParallelWindProcessorEdgeCases') -> None:
-        """Remove the temporary directory after each test."""
+        """
+        This method cleans up temporary resources created for testing edge cases in the `ParallelWindProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_mpi_mode_without_data_dir_raises_in_build_kwargs(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
+    def test_mpi_mode_without_data_dir_raises_in_build_kwargs(self: 'TestParallelWindProcessorEdgeCases',) -> None:
         """
-        This test directly calls `_build_wind_worker_kwargs` with `is_mpi_mode=True` and
-        a processor that lacks `data_dir` (lines 1148-1154), asserting that an
-        `AttributeError` is raised.
+        This test verifies that the `_build_wind_worker_kwargs` function raises an `AttributeError` when in MPI mode but the `data_dir` attribute is not set on the processor. It mocks the `MPASParallelManager` to simulate MPI mode and ensures that the function checks for the required `data_dir` attribute, confirming that it raises the appropriate error when this condition is not met. The test directly calls the `_build_wind_worker_kwargs` function to isolate this specific behavior, confirming that the error is raised at the correct point in the code when the necessary attributes for MPI mode are not present.
 
         Parameters:
             None
@@ -1060,13 +1080,9 @@ class TestParallelWindProcessorEdgeCases:
                 formats=['png'],
             )
 
-    def test_cache_preload_exception_shows_warning(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
+    def test_cache_preload_exception_shows_warning(self: 'TestParallelWindProcessorEdgeCases',) -> None:
         """
-        This test verifies that when `cache.load_coordinates_from_dataset` raises during
-        the wind processor's coordinate pre-load phase (lines 1162-1164), a warning is
-        printed and processing continues.
+        This test verifies that if the `MPASDataCache` raises an exception when attempting to load coordinates from the dataset, the `create_batch_wind_plots_parallel` function catches this exception and prints a warning message instead of crashing. It mocks the `MPASDataCache` to raise an exception on coordinate loading and captures the printed output to assert that the expected warning message is present. This confirms that the function has robust error handling for cache loading issues and provides informative feedback without causing unhandled exceptions. 
 
         Parameters:
             None
@@ -1102,17 +1118,13 @@ class TestParallelWindProcessorEdgeCases:
                     u_variable='u10', v_variable='v10',
                     time_indices=[0, 1],
                 )
-            assert "Warning: Could not pre-load coordinates" in f.getvalue()
+            assert "Could not pre-load coordinates" in f.getvalue()
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_show_background_and_grid_resolution_print(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
+    def test_show_background_and_grid_resolution_print(self: 'TestParallelWindProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_wind_plots_parallel` prints the background
-        wind speed and grid resolution messages (lines 1249 and 1251) when
-        `show_background=True` and `grid_resolution` is set.
+        This test verifies that when `show_background` is set to `True` and `grid_resolution` is provided, the `create_batch_wind_plots_parallel` function prints the expected messages indicating that the background wind speed field is enabled and showing the grid resolution. It mocks the `MPASParallelManager` and `MPASDataCache`, and captures the printed output to assert that the expected messages are present. This confirms that the function correctly reports the configuration of background plotting and grid resolution when these options are specified. 
 
         Parameters:
             None
@@ -1154,12 +1166,9 @@ class TestParallelWindProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_non_master_process_returns_none(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
+    def test_non_master_process_returns_none(self: 'TestParallelWindProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_wind_plots_parallel` executes the non-master
-        cleanup path (lines 1265-1267) and returns `None` when `manager.is_master` is False.
+        This test verifies that if the current process is not the master process in a parallel execution context, the `create_batch_wind_plots_parallel` function returns `None` without attempting to perform any processing. It mocks the `MPASParallelManager` to simulate a non-master process and asserts that the function returns `None`, confirming that it correctly identifies non-master processes and avoids unnecessary processing or errors in those cases. 
 
         Parameters:
             None
@@ -1192,10 +1201,16 @@ class TestParallelWindProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_time_indices_none_uses_all_times(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
-        """Covers line 1221: time_indices=None causes wind batch to use all time steps."""
+    def test_time_indices_none_uses_all_times(self: 'TestParallelWindProcessorEdgeCases',) -> None:
+        """
+        This test verifies that when `time_indices` is set to `None`, the `create_batch_wind_plots_parallel` function uses all available time indices from the dataset for processing. It mocks the `MPASParallelManager` and `MPASDataCache`, and asserts that the `parallel_map` method is called with the correct list of time indices corresponding to all time steps in the mock dataset. This confirms that the function correctly defaults to using all time indices when `None` is provided. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr, orig_cache = _pw.MPASParallelManager, _pw.MPASDataCache
 
@@ -1223,10 +1238,16 @@ class TestParallelWindProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
 
-    def test_build_kwargs_mpi_mode_with_data_dir(
-        self: 'TestParallelWindProcessorEdgeCases',
-    ) -> None:
-        """Covers line 1154: _build_wind_worker_kwargs MPI mode WITH data_dir returns dict."""
+    def test_build_kwargs_mpi_mode_with_data_dir(self: 'TestParallelWindProcessorEdgeCases',) -> None:
+        """
+        This test verifies that the `_build_wind_worker_kwargs` function successfully constructs the worker kwargs when in MPI mode and the `data_dir` attribute is set on the processor. It mocks the `MPASParallelManager` to simulate MPI mode with a specified `data_dir`, and asserts that the returned kwargs include the expected `grid_file` and `data_dir` values, confirming that the function correctly builds the worker kwargs for MPI mode when the necessary attributes are present.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.mock_processor.grid_file = '/fake/grid.nc'
         self.mock_processor.data_dir = '/fake/data'
 
@@ -1248,11 +1269,19 @@ class TestParallelWindProcessorEdgeCases:
 
 
 class TestParallelCrossSectionProcessorEdgeCases:
-    """Edge-case tests for ParallelCrossSectionProcessor targeting uncovered branches."""
+    """ Edge-case tests for ParallelCrossSectionProcessor targeting uncovered branches. """
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestParallelCrossSectionProcessorEdgeCases') -> None:
-        """Set up a temporary directory and mock 3D processor with temperature dataset."""
+        """
+        This fixture prepares a temporary directory and a mock processor with a synthetic dataset containing a `temperature` variable for testing edge cases in the `ParallelCrossSectionProcessor` batch processing methods. The dataset includes coordinate arrays for time, vertical levels, and cells. The mock processor is configured to return this dataset, allowing the batch processing functions to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         self.mock_processor = Mock()
         n_time, n_levels, n_cells = 3, 20, 100
@@ -1265,16 +1294,20 @@ class TestParallelCrossSectionProcessorEdgeCases:
         self.mock_processor.dataset = self.mock_dataset
 
     def teardown_method(self: 'TestParallelCrossSectionProcessorEdgeCases') -> None:
-        """Remove the temporary directory after each test."""
+        """
+        This method cleans up temporary resources created for testing edge cases in the `ParallelCrossSectionProcessor` batch processing methods by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_collect_results_with_error_in_success_dict(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
+    def test_collect_results_with_error_in_success_dict(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
         """
-        This test verifies that `_collect_cross_section_results` treats a TaskResult
-        with `success=True` but `result={'error': '...'}` as a failure (lines 1295-1297),
-        keeping it out of the returned file list.
+        This test verifies that the `_collect_cross_section_results` function correctly handles a case where one of the results has `success=True` but contains an error message in the result dictionary. It checks that only the successful results without errors are collected and returned, confirming that the function properly filters out results that indicate a failure even if they are marked as successful. The test captures the printed output to ensure that any relevant messages are displayed as expected.
 
         Parameters:
             None
@@ -1300,13 +1333,9 @@ class TestParallelCrossSectionProcessorEdgeCases:
         assert 'ok.png' in files
         assert len(files) == 1
 
-    def test_mpi_mode_without_data_dir_raises_attribute_error(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
+    def test_mpi_mode_without_data_dir_raises_attribute_error(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_cross_section_plots_parallel` raises
-        `AttributeError` (lines 1370-1377) when in MPI mode but the 3D processor
-        lacks the `data_dir` attribute.
+        This test verifies that the `create_batch_cross_section_plots_parallel` function raises an `AttributeError` when in MPI mode but the `data_dir` attribute is not set on the parallel manager. It mocks the `MPASParallelManager` to simulate MPI mode and ensures that the function checks for the required `data_dir` attribute, confirming that it raises the appropriate error when this condition is not met. The test directly calls the `create_batch_cross_section_plots_parallel` function to isolate this specific behavior, confirming that the error is raised at the correct point in the code when the necessary attributes for MPI mode are not present. 
 
         Parameters:
             None
@@ -1340,12 +1369,9 @@ class TestParallelCrossSectionProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_max_height_prints_message(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
+    def test_max_height_prints_message(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_cross_section_plots_parallel` prints the
-        maximum height message (line 1423) when `max_height` is supplied.
+        This test verifies that when the `max_height` parameter is provided to the `create_batch_cross_section_plots_parallel` function, it prints a message indicating the maximum height being used for the cross-section plots. It mocks the `MPASParallelManager` and captures the printed output to assert that the expected message about maximum height is present. This confirms that the function correctly reports the configuration of maximum height when this option is specified. 
 
         Parameters:
             None
@@ -1381,13 +1407,9 @@ class TestParallelCrossSectionProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_non_master_process_returns_none(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
+    def test_non_master_process_returns_none(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
         """
-        This test verifies that `create_batch_cross_section_plots_parallel` executes the
-        non-master cleanup path (lines 1436-1438) and returns `None` when
-        `manager.is_master` is False.
+        This test verifies that `create_batch_cross_section_plots_parallel` executes the non-master cleanup path (lines 1436-1438) and returns `None` when `manager.is_master` is False. It mocks the `MPASParallelManager` to simulate a non-master process and asserts that the function returns `None`, confirming that it correctly identifies non-master processes and avoids unnecessary processing or errors in those cases. The test directly calls the `create_batch_cross_section_plots_parallel` function to isolate this specific behavior, confirming that the non-master path is executed as expected when the master process condition is not met. 
 
         Parameters:
             None
@@ -1418,10 +1440,16 @@ class TestParallelCrossSectionProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_time_indices_none_uses_all_times(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
-        """Covers line 1358: time_indices=None causes cross-section batch to use all time steps."""
+    def test_time_indices_none_uses_all_times(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
+        """
+        This test verifies that when `time_indices` is set to `None`, the `create_batch_cross_section_plots_parallel` function uses all available time indices from the dataset for processing. It mocks the `MPASParallelManager` and asserts that the `parallel_map` method is called with the correct list of time indices corresponding to all time steps in the mock dataset. This confirms that the function correctly defaults to using all time indices when `None` is provided.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr = _pw.MPASParallelManager
 
@@ -1447,10 +1475,16 @@ class TestParallelCrossSectionProcessorEdgeCases:
         finally:
             _pw.MPASParallelManager = orig_mgr
 
-    def test_mpi_mode_with_data_dir_constructs_kwargs(
-        self: 'TestParallelCrossSectionProcessorEdgeCases',
-    ) -> None:
-        """Covers lines 1377-1394: cross-section batch in MPI mode WITH data_dir builds kwargs."""
+    def test_mpi_mode_with_data_dir_constructs_kwargs(self: 'TestParallelCrossSectionProcessorEdgeCases',) -> None:
+        """
+        This test verifies that when in MPI mode and the `data_dir` attribute is set on the parallel manager, the `create_batch_cross_section_plots_parallel` function successfully constructs the worker kwargs and initiates parallel processing. It mocks the `MPASParallelManager` to simulate MPI mode with a specified `data_dir`, and asserts that the `parallel_map` method is called, confirming that the function correctly handles MPI mode with the necessary attributes for processing. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_mgr = _pw.MPASParallelManager
 

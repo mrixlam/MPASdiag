@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example X: Vertical Cross-Section from Surface to 10 km
+MPASdiag Example XI: Vertical Cross-Section from Surface to 10 km
 
 This example demonstrates how to create a vertical cross-section plot of a 3D variable (potential temperature in this case) from MPAS output data. The example uses sample MPAS output data and grid files to illustrate the process of loading 3D data, defining a great-circle transect between two geographic points, extracting the variable along the transect, and generating a vertical cross-section plot with height on the y-axis. The output is saved as a PNG file in the ./output directory.
 

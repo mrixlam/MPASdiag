@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Test Cases for MPASVerticalCrossSectionPlotter Edge Cases and Error Handling
 
@@ -148,10 +149,10 @@ class TestAdditionalEdgeCases:
         This test verifies that the batch processing method can handle edge cases in time extraction, such as when the dataset has a Time coordinate but it is not properly formatted. It asserts that the method can still produce output files without crashing, confirming that it can manage time-related issues gracefully.
 
         Parameters:
-            self (Any): Test case instance providing fixtures.
+            None
 
         Returns:
-            None: Test asserts on produced filenames and file existence.
+            None
         """
         processor = self.processor
         
@@ -176,7 +177,7 @@ class TestStandardAtmosphereConversion:
         This fixture sets up the MPASVerticalCrossSectionPlotter for standard atmosphere conversion tests. It initializes the plotter and enables verbose mode to ensure that any warnings or messages related to vertical coordinate conversion are printed during the tests.
 
         Parameters:
-            self (Any): Test case instance providing fixtures.
+            None
 
         Returns:
             None
@@ -189,7 +190,7 @@ class TestStandardAtmosphereConversion:
         This test verifies that valid pressure values are correctly converted to height using the standard atmosphere formula. It asserts that the resulting height array is in kilometers, that higher pressures correspond to lower heights, and that all height values are non-negative.
 
         Parameters:
-            self (Any): Test case instance providing fixtures.
+            None
 
         Returns:
             None
@@ -210,7 +211,7 @@ class TestStandardAtmosphereConversion:
         This test verifies that non-positive pressure values are correctly handled by clipping them to a minimum positive value. It asserts that the resulting height array is in kilometers and that all height values are finite.
 
         Parameters:
-            self (Any): Test case instance providing fixtures.
+            None
 
         Returns:
             None
@@ -233,7 +234,7 @@ class TestStandardAtmosphereConversion:
         This test verifies that pressure values less than 10000 (likely in hPa) are correctly multiplied by 100 to convert to Pa. It asserts that the resulting height array is in kilometers and that the surface pressure corresponds to near-zero height.
 
         Parameters:
-            self (Any): Test case instance providing fixtures.
+            None
 
         Returns:
             None

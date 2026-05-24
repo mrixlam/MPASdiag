@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Wind Visualization Functionality
 
@@ -37,7 +38,7 @@ class TestAddWindOverlay:
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind overlay addition tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `add_wind_overlay` method without worrying about shared state or side effects from previous tests.
 
         Parameters:
-            None: This fixture does not require any parameters.
+            None
 
         Returns:
             MPASWindPlotter: Plotter instance used in overlay tests.
@@ -61,7 +62,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
@@ -120,7 +121,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
@@ -183,7 +184,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
@@ -244,7 +245,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
@@ -266,7 +267,39 @@ class TestAddWindOverlay:
         v_2d = np.ones((10, 10))
 
         # Define a fake regrid method to return the dummy 2D grids and confirm it is called when grid_resolution is provided
-        def _fake_regrid(self, lon, lat, u, v, dataset, lon_min, lon_max, lat_min, lat_max, grid_resolution, regrid_method, config):
+        def _fake_regrid(self: 'MPASWindPlotter', 
+                         lon: np.ndarray, 
+                         lat: np.ndarray, 
+                         u: np.ndarray, 
+                         v: np.ndarray, 
+                         dataset: xr.Dataset, 
+                         lon_min: float, 
+                         lon_max: float, 
+                         lat_min: float, 
+                         lat_max: float, 
+                         grid_resolution: float, 
+                         regrid_method: str, 
+                         config: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+            """
+            This is a fake regrid method that simulates the behavior of the actual regridding process by returning predefined 2D longitude, latitude, and wind component arrays. It is designed to confirm that the `_regrid_wind_components` method is called with the correct parameters when `grid_resolution` is specified in the wind configuration passed to `add_wind_overlay`, and that its outputs are used in the subsequent rendering step. The method takes the same parameters as the actual regridding method but ignores them and returns the dummy 2D arrays for testing purposes.
+
+            Parameters:
+                lon (np.ndarray): 1D array of longitudes from the input data.
+                lat (np.ndarray): 1D array of latitudes from the input data.
+                u (np.ndarray): 1D array of u wind components from the input data.
+                v (np.ndarray): 1D array of v wind components from the input data.
+                dataset (xr.Dataset): The xarray dataset containing the original data, which would be used in actual regridding but is ignored in this fake method.
+                lon_min (float): Minimum longitude for the regridding bounding box, which would be used in actual regridding but is ignored in this fake method.
+                lon_max (float): Maximum longitude for the regridding bounding box, which would be used in actual regridding but is ignored in this fake method.
+                lat_min (float): Minimum latitude for the regridding bounding box, which would be used in actual regridding but is ignored in this fake method.
+                lat_max (float): Maximum latitude for the regridding bounding box, which would be used in actual regridding but is ignored in this fake method.
+                grid_resolution (float): The resolution for the regular grid to regrid onto, which would be used in actual regridding but is ignored in this fake method.
+                regrid_method (str): The method to use for regridding (e.g., 'linear', 'nearest'), which would be used in actual regridding but is ignored in this fake method.
+                config (dict): Additional configuration parameters that might be used in actual regridding but are ignored in this fake method.
+
+            Returns:
+                tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: A tuple containing the dummy 2D longitude grid, latitude grid, u wind component grid, and v wind component grid that are returned for testing purposes.
+            """
             return (lon_2d, lat_2d, u_2d, v_2d)
 
         # Patch the _regrid_wind_components method with our fake regrid function to confirm it is called and its outputs are used when grid_resolution is provided in the wind configuration
@@ -320,7 +353,7 @@ class TestAddWindOverlay:
             mpas_wind_data: Session fixture providing real MPAS u/v wind data.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
@@ -374,7 +407,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -419,7 +452,7 @@ class TestAddWindOverlay:
             mpas_wind_data: Session fixture providing real MPAS u/v wind data.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -460,7 +493,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
@@ -502,7 +535,7 @@ class TestAddWindOverlay:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -539,7 +572,7 @@ class TestCreateBatchWindPlots:
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the batch wind plot creation tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `create_batch_wind_plots` method without worrying about shared state or side effects from previous tests.
 
         Parameters:
-            None: This fixture does not require any parameters.
+            None
 
         Returns:
             MPASWindPlotter: Plotter instance used in tests.
@@ -554,7 +587,7 @@ class TestCreateBatchWindPlots:
         This fixture creates a temporary directory for storing output files generated during the batch wind plot creation tests. It uses the `tempfile` module to create a unique temporary directory for each test, and ensures that the directory is cleaned up after the test completes by removing it with `shutil.rmtree`. This allows the tests to write output files without affecting the actual filesystem or leaving behind test artifacts, and provides a clean environment for each test method that requires file output.
 
         Parameters:
-            None: This fixture does not require any parameters.
+            None
             
         Returns:
             str: Path to the temporary directory.
@@ -585,7 +618,7 @@ class TestCreateBatchWindPlots:
             temp_dir (str): Temporary directory path to receive output files.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:

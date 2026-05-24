@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Parallel Processing - Execution Backend Tests
 
@@ -598,3 +599,6 @@ class TestSerialMapVerbosePath:
 
         assert results is not None
         assert len(results) == len(sample_tasks)
+
+if __name__ == "__main__":
+    pytest.main([__file__])

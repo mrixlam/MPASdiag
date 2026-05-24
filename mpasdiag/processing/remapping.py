@@ -18,6 +18,10 @@ from pathlib import Path
 from scipy.sparse import coo_matrix
 from typing import Any, Optional, Union, List, Tuple
 
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 try:
     import esmpy
     ESMPY_AVAILABLE = True
@@ -149,7 +153,7 @@ class MPASRemapper:
         self._tgt_shape: Tuple[int, int] = (0, 0) 
         self._cell_of_element: Optional[np.ndarray] = None
 
-        print(f"MPASRemapper initialized with method: {method}")
+        logger.info("MPASRemapper initialized with method: %s", method)
 
     def prepare_source_grid(self: 'MPASRemapper',
                             lon: Union[np.ndarray, xr.DataArray],
@@ -218,9 +222,17 @@ class MPASRemapper:
 
         self.target_grid = target_grid
 
-        print(f"Created target grid: {len(lon)} x {len(lat)} points")
-        print(f"  Longitude: [{lon_min:.2f}, {lon_max:.2f}] deg, spacing: {dlon:.3f} deg")
-        print(f"  Latitude: [{lat_min:.2f}, {lat_max:.2f}] deg, spacing: {dlat:.3f} deg")
+        logger.info("Created target grid: %d x %d points", len(lon), len(lat))
+
+        logger.debug(
+            "  Longitude: [%.2f, %.2f] deg, spacing: %.3f deg",
+            lon_min, lon_max, dlon,
+        )
+        
+        logger.debug(
+            "  Latitude: [%.2f, %.2f] deg, spacing: %.3f deg",
+            lat_min, lat_max, dlat,
+        )
 
         return target_grid
 
@@ -251,7 +263,7 @@ class MPASRemapper:
         mpi_rank = comm.Get_rank() if using_mpi else 0
 
         if mpi_rank == 0:
-            print(f"Building {self.method} regridder...")
+            logger.info("Building %s regridder", self.method)
             self._build_weights_on_rank0(source_grid, target_grid, weights_path)
 
         if using_mpi:
@@ -321,13 +333,13 @@ class MPASRemapper:
         if weights_path is None or not weights_path.exists() or not self.reuse_weights:
             return False
 
-        print(f"Loading cached weights from {weights_path}")
+        logger.info("Loading cached weights from %s", weights_path)
 
         self._weights, self._tgt_shape, self._cell_of_element = \
             self._load_weights_netcdf(weights_path)
 
         self._n_src = int(self._weights.shape[1])
-        print("Weights loaded successfully")
+        logger.info("Weights loaded successfully")
         return True
 
     def _prepare_source_esmpy(self: 'MPASRemapper',
@@ -387,13 +399,11 @@ class MPASRemapper:
         if getattr(esmpy.RegridMethod, self._METHOD_MAP[self.method]) in {
             esmpy.RegridMethod.BILINEAR, esmpy.RegridMethod.PATCH
         }:
-            warnings.warn(
-                f"Method '{self.method}' is not supported for unstructured (LocStream) "
-                "sources. Falling back to 'nearest_s2d'. Convert source to structured "
-                f"grid first (e.g. via unstructured_to_structured_grid()) for '{self.method}' "
-                "interpolation.",
-                UserWarning,
-                stacklevel=3,
+            logger.warning(
+                "Method '%s' is not supported for unstructured (LocStream) sources. "
+                "Falling back to 'nearest_s2d'. Convert source to structured grid first "
+                "(e.g. via unstructured_to_structured_grid()) for '%s' interpolation.",
+                self.method, self.method,
             )
         return source_esmpy, len(source_lon_deg), False, False, None, None
 
@@ -471,9 +481,9 @@ class MPASRemapper:
                 weights_path, weight_matrix, n_src, self._tgt_shape, self.method,
                 cell_of_element=cell_of_element,
             )
-            print(f"Weights saved to {weights_path}")
+            logger.info("Weights saved to %s", weights_path)
 
-        print("Regridder built successfully")
+        logger.info("Regridder built successfully")
 
     def _sync_weights_across_ranks(self: 'MPASRemapper',
                                    comm: Any,
@@ -643,17 +653,17 @@ class MPASRemapper:
         for var_name in variables:
             if var_name not in dataset:
                 if skip_missing:
-                    print(f"Warning: Variable '{var_name}' not found, skipping")
+                    logger.warning("Variable '%s' not found, skipping", var_name)
                     continue
                 else:
                     raise ValueError(f"Variable '{var_name}' not found in dataset")
 
-            print(f"Remapping variable: {var_name}")
+            logger.info("Remapping variable: %s", var_name)
 
             try:
                 remapped_vars[var_name] = self.remap(dataset[var_name])
             except Exception as e:
-                print(f"Error remapping {var_name}: {e}")
+                logger.error("Error remapping %s: %s", var_name, e)
                 if not skip_missing:
                     raise
 
@@ -718,10 +728,10 @@ class MPASRemapper:
         if lat_max is None:
             lat_max = float(min(90.0, np.max(lat_deg) + buffer))
 
-        print("Creating intermediate 2D structured grid:")
-        print(f"  Lon range: [{lon_min:.2f}, {lon_max:.2f}]°")
-        print(f"  Lat range: [{lat_min:.2f}, {lat_max:.2f}]°")
-        print(f"  Resolution: {intermediate_resolution}°")
+        logger.info("Creating intermediate 2D structured grid:")
+        logger.debug("  Lon range: [%.2f, %.2f]°", lon_min, lon_max)
+        logger.debug("  Lat range: [%.2f, %.2f]°", lat_min, lat_max)
+        logger.debug("  Resolution: %s°", intermediate_resolution)
 
         intermediate_lons = np.arange(lon_min, lon_max + intermediate_resolution / 2,
                                       intermediate_resolution)
@@ -732,8 +742,11 @@ class MPASRemapper:
         lon_2d, lat_2d = np.meshgrid(intermediate_lons, intermediate_lats)
         n_lon, n_lat = len(intermediate_lons), len(intermediate_lats)
 
-        print(f"  Grid size: {n_lat} x {n_lon} = {n_lat * n_lon:,} points")
-        print(f"  Original unstructured points: {len(lon_deg):,}")
+        logger.debug(
+            "  Grid size: %d x %d = %s points",
+            n_lat, n_lon, f"{n_lat * n_lon:,}",
+        )
+        logger.debug("  Original unstructured points: %s", f"{len(lon_deg):,}")
 
         source_points = np.column_stack([lon_deg, lat_deg])
         tree = KDTree(source_points)
@@ -766,7 +779,7 @@ class MPASRemapper:
         structured_data.attrs['grid_conversion'] = 'unstructured_to_structured_kdtree'
         structured_data.attrs['intermediate_resolution'] = intermediate_resolution
 
-        print("✓ Converted to 2D structured grid with bounds (ready for conservative remapping)")
+        logger.info("Converted to 2D structured grid with bounds (ready for conservative remapping)")
 
         return structured_data, structured_grid
 
@@ -784,7 +797,7 @@ class MPASRemapper:
         self._cell_of_element = None
         self.source_grid = None
         self.target_grid = None
-        print("Regridder resources cleaned up")
+        logger.info("Regridder resources cleaned up")
 
     @staticmethod
     def estimate_memory_usage(n_source: int,
@@ -1184,7 +1197,7 @@ def _add_wrapped_boundary_points(source_points: np.ndarray,
         data_values = np.concatenate([data_values, original_data[near_low]])
 
     n_wrapped = int(np.sum(near_high)) + int(np.sum(near_low))
-    print(f"  Added {n_wrapped} wrapped boundary points for global continuity")
+    logger.debug("Added %d wrapped boundary points for global continuity", n_wrapped)
     return source_points, data_values
 
 def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray], 
@@ -1222,7 +1235,10 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     except ImportError:
         raise ImportError("scipy is required. Install with: pip install scipy")
     
-    print(f"Remapping MPAS → regular lat-lon grid ({resolution}°) using {method} interpolation")
+    logger.info(
+        "Remapping MPAS → regular lat-lon grid (%s°) using %s interpolation",
+        resolution, method,
+    )
     
     if isinstance(data, xr.DataArray):
         data_attrs = data.attrs
@@ -1233,14 +1249,23 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     
     lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
     
-    print("  Original MPAS data statistics [Global Statistics]:")
+    logger.debug("Original MPAS data statistics [Global Statistics]:")
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
         warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
         warnings.filterwarnings('ignore', 'Degrees of freedom', RuntimeWarning)
-        print(f"    Min: {float(np.nanmin(data_values)):.4f}, Max: {float(np.nanmax(data_values)):.4f}")
-        print(f"    Mean: {float(np.nanmean(data_values)):.4f}, Median: {float(np.nanmedian(data_values)):.4f}")
-        print(f"    Std: {float(np.nanstd(data_values)):.4f}, Sum: {float(np.nansum(data_values)):.4f}")
+        logger.debug(
+            "  Min: %.4f, Max: %.4f",
+            float(np.nanmin(data_values)), float(np.nanmax(data_values)),
+        )
+        logger.debug(
+            "  Mean: %.4f, Median: %.4f",
+            float(np.nanmean(data_values)), float(np.nanmedian(data_values)),
+        )
+        logger.debug(
+            "  Std: %.4f, Sum: %.4f",
+            float(np.nanstd(data_values)), float(np.nansum(data_values)),
+        )
     
     target_lons = np.arange(lon_min, lon_max + resolution/2, resolution)
     target_lats = np.arange(lat_min, lat_max + resolution/2, resolution)
@@ -1249,10 +1274,22 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     n_source_points = len(data_values)
     grid_expansion_ratio = n_target_points / n_source_points
     
-    print(f"  Target grid: {len(target_lons)} x {len(target_lats)} = {n_target_points:,} points")
-    print(f"  Grid expansion: {n_source_points:,} → {n_target_points:,} ({grid_expansion_ratio:.1f}x)")
-    print(f"  Longitude: [{lon_min:.2f}, {lon_max:.2f}]° at {resolution}° spacing")
-    print(f"  Latitude: [{lat_min:.2f}, {lat_max:.2f}]° at {resolution}° spacing")
+    logger.debug(
+        "Target grid: %d x %d = %s points",
+        len(target_lons), len(target_lats), f"{n_target_points:,}",
+    )
+    logger.debug(
+        "Grid expansion: %s → %s (%.1fx)",
+        f"{n_source_points:,}", f"{n_target_points:,}", grid_expansion_ratio,
+    )
+    logger.debug(
+        "Longitude: [%.2f, %.2f]° at %s° spacing",
+        lon_min, lon_max, resolution,
+    )
+    logger.debug(
+        "Latitude: [%.2f, %.2f]° at %s° spacing",
+        lat_min, lat_max, resolution,
+    )
     
     lon_2d, lat_2d = np.meshgrid(target_lons, target_lats)
     
@@ -1292,32 +1329,55 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
     data_sum = float(np.nansum(data_values))
 
     if np.abs(data_sum) < 1e-10:
-        print("\n[ERROR] Input data for remapping is empty, all zeros, or all NaNs. Cannot compute remapping ratio.\n")
-        print("  Please check your input data source and variable selection.")
-        print(f"  Data shape: {data_values.shape}, dtype: {data_values.dtype}")
+        logger.error(
+            "Input data for remapping is empty, all zeros, or all NaNs. "
+            "Cannot compute remapping ratio."
+        )
+        logger.error("Please check your input data source and variable selection.")
+        logger.error(
+            "Data shape: %s, dtype: %s", data_values.shape, data_values.dtype,
+        )
 
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'All-NaN slice encountered', RuntimeWarning)
-            print(f"  Data min: {np.nanmin(data_values)}, max: {np.nanmax(data_values)}")
+            logger.error(
+                "Data min: %s, max: %s",
+                np.nanmin(data_values), np.nanmax(data_values),
+            )
 
-        print(f"  Data contains only NaNs: {np.isnan(data_values).all()}")
-        print(f"  Data contains only zeros: {np.count_nonzero(data_values)==0}")
-        print("  Remapping aborted. Returning empty result array.")
+        logger.error("Data contains only NaNs: %s", np.isnan(data_values).all())
+        logger.error("Data contains only zeros: %s", np.count_nonzero(data_values) == 0)
+        logger.error("Remapping aborted. Returning empty result array.")
         return result
 
     result_sum = float(result.sum(skipna=True))
     sum_ratio = result_sum / data_sum
 
-    print("  Remapped data statistics [Statistics over Target Grid]:")
-    print(f"    Min: {float(result.min(skipna=True)):.4f}, Max: {float(result.max(skipna=True)):.4f}")
-    print(f"    Mean: {float(result.mean(skipna=True)):.4f}, Median: {float(np.nanmedian(result.values)):.4f}")
-    print(f"    Std: {float(result.std(skipna=True)):.4f}, Sum: {result_sum:.4f}")
+    logger.debug("Remapped data statistics [Statistics over Target Grid]:")
+    logger.debug(
+        "  Min: %.4f, Max: %.4f",
+        float(result.min(skipna=True)), float(result.max(skipna=True)),
+    )
+    logger.debug(
+        "  Mean: %.4f, Median: %.4f",
+        float(result.mean(skipna=True)), float(np.nanmedian(result.values)),
+    )
+    logger.debug(
+        "  Std: %.4f, Sum: %.4f",
+        float(result.std(skipna=True)), result_sum,
+    )
 
     if method == 'linear':
-        print(f"  NOTE: Linear interpolation creates smooth fields but increases total sum by {sum_ratio:.1f}x")
-        print(f"        This is expected when interpolating to a denser grid ({grid_expansion_ratio:.1f}x more points)")
+        logger.debug(
+            "Linear interpolation creates smooth fields but increases total sum by %.1fx",
+            sum_ratio,
+        )
+        logger.debug(
+            "This is expected when interpolating to a denser grid (%.1fx more points)",
+            grid_expansion_ratio,
+        )
 
-    print(f"✓ Remapping completed successfully using {method} interpolation")
+    logger.info("Remapping completed successfully using %s interpolation", method)
 
     return result
 
@@ -1351,7 +1411,10 @@ def build_remapped_valid_mask(lon_vals: np.ndarray,
     lon_range = lon_max - lon_min
 
     if lon_range > 180:
-        print(f"  Skipping convex hull masking for global data (lon_range={lon_range:.1f}°)")
+        logger.debug(
+            "Skipping convex hull masking for global data (lon_range=%.1f°)",
+            lon_range,
+        )
         return None
     
     source_coordinate_pairs = np.column_stack((lon_vals, lat_vals))
@@ -1379,10 +1442,10 @@ def build_remapped_valid_mask(lon_vals: np.ndarray,
             mask_bool = inside.reshape((n_lat, n_lon))
             return mask_bool
     except ImportError:
-        print("  Warning: scipy or matplotlib required for convex hull masking")
+        logger.warning("scipy or matplotlib required for convex hull masking")
         return None
     except Exception as e:
-        print(f"  Warning: Convex hull masking failed: {e}")
+        logger.warning("Convex hull masking failed: %s", e)
         return None
 
 
@@ -1465,8 +1528,11 @@ def _apply_lon_convention(lon_coords: xr.DataArray,
     """
     if lon_convention == 'auto':
         if lon_data_range > 180 or (lon_min >= 0 and lon_max > 180):
-            print(f"  Detected global/wide-span data (range={lon_data_range:.1f}°), "
-                  "preserving original longitude convention")
+            logger.debug(
+                "Detected global/wide-span data (range=%.1f°), "
+                "preserving original longitude convention",
+                lon_data_range,
+            )
             return lon_coords
         lon_convention = '[-180,180]' if (lon_max <= 180 and lon_min >= -180) else '[0,360]'
 
@@ -1739,17 +1805,20 @@ def create_target_grid(lon_min: float = -180.0,
 
 
 if __name__ == '__main__':
-    print("MPAS Remapping Module")
-    print("=" * 50)
-    
+    from .utils_logger import MPASLogger
+    MPASLogger(name="mpasdiag", level=20, verbose=True)
+    logger.info("MPAS Remapping Module")
+
     if not ESMPY_AVAILABLE:
-        print("\nESMPy is not installed. Install with:")
-        print("  conda install -c conda-forge esmpy")
+        logger.info("ESMPy is not installed. Install with: conda install -c conda-forge esmpy")
     else:
-        print("\nESMPy is available")
-        print("Supported methods: conservative, conservative_normed, nearest_s2d, nearest_d2s")
-        print("\nExample usage:")
-        print("""
+        logger.info("ESMPy is available")
+        logger.info(
+            "Supported methods: conservative, conservative_normed, nearest_s2d, nearest_d2s"
+        )
+        logger.info(
+            "Example usage:\n%s",
+            """
 from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
 
 # Method 1: High-level convenience function
@@ -1767,4 +1836,5 @@ remapper.prepare_source_grid(mpas_lon, mpas_lat)
 remapper.create_target_grid(resolution=0.5)
 remapper.build_regridder()
 remapped = remapper.remap(data)
-        """)
+            """,
+        )

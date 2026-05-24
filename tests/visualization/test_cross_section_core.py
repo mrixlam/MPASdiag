@@ -86,7 +86,8 @@ class TestCreateVerticalCrossSectionComplete:
     """ Comprehensive tests for create_vertical_cross_section method. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestCreateVerticalCrossSectionComplete', mpas_3d_processor) -> Generator[None, None, None]:
+    def setup_method(self: 'TestCreateVerticalCrossSectionComplete', 
+                     mpas_3d_processor) -> Generator[None, None, None]:
         """
         This fixture sets up the testing environment for the TestCreateVerticalCrossSectionComplete class by creating a temporary directory for saving plots and initializing an MPASVerticalCrossSectionPlotter instance. It uses a session-scoped fixture to provide a real MPAS3DProcessor with loaded data, which is essential for testing the create_vertical_cross_section method with actual MPAS datasets. The fixture yields control to the test methods and ensures that any created temporary files are cleaned up after the tests complete.
 
@@ -94,7 +95,7 @@ class TestCreateVerticalCrossSectionComplete:
             mpas_3d_processor: Session-scoped fixture providing real MPAS3DProcessor with loaded data
 
         Returns:
-            None
+            Generator yielding None for setup and teardown of test environment.
         """
         self.temp_dir = tempfile.mkdtemp()
         self.plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 8), dpi=100)
@@ -230,7 +231,7 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             start_point=(-110, 35),
@@ -423,7 +424,7 @@ class TestVerticalCoordinateConversion:
             mpas_3d_processor: Session-scoped fixture providing real MPAS3DProcessor with loaded data 
 
         Returns:
-            None
+            Generator yielding None for setup and teardown of test environment.
         """
         self.plotter = MPASVerticalCrossSectionPlotter()
         
@@ -488,7 +489,8 @@ class TestVerticalCoordinateEdgeCases:
     """ Tests for vertical coordinate conversion edge cases. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestVerticalCoordinateEdgeCases', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestVerticalCoordinateEdgeCases', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the testing environment for vertical coordinate edge case tests by initializing an MPASVerticalCrossSectionPlotter instance and providing a real MPAS3DProcessor with loaded data. The fixture ensures that the plotter is available for testing edge cases in vertical coordinate conversion, such as handling non-numeric pressure values, non-finite pressures, and large pressure values that require unit conversion. If the MPAS 3D processor is not available, the fixture will skip the tests that depend on it.
 
@@ -661,7 +663,8 @@ class TestVerticalCoordinateEdgeCasesFinal:
     """ Test edge cases in vertical coordinate handling with real MPAS data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestVerticalCoordinateEdgeCasesFinal', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestVerticalCoordinateEdgeCasesFinal', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the testing environment for vertical coordinate edge case tests using real MPAS data. It initializes an MPASVerticalCrossSectionPlotter instance and assigns the session-scoped MPAS3DProcessor with loaded data to the test instance. If the MPAS 3D processor or necessary data files are not available, the fixture will skip the tests that depend on real MPAS data.
 
@@ -683,10 +686,10 @@ class TestVerticalCoordinateEdgeCasesFinal:
         This test verifies that the create_vertical_cross_section method can handle NaN values in the pressure coordinate without raising an unhandled exception. By modifying the real MPAS dataset to inject NaN values into the pressure field, this test ensures that the plotter's vertical coordinate handling logic can gracefully manage non-finite values and still produce a valid plot, confirming robustness in the presence of imperfect data.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Assertions validate plotting succeeded and no exceptions.
+            None
         """
         var_3d = _find_3d_var(self.processor)
         
@@ -717,10 +720,10 @@ class TestVerticalCoordinateEdgeCasesFinal:
         This test verifies that if the pressure values in the dataset are in Pascals (greater than 10000), the create_vertical_cross_section method correctly detects this and applies the necessary unit conversion to hPa for plotting. By using real MPAS data where pressure is typically in Pascals, this test ensures that the plotter's unit detection and conversion logic is exercised and that the resulting plot is created successfully without errors, confirming that it can handle pressure data in different units appropriately.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the y-axis label contains 'Pressure'.
+            None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
             self.processor,
@@ -741,10 +744,10 @@ class TestVerticalCoordinateEdgeCasesFinal:
         This test verifies that when using model level indices as the vertical coordinate, the create_vertical_cross_section method correctly handles the coordinate system and produces a plot with appropriate axis labeling. By calling the method with `vertical_coord='modlev'` and real MPAS data, this test ensures that the plotter can manage model-level vertical coordinates and that the resulting plot's y-axis label reflects the use of model levels, confirming correct handling of this vertical coordinate type.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the axis label contains 'Model Level'.
+            None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
             self.processor,

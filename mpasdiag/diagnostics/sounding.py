@@ -23,6 +23,9 @@ from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.processing.base import MPASBaseProcessor
 from mpasdiag.processing.constants import P0_REF_PA, KAPPA, EPSILON_RD_RV
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -97,8 +100,10 @@ class SoundingDiagnostics:
         # Print nearest cell information if verbose mode is enabled
         if self.verbose:
             dist_km = self._haversine_km(lon, lat, station_lon, station_lat)
-            print(f"Nearest cell {cell_idx}: ({station_lon:.4f}°, {station_lat:.4f}°), "
-                  f"distance {dist_km:.1f} km from target")
+            logger.debug(
+                "Nearest cell %d: (%.4f°, %.4f°), distance %.1f km from target",
+                cell_idx, station_lon, station_lat, dist_km,
+            )
 
         # Extract pressure profile, converting from Pa to hPa for consistency with meteorological conventions
         pressure_pa = self._extract_pressure_profile(ds, time_dim, validated_time_index, cell_idx)
@@ -173,9 +178,11 @@ class SoundingDiagnostics:
 
         # Print profile summary if verbose mode is enabled
         if self.verbose:
-            print(f"Sounding profile: {len(pressure_hpa)} levels, "
-                  f"P range {pressure_hpa[-1]:.1f}–{pressure_hpa[0]:.1f} hPa, "
-                  f"T range {np.nanmin(temperature_c):.1f}–{np.nanmax(temperature_c):.1f} °C")
+            logger.debug(
+                "Sounding profile: %d levels, P range %.1f–%.1f hPa, T range %.1f–%.1f °C",
+                len(pressure_hpa), pressure_hpa[-1], pressure_hpa[0],
+                float(np.nanmin(temperature_c)), float(np.nanmax(temperature_c)),
+            )
 
         # Return the extracted profile and metadata as a dictionary
         return {
@@ -273,7 +280,7 @@ class SoundingDiagnostics:
         # Catch any exceptions that occur during the base profile computation
         except Exception as exc:
             if self.verbose:
-                print(f"MetPy base profile computation failed: {exc}")
+                logger.warning("MetPy base profile computation failed: %s", exc)
             return result
 
         # --- Lifting condensation level (LCL) ---
@@ -594,8 +601,10 @@ class SoundingDiagnostics:
 
         # Print a message about the fallback LCL computation if verbose mode is enabled
         if self.verbose:
-            print("MetPy not available – full index computation skipped. "
-                  "Install metpy>=1.3.0 for comprehensive thermodynamic indices.")
+            logger.warning(
+                "MetPy not available – full index computation skipped. "
+                "Install metpy>=1.3.0 for comprehensive thermodynamic indices."
+            )
 
     @staticmethod
     def _compute_wet_bulb_zero(pressure_metpy: Any,
@@ -688,7 +697,7 @@ class SoundingDiagnostics:
         # Catch any exceptions that occur during the wind unit setup and skip shear-related calculations if it fails
         except Exception as exc:
             if self.verbose:
-                print(f"MetPy wind unit setup failed: {exc}")
+                logger.warning("MetPy wind unit setup failed: %s", exc)
             return
 
         for depth_m, key in [(1000, 'bulk_shear_0_1km'),
@@ -858,7 +867,7 @@ class SoundingDiagnostics:
 
                 # If verbose mode is enabled, print a message about converting potential temperature to actual temperature
                 if self.verbose:
-                    print(f"Converted '{name}' (potential temp) to actual temperature")
+                    logger.debug("Converted '%s' (potential temp) to actual temperature", name)
 
                 # Return the temperature profile in °C
                 return temperature_k - 273.15
@@ -909,14 +918,14 @@ class SoundingDiagnostics:
 
                 # Print a message about computing dewpoint from mixing ratio if verbose mode is enabled
                 if self.verbose:
-                    print(f"Computing dewpoint from '{name}' mixing ratio")
+                    logger.debug("Computing dewpoint from '%s' mixing ratio", name)
                 
                 # Compute dewpoint from mixing ratio and pressure
                 return self.compute_dewpoint_from_mixing_ratio(qv, pressure_pa)
 
         # If no dewpoint or mixing ratio variables are found, return NaN
         if self.verbose:
-            print("Warning: No moisture variable found; dewpoint set to NaN.")
+            logger.warning("No moisture variable found; dewpoint set to NaN")
 
         # Return NaN array if dewpoint cannot be determined
         return np.full_like(pressure_pa, np.nan)
@@ -961,7 +970,7 @@ class SoundingDiagnostics:
         
         # Print a warning if no wind variables were found for the sounding profile
         if u_data is None and v_data is None and self.verbose:
-            print("Warning: No wind variables found for sounding.")
+            logger.warning("No wind variables found for sounding")
 
         # Return the extracted u and v wind profiles in knots
         return u_data, v_data
@@ -1015,6 +1024,6 @@ class SoundingDiagnostics:
             # Catch any exceptions that occur during height extraction and return None 
             except Exception:
                 if self.verbose:
-                    print(f"Warning: Failed to extract height profile from '{name}'.")
+                    logger.warning("Failed to extract height profile from '%s'", name)
                 continue
         return None

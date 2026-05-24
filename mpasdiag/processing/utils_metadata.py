@@ -174,6 +174,8 @@ class MPASFileMetadata:
             'sh2o': {'units': M3_PER_M3, 'long_name': 'Soil Moisture', 'spatial_dim': 'nCells'},
             'smois': {'units': M3_PER_M3, 'long_name': 'Soil Moisture Content', 'spatial_dim': 'nCells'},
             'tslb': {'units': KELVIN, 'long_name': 'Soil Temperature', 'spatial_dim': 'nCells'},
+            'theta_rho': {'units': KELVIN, 'long_name': 'Density Potential Temperature (θρ)'},
+            'cold_pool_strength': {'units': M_PER_S, 'long_name': 'RKW Cold-Pool Strength (C)'},
         }
         
         visualization_metadata = {
@@ -785,7 +787,17 @@ class MPASFileMetadata:
                 'colormap': 'RdYlBu_r',
                 'levels': list(range(-40, 45, 5)),
                 'spatial_dims': 3
-            }
+            },
+            # 'theta_rho': {
+            #     'colormap': 'RdYlBu_r',
+            #     'levels': list(range(294, 312, 1)),
+            #     'spatial_dims': 3
+            # },
+            # 'cold_pool_strength': {
+            #     'colormap': 'YlOrRd',
+            #     'levels': [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0],
+            #     'spatial_dims': 2
+            # }
         }
         
         metadata: Dict[str, Any] = standard_metadata.get(var_name.lower(), {

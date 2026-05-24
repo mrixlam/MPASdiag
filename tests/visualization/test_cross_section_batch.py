@@ -208,7 +208,7 @@ class TestBatchProcessingFinal:
             None
 
         Returns:
-            None: Asserts that returned file list is non-empty and files exist.
+            None
         """
         processor = self.processor
         
@@ -238,7 +238,7 @@ class TestBatchProcessingFinal:
             None
 
         Returns:
-            None: Asserts that the result is a non-empty list of files.
+            None
         """
         processor = self.processor
         

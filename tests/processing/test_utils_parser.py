@@ -29,7 +29,7 @@ class TestCreateParser:
             None
 
         Returns:
-            None: Validated through isinstance/assert checks.
+            None
         """
         parser = ArgumentParser.create_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
@@ -43,7 +43,7 @@ class TestCreateParser:
             None
 
         Returns:
-            None: Confirmed via assertions on parsed namespace attributes.
+            None
         """
         parser = ArgumentParser.create_parser()        
         args = parser.parse_args(['--grid-file', 'test.nc', '--data-dir', './data'])        
@@ -62,7 +62,7 @@ class TestParseArgsToConfig:
             None
 
         Returns:
-            None: Verified via type checks and selected attribute assertions.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -101,7 +101,7 @@ class TestParseArgsToConfig:
             None
 
         Returns:
-            None: Verified by assertions on `figure_width` and `figure_height`.
+            None
         """
         args = argparse.Namespace(
             figure_size=[12.0, 8.0],
@@ -122,7 +122,7 @@ class TestParseArgsToConfig:
             None
 
         Returns:
-            None: Verified via boolean assertion on `use_pure_xarray`.
+            None
         """
         args = argparse.Namespace(
             data_type='xarray',
@@ -141,7 +141,7 @@ class TestParseArgsToConfig:
             None
 
         Returns:
-            None: Verified by checking the absence or false value of the flag.
+            None
         """
         args = argparse.Namespace(
             data_type='uxarray',
@@ -161,7 +161,7 @@ class TestParseArgsToConfig:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: Verified by assertions on config paths and types.
+            None
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
@@ -201,7 +201,7 @@ class TestCreateSurfaceParser:
             None
 
         Returns:
-            None: Verified by isinstance assertion.
+            None
         """
         parser = ArgumentParser.create_surface_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
@@ -214,7 +214,7 @@ class TestCreateSurfaceParser:
             None
 
         Returns:
-            None: Verified via assertions on parsed namespace attributes.
+            None
         """
         parser = ArgumentParser.create_surface_parser()
         
@@ -236,7 +236,7 @@ class TestCreateSurfaceParser:
             None
 
         Returns:
-            None: Verified through assertions on argument values and types.
+            None
         """
         parser = ArgumentParser.create_surface_parser()
         
@@ -277,7 +277,7 @@ class TestParseSurfaceArgsToConfig:
             None
 
         Returns:
-            None: Verified via type checks and multiple attribute assertions.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -325,7 +325,7 @@ class TestParseSurfaceArgsToConfig:
             None
 
         Returns:
-            None: Verified by asserting `config.batch_mode is True`.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -346,7 +346,7 @@ class TestParseSurfaceArgsToConfig:
             None
 
         Returns:
-            None: Verified by asserting `config.plot_type == 'scatter'`.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -367,7 +367,7 @@ class TestParseSurfaceArgsToConfig:
             None
 
         Returns:
-            None: Verified by asserting `config.time_index == 0`.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -390,7 +390,7 @@ class TestParseSurfaceArgsToConfig:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: Verified by assertions on config attributes.
+            None
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
@@ -430,7 +430,7 @@ class TestCreateWindParser:
             None
 
         Returns:
-            None: Verified via isinstance assertion.
+            None
         """
         parser = ArgumentParser.create_wind_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
@@ -443,7 +443,7 @@ class TestCreateWindParser:
             None
 
         Returns:
-            None: Verified via attribute assertions on parsed namespace.
+            None
         """
         parser = ArgumentParser.create_wind_parser()
         
@@ -467,7 +467,7 @@ class TestCreateWindParser:
             None
 
         Returns:
-            None: Validated via assertions on parsed attributes.
+            None
         """
         parser = ArgumentParser.create_wind_parser()
         
@@ -515,7 +515,7 @@ class TestParseWindArgsToConfig:
             None
 
         Returns:
-            None: Verified via multiple attribute assertions on `config`.
+            None
         """
         args = argparse.Namespace(
             extent=[-100.0, -90.0, 30.0, 45.0],
@@ -566,7 +566,7 @@ class TestParseWindArgsToConfig:
             None
 
         Returns:
-            None: Verified by assertions on `lon_min/lon_max/lat_min/lat_max`.
+            None
         """
         args = argparse.Namespace(
             extent=None,
@@ -606,7 +606,7 @@ class TestParseWindArgsToConfig:
             None
 
         Returns:
-            None: Verified via assertion that `config.batch_mode is True`.
+            None
         """
         args = argparse.Namespace(
             extent=None,
@@ -634,7 +634,9 @@ class TestParseWindArgsToConfig:
         config = ArgumentParser.parse_wind_args_to_config(args)        
         assert config.batch_mode is True
     
-    def test_parse_wind_args_with_real_mpas_paths(self: 'TestParseWindArgsToConfig', grid_file, test_data_dir) -> None:
+    def test_parse_wind_args_with_real_mpas_paths(self: 'TestParseWindArgsToConfig', 
+                                                  grid_file: str, 
+                                                  test_data_dir: str) -> None:
         """
         This test performs an integration check by parsing wind plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_wind_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with wind-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for wind plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -643,7 +645,7 @@ class TestParseWindArgsToConfig:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: Verified by assertions on config attributes.
+            None
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
@@ -694,7 +696,7 @@ class TestCreateCrosssectionParser:
             None
 
         Returns:
-            None: Verified by isinstance assertion.
+            None
         """
         parser = ArgumentParser.create_crosssection_parser()        
         assert isinstance(parser, argparse.ArgumentParser)
@@ -707,7 +709,7 @@ class TestCreateCrosssectionParser:
             None
 
         Returns:
-            None: Verified via assertions on parsed namespace attributes.
+            None
         """
         parser = ArgumentParser.create_crosssection_parser()
         
@@ -737,7 +739,7 @@ class TestCreateCrosssectionParser:
             None
 
         Returns:
-            None: Verified via assertions on defaulted parsed values.
+            None
         """
         parser = ArgumentParser.create_crosssection_parser()
         
@@ -768,7 +770,7 @@ class TestCreateCrosssectionParser:
             None
 
         Returns:
-            None: Verified via assertions on parsed attribute values.
+            None
         """
         parser = ArgumentParser.create_crosssection_parser()
         
@@ -819,7 +821,7 @@ class TestParseCrosssectionArgsToConfig:
             None
 
         Returns:
-            None: Verified through multiple attribute assertions on `config`.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -874,7 +876,7 @@ class TestParseCrosssectionArgsToConfig:
             None
 
         Returns:
-            None: Verified by comparing `config.levels` to the provided list.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -912,7 +914,7 @@ class TestParseCrosssectionArgsToConfig:
             None
 
         Returns:
-            None: Verified by asserting `config.max_height is None`.
+            None
         """
         args = argparse.Namespace(
             grid_file='grid.nc',
@@ -941,7 +943,9 @@ class TestParseCrosssectionArgsToConfig:
         config = ArgumentParser.parse_crosssection_args_to_config(args)        
         assert config.max_height is None
     
-    def test_parse_crosssection_args_with_real_mpas_paths(self: 'TestParseCrosssectionArgsToConfig', grid_file, test_data_dir) -> None:
+    def test_parse_crosssection_args_with_real_mpas_paths(self: 'TestParseCrosssectionArgsToConfig', 
+                                                          grid_file: str, 
+                                                          test_data_dir: str) -> None:
         """
         This test performs an integration check by parsing cross-section plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_crosssection_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with cross-section-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for cross-section plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing. 
 
@@ -950,7 +954,7 @@ class TestParseCrosssectionArgsToConfig:
             test_data_dir: Session fixture providing path to test data directory.
 
         Returns:
-            None: Verified by assertions on config attributes.
+            None
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
@@ -1026,7 +1030,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertions on `ns.remap_engine` and `ns.remap_method`. 
+            None
         """
         ns = self._parse('precipitation', ['--variable', 'rainnc'])
         assert ns.remap_engine == 'kdtree'
@@ -1040,7 +1044,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertions on `ns.remap_engine` and `ns.remap_method`. 
+            None
         """
         ns = self._parse('precipitation', ['--variable', 'rainnc',
                                            '--remap-engine', 'esmf',
@@ -1056,7 +1060,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertion on `ns.remap_engine`. 
+            None
         """
         ns = self._parse('surface', ['--variable', 't2m'])
         assert ns.remap_engine == 'kdtree'
@@ -1069,7 +1073,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertion on `ns.remap_method`. 
+            None
         """
         ns = self._parse('surface', ['--variable', 't2m',
                                      '--remap-engine', 'kdtree',
@@ -1084,7 +1088,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertion on `ns.remap_engine`. 
+            None
         """
         ns = self._parse('wind', ['--u-variable', 'uReconstructZonal',
                                   '--v-variable', 'uReconstructMeridional'])
@@ -1098,7 +1102,7 @@ class TestRemapEngineMethodCLIArgs:
             None
 
         Returns:
-            None: Verified by assertions on `config.remap_engine` and `config.remap_method`. 
+            None
         """
         from mpasdiag.processing.cli_unified import MPASUnifiedCLI
         cli = MPASUnifiedCLI()

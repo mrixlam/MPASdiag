@@ -28,6 +28,9 @@ from matplotlib.contour import QuadContourSet
 from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
 from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
+from ..processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPASVisualizationStyle:
@@ -629,11 +632,11 @@ class MPASVisualizationStyle:
         try:
             # Use a slightly larger footer to improve readability
             footer_ax = MPASVisualizationStyle._create_footer_axes(fig, height=0.7, pad=0.02)
-            print("MPASVisualizationStyle: using footer axes for branding", flush=True)
+            logger.debug("Using footer axes for branding")
             footer_ax.text(0.001, -0.2, branding_text, va='center', ha='left', fontsize=9, alpha=0.85, transform=footer_ax.transAxes)
         except Exception as e:
             # Fallback to simple fig.text if anything goes wrong
-            print(f"MPASVisualizationStyle: footer failed ({e}), falling back to fig.text", flush=True)
+            logger.warning("Footer axes failed (%s); falling back to fig.text", e)
             fig.text(0.02, 0.02, branding_text, fontsize=8, alpha=0.7, transform=fig.transFigure)
 
     @staticmethod
@@ -655,7 +658,7 @@ class MPASVisualizationStyle:
         for ax in fig.axes:
             try:
                 if getattr(ax, 'get_gid', lambda: None)() == 'mpasdiag_footer':
-                    print('MPASVisualizationStyle: reusing existing footer axes', flush=True)
+                    logger.debug("Reusing existing footer axes")
                     return ax
             except Exception:
                 continue
@@ -680,15 +683,15 @@ class MPASVisualizationStyle:
         if colorbar_tops:
             # Place footer just above the highest colorbar top, with sensible cap
             bottom = min(max(colorbar_tops) + gap, 0.18)
-            print(f"MPASVisualizationStyle: detected colorbar tops={colorbar_tops}, placing footer bottom={bottom}", flush=True)
+            logger.debug("Detected colorbar tops=%s, placing footer bottom=%s", colorbar_tops, bottom)
         else:
             bottom = pad + 0.05
-            print(f"MPASVisualizationStyle: no colorbar detected, using pad bottom={bottom}", flush=True)
+            logger.debug("No colorbar detected, using pad bottom=%s", bottom)
 
         footer_ax = fig.add_axes((left, bottom, width, height), frameon=False, zorder=105)
         footer_ax.set_gid('mpasdiag_footer')
         footer_ax.set_axis_off()
-        print(f"MPASVisualizationStyle: created footer axes at {(left, bottom, width, height)}", flush=True)
+        logger.debug("Created footer axes at %s", (left, bottom, width, height))
         return footer_ax
     
     @staticmethod
@@ -725,7 +728,7 @@ class MPASVisualizationStyle:
             if fmt.lower() == 'png':
                 save_kwargs['pil_kwargs'] = {'compress_level': 1}
             fig.savefig(full_path, **save_kwargs)
-            print(f"Saved plot: {full_path}")
+            logger.info("Saved plot: %s", full_path)
 
     @staticmethod
     def get_3d_variable_style(var_name: str, 
@@ -1004,7 +1007,11 @@ class MPASVisualizationStyle:
         marker_size = base_size * area_scale * fig_scale    
         marker_size = max(0.1, min(20.0, marker_size))
         
-        print(f"Adaptive marker sizing: area={map_area:.1f}°², density={point_density:.2f} pts/°², base={base_size:.2f}, scales=({area_scale:.2f}×{fig_scale:.2f}), final_size={marker_size:.2f}")
+        logger.debug(
+            "Adaptive marker sizing: area=%.1f°², density=%.2f pts/°², base=%.2f, "
+            "scales=(%.2f×%.2f), final_size=%.2f",
+            map_area, point_density, base_size, area_scale, fig_scale, marker_size,
+        )
         
         return marker_size
 

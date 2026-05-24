@@ -21,6 +21,9 @@ from typing import List, Tuple, Any, Optional, cast
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
 from .constants import DIAG_GLOB, MPASOUT_GLOB
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPAS2DProcessor(MPASBaseProcessor):
@@ -116,9 +119,9 @@ class MPAS2DProcessor(MPASBaseProcessor):
 
         if len(files) >= 2:
             if self.verbose:
-                print(f"\nFound {len(files)} diagnostic files (recursive search):")
+                logger.info("Found %d diagnostic files (recursive search):", len(files))
                 for i, filepath in enumerate(files[:5]):
-                    print(f"  {i+1}: {os.path.basename(filepath)}")
+                    logger.info("  %d: %s", i + 1, os.path.basename(filepath))
             return files
 
         return None
@@ -153,9 +156,9 @@ class MPAS2DProcessor(MPASBaseProcessor):
             )
 
         if self.verbose:
-            print(f"\nFound {len(files)} MPAS output files (recursive search):")
+            logger.info("Found %d MPAS output files (recursive search):", len(files))
             for i, filepath in enumerate(files[:5]):
-                print(f"  {i+1}: {os.path.basename(filepath)}")
+                logger.info("  %d: %s", i + 1, os.path.basename(filepath))
 
         return files
 
@@ -188,7 +191,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
             return files
 
         if self.verbose:
-            print("\nNo diagnostic files found, searching for mpasout files...")
+            logger.info("No diagnostic files found, searching for mpasout files")
 
         return self._find_mpasout_files_fallback(data_dir)
 
@@ -266,7 +269,10 @@ class MPAS2DProcessor(MPASBaseProcessor):
         lat_coords = lat_coords.ravel()
 
         if self.verbose:
-            print(f"Extracted {spatial_dim} coordinates for {var_name}: {len(lon_coords):,} points")
+            logger.debug(
+                "Extracted %s coordinates for %s: %s points",
+                spatial_dim, var_name, f"{len(lon_coords):,}",
+            )
 
         return lon_coords, lat_coords
 
@@ -291,11 +297,14 @@ class MPAS2DProcessor(MPASBaseProcessor):
         finite_values = finite_values[np.isfinite(finite_values)]
 
         if len(finite_values) > 0:
-            print(f"Variable {var_name} range: {finite_values.min():.3f} to {finite_values.max():.3f}")
+            logger.debug(
+                "Variable %s range: %.3f to %.3f",
+                var_name, float(finite_values.min()), float(finite_values.max()),
+            )
             if hasattr(var_data, 'attrs') and 'units' in var_data.attrs:
-                print(f"Units: {var_data.attrs['units']}")
+                logger.debug("Units: %s", var_data.attrs['units'])
         else:
-            print(f"Warning: No finite values found for {var_name}")
+            logger.warning("No finite values found for %s", var_name)
 
     def get_2d_variable_data(self: 'MPAS2DProcessor', 
                              var_name: str, 
@@ -322,7 +331,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
         )
 
         if self.verbose:
-            print(f"Extracting {var_name} data at time index {validated_time_index}")
+            logger.debug("Extracting %s data at time index %d", var_name, validated_time_index)
 
         if self.data_type == 'uxarray':
             var_data = self.dataset[var_name][validated_time_index]

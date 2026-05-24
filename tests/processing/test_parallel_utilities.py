@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Parallel Processing - Utilities, Error Handling, and Integration Tests
 
@@ -43,7 +44,16 @@ class TestErrorHandling:
         manager.set_error_policy('collect')
         assert_expected_public_methods(manager, 'MPASParallelManager')
         
-        def failing_func(x):
+        def failing_func(x) -> int:
+            """
+            This function simulates a task that fails for even inputs and succeeds for odd inputs. It raises a ValueError with a message indicating the input value when the input is even, and returns the input multiplied by 2 when the input is odd. This allows for testing of error collection in the manager, as it will produce a mix of successful and failed tasks based on the input values.
+
+            Parameters:
+                x (int): Input integer to the function.
+
+            Returns:
+                int: The input multiplied by 2 if the input is odd.
+            """
             if x % 2 == 0:
                 raise ValueError(f"Error on {x}")
             return x * 2
@@ -70,7 +80,16 @@ class TestErrorHandling:
         manager.set_error_policy('continue')
         assert_expected_public_methods(manager, 'MPASParallelManager')
         
-        def failing_func(x):
+        def failing_func(x) -> int:
+            """
+            This function simulates a task that fails for a specific input and succeeds for others. It raises a ValueError with a message indicating the input value when the input is 2, and returns the input multiplied by 2 for other inputs. This allows for testing of error continuation in the manager, as it will produce a mix of successful and failed tasks based on the input values.
+
+            Parameters:
+                x (int): Input integer to the function.
+
+            Returns:
+                int: The input multiplied by 2 if the input is not 2.
+            """
             if x == 2:
                 raise ValueError("Error")
             return x * 2
@@ -82,15 +101,9 @@ class TestErrorHandling:
         assert len(results) == pytest.approx(3)
         assert sum(1 for r in results if r.success) == pytest.approx(2)
 
-    def test_multiprocessing_task_wrapper_raises_on_abort_policy(
-        self: 'TestErrorHandling',
-    ) -> None:
+    def test_multiprocessing_task_wrapper_raises_on_abort_policy(self: 'TestErrorHandling',) -> None:
         """
-        This test verifies that _multiprocessing_task_wrapper re-raises the original
-        exception when error_policy_value is 'abort' (line 126). It calls the wrapper
-        directly with a failing function and asserts that the exception propagates to
-        the caller, confirming that the abort policy is respected in the multiprocessing
-        task wrapper.
+        This test verifies that the _multiprocessing_task_wrapper raises the original exception when the error policy is 'abort'. It defines a `failing_func` that always raises a ValueError, constructs the arguments for the task wrapper with the 'abort' policy, and asserts that calling the wrapper raises the expected ValueError. This confirms that the multiprocessing task wrapper correctly implements the 'abort' policy by halting execution and propagating exceptions when a task fails. 
 
         Parameters:
             None
@@ -99,20 +112,24 @@ class TestErrorHandling:
             None
         """
         def failing_func(task: int) -> int:
+            """
+            This function simulates a task that always fails by raising a ValueError. It is used to test the behavior of the multiprocessing task wrapper when the error policy is set to 'abort'.
+
+            Parameters:
+                task (int): Input integer to the function.
+
+            Returns:
+                int: This function does not return a value as it always raises an exception.
+            """
             raise ValueError("deliberate failure")
 
         args = (0, 42, failing_func, 'abort', (), {})
         with pytest.raises(ValueError, match="deliberate failure"):
             _multiprocessing_task_wrapper(args)
 
-    def test_execute_local_tasks_abort_policy_raises_in_serial(
-        self: 'TestErrorHandling',
-    ) -> None:
+    def test_execute_local_tasks_abort_policy_raises_in_serial(self: 'TestErrorHandling',) -> None:
         """
-        This test verifies that _execute_local_tasks raises the original exception when
-        the error policy is ABORT and the backend is not MPI (line 673). It creates a
-        serial manager, sets the error policy to 'abort', and calls _execute_local_tasks
-        with a failing function, asserting that a ValueError is raised.
+        This test verifies that the _execute_local_tasks method raises exceptions immediately when the error policy is set to 'abort' in a serial execution context. It defines a `failing_func` that always raises a ValueError, constructs a manager with the 'abort' policy, and asserts that calling _execute_local_tasks with the failing function raises the expected ValueError. This confirms that the local task execution logic correctly implements the 'abort' policy by halting execution and propagating exceptions when a task fails, even in a non-parallel context. 
 
         Parameters:
             None
@@ -125,6 +142,15 @@ class TestErrorHandling:
         manager.set_error_policy('abort')
 
         def failing_func(task: int) -> int:
+            """
+            This function simulates a task that always fails by raising a ValueError. It is used to test the behavior of the _execute_local_tasks method when the error policy is set to 'abort'.
+
+            Parameters:
+                task (int): Input integer to the function.
+
+            Returns:
+                int: This function does not return a value as it always raises an exception.
+            """
             raise ValueError("abort trigger")
 
         with pytest.raises(ValueError, match="abort trigger"):
@@ -185,14 +211,9 @@ class TestStatistics:
         finally:
             sys.stdout = sys.__stdout__
 
-    def test_print_statistics_early_return_when_not_master(
-        self: 'TestStatistics',
-    ) -> None:
+    def test_print_statistics_early_return_when_not_master(self: 'TestStatistics',) -> None:
         """
-        This test verifies that _print_statistics returns immediately without
-        producing any output when is_master is False (line 737). It sets is_master
-        to False on an otherwise valid manager and asserts that stdout remains empty
-        after calling _print_statistics.
+        This test verifies that the _print_statistics method returns immediately without producing output when is_master is False (line 734), even when stats is available. It constructs a manager with is_master=False and assigns a valid ParallelStats object to stats, then captures stdout while calling _print_statistics and asserts that no output is produced. This confirms that the method correctly checks the master status before attempting to print statistics, ensuring that only the master process outputs information in a parallel execution context. 
 
         Parameters:
             None
@@ -217,12 +238,9 @@ class TestStatistics:
 
         assert f.getvalue() == ""
 
-    def test_print_statistics_early_return_when_no_stats(
-        self: 'TestStatistics',
-    ) -> None:
+    def test_print_statistics_early_return_when_no_stats(self: 'TestStatistics',) -> None:
         """
-        This test verifies that _print_statistics returns immediately without
-        producing output when stats is None (line 737), even when is_master is True.
+        This test verifies that the _print_statistics method returns immediately without producing output when stats is None (line 737), even when is_master is True. It constructs a manager with is_master=True and stats=None, then captures stdout while calling _print_statistics and asserts that no output is produced. This confirms that the method correctly checks for the presence of statistics before attempting to print, ensuring that it does not produce output when there are no statistics to display, even on the master process. 
 
         Parameters:
             None
@@ -244,15 +262,9 @@ class TestStatistics:
 
         assert f.getvalue() == ""
 
-    def test_print_statistics_shows_per_worker_times(
-        self: 'TestStatistics',
-    ) -> None:
+    def test_print_statistics_shows_per_worker_times(self: 'TestStatistics',) -> None:
         """
-        This test verifies that _print_statistics prints the per-worker time table
-        and load imbalance line when worker_times contains more than one entry (lines
-        749-752). It constructs a ParallelStats with two worker entries, assigns it
-        to a serial manager with is_master=True and verbose=True, then asserts that
-        stdout contains the expected headers.
+        This test verifies that the _print_statistics method prints the per-worker time table and load imbalance line when worker_times contains more than one entry. It constructs a ParallelStats object with two worker entries, assigns it to a serial manager with is_master=True and verbose=True, then captures stdout while calling _print_statistics and asserts that the output contains the expected headers for per-worker times and load imbalance. This confirms that the method correctly formats and includes detailed timing information when multiple workers are involved, providing users with insights into the performance of individual workers and overall load balance in parallel executions. 
 
         Parameters:
             None
@@ -297,7 +309,17 @@ class TestParallelPlotFunctionModule:
         Returns:
             None
         """
-        def simple_plot(filepath, output_dir=None):
+        def simple_plot(filepath, output_dir=None) -> str:
+            """
+            This function simulates a simple plotting operation for testing purposes. It takes a file path and an optional output directory, and returns a string indicating that the file has been plotted. This function is used in the test to verify that the `parallel_plot` function can execute a user-defined plotting function across multiple files in parallel without raising exceptions.
+
+            Parameters:
+                filepath (str): The path to the input file.
+                output_dir (str, optional): The directory to save the output. Defaults to None.
+
+            Returns:
+                str: A message indicating the file has been plotted.
+            """
             return f"Plotted {filepath}"
         
         files = ['file1.nc', 'file2.nc', 'file3.nc']
@@ -428,8 +450,18 @@ class TestParallelPlotFunctionAdditional:
             pytest.skip("No MPAS output files available")
             return
         
-        def mock_plot_function(filepath, output_dir=None):
-            """Mock plotting function that checks if file exists."""
+        def mock_plot_function(filepath: str, 
+                               output_dir: str = None) -> str:
+            """
+            This mock plotting function simulates the behavior of a real plotting function for testing purposes. It takes a file path and an optional output directory, asserts that the file exists, and returns a string indicating that the file has been plotted. This function is used in the test to verify that the `parallel_plot` function can execute a user-defined plotting function across multiple files in parallel without raising exceptions, while also ensuring that it correctly checks for the existence of input files.
+
+            Parameters:
+                filepath (str): The path to the input file to be plotted.
+                output_dir (str, optional): The directory to save the output. Defaults to None.
+
+            Returns:
+                str: A message indicating the file has been plotted.
+            """
             import os
             assert os.path.exists(filepath), f"File {filepath} should exist"
             return f"Plotted {filepath}"
@@ -452,7 +484,18 @@ class TestParallelPlotFunctionAdditional:
         """
         files = ["file1.nc", "file2.nc", "file3.nc"]
         
-        def failing_plot(filepath, param=None):
+        def failing_plot(filepath: str, 
+                         param: str = None) -> str:
+            """
+            This plotting function simulates a failure for a specific file and success for others. It raises a `ValueError` for "file2.nc" and returns a success message for other files. This function is used to test the error collection mechanism of the `parallel_plot` function.
+
+            Parameters:
+                filepath (str): The path to the input file to be plotted.
+                param (str, optional): An additional parameter for the plotting function. Defaults to None.
+
+            Returns:
+                str: A message indicating the success of the plotting operation.
+            """
             if "file2" in filepath:
                 raise ValueError(f"Cannot plot {filepath}")
             return f"Success: {filepath}"
@@ -478,7 +521,18 @@ class TestParallelPlotFunctionAdditional:
         """
         files = ["test1.nc", "test2.nc"]
         
-        def simple_plot(filepath):
+        def simple_plot(filepath: str, 
+                        output_dir: str = None) -> str:
+            """
+            A simple plotting function that returns the filepath. Used to test `parallel_plot` behavior in worker processes.
+
+            Parameters:
+                filepath (str): The path to the input file to be plotted.
+                output_dir (str, optional): The directory to save the output. Defaults to None.
+
+            Returns:
+                str: The input filepath.
+            """
             return filepath
         
         results = parallel_plot(simple_plot, files)
@@ -503,8 +557,16 @@ class TestWithRealMPASData:
             pytest.skip("No MPAS output files available")
             return
         
-        def load_mpas_file(filepath):
-            """Load MPAS file and return basic info."""
+        def load_mpas_file(filepath: str) -> dict:
+            """
+            This function loads an MPAS file using xarray and extracts basic information about its dimensions and variables. It returns a dictionary containing the file path, dimensions, and variable names. This function is used in the test to verify that the `parallel_map` method can execute a real data processing function across multiple MPAS files in parallel, providing insights into the structure of the data contained within each file. 
+
+            Parameters:
+                filepath (str): The path to the MPAS file.
+
+            Returns:
+                dict: A dictionary containing the file path, dimensions, and variables.
+            """
             import xarray as xr
             ds = xr.open_dataset(filepath)
             info = {
@@ -542,8 +604,17 @@ class TestParallelPlotFunctionComplete:
         """
         files = ["file1.txt", "file2.txt"]
         
-        def counting_plot(filepath, multiplier=1):
-            """Simple plot function for testing."""
+        def counting_plot(filepath: str, multiplier: int = 1) -> int:
+            """
+            This function simulates a plotting operation by returning the length of the file path multiplied by a given multiplier. It is used in the test to verify that the `parallel_plot` function can execute a user-defined plotting function across multiple files in parallel without raising exceptions, while also demonstrating how to pass additional parameters to the plotting function. 
+
+            Parameters:
+                filepath (str): The path to the input file.
+                multiplier (int, optional): A multiplier for the plot. Defaults to 1.
+
+            Returns:
+                int: The length of the filepath multiplied by the multiplier.
+            """
             return len(filepath) * multiplier
         
         results = parallel_plot(counting_plot, files, multiplier=2)
@@ -558,11 +629,7 @@ class TestMainBlock:
 
     def test_main_block_executes_without_error(self: 'TestMainBlock') -> None:
         """
-        This test exercises the if __name__ == '__main__' block in parallel.py (lines
-        806-820) by running the module as __main__ via runpy.run_module. It asserts
-        that no exception is raised during execution, confirming that the demo script
-        within the module is functional and that all referenced objects are correctly
-        resolved at runtime.
+        This test verifies that the `if __name__ == '__main__'` block in the `parallel.py` module executes without raising exceptions. It uses the `runpy` module to run the `parallel` module as if it were executed directly, and asserts that no exceptions are raised during execution. This ensures that any code within the main block, such as example usage or demonstration code, is free of errors and can be executed successfully when the module is run as a script. 
 
         Parameters:
             None

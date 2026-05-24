@@ -780,12 +780,13 @@ class TestProcessSingleTimeStep:
 class TestCreateBatchPrecipitationMaps:
     """ Covers validation raises, early-return, progress prints, and error handling. """
 
-    def test_processor_none_raises(self: 'TestCreateBatchPrecipitationMaps', tmp_path) -> None:
+    def test_processor_none_raises(self: 'TestCreateBatchPrecipitationMaps', 
+                                   tmp_path: 'Path') -> None:
         """
         This test case verifies that when the processor argument is None, the create_batch_precipitation_maps method raises a ValueError indicating that the processor cannot be None. This covers the branch in the method where it checks if the processor is None before attempting to extract coordinates and process time steps, ensuring that it does not proceed with batch processing without a valid processor. The test asserts that a ValueError is raised with the expected message when None is passed as the processor argument. 
 
         Parameters:
-            None
+            tmp_path (Path): A temporary directory provided by pytest for file output.
 
         Returns:
             None
@@ -1159,12 +1160,13 @@ class TestPlotPrecipitationData:
 class TestSavePlot:
     """ Covers no-figure ValueError in save_plot. """
 
-    def test_no_figure_raises(self: 'TestSavePlot', tmp_path) -> None:
+    def test_no_figure_raises(self: 'TestSavePlot', 
+                              tmp_path: 'Path') -> None:
         """
         This test case verifies that when the save_plot method is called without a figure being set (i.e., self.fig is None), it raises a ValueError indicating that there is no figure to save. This covers the branch in the method where it checks if self.fig is None before attempting to save, ensuring that it does not proceed with saving when there is no figure available. The test creates an instance of MPASPrecipitationPlotter without setting a figure, then calls the save_plot method and asserts that a ValueError is raised with the expected message, confirming that the method correctly handles cases where there is no figure to save.  
 
         Parameters:
-            None
+            tmp_path (Path): A temporary directory provided by pytest for file output.
 
         Returns:
             None

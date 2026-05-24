@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Tests for Precipitation Plotter 
 
@@ -39,17 +40,18 @@ class TestUnitConversion:
     """ Tests for unit conversion and metadata handling. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestUnitConversion', mpas_coordinates, mpas_precip_data) -> None:
+    def setup_method(self: 'TestUnitConversion', 
+                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
+                     mpas_precip_data: np.ndarray) -> None:
         """
         This fixture sets up the test environment for unit conversion tests by initializing the `MPASPrecipitationPlotter` and loading real MPAS coordinates and precipitation data. The fixture checks for the availability of the required data and skips tests if the data is not present. It prepares a subset of longitude, latitude, and precipitation arrays for use in subsequent tests that validate unit conversion handling in the plotter.
 
         Parameters:
-            self (TestUnitConversion): Test case instance.
             mpas_coordinates: Session fixture providing real MPAS longitude and latitude arrays.
             mpas_precip_data: Session fixture providing real MPAS precipitation data.
 
         Returns:
-            None: The fixture sets up instance attributes for use in tests.
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -66,10 +68,10 @@ class TestUnitConversion:
         This test verifies that the `create_precipitation_map` function can handle an `xarray.DataArray` with appropriate metadata for unit conversion. The test constructs a DataArray with 'units' and 'long_name' attributes and passes it to the plotting function. The plotter should recognize the metadata, perform any necessary unit conversions, and produce a valid figure. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestUnitConversion'): Test case instance.
+            None
 
         Returns:
-            None: Assertions verify returned figure type and successful cleanup.
+            None
         """
         data_array = xr.DataArray(
             self.precip,
@@ -91,10 +93,10 @@ class TestUnitConversion:
         This test checks the behavior of the `create_precipitation_map` function when a provided `data_array` is missing expected attributes for unit conversion. The plotter should handle this gracefully, either by proceeding without conversion or by raising a clear warning. The test uses a mock DataArray without 'units' or 'long_name' attributes and asserts that a Figure is still produced without errors. This ensures that the plotting function is robust to incomplete metadata and can still render a map using raw data arrays.
 
         Parameters:
-            self ('TestUnitConversion'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that the plotting function still produces a Figure.
+            None
         """
         mock_data_array = Mock()
         mock_data_array.attrs = {}
@@ -113,10 +115,10 @@ class TestUnitConversion:
         This test validates that the `create_precipitation_map` function can operate without a provided `data_array` and still produce a valid figure. The plotter should be able to handle raw longitude, latitude, and precipitation arrays without relying on xarray metadata for unit conversion. The test asserts that a Figure is returned successfully, confirming that the plotting function is flexible in its input handling and can render maps even when no DataArray is supplied.
 
         Parameters:
-            self ('TestUnitConversion'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that plotting proceeds without a data_array.
+            None
         """
         fig, ax = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
@@ -136,10 +138,10 @@ class TestPlotExtent:
         This fixture sets up the test environment for plot extent handling tests by initializing the `MPASPrecipitationPlotter`. It prepares the plotter instance for use in subsequent tests that validate the handling of longitude and latitude ranges when creating precipitation maps. The fixture does not load any data, as the extent tests focus on input validation and plotting behavior rather than data content.
 
         Parameters:
-            self ('TestPlotExtent'): Test case instance.
+            None
 
         Returns:
-            None: The fixture initializes the plotter for use in extent tests.
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
     
@@ -149,10 +151,10 @@ class TestPlotExtent:
         This test validates that the `create_precipitation_map` function can successfully create a global precipitation map when provided with longitude and latitude arrays that cover the entire globe. The plotter should handle the full range of longitude (-180 to 180) and latitude (-90 to 90) without errors and produce a valid Figure for visualization. This confirms that the plotter can render global maps correctly. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestPlotExtent'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate returned figure type and cleanup.
+            None
         """
         lon = np.linspace(-180, 180, 200)
         lat = np.linspace(-90, 90, 200)
@@ -171,10 +173,10 @@ class TestPlotExtent:
         This test validates that the `create_precipitation_map` function can successfully create a regional precipitation map when provided with longitude and latitude arrays that cover a specific area. The plotter should handle the specified longitude and latitude ranges without errors and produce a valid Figure for visualization. This confirms that the plotter can render regional maps correctly. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestPlotExtent'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate regional plotting produces a Figure.
+            None
         """
         lon = np.linspace(-100, -90, 50)
         lat = np.linspace(30, 40, 50)
@@ -193,15 +195,18 @@ class TestContourfPlotting:
     """ Tests for contourf plotting and interpolation. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self : 'TestContourfPlotting', mpas_coordinates, mpas_precip_data) -> None:
+    def setup_method(self : 'TestContourfPlotting', 
+                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
+                     mpas_precip_data: np.ndarray) -> None:
         """
         This fixture sets up the test environment for contourf plotting tests by initializing the `MPASPrecipitationPlotter` and loading real MPAS coordinates and precipitation data. It checks for the availability of the required data and skips tests if the data is not present. The fixture prepares a subset of longitude, latitude, and precipitation arrays for use in subsequent tests that validate contourf plotting behavior, grid resolution handling, and error handling for invalid plot types.
 
         Parameters:
-            self ('TestContourfPlotting'): Test case instance.
+            mpas_coordinates: Session fixture providing real MPAS longitude and latitude arrays.
+            mpas_precip_data: Session fixture providing real MPAS precipitation data.
 
         Returns:
-            None: The fixture initializes instance attributes for use in contourf plotting tests.
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -218,10 +223,10 @@ class TestContourfPlotting:
         This test verifies that the `create_precipitation_map` function can successfully create a contourf plot when the `plot_type` parameter is set to 'contourf'. The plotter should produce a valid Figure for visualization without errors. This confirms that the contourf plotting code path is functional and can handle typical input data. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestContourfPlotting'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies a Figure is produced.
+            None
         """
         config = {
             'remap_engine': 'kdtree',
@@ -243,10 +248,10 @@ class TestContourfPlotting:
         This test validates that the `create_precipitation_map` function can create a contourf plot using an automatically determined grid resolution when the `grid_resolution` parameter is not explicitly provided. The plotter should compute an appropriate resolution based on the input data and produce a valid Figure for visualization. This ensures that the plotter can handle contourf plotting without requiring users to specify grid resolution, providing a more user-friendly experience. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestContourfPlotting'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies figure creation and cleanup.
+            None
         """
         config = {
             'remap_engine': 'kdtree',
@@ -268,10 +273,10 @@ class TestContourfPlotting:
         This test validates that the `create_precipitation_map` function can create a contourf plot using a custom grid resolution when the `grid_resolution` parameter is explicitly provided. The plotter should use the specified resolution for interpolation and produce a valid Figure for visualization. This confirms that users can control the level of detail in contourf plots by adjusting the grid resolution. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestContourfPlotting'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies returned Figure is created and cleaned up.
+            None
         """
         config = {
             'remap_engine': 'kdtree',
@@ -299,10 +304,10 @@ class TestBatchProcessing:
         This fixture sets up the test environment for batch processing tests by initializing the `MPASPrecipitationPlotter` and creating a temporary directory for output files. The fixture yields control to the test functions and ensures that the temporary directory is cleaned up after tests complete. This setup allows batch processing tests to write output files without affecting the actual filesystem and ensures that any generated files are removed after testing.
 
         Parameters:
-            self ('TestBatchProcessing'): Test case instance.
+            None
 
         Returns:
-            None: The fixture manages setup and teardown for batch processing tests.
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
         self.temp_dir = tempfile.mkdtemp()
@@ -317,10 +322,10 @@ class TestBatchProcessing:
         This test validates the end-to-end workflow of the `create_batch_precipitation_maps` function using a mock processor with a loaded dataset. The test simulates a realistic scenario where the processor has an xarray dataset with precipitation data and coordinates. The batch processing function should create precipitation maps for specified time indices and save them to the temporary directory. The test asserts that output files are created successfully, confirming that the batch processing workflow operates as intended.
 
         Parameters:
-            self ('TestBatchProcessing'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate produced files exist.
+            None
         """
         mock_processor = Mock()
         times = pd.date_range('2025-01-01', periods=5, freq='h')
@@ -355,17 +360,18 @@ class TestComparisonPlot:
     """ Tests for precipitation comparison plots. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestComparisonPlot', mpas_coordinates, mpas_precip_data) -> None:
+    def setup_method(self: 'TestComparisonPlot', 
+                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
+                     mpas_precip_data: np.ndarray) -> None:
         """
         This fixture sets up the test environment for precipitation comparison plot tests by initializing the `MPASPrecipitationPlotter` and loading real MPAS coordinates and precipitation data. It checks for the availability of the required data and skips tests if the data is not present. The fixture prepares subsets of longitude, latitude, and two different precipitation arrays for use in subsequent tests that validate the creation of comparison plots, including handling of custom titles and multi-panel layouts.
 
         Parameters:
-            self ('TestComparisonPlot'): Test case instance.
             mpas_coordinates: Session fixture providing real MPAS longitude and latitude arrays.
             mpas_precip_data: Session fixture providing real MPAS precipitation data.
 
         Returns:
-            None: The fixture initializes instance attributes for use in comparison plot tests.
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -383,10 +389,10 @@ class TestComparisonPlot:
         This test validates that the `create_precipitation_comparison_plot` function can successfully create a comparison plot with two subplots when provided with two different precipitation datasets. The plotter should produce a valid Figure containing two Axes for side-by-side comparison of the datasets. This confirms that the comparison plotting code path is functional and can handle typical input data for both subplots. The test asserts that a Figure is returned and that it contains two Axes, then closes the figure to clean up resources.
 
         Parameters:
-            self ('TestComparisonPlot'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies Figure and two Axes are returned.
+            None
         """
         fig, axes = self.plotter.create_precipitation_comparison_plot(
             self.lon, self.lat,
@@ -403,10 +409,10 @@ class TestComparisonPlot:
         This test validates that the `create_precipitation_comparison_plot` function can successfully create a comparison plot with custom titles for each subplot. The plotter should accept the `title1` and `title2` parameters and apply them to the respective subplots without errors. This confirms that users can customize subplot titles in comparison plots for clearer communication of the datasets being compared. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestComparisonPlot'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies plotting with custom titles succeeds.
+            None
         """
         fig, axes = self.plotter.create_precipitation_comparison_plot(
             self.lon, self.lat,
@@ -429,7 +435,7 @@ class TestSavePlot:
         This fixture sets up the test environment for plot saving tests by initializing the `MPASPrecipitationPlotter` and creating a temporary directory for output files. The fixture yields control to the test functions and ensures that the temporary directory is cleaned up after tests complete. This setup allows plot saving tests to write output files without affecting the actual filesystem and ensures that any generated files are removed after testing.
 
         Parameters:
-            self ('TestSavePlot'): Test case instance.
+            None
 
         Returns:
             Generator[None, None, None]: The fixture manages setup and teardown for plot saving tests.
@@ -442,17 +448,18 @@ class TestSavePlot:
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
     
-    def test_save_plot_creates_directory(self: 'TestSavePlot', mpas_coordinates, mpas_precip_data) -> None:
+    def test_save_plot_creates_directory(self: 'TestSavePlot', 
+                                         mpas_coordinates: tuple[np.ndarray, np.ndarray], 
+                                         mpas_precip_data: np.ndarray) -> None:
         """
         This test validates that the `save_plot` function can successfully create necessary directories when saving a plot to a specified path. The plotter should check if the target directory exists and create it if it does not before saving the figure. This ensures that users can specify nested output paths without needing to manually create directories beforehand. The test asserts that the output file is created successfully at the specified path, confirming that directory handling and file saving work as intended.
 
         Parameters:
-            self ('TestSavePlot'): Test case instance.
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             mpas_precip_data: Session fixture providing real precipitation data.
 
         Returns:
-            None: Assertions validate output file creation and directory handling.
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -481,17 +488,18 @@ class TestTimestampHandling:
     """ Tests for timestamp and accumulation period handling. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestTimestampHandling', mpas_coordinates, mpas_precip_data) -> None:
+    def setup_method(self: 'TestTimestampHandling', 
+                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
+                     mpas_precip_data: np.ndarray) -> None:
         """
         This fixture sets up the test environment for timestamp handling tests by initializing the `MPASPrecipitationPlotter` and loading real MPAS coordinates and precipitation data. It checks for the availability of the required data and skips tests if the data is not present. The fixture prepares subsets of longitude, latitude, and precipitation arrays for use in subsequent tests that validate the handling of time_end and time_start parameters when creating precipitation maps with specific accumulation periods. The tests will cover scenarios where only time_end is provided (requiring inference of time_start) and where both time_end and time_start are explicitly provided, ensuring that the plotter correctly computes the accumulation window and produces valid figures for both cases.
 
         Parameters:
-            self ('TestTimestampHandling'): Test case instance.
             mpas_coordinates: Session fixture providing real MPAS longitude and latitude arrays.
             mpas_precip_data: Session fixture providing real MPAS precipitation data.
         
         Returns:
-            None: The fixture initializes instance attributes for use in timestamp handling tests.
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -508,10 +516,10 @@ class TestTimestampHandling:
         This test validates that the `create_precipitation_map` function can successfully create a precipitation map when only the `time_end` parameter is provided along with an accumulation period. The plotter should infer the appropriate `time_start` based on the specified `accum_period` and produce a valid Figure for visualization. This ensures that users can create accumulated precipitation maps by providing just the end time, simplifying the interface for common use cases. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestTimestampHandling'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies plotting for inferred start time.
+            None
         """
         time_end = datetime(2025, 1, 15, 12, 0)
         
@@ -530,10 +538,10 @@ class TestTimestampHandling:
         This test validates that the `create_precipitation_map` function can successfully create a precipitation map when both `time_start` and `time_end` parameters are provided. The plotter should honor the specified interval and produce a valid Figure for visualization. This ensures that users can create accumulated precipitation maps for explicit time ranges. The test asserts that a Figure is returned and closes it to clean up resources.
 
         Parameters:
-            self ('TestTimestampHandling'): Test case instance.
+            None
 
         Returns:
-            None: Assertion validates plotting for explicit time ranges.
+            None
         """
         time_end = datetime(2025, 1, 15, 12, 0)
         time_start = datetime(2025, 1, 15, 6, 0)
@@ -553,15 +561,16 @@ class TestEdgeCases:
     """ Tests for edge cases and special scenarios. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestEdgeCases', mpas_coordinates) -> None:
+    def setup_method(self: 'TestEdgeCases', 
+                     mpas_coordinates: tuple[np.ndarray, np.ndarray]) -> None:
         """
         This fixture sets up the test environment for edge case tests by initializing the `MPASPrecipitationPlotter` and loading real MPAS coordinates. It checks for the availability of the required data and skips tests if the data is not present. The fixture prepares subsets of longitude and latitude arrays for use in subsequent tests that validate the behavior of the plotter when handling edge cases such as empty or NaN-filled precipitation data, extreme values, and dynamic tick formatting. This setup ensures that the edge case tests have access to realistic coordinate data while focusing on testing the plotter's robustness in handling unusual input scenarios.
 
         Parameters:
-            self ('TestEdgeCases'): Test case instance.
+            mpas_coordinates: Session fixture providing real MPAS longitude and latitude arrays.
 
         Returns:
-            None: The fixture initializes instance attributes for use in edge case tests.
+            None
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
@@ -577,10 +586,10 @@ class TestEdgeCases:
         This test validates the behavior of the `create_precipitation_map` function when provided with an input array that is entirely filled with NaN values. The plotter should handle this edge case gracefully, either by producing an empty plot or by displaying a message indicating that no valid data is available. The test asserts that a Figure is returned without errors, confirming that the plotter can manage cases where precipitation data is missing or invalid without crashing.
 
         Parameters:
-            self ('TestEdgeCases'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies a Figure is returned for all-NaN inputs.
+            None
         """
         nan_data = np.full(50, np.nan)
         
@@ -599,10 +608,10 @@ class TestEdgeCases:
         This test validates the behavior of the `create_precipitation_map` function when provided with precipitation data containing extreme values (e.g., very high or very low precipitation). The plotter should be able to handle these values without crashing and should produce a valid Figure that appropriately represents the data, potentially using a colormap that can accommodate the range of values. The test asserts that a Figure is returned without errors, confirming that the plotter can manage cases with extreme precipitation values effectively.
 
         Parameters:
-            self ('TestEdgeCases'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies plotting completes for extreme values.
+            None
         """
         extreme_data = np.array([0, 0.01, 1, 100, 1000, 10000])
         extreme_lon = np.linspace(-110, -100, 6)
@@ -627,10 +636,10 @@ class TestPrepareOverlayData:
         This fixture sets up the test environment for testing the `_prepare_overlay_data` method by initializing an instance of `MPASPrecipitationPlotter`. The method being tested is responsible for preparing data for overlay plots, including handling unit conversions, clipping negative values, and applying bounds filtering. The fixture ensures that a plotter instance is available for all tests in this class, allowing them to focus on validating the specific behaviors of the `_prepare_overlay_data` method under various input scenarios.
 
         Parameters:
-            self ('TestPrepareOverlayData'): Test case instance.
+            None
 
         Returns:
-            None: The fixture initializes the plotter for use in overlay data preparation tests.
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
 
@@ -639,10 +648,10 @@ class TestPrepareOverlayData:
         This test verifies that negative precipitation values are correctly clipped to 0 and that a warning is issued when such values are encountered. The test generates a set of longitude, latitude, and precipitation data, including negative values, and checks that the resulting prepared data contains no negative values. It also captures the standard output to ensure that a warning message about negative values is printed.
 
         Parameters:
-            self ('TestPrepareOverlayData'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that negative values are clipped and warnings are issued.
+            None
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
@@ -662,10 +671,10 @@ class TestPrepareOverlayData:
         This test verifies that when the original units of the data differ from the display units, a conversion is attempted. It generates a set of longitude, latitude, and precipitation data, and checks that the resulting prepared data is valid after conversion.
 
         Parameters:
-            self ('TestPrepareOverlayData'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that data conversion is attempted and results are valid.
+            None
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
@@ -683,10 +692,10 @@ class TestPrepareOverlayData:
         This test verifies that when the mean of the data is unusually high and no original units are provided, a warning about potential unit issues is issued. It generates a set of longitude, latitude, and precipitation data with high values and checks that the warning message is printed.
 
         Parameters:
-            self ('TestPrepareOverlayData'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that a warning is issued for high mean values without original units.
+            None
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
@@ -705,10 +714,10 @@ class TestPrepareOverlayData:
         This test verifies that the contour plot type uses a simpler mask than the scatter plot type, specifically without bounds filtering. It generates a set of longitude, latitude, and precipitation data, and checks that both scatter and contour plots return valid data.
 
         Parameters:
-            self ('TestPrepareOverlayData'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that both scatter and contour plots return valid data.
+            None
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
@@ -730,10 +739,10 @@ class TestContourPlotCreation:
         This fixture sets up the test environment for contour plot creation tests by initializing an instance of `MPASPrecipitationPlotter` and creating a figure and axes with a PlateCarree projection. The fixture prepares the plotter instance and axes for use in subsequent tests that validate the functionality of the `_create_contour_plot` and `_create_contourf_plot` methods, which are responsible for rendering contour lines and filled contours on the map. This setup ensures that the contour plot creation tests have a consistent plotting environment to work with.
 
         Parameters:
-            self ('TestContourPlotCreation'): Test case instance.
+            None
 
         Returns:
-            None: The fixture initializes the plotter and axes for contour plot tests.
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
         self.plotter.fig = plt.figure(figsize=(10, 8))
@@ -744,10 +753,10 @@ class TestContourPlotCreation:
         This method is called after each test in the `TestContourPlotCreation` class to close all figures and clean up resources. It ensures that any figures created during the tests are properly closed to prevent memory leaks and to maintain a clean testing environment for subsequent tests.
 
         Parameters:
-            self ('TestContourPlotCreation'): Test case instance.
+            None
 
         Returns:
-            None: Figures are closed.
+            None
         """
         plt.close('all')
 
@@ -757,10 +766,10 @@ class TestContourPlotCreation:
         This test validates that the `_create_contourf_plot` method can successfully create filled contours on the map when provided with longitude, latitude, and data arrays. The test generates synthetic data for testing and checks that the method executes without errors, confirming that the filled contour plotting logic is functional. The test uses mocking to bypass the interpolation step, allowing it to focus on the filled contour creation aspect. Assertions ensure that no exceptions are raised during the filled contour plot creation process.
 
         Parameters:
-            self ('TestContourPlotCreation'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that filled contours are drawn.
+            None
         """
         n = 100
         lon = np.linspace(-110, -100, n)
@@ -791,10 +800,10 @@ class TestAddPrecipitationOverlay:
         This fixture sets up the test environment for testing the `add_precipitation_overlay` method by initializing an instance of `MPASPrecipitationPlotter`, creating a figure and axes with a PlateCarree projection, and preparing longitude and latitude arrays. The fixture ensures that a consistent plotting environment is available for all tests in this class, allowing them to focus on validating the functionality of the `add_precipitation_overlay` method under various input scenarios, including different plot types, data conditions, and configuration settings.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Plotter and axes are created.
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
         self.fig = plt.figure(figsize=(10, 8))
@@ -807,10 +816,10 @@ class TestAddPrecipitationOverlay:
         This method is called after each test in the `TestAddPrecipitationOverlay` class to close all figures and clean up resources. It ensures that any figures created during the tests are properly closed to prevent memory leaks and to maintain a clean testing environment for subsequent tests.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Figures are closed.
+            None
         """
         plt.close('all')
 
@@ -819,10 +828,10 @@ class TestAddPrecipitationOverlay:
         This test validates that the `add_precipitation_overlay` method can successfully add a scatter overlay to the map when provided with appropriate configuration and data. The test generates synthetic precipitation data and checks that the method executes without errors, confirming that the scatter overlay logic is functional. The test captures standard output to verify that the method processes the scatter plot type correctly.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that scatter overlay is rendered.
+            None
         """
         config = {
             'data': np.random.uniform(0, 5, 100),
@@ -847,10 +856,10 @@ class TestAddPrecipitationOverlay:
         This test validates that the `add_precipitation_overlay` method prints a warning and returns without rendering when all data values are NaN. The test provides a configuration with all-NaN data and checks that the appropriate warning is printed, confirming that the method correctly handles cases with no valid data.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that warning is printed for all-NaN data.
+            None
         """
         config = {
             'data': np.full(100, np.nan),
@@ -862,17 +871,17 @@ class TestAddPrecipitationOverlay:
         with patch('sys.stdout', captured):
             self.plotter.add_precipitation_overlay(self.ax, self.lon, self.lat, config)
 
-        assert 'Warning' in captured.getvalue()
+        assert 'No valid precipitation overlay data' in captured.getvalue()
 
     def test_overlay_contourf_with_remap(self: 'TestAddPrecipitationOverlay') -> None:
         """
         This test validates that when a contourf overlay is added, the method attempts to remap the data to a lat/lon grid. The test mocks the remapping function to return a predefined remapped dataset and checks that the contourf plotting logic is executed without errors. This ensures that the method correctly integrates remapping into the contourf overlay creation process.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that contourf overlay uses remapping path.
+            None
         """
         config = {
             'data': np.random.uniform(0, 5, 100),
@@ -903,10 +912,10 @@ class TestAddPrecipitationOverlay:
         This test validates that when no explicit bounds are provided in the configuration for a scatter overlay, the method uses the data bounds to determine which points to plot. The test generates synthetic precipitation data and checks that the method executes without errors, confirming that it can handle cases where bounds are not specified by relying on the data values.
 
         Parameters:
-            self ('TestAddPrecipitationOverlay'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that data bounds are used when none are provided.
+            None
         """
         config = {
             'data': np.random.uniform(0, 5, 100),
@@ -930,23 +939,23 @@ class TestPrecipitationOverlayEdgeCases:
         This method is called before each test in the `TestPrecipitationOverlayEdgeCases` class to initialize an instance of `MPASPrecipitationPlotter`. The method ensures that a fresh plotter instance is available for each test, allowing them to focus on validating the specific behaviors of the `_prepare_overlay_data` method under various input scenarios, including handling of negative precipitation values, cases with no valid data points, unit conversion attempts, and support for xarray DataArray inputs. This setup is essential for testing the robustness and correctness of the overlay data preparation logic in the precipitation plotter.
 
         Parameters:
-            self ('TestPrecipitationOverlayEdgeCases'): Test case instance. 
+            None
 
         Returns:
-            None: The method initializes the plotter for use in overlay data preparation tests.  
+            None
         """
         self.plotter = MPASPrecipitationPlotter()
 
-    def test_prepare_overlay_data_negative_clipping(self: 'TestPrecipitationOverlayEdgeCases', capsys) -> None:
+    def test_prepare_overlay_data_negative_clipping(self: 'TestPrecipitationOverlayEdgeCases', 
+                                                    capsys: 'pytest.CaptureFixture') -> None:
         """
         This test verifies that the `_prepare_overlay_data` method correctly clips negative precipitation values to 0 and prints a warning when such values are encountered. It checks that the output data contains no negative values and that a warning message is printed, confirming that the method handles negative precipitation values appropriately.
 
         Parameters:
-            self ('TestPrecipitationOverlayEdgeCases'): Test case instance.
             capsys: Pytest fixture to capture stdout and stderr.
 
         Returns:
-            None: Assertions validate that negative values are clipped and a warning is printed.
+            None
         """
         lon = np.random.uniform(-110, -100, 50)
         lat = np.random.uniform(30, 40, 50)
@@ -962,16 +971,16 @@ class TestPrecipitationOverlayEdgeCases:
             assert np.all(precip_valid >= 0)
 
 
-    def test_prepare_overlay_data_with_unit_conversion(self: 'TestPrecipitationOverlayEdgeCases', capsys) -> None:
+    def test_prepare_overlay_data_with_unit_conversion(self: 'TestPrecipitationOverlayEdgeCases', 
+                                                       capsys: 'pytest.CaptureFixture') -> None:
         """
         This test verifies that the `_prepare_overlay_data` method attempts unit conversion when the original_units parameter differs from the expected units. It ensures that the method correctly handles unit conversion scenarios and produces valid output data.
 
         Parameters:
-            self ('TestPrecipitationOverlayEdgeCases'): Test case instance.
             capsys: Pytest fixture to capture stdout and stderr.
 
         Returns:
-            None: Assertions validate that unit conversion is attempted and output data is valid.
+            None
         """
         lon = np.random.uniform(-110, -100, 50)
         lat = np.random.uniform(30, 40, 50)
@@ -990,10 +999,10 @@ class TestPrecipitationOverlayEdgeCases:
         This test verifies that the `_prepare_overlay_data` method correctly handles `xr.DataArray` inputs. It ensures that the method can process xarray data structures and produce valid output data.
 
         Parameters:
-            self ('TestPrecipitationOverlayEdgeCases'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate that output data is valid when using xarray inputs.
+            None
         """
         lon = xr.DataArray(np.random.uniform(-110, -100, 50))
         lat = xr.DataArray(np.random.uniform(30, 40, 50))
@@ -1013,46 +1022,64 @@ class TestPrecipitationPlotterHelpers:
 
     @pytest.fixture(autouse=True)
     def setup_plotter(self: 'TestPrecipitationPlotterHelpers') -> Generator[None, None, None]:
+        """
+        This fixture sets up the test environment for testing helper methods in the `MPASPrecipitationPlotter` class by initializing an instance of the plotter before each test and ensuring that all figures are closed after each test to clean up resources. The fixture allows tests to focus on validating specific helper methods without worrying about plotter initialization or resource management, providing a consistent and isolated environment for testing utility functions.
+
+        Parameters:
+            None
+
+        Returns:
+            Generator[None, None, None]: The fixture manages setup and teardown for helper method tests.
+        """
         self.plotter = MPASPrecipitationPlotter()
         yield
         plt.close('all')
 
-    # ------------------------------------------------------------------ #
-    #  create_precip_colormap                                              #
-    # ------------------------------------------------------------------ #
-
-
     @pytest.mark.parametrize("accum", ["a01h", "a03h", "a06h", "a12h", "a24h"])
-    def test_create_precip_colormap_all_periods(self: 'TestPrecipitationPlotterHelpers', accum: str) -> None:
+    def test_create_precip_colormap_all_periods(self: 'TestPrecipitationPlotterHelpers', 
+                                                accum: str) -> None:
+        """
+        This test validates that the `create_precip_colormap` method can successfully create a colormap and levels for a range of accumulation periods. The test iterates over common accumulation period strings (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') and checks that the method returns a valid colormap and finite levels for each case. This ensures that the plotter can handle different accumulation periods correctly when generating precipitation colormaps.
+
+        Parameters:
+            accum: A string representing the accumulation period (e.g., 'a01h', 'a03h', etc.).
+
+        Returns:
+            None
+        """
         cmap, levels = self.plotter.create_precip_colormap(accum)
         assert cmap is not None
         assert all(np.isfinite(v) for v in levels)
 
-    # ------------------------------------------------------------------ #
-    #  _convert_precipitation_units                                        #
-    # ------------------------------------------------------------------ #
-
-
     def test_convert_precip_units_xarray_input(self: 'TestPrecipitationPlotterHelpers') -> None:
+        """
+        This test validates that the `_convert_precipitation_units` method can successfully handle `xr.DataArray` inputs for unit conversion. It creates a sample `DataArray` with precipitation data and associated attributes, then checks that the method returns a valid output array and unit string. This ensures that the plotter's unit conversion logic can process xarray data structures correctly.  
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         data = np.array([0.5, 1.0, 1.5])
         da = xr.DataArray(data, attrs={'units': 'mm', 'long_name': 'Rain'})
         out, unit = self.plotter._convert_precipitation_units(data, da, 'rainnc')
         assert isinstance(out, np.ndarray)
 
     def test_convert_precip_units_negative_clipped(self: 'TestPrecipitationPlotterHelpers') -> None:
+        """
+        This test validates that the `_convert_precipitation_units` method correctly clips negative precipitation values to 0 and issues a warning when such values are encountered. It creates a sample `DataArray` with negative precipitation values and checks that the output array contains no negative values, confirming that the method handles negative precipitation appropriately. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         data = np.array([-0.5, 1.0, 2.0])
         da = xr.DataArray(data, attrs={'units': 'mm', 'long_name': 'Rain'})
         out, _ = self.plotter._convert_precipitation_units(data, da, 'rainnc')
         assert np.all(out >= 0)
-
-    # ------------------------------------------------------------------ #
-    #  _setup_overlay_colormap                                             #
-    # ------------------------------------------------------------------ #
-
-
-    # ------------------------------------------------------------------ #
-    #  _calculate_overlay_grid_resolution                                  #
-    # ------------------------------------------------------------------ #
 
 
 if __name__ == '__main__':

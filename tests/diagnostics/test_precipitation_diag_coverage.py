@@ -399,7 +399,6 @@ class TestHandleFirstTimeStep:
 
         output = captured.getvalue()
 
-        assert "Warning" in output
         assert "lookback" in output.lower() or "zero" in output.lower()
         assert isinstance(result, xr.DataArray)
 
@@ -509,7 +508,7 @@ class TestPrintCurrentPreviousComparison:
         with patch("sys.stdout", new=captured):
             diag_v._print_current_previous_comparison(current, previous, "test")
 
-        assert "WARNING" in captured.getvalue()
+        assert "possible data loading issue" in captured.getvalue()
 
     def test_exception_in_min_max_prints_error(self: 'TestPrintCurrentPreviousComparison', 
                                                diag_v: 'PrecipitationDiagnostics') -> None:

@@ -16,6 +16,10 @@ import yaml
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class MPASConfig:
@@ -65,6 +69,8 @@ class MPASConfig:
     batch_mode: bool = False
     verbose: bool = True
     quiet: bool = False
+    log_level: Optional[str] = None
+    log_file: Optional[str] = None
     
     chunk_size: int = 100000
     parallel: bool = False
@@ -126,6 +132,30 @@ class MPASConfig:
             raise ValueError("Invalid spatial extent parameters")
 
         self._validate_remap_settings()
+        self._validate_log_level()
+
+    def _validate_log_level(self: 'MPASConfig') -> None:
+        """
+        This method validates the log_level parameter of the configuration. It checks if log_level is None, in which case it simply returns without performing any validation (as it may be unspecified). If log_level is specified, it converts it to uppercase (if it's a string) and checks if it is one of the allowed log levels: "DEBUG", "INFO", "WARNING", or "ERROR". If the provided log_level is not valid, it raises a ValueError with a message indicating the invalid value and the allowed options. If the log_level is valid, it updates the log_level attribute to the uppercase version for consistency. This validation ensures that any logging operations using this configuration will have a valid log level set, preventing potential issues with logging output.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        if self.log_level is None:
+            return
+        
+        allowed = {"DEBUG", "INFO", "WARNING", "ERROR"}
+        level = self.log_level.upper() if isinstance(self.log_level, str) else None
+
+        if level not in allowed:
+            raise ValueError(
+                f"Invalid log_level '{self.log_level}'. Must be one of: {sorted(allowed)}"
+            )
+        
+        self.log_level = level
     
     def _validate_spatial_extent(self: 'MPASConfig') -> bool:
         """
@@ -237,7 +267,7 @@ class MPASConfig:
         with open(filepath, 'w') as yaml_file:
             yaml.dump(config_dict, yaml_file, default_flow_style=False, indent=2)
         
-        print(f"Configuration saved to: {filepath}")
+        logger.info("Configuration saved to: %s", filepath)
     
     @classmethod
     def load_from_file(cls: 'MPASConfig', 

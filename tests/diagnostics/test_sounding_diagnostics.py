@@ -328,7 +328,7 @@ class TestExtractSoundingProfile:
     def test_verbose_output(self: 'TestExtractSoundingProfile', 
                             diag_verbose: 'SoundingDiagnostics', 
                             mock_processor: 'MPAS3DProcessor', 
-                            capsys) -> None:
+                            capsys: 'pytest.CaptureFixture') -> None:
         """
         This test verifies that the extract_sounding_profile method produces verbose output when the diagnostics instance is initialized with verbose mode enabled. The method is called with a mock processor and specific coordinates, and the test captures the standard output using the capsys fixture. The test asserts that the captured output contains specific strings indicating that the nearest cell was found and that the sounding profile was extracted, confirming that the verbose mode is functioning correctly and providing useful information during execution. 
 
@@ -359,6 +359,7 @@ class TestEdgeCases:
         Parameters:
             diag (SoundingDiagnostics): An instance of the SoundingDiagnostics class.
             tmp_path: A pytest fixture providing a temporary directory for file operations.
+            mock_processor: A mock processor object to simulate data extraction.
 
         Returns:
             None
@@ -404,7 +405,8 @@ class TestEdgeCases:
         Parameters:
             diag (SoundingDiagnostics): An instance of the SoundingDiagnostics class.
             tmp_path: A pytest fixture providing a temporary directory for file operations.
-
+            mock_processor: A mock processor object to simulate data extraction.
+            
         Returns:
             None
         """

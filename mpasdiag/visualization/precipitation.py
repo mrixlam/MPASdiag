@@ -33,6 +33,7 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
 from ..processing.utils_unit import UnitConverter
+from ..processing.utils_logger import get_logger
 from ..diagnostics.precipitation import PrecipitationDiagnostics
 
 # Import remapping utilities and check for ESMPy availability
@@ -41,6 +42,8 @@ from ..processing.remapping import (
     dispatch_remap,
     ESMPY_AVAILABLE,
 )
+
+logger = get_logger(__name__)
 
 # Filter warnings from cartopy and shapely to avoid cluttering output with non-critical warnings during map rendering
 warnings.filterwarnings('ignore', category=UserWarning, module='cartopy')
@@ -134,7 +137,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to ensure physical validity for precipitation fields
         if n_negative > 0:
-            print(f"Warning: Found {n_negative:,} negative precipitation values (min: {np.nanmin(precip_data):.4f}). Clipping to 0 (physically invalid).")
+            logger.warning(
+                "Found %s negative precipitation values (min: %.4f). Clipping to 0 (physically invalid).",
+                f"{n_negative:,}", float(np.nanmin(precip_data)),
+            )
             precip_data = np.clip(precip_data, 0, None)
         
         # Extract unit label for colorbar annotation, defaulting to 'mm' if not available
@@ -185,7 +191,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
             # Set global extent with slight adjustment to avoid dateline issues, ensuring proper rendering of global maps without artifacts
             self.ax.set_extent([adjusted_lon_min, adjusted_lon_max, adjusted_lat_min, adjusted_lat_max], crs=data_crs)
-            print(f"Using global extent (adjusted to avoid dateline): [{adjusted_lon_min}, {adjusted_lon_max}, {adjusted_lat_min}, {adjusted_lat_max}]")
+            logger.debug(
+                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
+                adjusted_lon_min, adjusted_lon_max, adjusted_lat_min, adjusted_lat_max,
+            )
         else:
             # Set extent for regional maps, ensuring it is within valid ranges and properly ordered
             self.ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
@@ -448,8 +457,11 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         
         # Handle empty data case (all-NaN or no valid points)
         if len(precip_valid) > 0:
-            print(f"Plotting {len(precip_valid):,} precipitation points for {var_name}")
-            print(f"Precipitation range: {precip_valid.min():.3f} to {precip_valid.max():.3f} {unit_label}")
+            logger.info("Plotting %s precipitation points for %s", f"{len(precip_valid):,}", var_name)
+            logger.debug(
+                "Precipitation range: %.3f to %.3f %s",
+                float(precip_valid.min()), float(precip_valid.max()), unit_label,
+            )
             
             # Render based on plot type using helper methods
             if plot_type == 'scatter':
@@ -479,7 +491,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     config=config,
                 )
         else:
-            print(f"Warning: No valid precipitation data points found for {var_name}")
+            logger.warning("No valid precipitation data points found for %s", var_name)
         
         # Add gridlines with labels and custom formatting
         self._add_gridlines(data_crs)
@@ -570,7 +582,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         if original_units is None:
             data_mean = np.nanmean(precip_data)
             if data_mean > 1000:
-                print("Warning: Precipitation data may not be in mm. Consider specifying 'original_units' in config.")
+                logger.warning(
+                    "Precipitation data may not be in mm. Consider specifying 'original_units' in config."
+                )
         
         # Attempt unit conversion if original units are provided and differ from display units
         if original_units:
@@ -582,17 +596,25 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     # Attempt to convert units using UnitConverter
                     converted_data = UnitConverter.convert_units(precip_data, original_units, display_units)
                     precip_data = self.convert_to_numpy(converted_data)
-                    print(f"Converted overlay {var_name} from {original_units} to {display_units}")
+                    logger.debug(
+                        "Converted overlay %s from %s to %s",
+                        var_name, original_units, display_units,
+                    )
                 except ValueError as e:
-                    # If conversion fails, log a warning and proceed with original data
-                    print(f"Warning: Could not convert overlay {var_name} from {original_units} to {display_units}: {e}")
+                    logger.warning(
+                        "Could not convert overlay %s from %s to %s: %s",
+                        var_name, original_units, display_units, e,
+                    )
         
         # Check for negative precipitation values which are physically invalid and likely indicate data issues
         n_negative = np.sum(precip_data < 0)
 
         # If negative values are found, log a warning with the count and minimum value, then clip to 0 to ensure physically valid precipitation values for plotting
         if n_negative > 0:
-            print(f"Warning: Found {n_negative:,} negative precipitation values (min: {np.nanmin(precip_data):.4f}). Clipping to 0 (physically invalid).")
+            logger.warning(
+                "Found %s negative precipitation values (min: %.4f). Clipping to 0 (physically invalid).",
+                f"{n_negative:,}", float(np.nanmin(precip_data)),
+            )
             precip_data = np.clip(precip_data, 0, None)
         
         # Flatten arrays for processing and ensure they are 1D
@@ -855,9 +877,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         elif use_esmf:
             dataset = self._ensure_boundary_data(dataset)
 
-            print(
-                f"Interpolating {var_name} overlay via ESMPy/{esmf_method} "
-                f"(resolution: {resolution:.3f}°)"
+            logger.info(
+                "Interpolating %s overlay via ESMPy/%s (resolution: %.3f°)",
+                var_name, esmf_method, resolution,
             )
 
             lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
@@ -873,19 +895,17 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     method=esmf_method,
                 )
             except Exception as exc:
-                warnings.warn(
-                    f"ESMPy/{esmf_method} overlay remapping failed ({exc}); "
-                    "falling back to KD-Tree.",
-                    UserWarning,
-                    stacklevel=2,
+                logger.warning(
+                    "ESMPy/%s overlay remapping failed (%s); falling back to KD-Tree.",
+                    esmf_method, exc,
                 )
                 remapped_precip = None
 
         # --- KD-Tree fallback -----------------------------------------------
         if remapped_precip is None:
-            print(
-                f"Interpolating {var_name} overlay using KD-Tree/{kdtree_method} "
-                f"(resolution: {resolution:.3f}°)"
+            logger.info(
+                "Interpolating %s overlay using KD-Tree/%s (resolution: %.3f°)",
+                var_name, kdtree_method, resolution,
             )
 
             lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
@@ -917,7 +937,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         lat_grid = remapped_precip.lat.values
         precip_grid = remapped_precip.values
         
-        print(f"Remapped to {precip_grid.shape[0]}x{precip_grid.shape[1]} grid")
+        logger.debug("Remapped to %dx%d grid", precip_grid.shape[0], precip_grid.shape[1])
         
         # Special handling for contour vs contourf to ensure colorbar consistency and proper rendering
         if plot_type == 'contour':
@@ -1013,8 +1033,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lon_valid, lat_valid, precip_valid, bounds_lon_min, bounds_lon_max, bounds_lat_min, bounds_lat_max = \
                 self._prepare_overlay_data(lon, lat, precip_data, var_name, original_units, plot_type)
         except ValueError as e:
-            # If no valid data points are found, print warning and skip rendering without raising exception to allow base map to display
-            print(f"Warning: {e}")
+            logger.warning("%s", e)
             return
         
         # Use provided bounds or data-derived bounds for filtering and interpolation
@@ -1026,7 +1045,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Setup colormap and normalization for overlay based on accumulation period and configuration
         cmap, norm, color_levels_sorted = self._setup_overlay_colormap(colormap, levels, accum_period)
         
-        print(f"Adding {len(precip_valid):,} precipitation points as {plot_type} overlay")
+        logger.info(
+            "Adding %s precipitation points as %s overlay",
+            f"{len(precip_valid):,}", plot_type,
+        )
         
         # Render overlay based on plot type with appropriate handling for interpolation
         if plot_type == 'scatter':
@@ -1056,8 +1078,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 config=config,
             )
         
-        # Print summary of overlay addition for debugging
-        print(f"Added {plot_type} precipitation overlay")
+        logger.info("Added %s precipitation overlay", plot_type)
     
     def _extract_coordinates_from_processor(self: 'MPASPrecipitationPlotter',
                                             processor: Any,
@@ -1116,9 +1137,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         
         # Check if dataset has enough time steps for the accumulation period
         if min_time_idx >= total_times:
-            print(f"\nWarning: Accumulation period {accum_period} ({accum_hours} hours) requires at least {min_time_idx + 1} time steps.")
-            print(f"Dataset only has {total_times} time steps. No plots will be generated.")
-            # Return empty list and accumulation hours for title formatting, even though no valid time indices are available
+            logger.warning(
+                "Accumulation period %s (%d hours) requires at least %d time steps",
+                accum_period, accum_hours, min_time_idx + 1,
+            )
+            logger.warning(
+                "Dataset only has %d time steps. No plots will be generated.",
+                total_times,
+            )
             return [], accum_hours
         
         # Validate and filter time indices based on accumulation period
@@ -1131,7 +1157,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
             # Warn if user-specified time indices are invalid for the accumulation period
             if not time_indices:
-                print(f"\nWarning: No valid time indices for accumulation period {accum_period}")
+                logger.warning(
+                    "No valid time indices for accumulation period %s", accum_period,
+                )
                 return [], accum_hours
         
         # Return validated time indices and accumulation hours for title formatting
@@ -1316,8 +1344,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Initialize list to store created file paths
         created_files = []
         
-        print(f"\nCreating precipitation maps for {actual_time_steps} time steps...")
-        print(f"Using accumulation period: {accum_period} ({accum_hours} hours)")
+        logger.info("Creating precipitation maps for %d time steps", actual_time_steps)
+        logger.info("Using accumulation period: %s (%d hours)", accum_period, accum_hours)
         
         # Ensure output directory exists
         os.makedirs(output_dir, exist_ok=True)
@@ -1341,15 +1369,19 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 
                 # Show progress every 10 steps
                 if (i + 1) % 10 == 0:
-                    print(f"Completed {i + 1}/{actual_time_steps} maps (time index {time_idx})...")
-                    
+                    logger.info(
+                        "Completed %d/%d maps (time index %d)",
+                        i + 1, actual_time_steps, time_idx,
+                    )
+
             except Exception as e:
-                # Log error and continue with next time step
-                print(f"Error creating map for time index {time_idx}: {e}")
+                logger.error("Error creating map for time index %d: %s", time_idx, e)
                 continue
-        
-        # Final progress message with total created files
-        print(f"\nBatch processing completed. Created {len(created_files)} files in: {output_dir}")
+
+        logger.info(
+            "Batch processing completed. Created %d files in: %s",
+            len(created_files), output_dir,
+        )
 
         # Return list of created file paths
         return created_files
@@ -1392,7 +1424,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
             # Print adjusted extent for global panel to inform about dateline handling
             if panel_index == 0:
-                print(f"Using global extent (adjusted to avoid dateline): [{adjusted_lon_min}, {adjusted_lon_max}, {adjusted_lat_min}, {adjusted_lat_max}]")
+                logger.debug(
+                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
+                adjusted_lon_min, adjusted_lon_max, adjusted_lat_min, adjusted_lat_max,
+            )
         else:
             # For regional extents, use provided bounds directly
             ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
@@ -1658,7 +1693,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             self.fig.savefig(full_path, **save_kwargs)
 
             # Print confirmation message for the saved file
-            print(f"Saved plot: {full_path}")
+            logger.info("Saved plot: %s", full_path)
     
     def close_plot(self: 'MPASPrecipitationPlotter') -> None:
         """

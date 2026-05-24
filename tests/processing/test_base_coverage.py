@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: MPASBaseProcessor Coverage
 
@@ -73,7 +74,7 @@ class TestInitGridFileMissing:
         This test verifies that the MPASBaseProcessor __init__ method raises a FileNotFoundError with an appropriate message when the specified grid file does not exist on disk (line 50). The test uses a temporary directory provided by pytest to ensure that the grid file path is valid but points to a non-existent file, allowing us to confirm that the processor correctly handles this error condition during initialization. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -91,7 +92,7 @@ class TestFindFilesByPatternErrors:
         This test verifies that _find_files_by_pattern raises FileNotFoundError with an appropriate message when no files in the specified directory match the given glob pattern. The test uses a temporary directory provided by pytest, which is empty by default, to ensure that the method correctly identifies the absence of matching files and raises the expected exception with a clear error message indicating that no diagnostic files were found. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -106,7 +107,7 @@ class TestFindFilesByPatternErrors:
         This test verifies that _find_files_by_pattern raises ValueError with an appropriate message when only one file in the specified directory matches the given glob pattern. The test creates a single dummy NetCDF file in a temporary directory provided by pytest, ensuring that the method finds exactly one matching file. The test then confirms that the method raises the expected exception with a clear error message indicating that insufficient diagnostic files were found, which is important for cases where multiple files are required for processing. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -126,7 +127,7 @@ class TestValidateFiles:
         This test verifies that validate_files raises FileNotFoundError with an appropriate message when one or more specified file paths do not exist on disk. The test uses a temporary directory provided by pytest to ensure that the file path is valid but points to a non-existent file, allowing us to confirm that the method correctly identifies missing files and raises the expected exception with a clear error message indicating that the file was not found. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -141,7 +142,7 @@ class TestValidateFiles:
         This test verifies that validate_files raises FileNotFoundError with an appropriate message when one or more specified file paths exist but are not readable due to permission issues. The test creates a dummy file in a temporary directory provided by pytest and then mocks the os.access function to simulate the file being unreadable. This allows us to confirm that the method correctly identifies unreadable files and raises the expected exception with a clear error message indicating that the file is not readable, which is important for ensuring that the processor can handle permission-related issues gracefully. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -159,7 +160,7 @@ class TestValidateFiles:
         This test verifies that validate_files returns the original list of file paths when all specified files exist and are readable. The test creates multiple dummy files in a temporary directory provided by pytest, ensuring that they exist and are readable. The test then confirms that the method returns the original list of file paths without modification, which indicates that the method correctly validates the files and allows processing to continue when all files are valid. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -217,7 +218,7 @@ class TestLoadMultifileDatasetDropVars:
         This test verifies that when _load_multifile_dataset is called with a drop_variables list, it correctly passes this list to xarray's open_mfdataset function. The test uses the unittest.mock.patch function to mock xarray.open_mfdataset and checks that the drop_variables argument is included in the call with the expected value. This ensures that the method properly forwards the drop_variables parameter, allowing users to exclude specific variables from being loaded into memory when working with large datasets. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -288,7 +289,7 @@ class TestCreateUxarrayDataset:
         This test verifies that _create_uxarray_dataset raises ValueError with an appropriate message when the uxgrid attribute of the grid dataset is None. The test uses unittest.mock.MagicMock to create a mock grid dataset with uxgrid set to None, and then patches the open_dataset function to return this mock grid dataset. The test confirms that when _create_uxarray_dataset is called with a combined dataset and a list of file paths, it checks for the presence of uxgrid in the grid dataset, finds it to be None, and raises the expected exception with a clear error message indicating that the uxgrid could not be extracted, which is crucial for ensuring that the method handles this error condition properly. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -311,7 +312,7 @@ class TestAttemptFallbackLoad:
         This test verifies that _attempt_fallback_load returns a dataset of type 'xarray' and sets the processor's dataset and data_type attributes accordingly when the fallback loading strategy succeeds. The test uses unittest.mock.patch to mock the _load_multifile_dataset and _apply_chunking methods to return a minimal xarray Dataset. The test then confirms that the result type is 'xarray', and that the processor's dataset attribute is set to the returned dataset, and the data_type attribute is set to 'xarray', which indicates that the fallback loading strategy was successful and that the processor's state was updated correctly. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -339,7 +340,7 @@ class TestAttemptFallbackLoad:
         This test verifies that when verbose=True, _attempt_fallback_load calls the _print_loading_success method with a message that includes 'fallback'. The test uses unittest.mock.patch to mock the _load_multifile_dataset and _apply_chunking methods to return a minimal xarray Dataset, and also mocks the _print_loading_success method to track its calls. The test then confirms that _print_loading_success was called once, and that the message passed to it contains the word 'fallback', which indicates that the method is providing appropriate feedback about the fallback loading strategy when verbose mode is enabled. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -371,7 +372,7 @@ class TestDiscoverDataFilesDefaultFallback:
         This test verifies that _discover_data_files calls the _find_files_by_pattern method with the DIAG_GLOB pattern when no custom file discovery methods (find_diagnostic_files or find_mpasout_files) are defined on the processor instance. The test uses unittest.mock.patch to mock the _find_files_by_pattern method and returns a list of fake file paths. The test then confirms that _find_files_by_pattern was called once, and that the result returned by _discover_data_files matches the fake file paths, which indicates that the method correctly falls back to using the default file discovery mechanism when no custom finders are present. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -400,10 +401,10 @@ class TestLoadDataSelectiveVariables:
         This helper method sets up the necessary mocks for testing the _load_data method when a variables list is provided. It mocks the _discover_data_files, MPASDateTimeUtils.parse_file_datetimes, _prepare_chunking_config, and xarray.open_dataset methods to simulate the behavior of the _load_data method without relying on actual file I/O or dataset loading. The method returns a MagicMock object for the primary load attempt, which can be used in the test methods to assert calls and inspect arguments related to the selective loading logic. 
 
         Parameters:
-            proc: The MPASBaseProcessor instance being tested.
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
-            probe_ds: An xarray Dataset to be returned by the mocked probe open_dataset call.
-            result_ds: An xarray Dataset to be returned by the mocked primary load attempt.
+            proc ('MPASBaseProcessor'): The MPASBaseProcessor instance being tested.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+            probe_ds (xr.Dataset): An xarray Dataset to be returned by the mocked probe open_dataset call.
+            result_ds (xr.Dataset): An xarray Dataset to be returned by the mocked primary load attempt.
 
         Returns:
             A MagicMock object for the primary load attempt, which can be used in the test methods to assert calls and inspect arguments. 
@@ -436,7 +437,7 @@ class TestLoadDataSelectiveVariables:
         This test verifies that when _load_data is called with a variables list, it computes the drop_variables list as the set of variables in the probe dataset that are not in the requested variables list, and passes this drop_variables list to the primary load attempt. The test sets up a probe dataset with multiple variables and calls _load_data with a subset of those variables. It then asserts that the drop_variables argument passed to the primary load attempt contains the correct variables that should be dropped, which confirms that the method is correctly identifying which variables to exclude based on the initial probe of the dataset. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -465,7 +466,7 @@ class TestLoadDataSelectiveVariables:
         This test verifies that when verbose=True, _load_data prints a message indicating that selective loading is being used when a variables list is provided. The test sets up the necessary mocks for the _load_data method and captures the standard output using StringIO. It then asserts that the output contains a message about selective loading, which confirms that the method is providing appropriate feedback to the user about the loading strategy being employed when verbose mode is enabled. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -494,7 +495,7 @@ class TestLoadDataSelectiveVariables:
         This test verifies that if an exception occurs during the probe open_dataset call in _load_data, the method sets drop_variables to None for the primary load attempt. The test uses unittest.mock.patch to configure xarray.open_dataset to raise an exception when called for the probe dataset. It then asserts that the drop_variables argument passed to the primary load attempt is None, which confirms that the method correctly handles exceptions during the probing phase by falling back to loading all variables without attempting to drop any, ensuring that the loading process can continue even if the initial probe fails. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -527,7 +528,7 @@ class TestLoadDataAllStrategiesFail:
         This test verifies that if all loading strategies (primary, fallback, single-file) raise exceptions in _load_data, the method calls sys.exit(1) to terminate the program. The test uses unittest.mock.patch to configure the primary load attempt, fallback load attempt, and single-file load attempt to all raise exceptions when called. It then asserts that sys.exit was called with an argument of 1, which confirms that the method correctly handles the scenario where all loading strategies fail by exiting the program with the appropriate status code, ensuring that users are informed of the failure and that the processor does not continue in an invalid state. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -560,7 +561,7 @@ class TestSelectFallbackFile:
         This test verifies that _select_fallback_file returns the reference_file path when it exists on disk. The test creates a dummy file at the reference_file path in a temporary directory provided by pytest, ensuring that the file exists. It then calls _select_fallback_file with this reference file and a list of other data files, and asserts that the result is the path to the reference file, which confirms that the method correctly identifies and returns the reference file when it is available, allowing the processor to use it as a fallback option for loading data. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -577,7 +578,7 @@ class TestSelectFallbackFile:
         This test verifies that _select_fallback_file returns the first file from the data_files list when the reference_file argument is an empty string. The test creates multiple dummy files in a temporary directory provided by pytest, ensuring that they exist. It then calls _select_fallback_file with an empty reference file and a list of these data files, and asserts that the result is the path to the first data file in the list, which confirms that the method correctly falls back to using the first available data file when no reference file is specified, allowing the processor to proceed with loading data even when a reference file is not provided. 
 
         Parameters:
-            None
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -596,7 +597,7 @@ class TestAttemptSingleFileLoad:
         This test verifies that when _attempt_single_file_load successfully loads a dataset using the UXarray strategy, it sets the processor's dataset attribute to the loaded dataset and the data_type attribute to 'uxarray'. The test uses unittest.mock.patch to mock the _load_single_file_uxarray method to return a mock UXarray dataset. It then calls _attempt_single_file_load with a file path and asserts that the returned data type is 'uxarray', and that the processor's dataset attribute is set to the mock UXarray dataset, which confirms that the method correctly handles successful loading with UXarray and updates the processor's state accordingly. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -616,7 +617,7 @@ class TestAttemptSingleFileLoad:
         This test verifies that when _attempt_single_file_load raises an exception during the UXarray loading attempt, it falls back to the xarray loading strategy and sets the processor's dataset and data_type attributes accordingly. The test uses unittest.mock.patch to configure the _load_single_file_uxarray method to raise an exception, and to return a mock xarray dataset for the _load_single_file_xarray method. It then calls _attempt_single_file_load with a file path and asserts that the returned data type is 'xarray', and that the processor's dataset attribute is set to the mock xarray dataset, which confirms that the method correctly handles exceptions during the UXarray loading attempt by falling back to xarray and updating the processor's state based on the successful fallback load. 
 
         Parameters:
-            tmp_path: A pytest fixture that provides a temporary directory for the test.
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None
@@ -935,7 +936,7 @@ class TestAddSpatialCoordsHelperException:
                 result = proc._add_spatial_coords_helper(
                     ds, ['nCells'], ['latCell'], 'TestProcessor'
                 )
-        assert 'Warning: Could not add' in out.getvalue()
+        assert 'Could not add' in out.getvalue()
         assert result is ds
 
 
@@ -960,12 +961,13 @@ class TestGetTimeInfo:
 class TestParseFileDatetimes:
     """ Tests for the MPASBaseProcessor parse_file_datetimes method to verify that it delegates to MPASDateTimeUtils and returns the result. """
 
-    def test_delegates_to_datetime_utils_and_returns_list(self: 'TestParseFileDatetimes', tmp_path) -> None:
+    def test_delegates_to_datetime_utils_and_returns_list(self: 'TestParseFileDatetimes', 
+                                                          tmp_path: 'Path') -> None:
         """
         This test verifies that parse_file_datetimes imports MPASDateTimeUtils and delegates to its parse_file_datetimes method, returning the result. The test uses unittest.mock.patch to mock the MPASDateTimeUtils.parse_file_datetimes method to return a predefined list of datetime objects. It then calls parse_file_datetimes with a list of file paths and asserts that the mocked method was called once with the correct arguments, and that the result returned by parse_file_datetimes matches the predefined list of datetime objects, which confirms that the method correctly delegates to the utility function and returns its output as expected. 
 
         Parameters:
-            None
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
 
         Returns:
             None

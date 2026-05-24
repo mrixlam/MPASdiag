@@ -4,19 +4,21 @@
 MPASdiag Core Diagnostics Module: Wind Diagnostics
 
 This module defines the WindDiagnostics class, which provides methods for computing various diagnostics related to wind fields in MPAS model output. The class includes functions to calculate horizontal wind speed, wind direction, wind shear, and perform comprehensive analysis of wind components. It also includes helper methods for validating 3D variables, determining vertical dimensions, and extracting variable slices at specified levels. The diagnostics are designed to be flexible and informative, with options for verbose output to assist with debugging and understanding the data. The module relies on xarray for data handling and numpy for numerical operations, and it is structured to integrate seamlessly with the overall MPASdiag processing framework. 
-    
+
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
 Email: mrislam@ucar.edu
 Date: November 2025
 Version: 1.0.0
 """
-
 import numpy as np
 import xarray as xr
 from typing import Tuple, Union, Optional, Any, cast, Dict
 
 from mpasdiag.processing.constants import WIND_SPEED_UNITS
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WindDiagnostics:
@@ -33,6 +35,7 @@ class WindDiagnostics:
         Returns:
             None: This constructor does not return a value.
         """
+        # Store the verbose flag for use in other methods
         self.verbose = verbose
     
     def compute_wind_speed(self: 'WindDiagnostics', 
@@ -48,12 +51,14 @@ class WindDiagnostics:
         Returns:
             xr.DataArray: Horizontal wind speed magnitude in meters per second with CF-compliant attributes.
         """
+        # Calculate wind speed using the Pythagorean theorem
         wind_speed = xr.apply_ufunc(
             np.sqrt,
             u_component**2 + v_component**2,
             keep_attrs=True
         )
 
+        # Add CF-compliant attributes to the wind speed DataArray
         wind_speed.attrs.update({
             'units': WIND_SPEED_UNITS,
             'standard_name': 'wind_speed',
@@ -61,16 +66,23 @@ class WindDiagnostics:
         })
         
         if self.verbose:
+            # Calculate the range of the U and V components for diagnostic purposes
             u_min, u_max = float(u_component.min()), float(u_component.max())
             v_min, v_max = float(v_component.min()), float(v_component.max())
+
+            # Calculate the range and mean of the computed wind speed
             speed_min, speed_max = float(wind_speed.min()), float(wind_speed.max())
             speed_mean = float(wind_speed.mean())
-            
-            print(f"Wind component U range: {u_min:.2f} to {u_max:.2f} m/s")
-            print(f"Wind component V range: {v_min:.2f} to {v_max:.2f} m/s")
-            print(f"Wind speed range: {speed_min:.2f} to {speed_max:.2f} m/s")
-            print(f"Wind speed mean: {speed_mean:.2f} m/s")
+
+            # Log the ranges and mean of the U and V components            
+            logger.debug("Wind component U range: %.2f to %.2f m/s", u_min, u_max)
+            logger.debug("Wind component V range: %.2f to %.2f m/s", v_min, v_max)
+
+            # Log the range and mean of the computed wind speed
+            logger.debug("Wind speed range: %.2f to %.2f m/s", speed_min, speed_max)
+            logger.debug("Wind speed mean: %.2f m/s", speed_mean)
         
+        # Return the computed wind speed DataArray with metadata
         return wind_speed
     
     def compute_wind_direction(self: 'WindDiagnostics', 
@@ -88,6 +100,7 @@ class WindDiagnostics:
         Returns:
             xr.DataArray: Wind direction in degrees or radians with CF-compliant attributes. 
         """
+        # Calculate wind direction using arctangent
         direction_rad = xr.apply_ufunc(
             np.arctan2,
             v_component,
@@ -95,16 +108,21 @@ class WindDiagnostics:
             keep_attrs=True
         )
 
+        # Adjust direction to meteorological convention (0=North, 90=East, 180=South, 270=West)
         direction_rad = direction_rad + np.pi
         
         if degrees:
+            # Convert radians to degrees
             direction_deg = xr.apply_ufunc(
                 np.rad2deg,
                 direction_rad,
                 keep_attrs=True
             )
+
+            # Ensure direction is within 0-360 degrees
             direction_deg = direction_deg % 360
             
+            # Add CF-compliant attributes to the wind direction DataArray
             direction_deg.attrs.update({
                 'units': 'degrees',
                 'standard_name': 'wind_from_direction',
@@ -113,15 +131,21 @@ class WindDiagnostics:
             })
             
             if self.verbose:
+                # Calculate the range and mean of the computed wind direction
                 dir_min, dir_max = float(direction_deg.min()), float(direction_deg.max())
                 dir_mean = float(direction_deg.mean())
-                print(f"Wind direction range: {dir_min:.1f} to {dir_max:.1f} degrees")
-                print(f"Wind direction mean: {dir_mean:.1f} degrees")
+
+                # Log the range and mean of the computed wind direction
+                logger.debug("Wind direction range: %.1f to %.1f degrees", dir_min, dir_max)
+                logger.debug("Wind direction mean: %.1f degrees", dir_mean)
             
+            # Return the computed wind direction in degrees with metadata
             return direction_deg
         else:
+            # Ensure direction is within 0-2π radians
             direction_rad = direction_rad % (2 * np.pi)
             
+            # Add CF-compliant attributes to the wind direction DataArray
             direction_rad.attrs.update({
                 'units': 'radians',
                 'standard_name': 'wind_from_direction',
@@ -130,11 +154,15 @@ class WindDiagnostics:
             })
             
             if self.verbose:
+                # Calculate the range and mean of the computed wind direction in radians
                 dir_min, dir_max = float(direction_rad.min()), float(direction_rad.max())
                 dir_mean = float(direction_rad.mean())
-                print(f"Wind direction range: {dir_min:.3f} to {dir_max:.3f} radians")
-                print(f"Wind direction mean: {dir_mean:.3f} radians")
+
+                # Log the range and mean of the computed wind direction in radians
+                logger.debug("Wind direction range: %.3f to %.3f radians", dir_min, dir_max)
+                logger.debug("Wind direction mean: %.3f radians", dir_mean)
             
+            # Return the computed wind direction in radians with metadata
             return direction_rad
     
     def analyze_wind_components(self: 'WindDiagnostics', 
@@ -152,8 +180,10 @@ class WindDiagnostics:
         Returns:
             Dict[str, Any]: A dictionary containing summary statistics and units for U, V, W (if provided), horizontal wind speed, and wind direction.
         """
+        # Initialize a dictionary to store the analysis results
         analysis = {}
         
+        # Calculate summary statistics for U components
         analysis['u_component'] = {
             'min': float(u_component.min()),
             'max': float(u_component.max()),
@@ -162,6 +192,7 @@ class WindDiagnostics:
             'units': u_component.attrs.get('units', WIND_SPEED_UNITS)
         }
         
+        # Calculate summary statistics for V components
         analysis['v_component'] = {
             'min': float(v_component.min()),
             'max': float(v_component.max()),
@@ -170,8 +201,10 @@ class WindDiagnostics:
             'units': v_component.attrs.get('units', WIND_SPEED_UNITS)
         }
         
+        # Calculate horizontal wind speed
         wind_speed = self.compute_wind_speed(u_component, v_component)
 
+        # Calculate summary statistics for horizontal wind speed
         analysis['horizontal_speed'] = {
             'min': float(wind_speed.min()),
             'max': float(wind_speed.max()),
@@ -180,8 +213,10 @@ class WindDiagnostics:
             'units': WIND_SPEED_UNITS
         }
         
+        # Calculate wind direction from U and V components
         wind_direction = self.compute_wind_direction(u_component, v_component, degrees=True)
 
+        # Calculate summary statistics for wind direction
         analysis['direction'] = {
             'min': float(wind_direction.min()),
             'max': float(wind_direction.max()),
@@ -191,6 +226,7 @@ class WindDiagnostics:
         }
         
         if w_component is not None:
+            # Calculate summary statistics for W components
             analysis['w_component'] = {
                 'min': float(w_component.min()),
                 'max': float(w_component.max()),
@@ -199,8 +235,10 @@ class WindDiagnostics:
                 'units': w_component.attrs.get('units', WIND_SPEED_UNITS)
             }
             
+            # Calculate total 3D wind speed from U, V, and W components
             wind_speed_3d = np.sqrt(u_component**2 + v_component**2 + w_component**2)
 
+            # Calculate summary statistics for total 3D wind speed
             analysis['total_speed'] = {
                 'min': float(wind_speed_3d.min()),
                 'max': float(wind_speed_3d.max()),
@@ -210,16 +248,49 @@ class WindDiagnostics:
             }
         
         if self.verbose:
-            print("Wind Component Analysis:")
-            print(f"  U component: {analysis['u_component']['min']:.2f} to {analysis['u_component']['max']:.2f} m/s (mean: {analysis['u_component']['mean']:.2f})")
-            print(f"  V component: {analysis['v_component']['min']:.2f} to {analysis['v_component']['max']:.2f} m/s (mean: {analysis['v_component']['mean']:.2f})")
-            print(f"  Horizontal speed: {analysis['horizontal_speed']['min']:.2f} to {analysis['horizontal_speed']['max']:.2f} m/s (mean: {analysis['horizontal_speed']['mean']:.2f})")
-            print(f"  Direction: {analysis['direction']['min']:.1f} to {analysis['direction']['max']:.1f} degrees (mean: {analysis['direction']['mean']:.1f})")
-            
+            logger.info("Wind Component Analysis:")
+
+            # Log the ranges and means of the U component
+            logger.info(
+                "  U component: %.2f to %.2f m/s (mean: %.2f)",
+                analysis['u_component']['min'], analysis['u_component']['max'], analysis['u_component']['mean'],
+            )
+
+            # Log the ranges and means of the V component
+            logger.info(
+                "  V component: %.2f to %.2f m/s (mean: %.2f)",
+                analysis['v_component']['min'], analysis['v_component']['max'], analysis['v_component']['mean'],
+            )
+
+            # Log the range and mean of the horizontal wind speed
+            logger.info(
+                "  Horizontal speed: %.2f to %.2f m/s (mean: %.2f)",
+                analysis['horizontal_speed']['min'], analysis['horizontal_speed']['max'],
+                analysis['horizontal_speed']['mean'],
+            )
+
+            # Log the range and mean of the wind direction
+            logger.info(
+                "  Direction: %.1f to %.1f degrees (mean: %.1f)",
+                analysis['direction']['min'], analysis['direction']['max'], analysis['direction']['mean'],
+            )
+
             if w_component is not None:
-                print(f"  W component: {analysis['w_component']['min']:.2f} to {analysis['w_component']['max']:.2f} m/s (mean: {analysis['w_component']['mean']:.2f})")
-                print(f"  Total 3D speed: {analysis['total_speed']['min']:.2f} to {analysis['total_speed']['max']:.2f} m/s (mean: {analysis['total_speed']['mean']:.2f})")
+                # Log the range and mean of the W component
+                logger.info(
+                    "  W component: %.2f to %.2f m/s (mean: %.2f)",
+                    analysis['w_component']['min'], analysis['w_component']['max'],
+                    analysis['w_component']['mean'],
+                )
+
+                # Log the range and mean of the total 3D wind speed
+                logger.info(
+                    "  Total 3D speed: %.2f to %.2f m/s (mean: %.2f)",
+                    analysis['total_speed']['min'], analysis['total_speed']['max'],
+                    analysis['total_speed']['mean'],
+                )
         
+        # Return the analysis results as a dictionary
         return analysis
     
     def compute_wind_shear(self: 'WindDiagnostics', 
@@ -239,29 +310,42 @@ class WindDiagnostics:
         Returns:
             Tuple[xr.DataArray, xr.DataArray]: A tuple containing the wind shear magnitude (in m/s) and shear direction (in degrees) as xarray DataArrays with CF-compliant attributes.
         """
+        # Calculate the differences in U components between the upper and lower levels
         delta_u = u_upper - u_lower
+
+        # Calculate the differences in V components between the upper and lower levels
         delta_v = v_upper - v_lower
 
+        # Calculate the wind shear magnitude using the Pythagorean theorem
         shear_magnitude = xr.apply_ufunc(
             np.sqrt,
             delta_u**2 + delta_v**2,
             keep_attrs=True
         )
+
+        # Add CF-compliant attributes to the wind shear magnitude DataArray
         shear_magnitude.attrs.update({
             'units': WIND_SPEED_UNITS,
             'standard_name': 'wind_shear_magnitude',
             'long_name': 'wind shear magnitude',
         })
 
+        # Calculate the wind shear direction using arctangent and convert to degrees
         shear_direction = self.compute_wind_direction(delta_u, delta_v, degrees=True)
         shear_direction.attrs['long_name'] = 'wind shear direction'
         
         if self.verbose:
+            # Calculate the range and mean of the computed wind shear magnitude
             shear_min, shear_max = float(shear_magnitude.min()), float(shear_magnitude.max())
             shear_mean = float(shear_magnitude.mean())
-            print(f"Wind shear magnitude range: {shear_min:.2f} to {shear_max:.2f} m/s")
-            print(f"Wind shear magnitude mean: {shear_mean:.2f} m/s")
+
+            # Log the range and mean of the computed wind shear magnitude
+            logger.debug(
+                "Wind shear magnitude range: %.2f to %.2f m/s", shear_min, shear_max,
+            )
+            logger.debug("Wind shear magnitude mean: %.2f m/s", shear_mean)
         
+        # Return the computed wind shear magnitude and direction as a tuple of DataArrays
         return shear_magnitude, shear_direction
 
     def _validate_3d_variable(self: 'WindDiagnostics', 
@@ -277,11 +361,14 @@ class WindDiagnostics:
         Returns:
             None: This function does not return a value but raises an error if validation fails.
         """
+        # Check if the variable exists in the dataset
         if var_name not in dataset.data_vars:
             raise ValueError(f"Variable '{var_name}' not found in dataset")
         
+        # Check if the variable has the required vertical dimension
         var_dims = dataset[var_name].dims
 
+        # Raise an error if neither 'nVertLevels' nor 'nVertLevelsP1' is found
         if 'nVertLevels' not in var_dims and 'nVertLevelsP1' not in var_dims:
             raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
 
@@ -298,7 +385,10 @@ class WindDiagnostics:
         Returns:
             str: The name of the vertical dimension ('nVertLevels' or 'nVertLevelsP1').
         """
+        # Assumes variable has already been validated as 3D
         var_dims = dataset[var_name].dims
+
+        # Return the name of the vertical dimension that is found
         return 'nVertLevels' if 'nVertLevels' in var_dims else 'nVertLevelsP1'
 
     def _compute_level_index_from_pressure(self: 'WindDiagnostics', 
@@ -318,21 +408,41 @@ class WindDiagnostics:
         Returns:
             int: The vertical level index corresponding to the specified pressure level.
         """
+        # Check for the presence of pressure diagnostics in the dataset
         if 'pressure_p' not in dataset or 'pressure_base' not in dataset:
             raise ValueError("Cannot find pressure level - pressure data not available")
         
+        # Extract the pressure perturbation and base state at the specified time index
         pressure_p = dataset['pressure_p'].isel({time_dim: time_index})
         pressure_base = dataset['pressure_base'].isel({time_dim: time_index})
+
+        # Calculate total pressure by summing the perturbation pressure and the base state pressure
         total_pressure = pressure_p + pressure_base
-        
-        mean_pressure = total_pressure.mean(dim='nCells')
-        pressure_diff = np.abs(mean_pressure - pressure_level)
-        level_idx = int(pressure_diff.argmin())
-        
+
+        # Determine the vertical dimension name to use for averaging
+        vert_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
+
+        # Identify the horizontal dimensions 
+        horiz_dims = [d for d in total_pressure.dims if d != vert_dim]
+
+        # Compute the mean pressure across all cells for each vertical level
+        mean_pressure = total_pressure.mean(dim=horiz_dims)
+
+        # Extract the pressure values as a 1D array for comparison with the target pressure level
+        pressure_values = np.array(mean_pressure.values).flatten()
+
+        # Extract the vertical level index where the mean pressure is closest
+        level_idx = int(np.argmin(np.abs(pressure_values - pressure_level)))
+
+        # Print the requested pressure and the actual pressure at the selected level if verbose mode is enabled
         if self.verbose:
-            actual_pressure_at_level = mean_pressure.isel(nVertLevels=level_idx).values
-            print(f"Requested pressure: {pressure_level:.1f} Pa, using level {level_idx}: {actual_pressure_at_level:.1f} Pa")
+            actual_pressure = pressure_values[level_idx]
+            logger.debug(
+                "Requested pressure: %.1f Pa, using level %d: %.1f Pa",
+                pressure_level, level_idx, actual_pressure,
+            )
         
+        # Return the computed vertical level index
         return level_idx
 
     def _compute_level_index(self: 'WindDiagnostics', 
@@ -354,18 +464,22 @@ class WindDiagnostics:
         Returns:
             int: The computed vertical level index based on the provided specification.
         """
+        # Determine the vertical dimension name for the variable
         vertical_dim = self._get_vertical_dimension(dataset, var_name)
         
+        # Handle integer specifications by validating the index against the available levels in the dataset
         if isinstance(level_spec, int):
             level_idx = level_spec
             max_levels = dataset.sizes.get(vertical_dim, 0)
             if level_idx >= max_levels:
                 raise ValueError(f"Model level {level_idx} exceeds available levels {max_levels}")
             return level_idx
-            
+        
+        # Handle float specifications by computing the level index from pressure diagnostics
         elif isinstance(level_spec, float):
-            return self._compute_level_index_from_pressure(dataset, level_spec, time_dim, time_index)
-            
+            return self._compute_level_index_from_pressure(dataset, level_spec, time_dim, time_index)   
+        
+        # Handle string specifications for surface and top levels         
         elif isinstance(level_spec, str):
             if level_spec.lower() == 'surface':
                 return 0
@@ -399,14 +513,17 @@ class WindDiagnostics:
         Returns:
             xr.DataArray: The extracted variable slice at the specified time and vertical level, ready for analysis.
         """
+        # Extract the variable slice based on the specified data access style
         if data_type == 'uxarray' and hasattr(dataset, '__getitem__'):
             var_data = dataset[var_name][time_index].isel({vertical_dim: level_idx})
         else:
             var_data = dataset[var_name].isel({time_dim: time_index, vertical_dim: level_idx})
         
+        # Compute the variable if it is lazy (e.g., Dask array) 
         if hasattr(var_data, 'compute'):
             var_data = cast(Any, var_data).compute()
         
+        # Return the extracted variable slice as an xarray DataArray
         return var_data
 
     def get_3d_variable_at_level(self: 'WindDiagnostics', 
@@ -430,23 +547,31 @@ class WindDiagnostics:
         """
         from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
         
+        # Validate that the specified variable is a 3D atmospheric variable 
         self._validate_3d_variable(dataset, var_name)
         
+        # Validate time parameters and determine the time dimension name
         time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(
             dataset, time_index, self.verbose
         )
         
+        # Compute the vertical level index based on the provided level specification
         level_idx = self._compute_level_index(dataset, var_name, level, time_dim, validated_time_index)
+
+        # Determine the vertical dimension name for the variable
         vertical_dim = self._get_vertical_dimension(dataset, var_name)
         
+        # Extract the variable slice at the specified time and vertical level
         var_data = self._extract_variable_slice(
             dataset, var_name, time_dim, validated_time_index, 
             vertical_dim, level_idx, data_type
         )
         
+        # Add attributes to indicate the selected level and index 
         var_data.attrs['selected_level'] = level
         var_data.attrs['level_index'] = level_idx
         
+        # Return the extracted variable slice 
         return var_data
 
     def _extract_w_component_with_fallback(self: 'WindDiagnostics', 
@@ -471,14 +596,22 @@ class WindDiagnostics:
             xr.DataArray: The extracted W component if successful, or a zero-filled fallback DataArray with appropriate attributes if extraction fails. 
         """
         try:
+            # Extract the W component using the same method as U and V components
             return self.get_3d_variable_at_level(dataset, w_variable, level, time_index, data_type)
         except (ValueError, IndexError) as e:
+            # Log a warning message about the failed extraction of the W component
             if self.verbose:
-                print(f"Warning: Could not extract {w_variable} at level {level}: {e}")
-                print("Setting W component to zero...")
+                logger.warning(
+                    "Could not extract %s at level %s: %s", w_variable, level, e,
+                )
+                logger.warning("Setting W component to zero")
+            
+            # Create a zero-filled DataArray with the same shape and metadata as the U component
             w_data = xr.zeros_like(u_data)
             w_data.attrs['units'] = WIND_SPEED_UNITS
             w_data.attrs['long_name'] = f'Zero vertical velocity (could not extract {w_variable})'
+
+            # Return the zero-filled fallback W component 
             return w_data
 
     def _print_wind_component_diagnostics(self: 'WindDiagnostics', 
@@ -502,23 +635,30 @@ class WindDiagnostics:
         Returns:
             None: This function does not return a value but prints diagnostic information to the console if verbose mode is enabled. 
         """
+        # Check if verbose mode is enabled before printing diagnostics
         if not self.verbose:
             return
         
+        # Calculate the horizontal wind speed from the U and V components
         wind_speed = np.sqrt(u_data**2 + v_data**2)
         
+        # Calculate the range of the U, V, and W components for diagnostics
         u_min, u_max = float(u_data.min()), float(u_data.max())
         v_min, v_max = float(v_data.min()), float(v_data.max())
         w_min, w_max = float(w_data.min()), float(w_data.max())
+
+        # Calculate the range of the horizontal wind speed for diagnostics
         wind_min, wind_max = float(wind_speed.min()), float(wind_speed.max())
         
-        print(f"Wind component {u_variable} range: {u_min:.2f} to {u_max:.2f} m/s")
-        print(f"Wind component {v_variable} range: {v_min:.2f} to {v_max:.2f} m/s") 
-        print(f"Wind component {w_variable} range: {w_min:.2f} to {w_max:.2f} m/s")
-        print(f"Horizontal wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
-        
+        # Log the ranges of the U, V, and W components along with the horizontal wind speed range
+        logger.debug("Wind component %s range: %.2f to %.2f m/s", u_variable, u_min, u_max)
+        logger.debug("Wind component %s range: %.2f to %.2f m/s", v_variable, v_min, v_max)
+        logger.debug("Wind component %s range: %.2f to %.2f m/s", w_variable, w_min, w_max)
+        logger.debug("Horizontal wind speed range: %.2f to %.2f m/s", wind_min, wind_max)
+
+        # Log the units of the U component for reference
         u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
-        print(f"Units: {u_units}")
+        logger.debug("Units: %s", u_units)
 
     def get_3d_wind_components(self: 'WindDiagnostics', 
                                dataset: xr.Dataset, 
@@ -543,29 +683,126 @@ class WindDiagnostics:
         Returns:
             Tuple[xr.DataArray, xr.DataArray, xr.DataArray]: A tuple containing the extracted U, V, and W components as xarray DataArrays with CF-compliant attributes and metadata for the selected level.
         """
+        # Log the variables and level being extracted if verbose mode is enabled
         if self.verbose:
-            print(f"Extracting 3D wind components {u_variable}, {v_variable}, {w_variable} at level {level}, time index {time_index}")
+            logger.debug(
+                "Extracting 3D wind components %s, %s, %s at level %s, time index %d",
+                u_variable, v_variable, w_variable, level, time_index,
+            )
         
         try:
+            # Extract the U and V components at the specified level and time index
             u_data = self.get_3d_variable_at_level(dataset, u_variable, level, time_index, data_type)
             v_data = self.get_3d_variable_at_level(dataset, v_variable, level, time_index, data_type)
+
+            # Extract the W component with a fallback to zeros if extraction fails
             w_data = self._extract_w_component_with_fallback(dataset, w_variable, level, time_index, data_type, u_data)
             
+            # Print diagnostic information about the extracted wind components if verbose mode is enabled
             self._print_wind_component_diagnostics(u_data, v_data, w_data, u_variable, v_variable, w_variable)
             
+            # Return the extracted U, V, and W components as a tuple of xarray DataArrays
             return u_data, v_data, w_data
             
         except ValueError as e:
+            # Check which variables are available in the dataset
             available_vars = list(dataset.data_vars.keys())
+
+            # Check which of the requested variables are missing from the dataset
             missing_vars = [var for var in [u_variable, v_variable, w_variable] 
                            if var not in available_vars]
             
+            # Raise a ValueError with information about missing variables if any are not found
             if missing_vars:
                 raise ValueError(f"3D wind variables {missing_vars} not found in dataset. Available variables: {available_vars[:20]}...")
             else:
                 raise e
 
-    def get_2d_wind_components(self: 'WindDiagnostics', 
+    def compute_storm_motion(self: 'WindDiagnostics',
+                             processor: Any,
+                             u_var: str = 'uReconstructZonal',
+                             v_var: str = 'uReconstructMeridional',
+                             time_index: int = 0,
+                             p_bottom: float = 100000.0,
+                             p_top: float = 50000.0,) -> Tuple[float, float]:
+        """
+        This function computes the storm motion vector (u_storm, v_storm) as the pressure-weighted mean wind between specified bottom and top pressure levels. It retrieves the column-mean total pressure at each model level to identify which levels fall within the specified pressure range. Then it calculates the domain-mean U and V wind components at those levels for the selected time step. The storm motion components are computed as the weighted average of the U and V components using the pressure thickness of each level as weights. If no levels are found within the specified pressure range, it raises a ValueError with information about the available pressure range in the dataset. If verbose mode is enabled, it prints the calculated storm motion components along with the number of levels used and the pressure range considered. The resulting storm motion components are returned in meters per second, with positive values indicating eastward and northward directions respectively. 
+
+        Parameters:
+            processor (Any): An instance of the MPASDataProcessor class that provides access to the dataset and processing utilities.
+            u_var (str): Name of the U-component variable in the dataset (default: 'uReconstructZonal').
+            v_var (str): Name of the V-component variable in the dataset (default: 'uReconstructMeridional').
+            time_index (int): Time index to select for the calculation (default: 0).
+            p_bottom (float): Bottom pressure of the layer in Pascals (default: 100000 Pa, i.e., 1000 hPa).
+            p_top (float): Top pressure of the layer in Pascals (default: 50000 Pa, i.e., 500 hPa).
+
+        Returns:
+            Tuple[float, float]: (u_storm, v_storm) storm motion components
+                in m s-1, positive eastward and northward respectively.
+        """
+        # Get the raw dataset from the processor
+        ds_raw = processor._get_plain_dataset(processor.dataset)
+
+        # Determine the time dimension name
+        time_dim = 'Time' if 'Time' in ds_raw.dims else 'time'
+
+        # Compute the column-mean pressure at each model level for the selected time step
+        mean_p = processor._compute_mean_pressure_levels(ds_raw, time_dim, time_index)
+        
+        # Identify which levels fall within the specified pressure range
+        in_layer = (mean_p >= p_top) & (mean_p <= p_bottom)
+
+        # Raise an error if no levels are found within the specified pressure range
+        if not np.any(in_layer):
+            raise ValueError(
+                f"No model levels found between {p_top / 100:.0f} and "
+                f"{p_bottom / 100:.0f} hPa. "
+                f"Available mean pressure range: "
+                f"{mean_p.min():.0f}–{mean_p.max():.0f} Pa."
+            )
+
+        # Extract the indices and pressures of the levels 
+        layer_indices  = np.where(in_layer)[0]
+        layer_pressures = mean_p[layer_indices] 
+
+        # Extract the domain-mean U and V wind components at the selected time step 
+        u_3d = ds_raw[u_var].isel({time_dim: time_index})
+        v_3d = ds_raw[v_var].isel({time_dim: time_index})
+
+        # Determine the vertical dimension name for indexing
+        vert_dim   = 'nVertLevels' if 'nVertLevels' in u_3d.dims else 'nVertLevelsP1'
+
+        # Identify the horizontal dimensions
+        horiz_dims = [d for d in u_3d.dims if d != vert_dim]
+
+        # Compute the mean U and V components across the horizontal dimensions 
+        u_all = np.asarray(u_3d.mean(dim=horiz_dims).values).ravel()
+        v_all = np.asarray(v_3d.mean(dim=horiz_dims).values).ravel()
+
+        # Extract the U and V components at the levels within the specified pressure range
+        u_layer = u_all[layer_indices]
+        v_layer = v_all[layer_indices]
+
+        # Pressure-thickness weights (trapezoidal); scalar fallback for one level
+        dp = np.abs(np.gradient(layer_pressures)) if len(layer_pressures) > 1 else np.ones(1)
+
+        # Compute the pressure-weighted mean U and V components to get the storm motion vector
+        u_storm = float(np.sum(u_layer * dp) / np.sum(dp))
+        v_storm = float(np.sum(v_layer * dp) / np.sum(dp))
+
+        # Print the calculated storm motion components 
+        if self.verbose:
+            n_lev = int(np.sum(in_layer))
+            logger.debug(
+                "Storm motion (pressure-weighted mean, %d levels, %.0f-%.0f hPa): "
+                "u_storm = %+.2f m s⁻¹, v_storm = %+.2f m s⁻¹",
+                n_lev, p_bottom / 100, p_top / 100, u_storm, v_storm,
+            )
+
+        # Return the computed storm motion components as a tuple
+        return u_storm, v_storm
+
+    def get_2d_wind_components(self: 'WindDiagnostics',
                                dataset: xr.Dataset, 
                                u_variable: str, 
                                v_variable: str, 
@@ -589,56 +826,89 @@ class WindDiagnostics:
         if dataset is None:
             raise RuntimeError("No dataset provided for wind component extraction.")
         
+        # Log the variables being extracted if verbose mode is enabled
         if self.verbose:
-            print(f"Extracting wind components {u_variable}, {v_variable} at time index {time_index}")
+            logger.debug(
+                "Extracting wind components %s, %s at time index %d",
+                u_variable, v_variable, time_index,
+            )
         
+        # Check for the presence of the specified U and V variables in the dataset
         available_vars = list(dataset.data_vars.keys())
         missing_vars = []
         
+        # Check if the U variable is missing from the dataset
         if u_variable not in available_vars:
             missing_vars.append(u_variable)
 
+        # Check if the V variable is missing from the dataset
         if v_variable not in available_vars:
             missing_vars.append(v_variable)
-            
+        
+        # Raise a ValueError with information about missing variables
         if missing_vars:
             raise ValueError(f"Wind variables {missing_vars} not found in dataset. Available variables: {available_vars[:20]}...")
         
+        # Validate time parameters and determine the time dimension name
         time_dim, validated_time_index, time_size = MPASDateTimeUtils.validate_time_parameters(dataset, time_index, self.verbose)
         
         try:
             if data_type == 'uxarray':
+                # Uxarray does not support .isel, so we use direct indexing for time selection
                 u_data = dataset[u_variable][validated_time_index]
                 v_data = dataset[v_variable][validated_time_index]
             else:
+                # For xarray datasets, we can use .isel to select the time index
                 u_data = dataset[u_variable].isel({time_dim: validated_time_index})
                 v_data = dataset[v_variable].isel({time_dim: validated_time_index})
             
+            # Compute the U component if it is lazy (e.g., Dask array)
             if hasattr(u_data, 'compute'):
                 u_data = cast(Any, u_data).compute()
 
+            # Compute the V component if it is lazy (e.g., Dask array)
             if hasattr(v_data, 'compute'):
                 v_data = cast(Any, v_data).compute()
             
+            # Calculate the range of the U and V components for diagnostics
             u_min, u_max = float(u_data.min()), float(u_data.max())
             v_min, v_max = float(v_data.min()), float(v_data.max())
             
+            # Calculate the horizontal wind speed from the U and V components
             wind_speed = np.sqrt(u_data**2 + v_data**2)
+
+            # Calculate the range of the horizontal wind speed for diagnostics
             wind_min, wind_max = float(wind_speed.min()), float(wind_speed.max())
             
             if self.verbose:
-                print(f"Wind component {u_variable} range: {u_min:.2f} to {u_max:.2f} m/s")
-                print(f"Wind component {v_variable} range: {v_min:.2f} to {v_max:.2f} m/s") 
-                print(f"Wind speed range: {wind_min:.2f} to {wind_max:.2f} m/s")
-                
+                # Log the range of the U component for diagnostics
+                logger.debug(
+                    "Wind component %s range: %.2f to %.2f m/s", u_variable, u_min, u_max,
+                )
+
+                # Log the range of the V component for diagnostics
+                logger.debug(
+                    "Wind component %s range: %.2f to %.2f m/s", v_variable, v_min, v_max,
+                )
+
+                # Log the range of the horizontal wind speed for diagnostics
+                logger.debug("Wind speed range: %.2f to %.2f m/s", wind_min, wind_max)
+
+                # Identify the units of the U and V components for diagnostics
                 u_units = u_data.attrs.get('units', WIND_SPEED_UNITS)
                 v_units = v_data.attrs.get('units', WIND_SPEED_UNITS)
 
-                print(f"Units: {u_units}")
+                # Log the units of the U component for reference    
+                logger.debug("Units: %s", u_units)
                 
+                # Log a warning if the U and V components have different units
                 if u_units != v_units:
-                    print(f"Warning: U and V components have different units: {u_units} vs {v_units}")
+                    logger.warning(
+                        "U and V components have different units: %s vs %s",
+                        u_units, v_units,
+                    )
             
+            # Return the extracted U and V components as a tuple of xarray DataArrays
             return u_data, v_data
             
         except KeyError as e:

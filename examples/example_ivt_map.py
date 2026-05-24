@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example VIII: Vertically Integrated Water Vapor Transport (IVT) Map
+MPASdiag Example IX: Vertically Integrated Water Vapor Transport (IVT) Map
 
 This example demonstrates how to calculate and visualize the vertically integrated water vapor transport (IVT) from MPAS 3D output data. The example uses sample MPAS output data and grid files to illustrate the process of loading 3D data, calculating IVT by integrating specific humidity and wind components over the vertical dimension, and generating a map of IVT at the surface level. The output is saved as a PNG file in the ./output directory. 
 
@@ -79,6 +79,20 @@ cfg.lon_min =  -180.0
 cfg.lon_max =  180.0
 cfg.lat_min =  -90.0
 cfg.lat_max =   90.0
+
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
 
 # Extract valid time from the dataset for the specified time index
 valtime     = processor.dataset['Time'][tindex].values
@@ -171,6 +185,9 @@ ax.text(
 
 # Create output directory if it does not already exist
 os.makedirs('./output', exist_ok=True)
+
+# Overlay cross-section transect lines
+plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save the final IVT map with magnitude shading and vector overlay in PNG format
 plotter.save_plot(f'./output/ivt_map_{valtime_str}', formats=['png'])

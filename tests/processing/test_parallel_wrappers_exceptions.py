@@ -42,8 +42,6 @@ class TestPrecipitationWorkerCacheException:
         This test verifies that the `_precipitation_worker` function handles exceptions raised during cache loading gracefully. It mocks the processor to return a dataset with a `rainnc` variable and configures the cache mock to raise an exception when attempting to load coordinates. The test asserts that the worker function completes without crashing and returns a result, confirming that the error handling for cache loading issues is functioning correctly and does not cause unhandled exceptions in the worker workflow. 
 
         Parameters:
-            mock_diag_class (Any): Pytest mock for the diagnostics class constructor.
-            mock_plotter_class (Any): Pytest mock for the plotter class constructor.
             temp_output_dir (Path): Temporary directory fixture for outputs.
 
         Returns:
@@ -123,8 +121,6 @@ class TestPrecipitationWorkerTimeString:
         This test verifies that the `_precipitation_worker` function can handle a dataset that lacks a Time dimension and correctly generates a fallback time string. It mocks the processor to return a dataset with a `rainnc` variable that only has an `nCells` dimension, simulating the absence of time information. The test asserts that the worker function completes without crashing and returns a result with a time string in the expected fallback format, confirming that the worker can gracefully handle datasets without time coordinates. 
 
         Parameters:
-            mock_diag_class (Any): Pytest mock for diagnostics constructor.
-            mock_plotter_class (Any): Pytest mock for plotter constructor.
             temp_output_dir (Path): Fixture path for temporary output directory.
 
         Returns:
@@ -348,7 +344,7 @@ class TestWindWorkerTimeString:
             temp_output_dir (Path): Temporary directory fixture for outputs.
 
         Returns:
-            None: Assertions validate fallback naming behavior.
+            None
         """
         mock_processor = Mock()
         n_cells = 50
@@ -413,7 +409,7 @@ class TestWindWorkerCacheException:
             temp_output_dir (Path): Temporary directory fixture for outputs.
 
         Returns:
-            None: Assertions validate fallback behavior.
+            None
         """
         mock_processor = Mock()
         n_time, n_cells = 3, 50
@@ -492,11 +488,10 @@ class TestCrossSectionWorkerMultipleFormats:
         This test verifies that the `_cross_section_worker` function can handle multiple output formats correctly. It mocks the processor to return a dataset with a `theta` variable and configures the plotter mock to capture calls to `savefig`. The test asserts that the worker function completes without crashing, returns a result with multiple files, and that the plotter's `savefig` method is called for each specified format, confirming that the worker function properly handles generating and saving plots in multiple formats as requested. 
 
         Parameters:
-            mock_plotter_class (Any): Pytest mock for the vertical cross-section plotter.
             temp_output_dir (Path): Temporary directory fixture for outputs.
 
         Returns:
-            None: Assertions validate multiple output formats behavior.
+            None
         """
         mock_processor = Mock()
         n_time = 3
@@ -557,7 +552,7 @@ class TestProcessParallelResultsFailures:
             temp_output_dir (Path): Temporary directory fixture for outputs.
 
         Returns:
-            None: Assertions validate correct handling of mixed results.
+            None
         """
         results = [
             TaskResult(

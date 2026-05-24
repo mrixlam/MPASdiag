@@ -58,7 +58,8 @@ class TestLoggingSetup:
         logger = cli.setup_logging(config)
 
         assert logger is not None
-        assert logger.logger.level <= 10  
+        import logging as _logging
+        assert _logging.getLogger("mpasdiag").level <= 10
 
     def test_setup_logging_quiet_mode(self: 'TestLoggingSetup') -> None:
         """
@@ -79,7 +80,8 @@ class TestLoggingSetup:
         logger = cli.setup_logging(config)
 
         assert logger is not None
-        assert logger.logger.level >= 40  
+        import logging as _logging
+        assert _logging.getLogger("mpasdiag").level >= 40
 
 
 class TestSetupLoggingEdgeCases:

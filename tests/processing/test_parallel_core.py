@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Parallel Processing Tests
 
@@ -282,11 +283,7 @@ def test_n_workers_with_cli_integration() -> None:
 
 def test_mpi_import_fallback_warning() -> None:
     """
-    This test verifies that when mpi4py is not importable, parallel.py sets
-    MPI_AVAILABLE to False and MPI to None, and issues a UserWarning (lines 28-31).
-    It temporarily blocks the mpi4py import by inserting None into sys.modules, then
-    reloads the module and asserts the expected module-level state. The module is
-    restored to its original state afterward to avoid affecting subsequent tests.
+    This test checks that the `MPASParallelManager` correctly handles the absence of the `mpi4py` library by issuing a warning and falling back to a non-MPI backend. It uses `unittest.mock.patch` to simulate the environment where `mpi4py` is not available, reloads the parallel module to trigger the import logic, and asserts that a warning is raised indicating that MPI functionality is unavailable. The test also confirms that the manager's MPI availability flag is set to False and that the MPI attribute is None, ensuring that the fallback behavior is correctly implemented without causing crashes or unexpected errors.
 
     Parameters:
         None
@@ -299,9 +296,6 @@ def test_mpi_import_fallback_warning() -> None:
     from unittest.mock import patch
     import mpasdiag.processing.parallel as parallel_mod
 
-    # Snapshot the module dict before any reload so we can restore the exact
-    # same class objects afterward — reloading creates new class identities
-    # which breaks isinstance() checks and enum equality in later tests.
     saved_state = dict(parallel_mod.__dict__)
 
     try:
@@ -312,6 +306,7 @@ def test_mpi_import_fallback_warning() -> None:
             assert parallel_mod.MPI_AVAILABLE is False
             assert parallel_mod.MPI is None
     finally:
-        # Restore original bindings (class objects, enums, etc.) so that
-        # modules which imported these at load time continue to work.
         parallel_mod.__dict__.update(saved_state)
+
+if __name__ == "__main__":
+    pytest.main([__file__])

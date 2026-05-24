@@ -924,7 +924,7 @@ class TestExtractHeightException:
         with patch("sys.stdout", new=captured):
             result = diag._extract_height_profile(ds, "Time", 0, 0)
 
-        assert "Warning: Failed to extract height profile" in captured.getvalue()
+        assert "Failed to extract height profile" in captured.getvalue()
         assert result is None
 
 

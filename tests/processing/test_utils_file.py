@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Comprehensive tests for file utilities in MPASdiag
 
@@ -293,6 +294,15 @@ class TestValidateInputFiles:
     
 
     def test_validate_no_data_dir_specified(self: 'TestValidateInputFiles') -> None:
+        """
+        This test confirms that `validate_input_files` returns False when the `data_dir` is not specified in the configuration. The test sets up a valid grid file but leaves `config.data_dir` unset, then asserts that the validation method returns False and prints an appropriate message about the missing data directory configuration.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         config = MPASConfig()
         config.grid_file = self.grid_file
         config.data_dir = ""
@@ -303,6 +313,15 @@ class TestValidateInputFiles:
         assert "Data directory not specified" in captured_output.getvalue()
 
     def test_validate_data_dir_not_found(self: 'TestValidateInputFiles') -> None:
+        """
+        This test verifies that `validate_input_files` returns False when the specified `data_dir` does not exist. The test sets `config.data_dir` to a nonexistent path while providing a valid grid file, then asserts that the validation method returns False and prints an appropriate message indicating that the data directory was not found.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         config = MPASConfig()
         config.grid_file = self.grid_file
         config.data_dir = "/nonexistent/dir/does/not/exist"
@@ -317,19 +336,46 @@ class TestEnsureDirectory:
     """Tests for FileManager.ensure_directory."""
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> Generator[None, None, None]:
+    def setup(self: 'TestEnsureDirectory') -> Generator[None, None, None]:
+        """
+        This fixture sets up a temporary directory for testing the `ensure_directory` method. It creates a temporary directory before yielding control to the test functions, and ensures that all temporary files and directories are cleaned up after the tests are completed.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         yield
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_creates_new_directory(self) -> None:
+    def test_creates_new_directory(self: 'TestEnsureDirectory') -> None:
+        """
+        This test verifies that the `ensure_directory` method successfully creates a new directory when it does not already exist. It constructs a new directory path within the temporary directory, asserts that it does not exist before calling the method, and then asserts that the directory has been created afterward.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         new_path = os.path.join(self.temp_dir, "new", "nested", "dir")
         assert not os.path.exists(new_path)
         FileManager.ensure_directory(new_path)
         assert os.path.isdir(new_path)
 
-    def test_no_error_if_already_exists(self) -> None:
+    def test_no_error_if_already_exists(self: 'TestEnsureDirectory') -> None:
+        """
+        This test confirms that the `ensure_directory` method does not raise an error when the specified directory already exists. It calls the method on the same temporary directory multiple times and asserts that it remains a valid directory without any exceptions being raised.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         FileManager.ensure_directory(self.temp_dir)
         FileManager.ensure_directory(self.temp_dir)
         assert os.path.isdir(self.temp_dir)
@@ -339,17 +385,44 @@ class TestGetFileInfo:
     """Tests for FileManager.get_file_info."""
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> Generator[None, None, None]:
+    def setup(self: 'TestGetFileInfo') -> Generator[None, None, None]:
+        """
+        This fixture sets up a temporary directory for testing the `get_file_info` method. It creates a temporary directory before yielding control to the test functions, and ensures that all temporary files and directories are cleaned up after the tests are completed. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         yield
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_nonexistent_file_returns_exists_false(self) -> None:
+    def test_nonexistent_file_returns_exists_false(self: 'TestGetFileInfo') -> None:
+        """
+        This test verifies that the `get_file_info` method returns a dictionary with `exists` set to False when the specified file does not exist. It calls the method with a path to a nonexistent file and asserts that the returned dictionary indicates that the file does not exist. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         result = FileManager.get_file_info("/nonexistent/file.nc")
         assert result == {"exists": False}
 
-    def test_existing_file_returns_metadata(self) -> None:
+    def test_existing_file_returns_metadata(self: 'TestGetFileInfo') -> None:
+        """
+        This test confirms that the `get_file_info` method returns a dictionary containing metadata about an existing file. It creates a temporary file, calls the method with the file path, and asserts that the returned dictionary contains keys for `exists`, `size`, `size_mb`, `modified`, and `created`, with appropriate types and values indicating that the file exists and has a size greater than zero. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         from datetime import datetime as dt
         filepath = os.path.join(self.temp_dir, "test.nc")
         with open(filepath, "w") as f:
@@ -367,13 +440,31 @@ class TestCleanupFiles:
     """Tests for FileManager.cleanup_files."""
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> Generator[None, None, None]:
+    def setup(self: 'TestCleanupFiles') -> Generator[None, None, None]:
+        """
+        This fixture sets up a temporary directory for testing the `cleanup_files` method. It creates a temporary directory before yielding control to the test functions, and ensures that all temporary files and directories are cleaned up after the tests are completed. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         yield
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_deletes_old_files_and_returns_count(self) -> None:
+    def test_deletes_old_files_and_returns_count(self: 'TestCleanupFiles') -> None:
+        """
+        This test verifies that the `cleanup_files` method correctly deletes files older than a specified number of days and returns the count of deleted files. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         old_file = os.path.join(self.temp_dir, "old.tmp")
         new_file = os.path.join(self.temp_dir, "new.tmp")
         for path in (old_file, new_file):
@@ -386,7 +477,16 @@ class TestCleanupFiles:
         assert not os.path.exists(old_file)
         assert os.path.exists(new_file)
 
-    def test_no_files_deleted_when_all_fresh(self) -> None:
+    def test_no_files_deleted_when_all_fresh(self: 'TestCleanupFiles') -> None:
+        """
+        This test confirms that the `cleanup_files` method does not delete any files when all files are newer than the specified age threshold. It creates a temporary file with a recent modification time, calls the cleanup method with an age threshold that would consider it fresh, and asserts that the method returns a count of zero deleted files and that the file still exists afterward. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fresh_file = os.path.join(self.temp_dir, "fresh.tmp")
         with open(fresh_file, "w") as f:
             f.write("x")
@@ -406,14 +506,35 @@ class TestFormatFileSize:
         (1649267441664, "1.5 TB"),
         (1688849860263936, "1.5 PB"),
     ])
-    def test_formats_correctly(self, size_bytes: int, expected: str) -> None:
+    def test_formats_correctly(self: 'TestFormatFileSize', 
+                               size_bytes: int, 
+                               expected: str) -> None:
+        """
+        This test verifies that the `format_file_size` method correctly formats file sizes in bytes into human-readable strings with appropriate units (B, KB, MB, GB, TB, PB). It uses parameterized testing to check multiple input sizes and their expected formatted outputs, asserting that the method returns the correct string representation for each case. 
+
+        Parameters:
+            size_bytes (int): The size in bytes to format.
+            expected (str): The expected formatted string.
+
+        Returns:
+            None
+        """
         assert FileManager.format_file_size(size_bytes) == expected
 
 
 class TestGetAvailableMemoryPsutilPresent:
     """Tests for FileManager.get_available_memory when psutil is available."""
 
-    def test_returns_non_negative_float(self) -> None:
+    def test_returns_non_negative_float(self: 'TestGetAvailableMemoryPsutilPresent') -> None:
+        """
+        This test confirms that the `get_available_memory` method returns a non-negative float value representing the available memory in gigabytes when the `psutil` library is present. It calls the method and asserts that the result is a float and that it is greater than or equal to zero, indicating that it correctly retrieves the available memory without errors. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         result = FileManager.get_available_memory()
         assert isinstance(result, float)
         assert result >= 0.0
@@ -422,7 +543,16 @@ class TestGetAvailableMemoryPsutilPresent:
 class TestPrintSystemInfo:
     """Tests for FileManager.print_system_info."""
 
-    def test_prints_system_information(self) -> None:
+    def test_prints_system_information(self: 'TestPrintSystemInfo') -> None:
+        """
+        This test verifies that the `print_system_info` method outputs relevant system information to the console. It captures the standard output when the method is called and asserts that the output contains key pieces of information such as "Python version", "Platform", and "Available memory", indicating that the method is correctly retrieving and displaying system information. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         captured = StringIO()
         with patch('sys.stdout', new=captured):
             FileManager.print_system_info()
@@ -435,13 +565,31 @@ class TestPrintSystemInfo:
 class TestCreateOutputFilename:
     """Tests for FileManager.create_output_filename."""
 
-    def test_returns_formatted_filename(self) -> None:
+    def test_returns_formatted_filename(self: 'TestCreateOutputFilename') -> None:
+        """
+        This test confirms that the `create_output_filename` method generates a correctly formatted filename based on the provided parameters. It calls the method with specific values for model name, valid time, variable type, and accumulation type, and asserts that the returned filename matches the expected format, which includes all the input parameters in a structured naming convention. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         result = FileManager.create_output_filename(
             "mpas", "20240101_000000", "precip", "24hr"
         )
         assert result == "mpas_vartype_precip_acctype_24hr_valid_20240101_000000_point.png"
 
-    def test_custom_extension(self) -> None:
+    def test_custom_extension(self: 'TestCreateOutputFilename') -> None:
+        """
+        This test verifies that the `create_output_filename` method correctly incorporates a custom file extension when specified. It calls the method with an additional `extension` parameter set to "pdf" and asserts that the resulting filename ends with the ".pdf" extension, confirming that the method allows for flexible output formats as intended. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         result = FileManager.create_output_filename(
             "mpas", "20240101_000000", "temp", "6hr", extension="pdf"
         )
@@ -452,20 +600,47 @@ class TestLoadConfigFile:
     """Tests for FileManager.load_config_file."""
 
     @pytest.fixture(autouse=True)
-    def setup(self) -> Generator[None, None, None]:
+    def setup(self: 'TestLoadConfigFile') -> Generator[None, None, None]:
+        """
+        This fixture sets up a temporary directory for testing the `load_config_file` method. It creates a temporary directory before yielding control to the test functions, and ensures that all temporary files and directories are cleaned up after the tests are completed. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         yield
         import shutil
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_nonexistent_file_returns_default_config(self) -> None:
+    def test_nonexistent_file_returns_default_config(self: 'TestLoadConfigFile') -> None:
+        """
+        This test confirms that the `load_config_file` method returns a default `MPASConfig` object when the specified configuration file does not exist. It captures the standard output to check for an error message indicating that the configuration file could not be loaded, and asserts that the returned result is an instance of `MPASConfig`, demonstrating that the method handles missing files gracefully by providing a default configuration. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         captured = StringIO()
         with patch('sys.stdout', new=captured):
             result = FileManager.load_config_file("/nonexistent/config.yaml")
         assert isinstance(result, MPASConfig)
         assert "Error loading configuration file" in captured.getvalue()
 
-    def test_existing_file_delegates_to_load_from_file(self) -> None:
+    def test_existing_file_delegates_to_load_from_file(self: 'TestLoadConfigFile') -> None:
+        """
+        This test verifies that the `load_config_file` method correctly delegates to the `MPASConfig.load_from_file` method when a configuration file exists. It creates a temporary configuration file, mocks the `MPASConfig.load_from_file` method to return a specific `MPASConfig` instance, and asserts that the `load_config_file` method calls the mocked method with the correct file path and returns the expected configuration object. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         from unittest.mock import patch as mpatch
         config_path = os.path.join(self.temp_dir, "config.yaml")
         with open(config_path, "w") as f:
@@ -480,7 +655,16 @@ class TestLoadConfigFile:
 class TestModuleLevelPrintSystemInfo:
     """Tests for the module-level print_system_info convenience function."""
 
-    def test_delegates_to_file_manager(self) -> None:
+    def test_delegates_to_file_manager(self: 'TestModuleLevelPrintSystemInfo') -> None:
+        """
+        This test confirms that the module-level `print_system_info` function correctly delegates to the `FileManager.print_system_info` method. It captures the standard output when the module-level function is called and asserts that it contains key pieces of system information, indicating that the underlying method was executed and produced the expected output. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         from mpasdiag.processing.utils_file import print_system_info as module_print_info
         captured = StringIO()
         with patch('sys.stdout', new=captured):

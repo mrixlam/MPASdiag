@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Tests for MPASdiag remapping functionality
 
@@ -29,10 +30,10 @@ class TestEdgeCasesAndErrorHandling:
         This test verifies that the `remap_mpas_to_latlon` function can handle the edge case of remapping data from a single point in the MPAS grid to a regular lat-lon grid. The test creates synthetic longitude and latitude values corresponding to a single point, along with a single data value, and calls the remapping function with a specified resolution. The function should execute without errors and return a valid xarray DataArray containing the remapped data. This ensures that the remapping logic can accommodate degenerate cases where the input data consists of only one point, which is important for users who may want to perform remapping on very small datasets or focus on specific locations.
 
         Parameters:
-            self ('TestEdgeCasesAndErrorHandling'): Test instance (unused).
+            None
 
         Returns:
-            None: Assertion validates output type.
+            None
         """
         lon = np.array([0.0])
         lat = np.array([0.0])
@@ -54,10 +55,10 @@ class TestEdgeCasesAndErrorHandling:
         This test verifies that the `remap_mpas_to_latlon` function preserves the range of data values when remapping from the MPAS grid to a regular lat-lon grid. The test creates synthetic longitude and latitude values, along with data values that have a known minimum and maximum. After remapping, the test checks that the minimum and maximum values in the remapped data are within the original range, ensuring that the interpolation method does not introduce values outside of the expected range. This is important for maintaining the integrity of the data during remapping operations, especially when using methods like 'nearest' that should preserve original values without smoothing or extrapolation. 
 
         Parameters:
-            self ('TestEdgeCasesAndErrorHandling'): Test instance (unused).
+            None
 
         Returns:
-            None: Assertions validate preserved data range.
+            None
         """
         lon, lat, u, v = load_mpas_coords_from_processor(n=200)
         umin = u.min()
@@ -114,7 +115,7 @@ class TestRemapToLatlonAllZeroData:
             dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon returns a DataArray without errors when input data is all zeros. 
+            None
         """
         data = np.zeros(dataset.sizes['nCells'])
         lon = np.degrees(dataset['lonCell'].values)
@@ -132,7 +133,7 @@ class TestRemapToLatlonAllZeroData:
             dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon returns a DataArray without errors when input data is all NaNs. 
+            None
         """
         n = dataset.sizes['nCells']
         data = np.full(n, np.nan)
@@ -151,7 +152,7 @@ class TestRemapToLatlonAllZeroData:
             dataset (xr.Dataset): Fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon preserves DataArray attributes.
+            None
         """
         n = dataset.sizes['nCells']
         rng = np.random.default_rng(7)

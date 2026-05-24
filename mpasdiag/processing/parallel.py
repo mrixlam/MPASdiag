@@ -22,6 +22,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from multiprocessing import cpu_count, get_context
 
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 try:
     from mpi4py import MPI
     MPI_AVAILABLE = True
@@ -378,8 +382,8 @@ class MPASParallelManager:
                 self._setup_multiprocessing_backend()
         except Exception as e:
             if self.verbose:
-                print(f"MPI initialization failed: {e}")
-                print("Falling back to multiprocessing backend")
+                logger.warning("MPI initialization failed: %s", e)
+                logger.warning("Falling back to multiprocessing backend")
             self._setup_multiprocessing_backend()
 
     def _log_backend_initialized(self: 'MPASParallelManager') -> None:
@@ -394,11 +398,17 @@ class MPASParallelManager:
         """
         if self.is_master and self.verbose:
             if self.backend == 'mpi':
-                print(f"MPASParallelManager initialized in MPI mode with {self.size} processes")
+                logger.info(
+                    "MPASParallelManager initialized in MPI mode with %d processes",
+                    self.size,
+                )
             elif self.backend == 'multiprocessing':
-                print(f"MPASParallelManager initialized in multiprocessing mode with {self.size} workers")
+                logger.info(
+                    "MPASParallelManager initialized in multiprocessing mode with %d workers",
+                    self.size,
+                )
             else:
-                print("MPASParallelManager initialized in serial mode")
+                logger.info("MPASParallelManager initialized in serial mode")
 
 
     def __init__(self: 'MPASParallelManager', 
@@ -497,9 +507,9 @@ class MPASParallelManager:
         local_tasks = self.distributor.distribute_tasks(tasks)
         
         if self.is_master and self.verbose:
-            print(f"\nProcessing {len(tasks)} tasks across {self.size} workers...")
-            print(f"Load balance strategy: {self.distributor.strategy.value}")
-            print(f"Error policy: {self.error_policy.value}")
+            logger.info("Processing %d tasks across %d workers", len(tasks), self.size)
+            logger.info("Load balance strategy: %s", self.distributor.strategy.value)
+            logger.info("Error policy: %s", self.error_policy.value)
         
         local_results = self._execute_local_tasks(func, local_tasks, *args, **kwargs)
         all_results = self.collector.gather_results(local_results)
@@ -553,11 +563,13 @@ class MPASParallelManager:
                     return pool.map(_multiprocessing_task_wrapper, task_args)
             except Exception as e:
                 if self.verbose:
-                    print(f"Multiprocessing with '{context_method}' failed: {e}")
+                    logger.warning(
+                        "Multiprocessing with '%s' failed: %s", context_method, e,
+                    )
                     if context_method != context_methods[-1]:
-                        print("Trying next method...")
+                        logger.warning("Trying next method")
                     else:
-                        print("Falling back to serial execution")
+                        logger.warning("Falling back to serial execution")
 
         return [_multiprocessing_task_wrapper(args) for args in task_args]
 
@@ -574,19 +586,19 @@ class MPASParallelManager:
         Returns:
             None
         """
-        print(f"\n{'='*60}")
-        print("PARALLEL EXECUTION STATISTICS")
-        print(f"{'='*60}")
-        print(f"Total tasks:       {stats.total_tasks}")
-        print(f"Completed:         {stats.completed_tasks}")
-        print(f"Failed:            {stats.failed_tasks}")
+        logger.info("=== PARALLEL EXECUTION STATISTICS ===")
+        logger.info("Total tasks:       %d", stats.total_tasks)
+        logger.info("Completed:         %d", stats.completed_tasks)
+        logger.info("Failed:            %d", stats.failed_tasks)
         if stats.total_tasks > 0:
-            print(f"Success rate:      {100*stats.completed_tasks/stats.total_tasks:.1f}%")
-        print(f"Total time:        {stats.total_time:.2f} seconds")
-        print(f"Wall time:         {wall_time:.2f} seconds")
+            logger.info(
+                "Success rate:      %.1f%%",
+                100 * stats.completed_tasks / stats.total_tasks,
+            )
+        logger.info("Total time:        %.2f seconds", stats.total_time)
+        logger.info("Wall time:         %.2f seconds", wall_time)
         if wall_time > 0:
-            print(f"Speedup:           {stats.total_time/wall_time:.2f}x")
-        print(f"{'='*60}\n")
+            logger.info("Speedup:           %.2fx", stats.total_time / wall_time)
 
     def _multiprocessing_map(self: 'MPASParallelManager', 
                              func: Callable, 
@@ -606,9 +618,9 @@ class MPASParallelManager:
             List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. 
         """
         if self.verbose:
-            print(f"\nProcessing {len(tasks)} tasks across {self.size} workers...")
-            print("Backend: Python multiprocessing")
-            print(f"Error policy: {self.error_policy.value}")
+            logger.info("Processing %d tasks across %d workers", len(tasks), self.size)
+            logger.info("Backend: Python multiprocessing")
+            logger.info("Error policy: %s", self.error_policy.value)
 
         start_time = time.time()
 
@@ -673,7 +685,10 @@ class MPASParallelManager:
                         raise
                 
                 if self.verbose:
-                    print(f"[Rank {self.rank}] Error processing task {task_id}: {str(e)}")
+                    logger.error(
+                        "[Rank %d] Error processing task %d: %s",
+                        self.rank, task_id, str(e),
+                    )
             
             finally:
                 result.execution_time = time.time() - start_time
@@ -699,7 +714,7 @@ class MPASParallelManager:
             List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. 
         """
         if self.verbose:
-            print(f"\nProcessing {len(tasks)} tasks in serial mode...")
+            logger.info("Processing %d tasks in serial mode", len(tasks))
         
         local_tasks = [(i, task) for i, task in enumerate(tasks)]
         results = self._execute_local_tasks(func, local_tasks, *args, **kwargs)
@@ -736,22 +751,23 @@ class MPASParallelManager:
         if not self.is_master or not self.stats:
             return
         
-        print("\n" + "="*60)
-        print("PARALLEL EXECUTION STATISTICS")
-        print("="*60)
-        print(f"Total tasks:       {self.stats.total_tasks}")
-        print(f"Completed:         {self.stats.completed_tasks}")
-        print(f"Failed:            {self.stats.failed_tasks}")
-        print(f"Success rate:      {100*self.stats.completed_tasks/self.stats.total_tasks:.1f}%")
-        print(f"Total time:        {self.stats.total_time:.2f} seconds")
-        
+        logger.info("=== PARALLEL EXECUTION STATISTICS ===")
+        logger.info("Total tasks:       %d", self.stats.total_tasks)
+        logger.info("Completed:         %d", self.stats.completed_tasks)
+        logger.info("Failed:            %d", self.stats.failed_tasks)
+        logger.info(
+            "Success rate:      %.1f%%",
+            100 * self.stats.completed_tasks / self.stats.total_tasks,
+        )
+        logger.info("Total time:        %.2f seconds", self.stats.total_time)
+
         if len(self.stats.worker_times) > 1:
-            print("\nPer-worker times:")
+            logger.info("Per-worker times:")
             for rank, worker_time in sorted(self.stats.worker_times.items()):
-                print(f"  Rank {rank:2d}:  {worker_time:8.2f} seconds")
-            print(f"\nLoad imbalance:    {100*self.stats.load_imbalance:.1f}%")
-        
-        print("="*60 + "\n")
+                logger.info("  Rank %2d:  %8.2f seconds", rank, worker_time)
+            logger.info(
+                "Load imbalance:    %.1f%%", 100 * self.stats.load_imbalance,
+            )
     
     def barrier(self: 'MPASParallelManager') -> None:
         """
@@ -780,7 +796,7 @@ class MPASParallelManager:
             self.barrier()
         
         if self.is_master and self.verbose:
-            print("MPASParallelManager finalized")
+            logger.info("MPASParallelManager finalized")
 
 
 def parallel_plot(plot_function: Callable, 
@@ -815,6 +831,6 @@ if __name__ == "__main__":
     results = manager.parallel_map(test_function, tasks, delay=0.1)
     
     if manager.is_master and results is not None:
-        print(f"\nProcessed {len(results)} tasks")
+        logger.info("Processed %d tasks", len(results))
         successes = sum(1 for r in results if r.success)
-        print(f"Success rate: {100*successes/len(results):.1f}%")
+        logger.info("Success rate: %.1f%%", 100 * successes / len(results))

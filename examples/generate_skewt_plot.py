@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example VII: Thermodynamic Skew-T Log-P Diagram
+MPASdiag Example VIII: Thermodynamic Skew-T Log-P Diagram
 
 This example demonstrates how to extract a vertical sounding profile from MPAS 3D model output at a specific geographic location and plot it as a Skew-T Log-P diagram. The example extracts the sounding profile at a location in Southeast Asia (near Singapore) at the first time index of the dataset. The Skew-T diagram includes temperature, dewpoint, and wind profiles, along with computed thermodynamic indices such as CAPE and CIN.
 

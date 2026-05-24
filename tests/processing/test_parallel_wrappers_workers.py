@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Tests for MPASdiag parallel processing wrappers
 
@@ -43,7 +44,7 @@ class TestPrecipitationWorker:
         This fixture sets up a temporary directory and a mock processor with a synthetic dataset for precipitation worker tests. The dataset includes a `rainnc` variable and coordinate arrays for longitude and latitude. The mock processor is configured to return this dataset and provide coordinate extraction functionality. After the test runs, the temporary directory is cleaned up.     
 
         Parameters:
-            self ('TestPrecipitationWorker'): Test instance receiving temporary directories and mocks.
+            None
 
         Returns:
             None
@@ -79,9 +80,7 @@ class TestPrecipitationWorker:
         This test verifies that the `_precipitation_worker` function successfully generates precipitation maps and returns the expected result structure. It mocks the `PrecipitationDiagnostics` to return a random precipitation difference dataset and the `MPASPrecipitationPlotter` to return mock figure and axis objects. The test asserts that the result contains the expected keys (`files`, `timings`, `time_str`, `cache_hits`) and that the `files` key contains a list, confirming that the worker function executed without errors and produced output in the correct format. 
 
         Parameters:
-            self ('TestPrecipitationWorker'): Test instance with prepared fixtures.
-            mock_diag_class (Any): Pytest mock for the diagnostics class constructor.
-            mock_plotter_class (Any): Pytest mock for the plotter class constructor.
+            None
 
         Returns:
             None
@@ -137,9 +136,7 @@ class TestPrecipitationWorker:
         This test ensures that the `_precipitation_worker` function correctly utilizes a provided cache for coordinate lookups. It mocks a cache that returns precomputed longitude and latitude values, and verifies that the worker records cache hits and calls the cache's `get_coordinates` method exactly once. This confirms that the caching mechanism is integrated properly and avoids redundant coordinate extraction. 
 
         Parameters:
-            self ('TestPrecipitationWorker'): Test instance with prepared fixtures.
-            mock_diag_class (Any): Pytest mock for the diagnostics class constructor.
-            mock_plotter_class (Any): Pytest mock for the plotter class constructor.
+            None
 
         Returns:
             None
@@ -194,14 +191,10 @@ class TestPrecipitationWorker:
 
     def test_precipitation_worker_with_weights_dir(self: 'TestPrecipitationWorker') -> None:
         """
-        This test verifies that the `_precipitation_worker` function correctly handles the
-        `weights_dir` path when provided in kwargs (lines 232-233). It passes a non-None
-        `weights_dir` value and asserts that the worker completes successfully, confirming
-        that the `from pathlib import Path; plotter._remapper_weights_dir = Path(weights_dir)`
-        assignment executes without error.
+        This test verifies that the `_precipitation_worker` function can successfully execute when a `weights_dir` is provided in the kwargs. It mocks the necessary plotter and diagnostics classes, and ensures that the worker function completes without errors and returns a result containing the expected keys. This test confirms that the presence of a `weights_dir` does not interfere with the normal operation of the precipitation worker. 
 
         Parameters:
-            self ('TestPrecipitationWorker'): Test instance with prepared fixtures.
+            None
 
         Returns:
             None
@@ -254,7 +247,7 @@ class TestSurfaceWorker:
         This fixture sets up a temporary directory and a mock processor with a synthetic dataset containing a `t2m` variable for surface worker tests. The dataset includes coordinate arrays for longitude and latitude. The mock processor is configured to return this dataset and provide methods for extracting spatial coordinates. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestSurfaceWorker'): Test instance to receive temporary resources.
+            None
 
         Returns:
             None
@@ -285,7 +278,7 @@ class TestSurfaceWorker:
         This method cleans up temporary resources created for surface worker tests by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestSurfaceWorker'): Test instance owning temporary resources.
+            None
 
         Returns:
             None
@@ -297,8 +290,7 @@ class TestSurfaceWorker:
         This test verifies that the `_surface_worker` function successfully generates surface variable maps and returns the expected result structure. It mocks the `MPASSurfacePlotter` to return mock figure and axis objects, executes the worker with a prepared mock processor and specified kwargs, and asserts that the result contains the expected keys (`files`, `timings`, `time_str`) and that the `files` key contains a list, confirming that the worker function executed without errors and produced output in the correct format. 
 
         Parameters:
-            self ('TestSurfaceWorker'): Test instance with a prepared mock processor.
-            mock_plotter_class (Any): Pytest mock for the surface plotter constructor.
+            None
 
         Returns:
             None
@@ -340,13 +332,10 @@ class TestSurfaceWorker:
 
     def test_surface_worker_with_primed_cache(self: 'TestSurfaceWorker') -> None:
         """
-        This test verifies that `_surface_worker` records a cache coordinate hit (line 357)
-        when the supplied cache already has coordinates loaded for the requested variable.
-        It provides a mock cache whose `get_coordinates` succeeds without raising KeyError,
-        then asserts that `cache_hits['coordinates']` is True in the result.
+        This test verifies that `_surface_worker` records a cache coordinate hit when the supplied cache already has coordinates loaded for the variable. It provides a mock cache whose `get_coordinates` returns coordinates successfully, then asserts that `cache_hits['coordinates']` is True in the result and that `get_coordinates` was called exactly once. This confirms that the worker function properly utilizes the cache when available, avoiding redundant coordinate extraction from the processor. 
 
         Parameters:
-            self ('TestSurfaceWorker'): Test instance with prepared fixtures.
+            None
 
         Returns:
             None
@@ -398,7 +387,7 @@ class TestWindWorker:
         This fixture sets up a temporary directory and a mock processor with a synthetic dataset containing `u10` and `v10` wind components for wind worker tests. The dataset includes coordinate arrays for longitude and latitude. The mock processor is configured to return this dataset and provide methods for extracting spatial coordinates. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestWindWorker'): Test instance to receive created fixtures.
+            None
 
         Returns:
             None
@@ -435,7 +424,7 @@ class TestWindWorker:
         This method cleans up temporary resources created for wind worker tests by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestWindWorker'): Test instance owning temporary resources.
+            None
 
         Returns:
             None
@@ -447,8 +436,7 @@ class TestWindWorker:
         This test verifies that the `_wind_worker` function successfully generates wind plots and returns the expected result structure. It mocks the `MPASWindPlotter` to return mock figure and axis objects, executes the worker with a prepared mock processor and specified kwargs, and asserts that the result contains the expected keys (`files`, `timings`, `time_str`) and that the `files` key contains a list, confirming that the worker function executed without errors and produced output in the correct format. 
 
         Parameters:
-            self ('TestWindWorker'): Test instance with mock processor fixtures.
-            mock_plotter_class (Any): Pytest mock for the wind plotter class.
+            None
 
         Returns:
             None
@@ -492,13 +480,10 @@ class TestWindWorker:
 
     def test_wind_worker_with_primed_cache(self: 'TestWindWorker') -> None:
         """
-        This test verifies that `_wind_worker` records a cache coordinate hit (line 476)
-        when the supplied cache already has coordinates loaded for the u-component variable.
-        It provides a mock cache whose `get_coordinates` returns coordinates successfully,
-        then asserts that `cache_hits['coordinates']` is True in the result.
+        This test verifies that `_wind_worker` records a cache coordinate hit when the supplied cache already has coordinates loaded for the variable. It provides a mock cache whose `get_coordinates` returns coordinates successfully, then asserts that `cache_hits['coordinates']` is True in the result and that `get_coordinates` was called exactly once. This confirms that the worker function properly utilizes the cache when available, avoiding redundant coordinate extraction from the processor. 
 
         Parameters:
-            self ('TestWindWorker'): Test instance with prepared fixtures.
+            None
 
         Returns:
             None
@@ -553,7 +538,7 @@ class TestCrossSectionWorker:
         This fixture sets up a temporary directory and a mock processor with a synthetic dataset containing a `temperature` variable for cross-section worker tests. The dataset includes coordinate arrays for time, vertical levels, and cells. The mock processor is configured to return this dataset, allowing the worker function to be invoked without accessing external data files. After the test runs, the temporary directory is removed to clean up resources. 
 
         Parameters:
-            self ('TestCrossSectionWorker'): Test instance to receive mocked dataset and processor.
+            None
 
         Returns:
             None
@@ -577,7 +562,7 @@ class TestCrossSectionWorker:
         This method cleans up temporary resources created for cross-section worker tests by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment. 
 
         Parameters:
-            self ('TestCrossSectionWorker'): Test instance owning the temporary directory.
+            None
 
         Returns:
             None
@@ -589,8 +574,7 @@ class TestCrossSectionWorker:
         This test verifies that the `_cross_section_worker` function successfully generates vertical cross-section plots and returns the expected result structure. It mocks the `MPASVerticalCrossSectionPlotter` to return mock figure and axis objects, executes the worker with a prepared mock processor and specified kwargs, and asserts that the result contains the expected keys (`files`, `timings`, `time_str`) and that the `files` key contains a list, confirming that the worker function executed without errors and produced output in the correct format. 
 
         Parameters:
-            self ('TestCrossSectionWorker'): Test instance with the prepared mock processor.
-            mock_plotter_class (Any): Pytest mock for the vertical cross-section plotter.
+            None
 
         Returns:
             None
@@ -630,14 +614,10 @@ class TestCrossSectionWorker:
 
     def test_cross_section_worker_uppercase_format(self: 'TestCrossSectionWorker') -> None:
         """
-        This test verifies that `_cross_section_worker` enters the non-PNG format save branch
-        (line 611) when an uppercase format string such as `'PNG'` is provided. Because the
-        outer guard is `if fmt != 'png':` (case-sensitive) and the inner check is
-        `if fmt.lower() == 'png':`, `'PNG'` satisfies both conditions, exercising the
-        otherwise-unreachable inner branch.
+        This test verifies that the `_cross_section_worker` function can successfully execute when the output format is specified in uppercase (e.g., 'PNG' instead of 'png'). It mocks the `MPASVerticalCrossSectionPlotter` to return mock figure and axis objects, executes the worker with a prepared mock processor and specified kwargs that include an uppercase format, and asserts that the result contains the expected keys (`files`, `timings`, `time_str`) and that the `files` key contains a list, confirming that the worker function correctly handles uppercase format specifications without errors. 
 
         Parameters:
-            self ('TestCrossSectionWorker'): Test instance with prepared fixtures.
+            None
 
         Returns:
             None
@@ -678,7 +658,15 @@ class TestWorkerCacheKeyErrorFallback:
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestWorkerCacheKeyErrorFallback') -> None:
-        """Set up temp dir and a minimal mock processor with Time-less dataset."""
+        """
+        This fixture sets up a temporary directory and mock processors with synthetic datasets for testing the KeyError fallback paths in worker coordinate-cache lookups. The mock processors are configured to return datasets with appropriate variables and coordinate extraction methods. This setup allows the tests to verify that when a KeyError occurs during cache coordinate retrieval, the worker functions correctly fall back to extracting coordinates from the processor, ensuring that the worker can still execute successfully even when cache entries are missing. After the test runs, the temporary directory is removed to clean up resources.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.temp_dir = tempfile.mkdtemp()
         n_cells = 100
         lon = np.linspace(-120, -80, n_cells)
@@ -728,15 +716,26 @@ class TestWorkerCacheKeyErrorFallback:
         self.lon, self.lat = lon, lat
 
     def teardown_method(self: 'TestWorkerCacheKeyErrorFallback') -> None:
+        """
+        This method cleans up temporary resources created for the worker cache key error fallback tests by removing the temporary directory. This ensures that no residual files or directories remain after the tests are executed, maintaining a clean testing environment.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_precipitation_worker_cache_key_error_fallback(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
+    def test_precipitation_worker_cache_key_error_fallback(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
         """
-        Covers lines 145-151: when cache.get_coordinates raises KeyError the worker
-        falls back to processor.extract_2d_coordinates_for_variable and still succeeds.
-        Also covers lines 149-150: load_coordinates_from_dataset raises Exception (silenced).
+        This test verifies that the `_precipitation_worker` function correctly falls back to extracting coordinates from the processor when a KeyError occurs during cache coordinate retrieval. It mocks a cache that raises a KeyError for the 'rainnc' variable, and ensures that the worker function can still execute successfully by extracting coordinates directly from the processor. The test asserts that the result contains the expected keys and that the cache hit for coordinates is recorded as False, confirming that the fallback mechanism is functioning as intended.
+
+        Parameters:
+            None
+
+        Returns:
+            None
         """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter, orig_diag = _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics
@@ -779,10 +778,16 @@ class TestWorkerCacheKeyErrorFallback:
         finally:
             _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics = orig_plotter, orig_diag
 
-    def test_precipitation_worker_no_time_dim_fallback(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
-        """Covers line 170: _get_time_str returns 't{idx:03d}' when dataset has no Time."""
+    def test_precipitation_worker_no_time_dim_fallback(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
+        """
+        This test verifies that the `_precipitation_worker` function can successfully execute and generate a time string when the input dataset does not contain a time dimension. It mocks a processor with a dataset that has no time dimension, and ensures that the worker function can still run without errors and produces a result with a time string that starts with 't', confirming that the worker can handle datasets without time coordinates by generating an appropriate time string for output files.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter, orig_diag = _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics
 
@@ -828,10 +833,16 @@ class TestWorkerCacheKeyErrorFallback:
         finally:
             _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics = orig_plotter, orig_diag
 
-    def test_precipitation_worker_custom_title_template(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
-        """Covers line 236: custom_title_template.format(...) branch in precipitation worker."""
+    def test_precipitation_worker_custom_title_template(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
+        """
+        This test verifies that the `_precipitation_worker` function can successfully execute when a custom title template is provided in the kwargs. It mocks the necessary plotter and diagnostics classes, and ensures that the worker function completes without errors and returns a result containing the expected keys. This test confirms that the presence of a `custom_title_template` does not interfere with the normal operation of the precipitation worker, allowing for customized plot titles while still generating output correctly. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter, orig_diag = _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics
 
@@ -868,12 +879,15 @@ class TestWorkerCacheKeyErrorFallback:
         finally:
             _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics = orig_plotter, orig_diag
 
-    def test_surface_worker_cache_key_error_fallback(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
+    def test_surface_worker_cache_key_error_fallback(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
         """
-        Covers lines 358-363: surface worker falls back when cache.get_coordinates raises KeyError.
-        Also covers lines 362-363: load_coordinates_from_dataset raises Exception (silenced).
+        This test verifies that the `_surface_worker` function correctly falls back to extracting coordinates from the processor when a KeyError occurs during cache coordinate retrieval. It mocks a cache that raises a KeyError for the 't2m' variable, and ensures that the worker function can still execute successfully by extracting coordinates directly from the processor. The test asserts that the result contains the expected keys and that the cache hit for coordinates is recorded as False, confirming that the fallback mechanism is functioning as intended.
+
+        Parameters:
+            None
+
+        Returns:
+            None
         """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter = _pw.MPASSurfacePlotter
@@ -909,12 +923,15 @@ class TestWorkerCacheKeyErrorFallback:
         finally:
             _pw.MPASSurfacePlotter = orig_plotter
 
-    def test_wind_worker_cache_key_error_fallback(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
+    def test_wind_worker_cache_key_error_fallback(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
         """
-        Covers lines 477-482: wind worker falls back when cache.get_coordinates raises KeyError.
-        Also covers lines 481-482: load_coordinates_from_dataset raises Exception (silenced).
+        This test verifies that the `_wind_worker` function correctly falls back to extracting coordinates from the processor when a KeyError occurs during cache coordinate retrieval. It mocks a cache that raises a KeyError for the 'u10' variable, and ensures that the worker function can still execute successfully by extracting coordinates directly from the processor. The test asserts that the result contains the expected keys and that the cache hit for coordinates is recorded as False, confirming that the fallback mechanism is functioning as intended.
+
+        Parameters:
+            None
+
+        Returns:
+            None
         """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter = _pw.MPASWindPlotter
@@ -953,10 +970,16 @@ class TestWorkerCacheKeyErrorFallback:
         finally:
             _pw.MPASWindPlotter = orig_plotter
 
-    def test_wind_worker_no_time_dim_fallback(
-        self: 'TestWorkerCacheKeyErrorFallback',
-    ) -> None:
-        """Covers line 492: wind worker uses f't{idx:03d}' when dataset has no Time coord."""
+    def test_wind_worker_no_time_dim_fallback(self: 'TestWorkerCacheKeyErrorFallback',) -> None:
+        """
+        This test verifies that the `_wind_worker` function can successfully execute and generate a time string when the input dataset does not contain a time dimension. It mocks a processor with a dataset that has no time dimension, and ensures that the worker function can still run without errors and produces a result with a time string that starts with 't', confirming that the worker can handle datasets without time coordinates by generating an appropriate time string for output files. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         import mpasdiag.processing.parallel_wrappers as _pw
         orig_plotter = _pw.MPASWindPlotter
 

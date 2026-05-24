@@ -16,6 +16,10 @@ import numpy as np
 import xarray as xr
 from typing import Any, Optional, cast
 
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class PrecipitationDiagnostics:
     """ Computes precipitation-related diagnostics for MPAS model output, including temporal differencing for accumulation calculations, data quality checks, and statistical summaries. """
@@ -75,7 +79,10 @@ class PrecipitationDiagnostics:
         
         # Perform temporal differencing to compute accumulation for the specified variable and accumulation period
         if self.verbose:
-            print(f"Computing {accum_hours}-hour accumulation for period: {accum_period}")
+            logger.info(
+                "Computing %s-hour accumulation for period: %s",
+                accum_hours, accum_period,
+            )
             self._print_time_slice_info(dataset, time_index, var_name, time_step_diff)
         
         # Calculate previous time index for differencing
@@ -103,7 +110,10 @@ class PrecipitationDiagnostics:
 
         # Provide diagnostic output about the computed accumulation, including range and spatial coverage, to help identify potential issues in the results
         if self.verbose:
-            print(f"Computed {accum_hours}-hour accumulated precipitation for period: {accum_period}")
+            logger.info(
+                "Computed %s-hour accumulated precipitation for period: %s",
+                accum_hours, accum_period,
+            )
             self._analyze_precipitation_diagnostics(result_data=accumulated_precipitation, var_context=var_name)
 
         # Return accumulated precipitation DataArray
@@ -365,7 +375,10 @@ class PrecipitationDiagnostics:
         """
         # For verbose output, indicate that time index 0 is being handled with actual data from the file 
         if self.verbose:
-            print(f"Time index 0 requested - using actual data from file, variable: {var_name}")
+            logger.info(
+                "Time index 0 requested - using actual data from file, variable: %s",
+                var_name,
+            )
         
         # Extract the sample data for the specified variable at time index 0 
         sample_data = self._extract_sample_data_for_variable(dataset, var_name, 0, time_dim, data_type)
@@ -400,8 +413,11 @@ class PrecipitationDiagnostics:
         """
         # For verbose output, indicate that there is insufficient lookback for the requested accumulation period
         if self.verbose:
-            print(f"Warning: Time index {time_index} < required {accum_hours}-hour lookback")
-            print("Creating zero precipitation field for insufficient data")
+            logger.warning(
+                "Time index %d < required %d-hour lookback",
+                time_index, accum_hours,
+            )
+            logger.warning("Creating zero precipitation field for insufficient data")
         
         # Generate a zero-filled precipitation field with the same shape and coordinates as the sample data for the specified variable at the current time index
         sample_data = self._extract_sample_data_for_variable(dataset, var_name, time_index, time_dim, data_type)
@@ -449,7 +465,7 @@ class PrecipitationDiagnostics:
         # Catch any exceptions that occur during the handling of the first time step 
         except Exception as e:
             if self.verbose:
-                print(f"Error handling first time step: {e}")
+                logger.error("Error handling first time step: %s", e)
             raise ValueError(f"Cannot handle time index {time_index} for variable {var_name}: {e}")
     
     def _apply_precipitation_filters_and_attributes(self: 'PrecipitationDiagnostics', 
@@ -518,14 +534,27 @@ class PrecipitationDiagnostics:
 
             # Format the variable context for labeling the output messages
             variable_label = var_context if var_context else "precipitation"
-            print(f"Current {variable_label} range: {current_min:.2f} to {current_max:.2f} mm")
-            print(f"Previous {variable_label} range: {previous_min:.2f} to {previous_max:.2f} mm")
+
+            # Print the current range of values for the specified variable context
+            logger.debug(
+                "Current %s range: %.2f to %.2f mm",
+                variable_label, current_min, current_max,
+            )
+
+            # Print the previous range for comparison
+            logger.debug(
+                "Previous %s range: %.2f to %.2f mm",
+                variable_label, previous_min, previous_max,
+            )
 
             # Check if the current maximum is less than the previous maximum
             if current_max < previous_max:
-                print(f"WARNING: Current max ({current_max:.2f}) < Previous max ({previous_max:.2f}) - possible data loading issue!")
+                logger.warning(
+                    "Current max (%.2f) < Previous max (%.2f) - possible data loading issue",
+                    current_max, previous_max,
+                )
         except Exception as e:
-            print(f"Could not analyze current/previous data: {e}")
+            logger.warning("Could not analyze current/previous data: %s", e)
 
     def _compute_result_statistics(self: 'PrecipitationDiagnostics', 
                                    result_data: Any) -> Optional[dict[str, Any]]:
@@ -570,7 +599,7 @@ class PrecipitationDiagnostics:
             }
         # Catch any exceptions that occur during the computation of statistics
         except Exception as e:
-            print(f"Could not compute result statistics: {e}")
+            logger.warning("Could not compute result statistics: %s", e)
             return None
 
     def _print_result_data_analysis(self: 'PrecipitationDiagnostics', 
@@ -591,14 +620,30 @@ class PrecipitationDiagnostics:
 
         # Warn if there are no finite values in the result data
         if result_stats is None:
-            print("Warning: No finite values found in result data")
+            logger.warning("No finite values found in result data")
             return
 
         # Format the variable context for labeling the output messages
         variable_label = var_context if var_context else "precipitation"
-        print(f"Result {variable_label} range: {result_stats['min']:.3f} to {result_stats['max']:.3f} mm")
-        print(f"Result {variable_label} mean: {result_stats['mean']:.3f} mm")
-        print(f"Points with precipitation > 0.01 mm: {result_stats['nonzero_count']:,}/{result_stats['total_count']:,} ({result_stats['nonzero_percentage']:.1f}%)")
+
+        # Print the range of values in the result data to help identify potential issues
+        logger.info(
+            "Result %s range: %.3f to %.3f mm",
+            variable_label, result_stats['min'], result_stats['max'],
+        )
+
+        # Print the mean value of the result data for additional insight 
+        logger.info(
+            "Result %s mean: %.3f mm", variable_label, result_stats['mean'],
+        )
+
+        # Print the count and percentage of points with non-zero precipitation
+        logger.info(
+            "Points with precipitation > 0.01 mm: %s/%s (%.1f%%)",
+            f"{result_stats['nonzero_count']:,}",
+            f"{result_stats['total_count']:,}",
+            result_stats['nonzero_percentage'],
+        )
 
     def _analyze_precipitation_diagnostics(self: 'PrecipitationDiagnostics',
                                            current_data: Any = None, 
@@ -661,13 +706,18 @@ class PrecipitationDiagnostics:
                 
                 # Format the variable context for labeling the output messages
                 variable_label = f" for {var_context}" if var_context else ""
-                print(f"Time slice info{variable_label}:")
-                print(f"  Current time (index {time_index}): {current_time}")
-                print(f"  Previous time (index {time_index - time_step_diff}): {previous_time}")
-                print(f"  Time step difference: {time_step_diff} steps")
+                logger.debug("Time slice info%s:", variable_label)
+                logger.debug("  Current time (index %d): %s", time_index, current_time)
+                logger.debug(
+                    "  Previous time (index %d): %s",
+                    time_index - time_step_diff, previous_time,
+                )
+                logger.debug("  Time step difference: %d steps", time_step_diff)
             else:
-                print(f"Time slice: indices {time_index - time_step_diff} -> {time_index}")
-        
-        # Catch any exceptions that occur while trying to print time slice information
+                logger.debug(
+                    "Time slice: indices %d -> %d",
+                    time_index - time_step_diff, time_index,
+                )
+
         except Exception as e:
-            print(f"Could not print time slice info: {e}")
+            logger.warning("Could not print time slice info: %s", e)

@@ -26,6 +26,9 @@ from typing import List, Tuple, Any, Optional, Dict, Union, cast
 # Import relevant MPASdiag utilities and constants
 from .utils_datetime import MPASDateTimeUtils
 from .constants import DATASET_NOT_LOADED_MSG, DIAG_GLOB
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 # Suppress specific warnings that are expected during MPAS data loading and processing to reduce noise in verbose output. 
 warnings.filterwarnings('ignore', message='.*Shapely.*')
@@ -52,24 +55,24 @@ class MPASBaseProcessor:
         Returns:
             None
         """
-        # Validate and store the grid file path, which is essential for loading MPAS datasets with unstructured grid support. 
+        # Validate and store the grid file path
         self.grid_file = grid_file
 
         # Store verbosity setting for controlling diagnostic output during processing.
         self.verbose = verbose
 
-        # Initialize dataset and data type attributes to None; these will be set during the loading process based on the successful loading strategy (xarray or UXarray).
+        # Initialize dataset and data type attributes to None
         self.dataset = None
 
-        # Initially set data_type to None; this will be updated to 'xarray' or 'uxarray' based on the loading strategy that succeeds
+        # Initially set data_type to None
         self.data_type = None
         
-        # If verbose mode is enabled, print an initialization message indicating the grid file being used and the verbosity setting.
+        # If verbose mode is enabled, print an initialization message 
         if self.verbose:
-            print(f"Initializing MPASBaseProcessor with grid file: {grid_file}")
-            print(f"Verbose mode: {self.verbose}")
+            logger.debug("Initializing MPASBaseProcessor with grid file: %s", grid_file)
+            logger.debug("Verbose mode: %s", self.verbose)
 
-        # Raise a FileNotFoundError if the specified grid file does not exist to ensure that subsequent loading operations have the necessary grid information available.
+        # Raise a FileNotFoundError if the specified grid file does not exist
         if not os.path.exists(grid_file):
             raise FileNotFoundError(f"Grid file not found: {grid_file}")
     
@@ -84,8 +87,11 @@ class MPASBaseProcessor:
         Returns:
             xr.Dataset: A plain xarray.Dataset if the input can be converted, or the original dataset if it cannot be converted to an xarray.Dataset.
         """
+        # Create a plain xarray.Dataset if the input dataset is not already an xarray.Dataset 
         if type(dataset) is not xr.Dataset and isinstance(dataset, xr.Dataset):
             return xr.Dataset(dict(dataset.data_vars), coords=dataset.coords, attrs=dataset.attrs)
+        
+        # Return the xarray.Dataset 
         return dataset  
       
     def _find_files_by_pattern(self: 'MPASBaseProcessor', 
@@ -119,15 +125,13 @@ class MPASBaseProcessor:
         
         # If verbose mode is enabled, print a summary of the discovered files with truncated listing for large file sets.
         if self.verbose:
-            print(f"\nFound {len(files)} {file_type}:")
+            logger.info("Found %d %s:", len(files), file_type)
 
-            # Print the first 5 files in the list for a concise summary without overwhelming the output when many files are present.
             for i, filename in enumerate(files[:5]):
-                print(f"  {i+1}: {os.path.basename(filename)}")
+                logger.info("  %d: %s", i + 1, os.path.basename(filename))
 
-            # If there are more than 5 files, print a message indicating how many additional files were found without listing them all to keep the output manageable.
             if len(files) > 5:
-                print(f"  ... and {len(files) - 5} more files")
+                logger.info("  ... and %d more files", len(files) - 5)
         
         # Return the sorted list of file paths for use in subsequent loading and processing operations.
         return files
@@ -311,8 +315,7 @@ class MPASBaseProcessor:
         
         # If verbose mode is enabled, print a summary of the combined dataset structure
         if self.verbose:
-            print(f"\n{data_type_label} Dataset structure:")
-            print(combined_ds)
+            logger.debug("%s Dataset structure:\n%s", data_type_label, combined_ds)
         
         if use_pure_xarray:
             # If pure xarray is requested, skip UXarray wrapping and return the combined xarray.Dataset directly.
@@ -450,7 +453,10 @@ class MPASBaseProcessor:
                 drop_variables = [v for v in all_data_vars if v not in variables_to_keep]
 
                 if self.verbose and drop_variables:
-                    print(f"Selective loading: keeping {len(variables_to_keep)} variable(s), dropping {len(drop_variables)} from data files")
+                    logger.debug(
+                        "Selective loading: keeping %d variable(s), dropping %d from data files",
+                        len(variables_to_keep), len(drop_variables),
+                    )
             except Exception:
                 drop_variables = None
         
@@ -462,23 +468,21 @@ class MPASBaseProcessor:
             )
         except Exception as e:
             if self.verbose:
-                print(f"Primary {data_type_label.lower()} loading failed: {e}")
-                print(f"Trying xarray fallback for {data_type_label.lower()} data...")
-            
-            # Attempt fallback loading strategy
+                logger.warning("Primary %s loading failed: %s", data_type_label.lower(), e)
+                logger.warning("Trying xarray fallback for %s data", data_type_label.lower())
+
             try:
                 return self._attempt_fallback_load(
                     data_files, file_datetimes, full_chunks, data_type_label, drop_variables=drop_variables
                 )
             except Exception as e2:
                 if self.verbose:
-                    print(f"Xarray fallback also failed: {e2}")
-                
-                # Final fallback to single file
+                    logger.warning("Xarray fallback also failed: %s", e2)
+
                 try:
                     return self._load_single_file_fallback(reference_file, data_files)
                 except Exception as e3:
-                    print(f"All loading strategies failed: {e3}")
+                    logger.error("All loading strategies failed: %s", e3)
                     sys.exit(1)
 
     def _print_loading_success(self: 'MPASBaseProcessor', 
@@ -498,15 +502,21 @@ class MPASBaseProcessor:
         Returns:
             None
         """
-        print(f"\nSuccessfully loaded {num_files} {data_type_label.lower()} files with {loader_type} (lazy)")
-        print(f"Combined dataset time dimension: {dataset.Time.shape}")
-        
+        logger.info(
+            "Successfully loaded %d %s files with %s (lazy)",
+            num_files, data_type_label.lower(), loader_type,
+        )
+        logger.info("Combined dataset time dimension: %s", dataset.Time.shape)
+
         if hasattr(dataset, 'sizes') and 'nVertLevels' in dataset.sizes:
-            print(f"Vertical levels: {dataset.sizes['nVertLevels']}")
-        
-        print(f"\nTime range: {dataset.Time.values[0]} to {dataset.Time.values[-1]}")
-        print("Memory usage: Dataset uses chunked/lazy arrays")
-        print(f"Data loaded as: {loader_type} ({data_type_label.lower()})")
+            logger.info("Vertical levels: %s", dataset.sizes['nVertLevels'])
+
+        logger.info(
+            "Time range: %s to %s",
+            dataset.Time.values[0], dataset.Time.values[-1],
+        )
+        logger.debug("Memory usage: Dataset uses chunked/lazy arrays")
+        logger.debug("Data loaded as: %s (%s)", loader_type, data_type_label.lower())
     
     def _select_fallback_file(self: 'MPASBaseProcessor', 
                               reference_file: str, 
@@ -579,7 +589,8 @@ class MPASBaseProcessor:
         
         # If verbose mode is enabled, print a message indicating successful single file load
         if self.verbose:
-            print(f"Loaded single file{' with ' + loader_desc if loader_desc else ''}: {file_path}")
+            suffix = f" with {loader_desc}" if loader_desc else ""
+            logger.info("Loaded single file%s: %s", suffix, file_path)
         
         # Return the dataset and data type 
         return dataset, data_type
@@ -616,7 +627,7 @@ class MPASBaseProcessor:
             Tuple[Any, str]: A tuple containing the loaded dataset object (either an xarray.Dataset or a ux.UxDataset depending on which loading strategy succeeds) and a string identifier of the data type used for loading ('xarray' or 'uxarray'). 
         """
         if self.verbose:
-            print("Falling back to single-file loading (limited functionality)...")
+            logger.warning("Falling back to single-file loading (limited functionality)")
         
         file_to_load = self._select_fallback_file(reference_file, data_files)
         return self._attempt_single_file_load(file_to_load)
@@ -752,7 +763,10 @@ class MPASBaseProcessor:
         grid_file_ds = xr.open_dataset(self.grid_file, **open_kwargs)
         
         if self.verbose:
-            print(f"\nGrid file loaded successfully with variables: \n{list(grid_file_ds.variables.keys())}\n")
+            logger.debug(
+                "Grid file loaded successfully with variables: %s",
+                list(grid_file_ds.variables.keys()),
+            )
         
         return grid_file_ds
 
@@ -775,7 +789,10 @@ class MPASBaseProcessor:
             if dim_name in combined_ds.sizes:
                 coords_to_add[dim_name] = (dim_name, np.arange(combined_ds.sizes[dim_name]))
                 if self.verbose:
-                    print(f"Added {dim_name} index coordinate for {dim_name} dimension ({combined_ds.sizes[dim_name]} values)")
+                    logger.debug(
+                        "Added %s index coordinate for %s dimension (%d values)",
+                        dim_name, dim_name, combined_ds.sizes[dim_name],
+                    )
         
         return coords_to_add
 
@@ -800,7 +817,7 @@ class MPASBaseProcessor:
             if var_name in grid_file_ds.variables and var_name not in combined_ds.data_vars:
                 data_vars_to_add[var_name] = grid_file_ds[var_name]
                 if self.verbose:
-                    print(f"Added spatial coordinate variable: {var_name}")
+                    logger.debug("Added spatial coordinate variable: %s", var_name)
         
         return data_vars_to_add
 
@@ -822,17 +839,17 @@ class MPASBaseProcessor:
         if coords_to_add:
             combined_ds = combined_ds.assign_coords(coords_to_add)
             if self.verbose:
-                print(f"\nSuccessfully added {len(coords_to_add)} coordinate variables")
-        
+                logger.debug("Successfully added %d coordinate variables", len(coords_to_add))
+
         if data_vars_to_add:
             for var_name, var_data in data_vars_to_add.items():
                 combined_ds[var_name] = var_data
             if self.verbose:
-                print(f"Successfully added {len(data_vars_to_add)} spatial variables")
-                print("\nUpdated dataset coordinates:", list(combined_ds.coords.keys()))
+                logger.debug("Successfully added %d spatial variables", len(data_vars_to_add))
+                logger.debug("Updated dataset coordinates: %s", list(combined_ds.coords.keys()))
         else:
             if self.verbose:
-                print("No additional coordinate variables found to add")
+                logger.debug("No additional coordinate variables found to add")
         
         return combined_ds
 
@@ -871,8 +888,11 @@ class MPASBaseProcessor:
         except Exception as coord_error:
             # Warn the user if spatial coordinates could not be added but continue processing with the original combined dataset
             if self.verbose:
-                print(f"Warning: Could not add {processor_type} spatial coordinates: {coord_error}")
-                print("Continuing without additional coordinates...")
+                logger.warning(
+                    "Could not add %s spatial coordinates: %s",
+                    processor_type, coord_error,
+                )
+                logger.warning("Continuing without additional coordinates")
         
         # Return the combined dataset 
         return combined_ds

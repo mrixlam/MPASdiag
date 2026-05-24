@@ -22,6 +22,9 @@ from typing import List, Tuple, Any, Optional, Union, cast
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
 from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPAS3DProcessor(MPASBaseProcessor):
@@ -144,7 +147,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 lat_coords = lat_coords.ravel()
 
                 if self.verbose:
-                    print(f"Extracted {spatial_dim} coordinates for 3D variable {var_name}: {len(lon_coords):,} points")
+                    logger.debug(
+                        "Extracted %s coordinates for 3D variable %s: %s points",
+                        spatial_dim, var_name, f"{len(lon_coords):,}",
+                    )
 
                 return lon_coords, lat_coords
 
@@ -173,9 +179,9 @@ class MPAS3DProcessor(MPASBaseProcessor):
             )
 
         if self.verbose:
-            print(f"\nFound {len(files)} MPAS output files (recursive search):")
+            logger.info("Found %d MPAS output files (recursive search):", len(files))
             for i, filepath in enumerate(files[:5]):
-                print(f"  {i+1}: {os.path.basename(filepath)}")
+                logger.info("  %d: %s", i + 1, os.path.basename(filepath))
 
         return files
 
@@ -262,15 +268,15 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 atmospheric_3d_vars.append(var_name)
         
         if self.verbose:
-            print(f"Found {len(atmospheric_3d_vars)} 3D atmospheric variables:")
+            logger.info("Found %d 3D atmospheric variables:", len(atmospheric_3d_vars))
 
-            for var in atmospheric_3d_vars[:10]:  
+            for var in atmospheric_3d_vars[:10]:
                 dims_str = 'x'.join(str(self.dataset[var].sizes[dim]) for dim in self.dataset[var].sizes)
                 units = self.dataset[var].attrs.get('units', 'no units')
-                print(f"  {var}: [{dims_str}] - {units}")
+                logger.info("  %s: [%s] - %s", var, dims_str, units)
 
             if len(atmospheric_3d_vars) > 10:
-                print(f"  ... and {len(atmospheric_3d_vars) - 10} more")
+                logger.info("  ... and %d more", len(atmospheric_3d_vars) - 10)
         
         return atmospheric_3d_vars
 
@@ -392,12 +398,15 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 finite_values = interp_field.values.flatten()
                 finite_values = finite_values[np.isfinite(finite_values)]
                 if len(finite_values) > 0:
-                    print(f"Interpolated field range: {finite_values.min():.3f} to {finite_values.max():.3f}")
+                    logger.debug(
+                        "Interpolated field range: %.3f to %.3f",
+                        float(finite_values.min()), float(finite_values.max()),
+                    )
             return -1, interp_field
         except Exception:
             level_idx = int(np.argmin(np.abs(mean_p_vals - level)))
             if self.verbose:
-                print(f"Interpolation failed, falling back to nearest mean level {level_idx}")
+                logger.warning("Interpolation failed, falling back to nearest mean level %d", level_idx)
             return level_idx, None
 
     def _interpolate_at_pressure(self: 'MPAS3DProcessor',
@@ -423,29 +432,36 @@ class MPAS3DProcessor(MPASBaseProcessor):
         """
         if level >= float(mean_p_vals.max()):
             if self.verbose:
-                print(f"Requested pressure {level:.1f} Pa above surface mean; using surface level 0")
+                logger.debug("Requested pressure %.1f Pa above surface mean; using surface level 0", level)
             return 0, None
 
         if level <= float(mean_p_vals.min()):
             level_idx = len(mean_p_vals) - 1
             if self.verbose:
-                print(f"Requested pressure {level:.1f} Pa below top mean; using top level {level_idx}")
+                logger.debug(
+                    "Requested pressure %.1f Pa below top mean; using top level %d",
+                    level, level_idx,
+                )
             return level_idx, None
 
-        lower_idx = int(np.argmax(mean_p_vals >= level))
+        # mean_p_vals is decreasing: index 0 = surface (high pressure), last = top (low pressure).
+        # np.argmax(p >= level) always returns 0 on a decreasing array, so we count instead.
+        lower_idx = max(0, int(np.sum(mean_p_vals >= level)) - 1)
 
         if lower_idx >= len(mean_p_vals) - 1:
             return lower_idx, None
 
         upper_idx = lower_idx + 1
-        p_lower = float(mean_p_vals[lower_idx])
-        p_upper = float(mean_p_vals[upper_idx])
-        w = 0.0 if p_lower == p_upper else (level - p_upper) / (p_lower - p_upper)
+        p_lower = float(mean_p_vals[lower_idx])  # higher pressure (surface side)
+        p_upper = float(mean_p_vals[upper_idx])  # lower pressure (top side)
+        # w=0 → var_lower (at p_lower), w=1 → var_upper (at p_upper)
+        w = 0.0 if p_lower == p_upper else (p_lower - level) / (p_lower - p_upper)
 
         if self.verbose:
-            print(
-                f"Requested pressure: {level:.1f} Pa, interpolating between mean levels "
-                f"{lower_idx} ({p_lower:.1f} Pa) and {upper_idx} ({p_upper:.1f} Pa) w={w:.3f}"
+            logger.debug(
+                "Requested pressure: %.1f Pa, interpolating between mean levels "
+                "%d (%.1f Pa) and %d (%.1f Pa) w=%.3f",
+                level, lower_idx, p_lower, upper_idx, p_upper, w,
             )
 
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
@@ -565,11 +581,14 @@ class MPAS3DProcessor(MPASBaseProcessor):
         finite_values = finite_values[np.isfinite(finite_values)]
 
         if len(finite_values) > 0:
-            print(f"Variable {var_name} at level {level} range: {finite_values.min():.3f} to {finite_values.max():.3f}")
+            logger.debug(
+                "Variable %s at level %s range: %.3f to %.3f",
+                var_name, level, float(finite_values.min()), float(finite_values.max()),
+            )
             if hasattr(var_data, 'attrs') and 'units' in var_data.attrs:
-                print(f"Units: {var_data.attrs['units']}")
+                logger.debug("Units: %s", var_data.attrs['units'])
         else:
-            print(f"Warning: No finite values found for {var_name} at level {level}")
+            logger.warning("No finite values found for %s at level %s", var_name, level)
 
     def get_3d_variable_data(self: 'MPAS3DProcessor', 
                              var_name: str, 
@@ -601,7 +620,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
             return interp_result
 
         if self.verbose:
-            print(f"Extracting {var_name} data at level {level} (index {level_idx}), time index {validated_time_index}")
+            logger.debug(
+                "Extracting %s data at level %s (index %d), time index %d",
+                var_name, level, level_idx, validated_time_index,
+            )
 
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
@@ -691,8 +713,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         if not np.all(np.isfinite(levels)) or np.nanmin(levels) <= 0:
             if self.verbose:
-                print(
-                    "Warning: computed mean pressure levels from 'pressure' contain "
+                logger.warning(
+                    "Computed mean pressure levels from 'pressure' contain "
                     "non-positive or non-finite values; falling back to other methods"
                 )
             return None
@@ -700,9 +722,12 @@ class MPAS3DProcessor(MPASBaseProcessor):
         levels = self._pad_p1_levels(levels, num_levels, vertical_dim)
 
         if self.verbose:
-            print(f"Pressure levels for {var_name} ({num_levels} levels) from 'pressure' variable:")
-            print(f"  Surface: {float(levels[0]):.1f} Pa")
-            print(f"  Top: {float(levels[-1]):.1f} Pa")
+            logger.debug(
+                "Pressure levels for %s (%d levels) from 'pressure' variable:",
+                var_name, num_levels,
+            )
+            logger.debug("  Surface: %.1f Pa", float(levels[0]))
+            logger.debug("  Top: %.1f Pa", float(levels[-1]))
 
         return levels
 
@@ -736,10 +761,13 @@ class MPAS3DProcessor(MPASBaseProcessor):
         levels = self._pad_p1_levels(levels, num_levels, vertical_dim)
 
         if self.verbose:
-            print(f"Pressure levels for {var_name} ({num_levels} levels):")
-            print(f"  Surface: {float(levels[0]):.1f} Pa")
-            print(f"  Top: {float(levels[-1]):.1f} Pa")
-            print(f"  Range: {float(levels.min()):.1f} to {float(levels.max()):.1f} Pa")
+            logger.debug("Pressure levels for %s (%d levels):", var_name, num_levels)
+            logger.debug("  Surface: %.1f Pa", float(levels[0]))
+            logger.debug("  Top: %.1f Pa", float(levels[-1]))
+            logger.debug(
+                "  Range: %.1f to %.1f Pa",
+                float(levels.min()), float(levels.max()),
+            )
 
         return levels
 
@@ -803,14 +831,19 @@ class MPAS3DProcessor(MPASBaseProcessor):
             levels = self._pad_p1_levels(levels, num_levels, vertical_dim)
 
             if self.verbose:
-                print(f"Reconstructed pressure levels from hybrid coefficients for {var_name} ({num_levels} levels):")
-                print(f"  Surface (mean): {mean_surface_pressure:.1f} Pa")
-                print(f"  Top: {float(levels[-1]):.1f} Pa")
+                logger.debug(
+                    "Reconstructed pressure levels from hybrid coefficients for %s (%d levels):",
+                    var_name, num_levels,
+                )
+                logger.debug("  Surface (mean): %.1f Pa", mean_surface_pressure)
+                logger.debug("  Top: %.1f Pa", float(levels[-1]))
 
             return levels
         except Exception as exc:
             if self.verbose:
-                print(f"Warning: failed to reconstruct pressure levels from hybrid coefficients: {exc}")
+                logger.warning(
+                    "Failed to reconstruct pressure levels from hybrid coefficients: %s", exc
+                )
             return None
 
     def _resolve_pressure_levels(self: 'MPAS3DProcessor',
@@ -889,7 +922,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
         level_indices: List[Union[int, float]] = list(range(num_levels))
 
         if self.verbose:
-            print(f"Model levels for {var_name}: {num_levels} levels (indices 0-{num_levels-1})")
+            logger.debug(
+                "Model levels for %s: %d levels (indices 0-%d)",
+                var_name, num_levels, num_levels - 1,
+            )
 
         return level_indices
 

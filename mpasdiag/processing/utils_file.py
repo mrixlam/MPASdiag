@@ -20,6 +20,9 @@ from typing import Dict, List, Any
 
 from .utils_config import MPASConfig
 from .constants import DIAG_GLOB
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class FileManager:
@@ -161,12 +164,11 @@ class FileManager:
         Returns:
             None
         """
-        print("=== System Information ===")
-        print(f"Python version: {sys.version}")
-        print(f"Platform: {sys.platform}")
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Available memory: {FileManager.get_available_memory():.1f} GB")
-        print("=" * 30)
+        logger.info("=== System Information ===")
+        logger.info("Python version: %s", sys.version)
+        logger.info("Platform: %s", sys.platform)
+        logger.info("Current working directory: %s", os.getcwd())
+        logger.info("Available memory: %.1f GB", FileManager.get_available_memory())
     
     @staticmethod
     def create_output_filename(base_name: str, 
@@ -207,8 +209,8 @@ class FileManager:
             return MPASConfig.load_from_file(config_file)
 
         except Exception as e:
-            print(f"Error loading configuration file: {e}")
-            print("Using default configuration")
+            logger.error("Error loading configuration file: %s", e)
+            logger.warning("Using default configuration")
             return MPASConfig()
     
     @staticmethod
@@ -268,9 +270,9 @@ class FileManager:
                 errors.append(f"No diagnostic files found in: {config.data_dir}")
 
         if errors:
-            print("Input validation errors:")
+            logger.error("Input validation errors:")
             for error in errors:
-                print(f"  - {error}")
+                logger.error("  - %s", error)
             return False
 
         return True

@@ -218,7 +218,7 @@ class UnitConverter:
         current_unit = UnitConverter._normalize_unit_string(current_unit)
             
         display_unit_preferences = {
-            't2m': CELSIUS, 'temperature': CELSIUS, 'temp': CELSIUS, 'theta': CELSIUS,
+            't2m': CELSIUS, 'temperature': CELSIUS, 'temp': CELSIUS, 'theta': CELSIUS, 'theta_rho': KELVIN,
             'tsk': CELSIUS, 'sst': CELSIUS, 'meanT': CELSIUS, 'theta_base': CELSIUS, 'tslb': CELSIUS,
             'dewpoint': CELSIUS, 'dewpt': CELSIUS, 'dpt': CELSIUS,
             

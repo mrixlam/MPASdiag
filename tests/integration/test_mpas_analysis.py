@@ -41,7 +41,7 @@ class TestDataProcessing:
         This fixture creates a temporary NetCDF grid file on disk for testing MPAS2DProcessor initialization and dataset loading. The file is created with a .nc suffix and is empty, serving as a placeholder for the grid file path required by the processor. This allows testing of processor construction and method availability without relying on actual grid file content, enabling isolated unit tests for data processing workflows.
 
         Parameters:
-            self: 'TestDataProcessing' - The test class instance.
+            None 
 
         Returns:
             Generator yielding str: Path to temporary NetCDF grid file on disk.
@@ -59,9 +59,9 @@ class TestDataProcessing:
         This fixture generates a synthetic xarray Dataset containing expected MPAS meteorological variables and coordinates for testing data processing methods. The dataset includes longitude and latitude coordinates, precipitation variables (rainnc, rainc), surface temperature (t2m), wind components (u10, v10), and surface pressure. The data is constructed using real MPAS variable values tiled across a time dimension to create a realistic dataset structure for testing variable extraction, time range processing, and coordinate handling. This allows comprehensive testing of the processor's data handling capabilities with authentic MPAS model output.
 
         Parameters:
-            mpas_surface_temp_data: Real MPAS surface temperature from session fixture
-            mpas_wind_data: Real MPAS wind components (u10, v10) from session fixture
-            mpas_precip_data: Real MPAS precipitation from session fixture
+            mpas_surface_temp_data (np.ndarray): Real MPAS surface temperature from session fixture
+            mpas_wind_data (tuple[np.ndarray, np.ndarray]): Real MPAS wind components (u10, v10) from session fixture
+            mpas_precip_data (np.ndarray): Real MPAS precipitation from session fixture
 
         Returns:
             Generator yielding xr.Dataset: xarray dataset with real MPAS meteorological variables and coordinates.

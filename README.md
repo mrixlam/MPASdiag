@@ -769,7 +769,7 @@ mpasdiag.diagnostics
 
 ## Testing
 
-MPASdiag features a comprehensive, modernized test suite with **1800+ tests** across organized sub-packages, achieving **93%+ code coverage**. Tests are organized into four domain sub-packages (`cli/`, `diagnostics/`, `processing/`, `visualization/`) plus top-level module tests and integration tests. MPASdiag uses `pytest` as the testing framework with `pytest-cov` for coverage reporting.
+MPASdiag features a comprehensive, modernized test suite with **1650+ tests** across organized sub-packages, achieving **99%+ code coverage**. Tests are organized into four domain sub-packages (`cli/`, `diagnostics/`, `processing/`, `visualization/`) plus top-level module tests and integration tests. MPASdiag uses `pytest` as the testing framework with `pytest-cov` for coverage reporting.
 
 Key test sub-packages:
 - **`tests/cli/`**: CLI command parsing, argument handling, batch mode, config loading, sounding, overlay, logging, and integration tests (12 modules)
@@ -857,6 +857,49 @@ python -m pytest tests/ -n auto
    ```
    Without MetPy, `SoundingDiagnostics` still works but only computes a fallback LCL estimate; `MPASSkewTPlotter` requires MetPy.
 
+### Logging and verbosity
+
+All `mpasdiag` subcommands use a unified logging system under the `mpasdiag` root logger. You can control how much output you see and where it goes via four CLI flags, available on every subcommand (`precipitation`, `surface`, `wind`, `cross`, `sounding`, etc.):
+
+| Flag | Effect |
+| --- | --- |
+| `--log-level {DEBUG,INFO,WARNING,ERROR}` | Set the severity threshold explicitly. |
+| `--verbose`, `-v` | Shortcut for `--log-level DEBUG`. |
+| `--quiet`, `-q` | Shortcut for `--log-level ERROR`. |
+| `--log-file PATH` | Also write log records to `PATH` (appends to console output). |
+
+**Resolution priority** when multiple flags are set:
+`--log-level` > `--quiet` > `--verbose` > default (`INFO`). An explicit
+`--log-level WARNING` overrides `--verbose`.
+
+**Examples**
+
+```bash
+# Full DEBUG output (data dumps, internal state)
+mpasdiag precipitation --grid-file grid.nc --data-dir ./data \
+  --variable total --log-level DEBUG
+
+# Suppress everything except errors
+mpasdiag wind --grid-file grid.nc --data-dir ./data --quiet
+
+# INFO to console, full DEBUG also captured to a file for later review
+mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta \
+  --start-lon -105 --start-lat 40 --end-lon -95 --end-lat 40 \
+  --log-file mpasdiag-run.log --log-level DEBUG
+```
+
+**MPI runs.** When launched under MPI (`mpirun -n N mpasdiag ...`), only rank 0 emits `INFO`/`DEBUG` records; every rank still emits `WARNING` and `ERROR` with a `[rank N]` prefix. This keeps parallel runs readable without silencing real problems from worker ranks.
+
+**Programmatic use.** If you call mpasdiag as a library, configure the logger once at the start of your script:
+
+```python
+from mpasdiag.processing.utils_logger import MPASLogger, get_logger
+import logging
+
+MPASLogger(level=logging.DEBUG, log_file="run.log")  # configure root once
+logger = get_logger(__name__)                         # in each module
+```
+
 ### Getting Help
 
 1. **Get help for any CLI tool**:
@@ -894,17 +937,7 @@ python -m pytest tests/ -n auto
    FileManager.print_system_info()
    ```
 
-4. **Enable verbose output for debugging**:
-   ```bash
-   # Verbose precipitation analysis
-   mpasdiag precipitation \
-     --grid-file grid.nc --data-dir ./data --variable total --verbose
-   
-   # Verbose cross-section analysis
-   mpasdiag cross \
-     --grid-file grid.nc --data-dir ./data --variable theta \
-     --start-lon -105 --start-lat 40 --end-lon -95 --end-lat 40 --verbose
-   ```
+4. **Enable verbose output for debugging**: see [Logging and verbosity](#logging-and-verbosity) above for `--log-level`, `--verbose`/`-v`, `--quiet`/`-q`, and `--log-file`.
 
 ## Contributing
 

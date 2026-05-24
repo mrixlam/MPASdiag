@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Enhanced Surface Plotting Capabilities
 
@@ -37,7 +38,10 @@ class TestEnhancedSurfacePlotting:
     """ Test suite for enhanced data-type agnostic surface plotting capabilities. Covers 3D data extraction, wind overlays, and complex meteorological visualizations. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestEnhancedSurfacePlotting', mpas_surface_temp_data, mpas_precip_data, mpas_wind_data) -> Generator[None, None, None]:
+    def setup_method(self: 'TestEnhancedSurfacePlotting', 
+                     mpas_surface_temp_data: np.ndarray, 
+                     mpas_precip_data: np.ndarray, 
+                     mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> Generator[None, None, None]:
         """
         This setup method initializes the MPASSurfacePlotter instance and loads real MPAS test data for surface temperature, precipitation, and wind components from session-scoped fixtures. It also sets up spatial domain boundaries and coordinate arrays for testing. The test data is limited to 100 cells to ensure manageable test execution while still validating functionality with real model output. The method yields control to the test functions and performs cleanup after tests complete.
 
@@ -47,7 +51,7 @@ class TestEnhancedSurfacePlotting:
             mpas_wind_data: Real wind u/v components from conftest session fixture
 
         Returns:
-            None
+            Generator yielding None for test execution, with cleanup after tests complete
         """
         self.temp_dir = tempfile.mkdtemp()
         self.visualizer = MPASSurfacePlotter(figsize=(8, 6), dpi=100)
@@ -581,7 +585,10 @@ class TestDataTypeAgnosticFeatures:
     """ Test suite specifically for data-type agnostic features. Tests the system's ability to handle various input data types seamlessly. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestDataTypeAgnosticFeatures', mpas_surface_temp_data, mpas_wind_data, mpas_precip_data) -> Iterator[None]:
+    def setup_method(self: 'TestDataTypeAgnosticFeatures', 
+                     mpas_surface_temp_data: np.ndarray, 
+                     mpas_wind_data: tuple[np.ndarray, np.ndarray], 
+                     mpas_precip_data: np.ndarray) -> Iterator[None]:
         """
         This setup method initializes the MPASSurfacePlotter instance and loads real MPAS test data for surface temperature, wind components, and precipitation from session-scoped fixtures. It also sets up spatial domain boundaries and coordinate arrays for testing. The test data is limited to 50 cells to ensure manageable test execution while still validating functionality with real model output. The method yields control to the test functions and performs cleanup after tests complete.
 
@@ -591,7 +598,7 @@ class TestDataTypeAgnosticFeatures:
             mpas_precip_data: Real precipitation data from conftest session fixture
 
         Returns:
-            None
+            Iterator yielding None for test execution, with cleanup after tests complete
         """
         self.visualizer = MPASSurfacePlotter()
         self.n_cells = 50

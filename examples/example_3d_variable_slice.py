@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example IX: 3D Variable Horizontal Slice Map
+MPASdiag Example X: 3D Variable Horizontal Slice Map
 
 This example demonstrates how to extract a horizontal slice of a 3D variable at a specified model level and time index, and visualize it using MPASdiag's plotting capabilities. The example uses sample MPAS output data and grid files to illustrate the process of loading 3D data, extracting the relevant slice, and generating a map of the variable at that level. 
 
@@ -57,6 +57,20 @@ valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 # plot_3d_variable_slice selects the given model level
 plotter = MPASSurfacePlotter(verbose=True, figsize=(16, 10), dpi=300)
 
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
+
 # Generate the plot for the specified variable and model level
 fig, ax = plotter.plot_3d_variable_slice(
     data_array=data_3d,
@@ -66,6 +80,9 @@ fig, ax = plotter.plot_3d_variable_slice(
     var_name=var_name,
     title=f"{var_name} at model level {level_index} | Valid Time: {valtime_str} UTC"
 )
+
+# Overlay cross-section transect lines
+plotter.draw_transect_lines(ax, TRANSECTS)
 
 # -------------- Save the output --------------------------------------------
 

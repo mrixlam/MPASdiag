@@ -91,7 +91,7 @@ class TestValidateConfigNoDataFiles:
         This test verifies that validate_config returns False when the specified data directory exists but contains no MPAS data files matching expected patterns. It creates an empty grid file in the temporary directory to satisfy the grid file requirement, but does not add any data files. The test confirms that the validation correctly identifies the absence of data files and returns False. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture that provides a valid directory path with no MPAS data files. 
+            tmp_path (Path): pytest temporary directory fixture that provides a valid directory path with no MPAS data files. 
 
         Returns:
             None
@@ -210,12 +210,13 @@ class TestRunSingleCrossSectionLowerHalf:
             mock_plotter.close_plot.assert_called_once()
             cli.logger.info.assert_called()
 
-    def test_uses_config_output_when_set(self: 'TestRunSingleCrossSectionLowerHalf', tmp_path) -> None:
+    def test_uses_config_output_when_set(self: 'TestRunSingleCrossSectionLowerHalf', 
+                                         tmp_path: 'Path') -> None:
         """
         This test verifies that when config.output is explicitly set, _run_single_cross_section uses it as the output file stem instead of computing a name based on time information (line 1619). It checks that plotter.save_plot is called with the path that includes the explicit output name provided in the configuration. 
 
         Parameters:
-            None
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration.
 
         Returns:
             None
@@ -248,12 +249,13 @@ class TestRunSingleCrossSectionLowerHalf:
 class TestLogCreatedFilesWithLogger:
     """ Test if _log_created_files correctly logs the file count and type when a logger is set, and does nothing when the files list is empty. """
 
-    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger', tmp_path) -> None:
+    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger', 
+                                               tmp_path: 'Path') -> None:
         """
         This test verifies that _log_created_files calls self.logger.info with a message that includes the count of created files and the file type description when a logger is set (lines 1675-1676). It checks that the log message contains the number of files and the provided description to confirm that the logging is informative and accurate. 
 
         Parameters:
-            None
+            tmp_path (Path): pytest temporary directory fixture used for creating temporary files.
 
         Returns:
             None
@@ -371,7 +373,7 @@ class TestRunSoundingBatch:
         This test verifies that _run_sounding_batch iterates over the specified time range, extracts the sounding profile for each time step, builds the tags, and calls plotter.create_skewt_diagram for each time step (lines 1743-1748). It mocks the processor, plotter, and diagnostics to simulate the method's behavior without relying on actual data or file I/O. The test confirms that the correct number of diagrams are created based on the time range and that the logger is called to indicate progress. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration. 
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration. 
 
         Returns:
             None
@@ -413,7 +415,7 @@ class TestRunSoundingBatch:
         This test verifies that when time_start and time_end are None, _run_sounding_batch defaults to processing the entire time range of the dataset (lines 1741-1742). It mocks a processor with a single time step and checks that the method still creates a skew-T diagram for that time step, confirming that the default behavior for time bounds is correctly implemented. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration. 
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration. 
 
         Returns:
             None
@@ -457,7 +459,7 @@ class TestRunSoundingSingle:
         This test verifies that _run_sounding_single extracts the sounding profile, computes indices if requested, builds the longitude and latitude tags, and calls plotter.create_skewt_diagram with a title that includes the tags (lines 1815-1820). It mocks the processor, plotter, and diagnostics to simulate the method's behavior without relying on actual data or file I/O. The test confirms that the skew-T diagram is created with the expected title format based on the station coordinates. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration. 
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration. 
 
         Returns:
             None
@@ -496,7 +498,7 @@ class TestRunSoundingSingle:
         This test verifies that when config.output is explicitly set, _run_sounding_single uses it as the output file stem instead of computing a name based on time information (line 1819). It checks that plotter.create_skewt_diagram is called with a save_path that includes the explicit output name provided in the configuration, confirming that the method respects the user's specified output name. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration.
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration.
 
         Returns:
             None
@@ -554,7 +556,7 @@ class TestRunSoundingAnalysis:
         This test verifies that _run_sounding_analysis with batch_mode=False correctly loads the 3D data, extracts the sounding profile, builds the tags, and creates a skew-T diagram for the single time index specified in the configuration, ultimately returning True to indicate success (lines 1847-1884). It mocks the processor, diagnostics, and plotter to simulate the method's behavior without relying on actual data or file I/O. The test confirms that the method executes the expected steps for single mode and returns True as expected. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration. 
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration. 
 
         Returns:
             None
@@ -594,7 +596,7 @@ class TestRunSoundingAnalysis:
         This test verifies that _run_sounding_analysis with batch_mode=True and show_indices=True correctly loads the 3D data, extracts the sounding profile, computes the thermodynamic indices, builds the tags, and creates skew-T diagrams for each time step in the dataset, ultimately returning True to indicate success (lines 1847-1884). It mocks the processor, diagnostics, and plotter to simulate the method's behavior without relying on actual data or file I/O. The test confirms that the method executes the expected steps for batch mode with indices and returns True as expected. 
 
         Parameters:
-            tmp_path: pytest temporary directory fixture used for the output directory in the configuration. 
+            tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration. 
 
         Returns:
             None

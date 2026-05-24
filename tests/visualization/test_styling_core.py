@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Visualization Core Functionality Tests 
 
@@ -36,7 +37,7 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by inspecting keys and expected values in returned dict.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('t2m')
 
@@ -52,7 +53,7 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by type checks and presence of 'levels'.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('rainnc')
 
@@ -68,7 +69,7 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by type inspection of the returned colormap.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('precip_6h')
         assert isinstance(style['colormap'], mcolors.ListedColormap)
@@ -82,7 +83,7 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by confirming the returned colormap type.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('daily_precip')
 
@@ -97,21 +98,24 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by confirming the returned colormap type.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('hourly_rain')
         assert isinstance(style['colormap'], mcolors.ListedColormap)
         assert 'levels' in style
 
-    def test_get_variable_style_with_data_array(self: 'TestGetVariableStyle', mpas_coordinates, mpas_wind_data) -> None:
+    def test_get_variable_style_with_data_array(self: 'TestGetVariableStyle', 
+                                                mpas_coordinates, 
+                                                mpas_wind_data: tuple[xr.DataArray, xr.DataArray]) -> None:
         """
         This test verifies that the `get_variable_style` function can accept an `xarray.DataArray` as input and return appropriate styling based on the variable name and data characteristics. It checks that when a DataArray with a name corresponding to mean-sea-level pressure (e.g., 'mslp') is passed, the function returns a style dictionary that includes contour levels suitable for pressure fields. This ensures that the styling helper can utilize data arrays to inform its styling decisions.
 
         Parameters:
-            None
+            mpas_coordinates: Fixture providing MPAS grid coordinates.
+            mpas_wind_data: Fixture providing MPAS wind data as a tuple (u, v) DataArrays.
 
         Returns:
-            None: Verified by presence of 'levels' in returned style dict.
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -138,7 +142,7 @@ class TestGetVariableStyle:
             None
 
         Returns:
-            None: Verified by checking 'colormap' and 'levels' keys.
+            None
         """
         style = MPASVisualizationStyle.get_variable_style('unknown_var')
         assert style['colormap'] == 'viridis'

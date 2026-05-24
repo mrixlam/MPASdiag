@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Wind Visualization Functionality
 
@@ -37,7 +38,7 @@ class TestRegridWindComponents:
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind component regridding tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `_regrid_wind_components` method without worrying about shared state or side effects from previous tests.
 
         Parameters:
-            self ("TestRegridWindComponents"): Test instance which will receive the plotter fixture.
+            None
 
         Returns:
             MPASWindPlotter: Plotter instance used in tests.
@@ -57,7 +58,7 @@ class TestRegridWindComponents:
             plotter (MPASWindPlotter): Fixture instance used to call the helper.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Use real MPAS grid data instead of mocking remap utility
         data_dir = Path(__file__).parent.parent.parent / "data"
@@ -132,7 +133,7 @@ class TestRegridWindComponents:
             plotter (MPASWindPlotter): Fixture instance used to call the helper.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         # Use real MPAS grid data instead of mocking remap utility
         data_dir = Path(__file__).parent.parent.parent / "data"
@@ -203,7 +204,7 @@ class TestCreateWindPlot:
         This fixture creates and returns an instance of the `MPASWindPlotter` class for use in the wind plot creation tests. By providing a fresh plotter instance for each test method, it ensures that any state changes or configurations made during one test do not affect others. This setup allows the test methods to focus on validating the behavior of the `create_wind_plot` method without worrying about shared state or side effects from previous tests.
 
         Parameters:
-            self ('TestCreateWindPlot'): Test instance which will receive the plotter fixture.
+            None
 
         Returns:
             MPASWindPlotter: Plotter instance used to create plots in tests.
@@ -227,7 +228,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -280,7 +281,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -334,7 +335,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -396,7 +397,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -455,7 +456,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -511,7 +512,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -567,7 +568,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -625,7 +626,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         
@@ -665,9 +666,6 @@ class TestCreateWindPlot:
         # Close the figure to free resources
         plt.close(fig)
     
-    # ------------------ Test Wind Plot Creation with Empty Data ------------------
-
-    
     # ------------------ Test Wind Plot Creation with 2D Gridded Data ------------------
 
     def test_create_wind_plot_2d_data(self: 'TestCreateWindPlot', 
@@ -685,7 +683,7 @@ class TestCreateWindPlot:
             monkeypatch: Pytest fixture for patching methods.
 
         Returns:
-            None: Assertion-based test; raises on failure.
+            None
         """
         require_wind_fixtures(mpas_coordinates, mpas_wind_data)
         

@@ -16,13 +16,14 @@ import pandas as pd
 import pytest
 import xarray as xr
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 
 
 @pytest.fixture
-def mock_proc(tmp_path) -> MPAS2DProcessor:
+def mock_proc(tmp_path: Path) -> MPAS2DProcessor:
     """
     This fixture creates a mock MPAS2DProcessor instance with default attributes set to allow testing of methods that do not require an actual dataset or file I/O. The dataset is initialized to None, and the data_type is set to 'xarray' to enable testing of the UXarray branch in load_2d_data. The grid_file and data_dir attributes are set to dummy paths.
 
@@ -73,15 +74,16 @@ class TestLoad2DDataUXarrayPath:
 
     def test_uxarray_path_assigns_dataset_and_returns_self(self: 'TestLoad2DDataUXarrayPath',
                                                            mock_proc: 'MPAS2DProcessor',
-                                                           tmp_path) -> None:
+                                                           tmp_path: Path) -> None:
         """
         This test verifies that when the load_2d_data method is called and the loaded data object has a 'ds' attribute (indicating it is a UXarray dataset), the method correctly assigns this dataset to the processor's dataset attribute and returns the processor instance itself. The test uses mocking to simulate the behavior of the _load_data method to return a mock object with a 'ds' attribute, and also mocks the add_spatial_coordinates method to return an enriched dataset. It asserts that the returned result is the processor instance and that the dataset attribute is set to the mock UXarray dataset. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         inner_ds = xr.Dataset({'temp': xr.DataArray(np.ones(10), dims=['nCells'])})
         enriched_ds = inner_ds.assign({'lonCell': xr.DataArray(np.ones(10))})
@@ -102,15 +104,16 @@ class TestFindDiagFilesRecursive:
 
     def test_returns_sorted_list_when_two_or_more_found(self: 'TestFindDiagFilesRecursive',
                                                         mock_proc: 'MPAS2DProcessor',
-                                                        tmp_path) -> None:
+                                                        tmp_path: Path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method finds two or more diagnostic files, it returns a sorted list of their file paths. The test uses mocking to simulate the behavior of glob.glob to return a predefined list of file paths that are intentionally unsorted. It asserts that the returned result is a sorted version of the input list. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value. 
+            None
         """
         fake_files = [str(tmp_path / 'diag_2025.nc'), str(tmp_path / 'diag_2024.nc')]  # intentionally unsorted
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=fake_files):
@@ -119,15 +122,16 @@ class TestFindDiagFilesRecursive:
 
     def test_verbose_prints_recursive_search_summary(self: 'TestFindDiagFilesRecursive',
                                                      mock_proc: 'MPAS2DProcessor',
-                                                     tmp_path) -> None:
+                                                     tmp_path: Path) -> None:
         """
         This test checks that when the _find_diag_files_recursive method finds two or more diagnostic files and the processor's verbose attribute is set to True, it prints a summary message indicating that diagnostic files were found through a recursive search. The test uses mocking to simulate the behavior of glob.glob to return a predefined list of file paths, and captures the standard output to check for the expected message. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value. 
+            None
         """
         mock_proc.verbose = True
         fake_files = [str(tmp_path / f'diag_{i:04d}.nc') for i in range(6)]
@@ -142,15 +146,16 @@ class TestFindDiagFilesRecursive:
 
     def test_returns_none_when_fewer_than_two_files(self: 'TestFindDiagFilesRecursive',
                                                     mock_proc: 'MPAS2DProcessor',
-                                                    tmp_path) -> None:
+                                                    tmp_path: Path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method finds fewer than two diagnostic files (i.e., glob.glob returns a list with one file), it returns None. The test uses mocking to simulate the behavior of glob.glob to return a list containing a single file path, and asserts that the method returns None in this case. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value. 
+            None
         """
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[str(tmp_path / 'diag_2024.nc')]):
             result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
@@ -158,15 +163,16 @@ class TestFindDiagFilesRecursive:
 
     def test_returns_none_when_no_files_found(self: 'TestFindDiagFilesRecursive',
                                               mock_proc: 'MPAS2DProcessor',
-                                              tmp_path) -> None:
+                                              tmp_path: Path) -> None:
         """
         This test verifies that when the _find_diag_files_recursive method does not find any diagnostic files (i.e., glob.glob returns an empty list), it returns None. The test uses mocking to simulate the behavior of glob.glob to return an empty list, and asserts that the method returns None in this case. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value. 
+            None
         """
         with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[]):
             result = mock_proc._find_diag_files_recursive(str(tmp_path / 'data'))
@@ -178,15 +184,16 @@ class TestFindMpasoutFilesFallback:
 
     def test_returns_files_when_pattern_finder_succeeds(self: 'TestFindMpasoutFilesFallback',
                                                         mock_proc: 'MPAS2DProcessor',
-                                                        tmp_path) -> None:
+                                                        tmp_path: Path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method successfully finds MPAS output files using the pattern-based finder (i.e., _find_files_by_pattern returns a list of file paths), it returns this list of file paths without attempting a recursive search. The test uses mocking to simulate the behavior of _find_files_by_pattern to return a predefined list of MPAS output file paths, and asserts that the method returns this list directly. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
 
@@ -197,15 +204,16 @@ class TestFindMpasoutFilesFallback:
 
     def test_raises_file_not_found_when_no_files_anywhere(self: 'TestFindMpasoutFilesFallback',
                                                           mock_proc: 'MPAS2DProcessor',
-                                                          tmp_path) -> None:
+                                                          tmp_path: Path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find MPAS output files using both the pattern-based finder (i.e., _find_files_by_pattern raises FileNotFoundError) and the recursive search (i.e., glob.glob returns an empty list), it raises a FileNotFoundError with an appropriate message. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return an empty list, and asserts that the method raises the expected exception with a message indicating that no diagnostic files were found. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob', return_value=[]):
@@ -214,15 +222,16 @@ class TestFindMpasoutFilesFallback:
 
     def test_raises_value_error_when_only_one_file_found(self: 'TestFindMpasoutFilesFallback',
                                                          mock_proc: 'MPAS2DProcessor',
-                                                         tmp_path) -> None:
+                                                         tmp_path: Path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find MPAS output files using the pattern-based finder (i.e., _find_files_by_pattern raises FileNotFoundError) and the recursive search returns only one file (i.e., glob.glob returns a list with a single file path), it raises a ValueError indicating that there are insufficient MPAS output files. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a list containing a single file path, and asserts that the method raises the expected exception with a message indicating insufficient MPAS output files. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         with patch.object(mock_proc, '_find_files_by_pattern', side_effect=FileNotFoundError):
             with patch('mpasdiag.processing.processors_2d.glob.glob',
@@ -232,15 +241,16 @@ class TestFindMpasoutFilesFallback:
 
     def test_returns_files_from_recursive_search_verbose(self: 'TestFindMpasoutFilesFallback',
                                                          mock_proc: 'MPAS2DProcessor',
-                                                         tmp_path) -> None:
+                                                         tmp_path: Path) -> None:
         """
         This test checks that when the _find_mpasout_files_fallback method fails to find files using the pattern-based finder and falls back to a recursive search (i.e., glob.glob), it returns the list of file paths found. Additionally, if the processor's verbose attribute is set to True, it verifies that a summary message indicating that MPAS output files were found through a recursive search is printed. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a predefined list of MPAS output file paths. It captures the standard output to check for the expected message. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
         fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
@@ -256,15 +266,16 @@ class TestFindMpasoutFilesFallback:
 
     def test_returns_files_from_recursive_search_silent(self: 'TestFindMpasoutFilesFallback',
                                                         mock_proc: 'MPAS2DProcessor',
-                                                        tmp_path) -> None:
+                                                        tmp_path: Path) -> None:
         """
         This test verifies that when the _find_mpasout_files_fallback method fails to find files using the pattern-based finder and falls back to a recursive search (i.e., glob.glob), it returns the list of file paths found without printing any messages if the processor's verbose attribute is set to False. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a predefined list of MPAS output file paths. It captures the standard output to ensure that no messages are printed. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'mpasout_2024.nc'), str(tmp_path / 'mpasout_2025.nc')]
 
@@ -280,15 +291,16 @@ class TestFindDiagnosticFiles:
 
     def test_finds_files_in_main_directory(self: 'TestFindDiagnosticFiles',
                                            mock_proc: 'MPAS2DProcessor',
-                                           tmp_path) -> None:
+                                           tmp_path: Path) -> None:
         """
         This test verifies that the find_diagnostic_files method successfully finds diagnostic files in the main directory when they are present. The test uses mocking to simulate the behavior of the _find_files_by_pattern method to return a predefined list of diagnostic file paths, and asserts that the find_diagnostic_files method returns this list without attempting to search in subdirectories or perform a recursive search. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'data' / 'diag_2024.nc'), str(tmp_path / 'data' / 'diag_2025.nc')]
 
@@ -299,15 +311,16 @@ class TestFindDiagnosticFiles:
 
     def test_finds_files_in_diag_subdir_when_main_dir_fails(self: 'TestFindDiagnosticFiles',
                                                             mock_proc: 'MPAS2DProcessor',
-                                                            tmp_path) -> None:
+                                                            tmp_path: Path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in the main directory (i.e., _find_files_by_pattern raises a FileNotFoundError), it successfully searches in the 'diag' subdirectory and returns the list of diagnostic file paths found there. The test uses mocking to simulate the behavior of _find_files_by_pattern to first raise a FileNotFoundError for the main directory search, and then return a predefined list of diagnostic file paths for the 'diag' subdirectory search. It asserts that the find_diagnostic_files method returns the list of files found in the 'diag' subdirectory. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'data' / 'diag' / 'diag_2024.nc'), str(tmp_path / 'data' / 'diag' / 'diag_2025.nc')]
 
@@ -319,15 +332,16 @@ class TestFindDiagnosticFiles:
 
     def test_falls_back_to_recursive_search(self: 'TestFindDiagnosticFiles',
                                             mock_proc: 'MPAS2DProcessor',
-                                            tmp_path) -> None:
+                                            tmp_path: Path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, it successfully falls back to a recursive search. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, and _find_diag_files_recursive to return a predefined list of diagnostic file paths. The test asserts that the find_diagnostic_files method returns the list of files found by the recursive search. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'data' / 'sub' / 'diag_2024.nc'), str(tmp_path / 'data' / 'sub' / 'diag_2025.nc')]
 
@@ -339,15 +353,16 @@ class TestFindDiagnosticFiles:
 
     def test_falls_back_to_mpasout_when_recursive_returns_none(self: 'TestFindDiagnosticFiles',
                                                                 mock_proc: 'MPAS2DProcessor',
-                                                                tmp_path) -> None:
+                                                                tmp_path: Path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, and the recursive search returns None, it successfully falls back to the _find_mpasout_files_fallback method. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, _find_diag_files_recursive to return None, and _find_mpasout_files_fallback to return a predefined list of diagnostic file paths. The test asserts that the find_diagnostic_files method returns the list of files found by the _find_mpasout_files_fallback method. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         fake_files = [str(tmp_path / 'data' / 'mpasout_2024.nc'), str(tmp_path / 'data' / 'mpasout_2025.nc')]
 
@@ -360,15 +375,16 @@ class TestFindDiagnosticFiles:
 
     def test_verbose_prints_no_diag_files_message_before_mpasout_fallback(self: 'TestFindDiagnosticFiles',
                                                                           mock_proc: 'MPAS2DProcessor',
-                                                                          tmp_path) -> None:
+                                                                          tmp_path: Path) -> None:
         """
         This test verifies that when the find_diagnostic_files method fails to find diagnostic files in both the main directory and the 'diag' subdirectory, and the recursive search returns None, if the processor's verbose attribute is set to True, it prints a message indicating that no diagnostic files were found before falling back to searching for MPAS output files. The test uses mocking to simulate the behavior of _find_files_by_pattern to always raise a FileNotFoundError, _find_diag_files_recursive to return None, and _find_mpasout_files_fallback to return a predefined list of diagnostic file paths. It captures the standard output to check for the expected message. 
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
+            tmp_path (Path): A temporary directory path provided by the tmp_path fixture for simulating file paths.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
         fake_files = [str(tmp_path / 'data' / 'mpasout_2024.nc'), str(tmp_path / 'data' / 'mpasout_2025.nc')]
@@ -395,7 +411,7 @@ class TestLookup2DCoord:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.dataset = xr.Dataset({
             'temperature': xr.DataArray(np.ones(10), dims=['nCells'])
@@ -413,7 +429,7 @@ class TestLookup2DCoord:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         lon_data = np.linspace(-120.0, -80.0, 10)
 
@@ -435,7 +451,7 @@ class TestLookup2DCoord:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         lon_data = np.linspace(-100.0, -90.0, 5)
 
@@ -461,7 +477,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.dataset = None
         with pytest.raises(ValueError, match="Dataset not loaded"):
@@ -476,7 +492,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.dataset = xr.Dataset({
             'temperature': xr.DataArray(np.ones(10), dims=['nCells'])
@@ -494,7 +510,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         n = 30
         lon = np.linspace(-120.0, -80.0, n)
@@ -520,7 +536,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         n = 20
         lat_rad = np.linspace(-1.0, 1.0, n)   # abs max <= π → treated as radians
@@ -544,7 +560,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         n = 15
         lon = np.linspace(-120.0, -80.0, n)
@@ -568,7 +584,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
         n = 10
@@ -594,7 +610,7 @@ class TestExtract2DCoordinatesForVariable:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         n = 10
 
@@ -624,7 +640,7 @@ class TestLog2DVariableRange:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = False
         var_data = xr.DataArray(np.ones(10), dims=['nCells'])
@@ -644,7 +660,7 @@ class TestLog2DVariableRange:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
         var_data = xr.DataArray(np.full(10, np.nan), dims=['nCells'])
@@ -664,7 +680,7 @@ class TestLog2DVariableRange:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
         var_data = xr.DataArray(np.linspace(0.0, 100.0, 50), dims=['nCells'])
@@ -684,7 +700,7 @@ class TestLog2DVariableRange:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.verbose = True
 
@@ -712,7 +728,7 @@ class TestGet2DVariableData:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         mock_proc.dataset = None
         with pytest.raises(ValueError, match="No dataset loaded"):
@@ -727,7 +743,7 @@ class TestGet2DVariableData:
             loaded_proc ('MPAS2DProcessor'): A loaded processor instance created by the loaded_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         with pytest.raises(ValueError, match="Variable 'missing_var' not found"):
             loaded_proc.get_2d_variable_data('missing_var')
@@ -741,7 +757,7 @@ class TestGet2DVariableData:
             loaded_proc ('MPAS2DProcessor'): A loaded processor instance created by the loaded_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         result = loaded_proc.get_2d_variable_data('temperature', time_index=2)
         assert result.ndim == 1
@@ -756,7 +772,7 @@ class TestGet2DVariableData:
             loaded_proc ('MPAS2DProcessor'): A loaded processor instance created by the loaded_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         loaded_proc.verbose = True
         captured = StringIO()
@@ -775,7 +791,7 @@ class TestGet2DVariableData:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
 
         Returns:
-            None: The test asserts conditions but does not return a value.
+            None
         """
         n = 10
         times = pd.date_range('2024-01-01', periods=3, freq='h')

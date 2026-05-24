@@ -18,6 +18,10 @@ import xarray as xr
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Tuple
 
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class CachedVariable:
@@ -155,7 +159,7 @@ class MPASDataCache:
                 self._evict_least_accessed_coordinates()
             
             self._coordinates[cache_key] = (lon, lat)
-            print(f"Cached coordinates for '{cache_key}': {len(lon)} points")
+            logger.debug("Cached coordinates for '%s': %d points", cache_key, len(lon))
     
     def get_coordinates(self: 'MPASDataCache', 
                         var_name: Optional[str] = None) -> Tuple[np.ndarray, np.ndarray]:
@@ -242,8 +246,10 @@ class MPASDataCache:
             self._variables[cache_key] = cached_var
             self._access_count[cache_key] = 0
             
-            print(f"Cached variable '{cache_key}': shape {data_array.shape}, "
-                  f"size {data_array.nbytes / 1024 / 1024:.2f} MB")
+            logger.debug(
+                "Cached variable '%s': shape %s, size %.2f MB",
+                cache_key, data_array.shape, data_array.nbytes / 1024 / 1024,
+            )
     
     def get_variable_data(self: 'MPASDataCache', 
                           var_name: str, 
@@ -285,7 +291,7 @@ class MPASDataCache:
             self._grid_data.clear()
             self._metadata.clear()
             self._access_count.clear()
-            print("Cache cleared")
+            logger.debug("Cache cleared")
     
     def get_cache_info(self: 'MPASDataCache') -> Dict[str, Any]:
         """
@@ -352,8 +358,10 @@ class MPASDataCache:
         if least_accessed in self._variables:
             evicted = self._variables.pop(least_accessed)
             self._access_count.pop(least_accessed, None)
-            print(f"Evicted variable '{least_accessed}' from cache "
-                  f"({evicted.data.nbytes / 1024 / 1024:.2f} MB freed)")
+            logger.debug(
+                "Evicted variable '%s' from cache (%.2f MB freed)",
+                least_accessed, evicted.data.nbytes / 1024 / 1024,
+            )
 
     def _evict_least_accessed_coordinates(self: 'MPASDataCache') -> None:
         """
@@ -376,8 +384,10 @@ class MPASDataCache:
         self._access_count.pop(least_accessed, None)
         mem_freed = (evicted_lon.nbytes + evicted_lat.nbytes) / 1024 / 1024
         
-        print(f"Evicted coordinates '{least_accessed}' from cache "
-              f"({mem_freed:.2f} MB freed)")
+        logger.debug(
+            "Evicted coordinates '%s' from cache (%.2f MB freed)",
+            least_accessed, mem_freed,
+        )
 
 
 _global_cache: Optional['MPASDataCache'] = None

@@ -109,12 +109,15 @@ Examples:
         
         output_group = parser.add_argument_group('Output Control')
         output_group.add_argument('--verbose', '-v', action='store_true', default=True,
-                                 help='Enable verbose output')
+                                 help='Enable verbose output (shortcut for --log-level DEBUG)')
         output_group.add_argument('--quiet', '-q', action='store_true',
-                                 help='Suppress output messages')
+                                 help='Suppress output messages (shortcut for --log-level ERROR)')
         output_group.add_argument('--log-file', type=str,
                                  help='Log file path')
-        
+        output_group.add_argument('--log-level', type=str, default=None,
+                                 choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                                 help='Logging severity threshold (overrides --verbose/--quiet)')
+
         return parser
     
     @staticmethod
@@ -147,6 +150,8 @@ Examples:
             'batch_all': 'batch_mode',
             'verbose': 'verbose',
             'quiet': 'quiet',
+            'log_level': 'log_level',
+            'log_file': 'log_file',
             'parallel': 'parallel',
         }
         
@@ -246,9 +251,14 @@ Examples:
         
         proc_group = parser.add_argument_group('Processing')
         proc_group.add_argument('--verbose', '-v', action='store_true',
-                                help='Enable verbose output')
+                                help='Enable verbose output (shortcut for --log-level DEBUG)')
         proc_group.add_argument('--quiet', '-q', action='store_true',
-                                help='Suppress output messages')
+                                help='Suppress output messages (shortcut for --log-level ERROR)')
+        proc_group.add_argument('--log-level', type=str, default=None,
+                                choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                                help='Logging severity threshold (overrides --verbose/--quiet)')
+        proc_group.add_argument('--log-file', type=str,
+                                help='Log file path')
         proc_group.add_argument('--batch-all', action='store_true',
                                 help=_BATCH_MODE_HELP)
         proc_group.add_argument('--grid-resolution', type=int,
@@ -292,8 +302,10 @@ Examples:
             'formats': 'output_formats',
             'verbose': 'verbose',
             'quiet': 'quiet',
+            'log_level': 'log_level',
+            'log_file': 'log_file',
         }
-        
+
         for arg_name, config_attr in arg_mapping.items():
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
@@ -379,7 +391,14 @@ Examples:
         parser.add_argument("--dpi", type=int, default=100, 
                           help="Output DPI - default: 100, use 300+ for publication quality")
         
-        parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
+        parser.add_argument("--verbose", "-v", action="store_true",
+                            help="Enable verbose output (shortcut for --log-level DEBUG)")
+        parser.add_argument("--quiet", "-q", action="store_true",
+                            help="Suppress output messages (shortcut for --log-level ERROR)")
+        parser.add_argument("--log-level", type=str, default=None,
+                            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                            help="Logging severity threshold (overrides --verbose/--quiet)")
+        parser.add_argument("--log-file", type=str, help="Log file path")
         proc_group = parser.add_argument_group('Processing')
         proc_group.add_argument('--batch-all', action='store_true',
                                help=_BATCH_MODE_HELP)
@@ -468,9 +487,15 @@ Examples:
         figure_group.add_argument("--dpi", type=int, default=100,
                              help="Output DPI - default: 100, use 300+ for publication quality")
         
-        parser.add_argument("--verbose", "-v", action="store_true", 
-                          help="Enable verbose output")
-        
+        parser.add_argument("--verbose", "-v", action="store_true",
+                          help="Enable verbose output (shortcut for --log-level DEBUG)")
+        parser.add_argument("--quiet", "-q", action="store_true",
+                          help="Suppress output messages (shortcut for --log-level ERROR)")
+        parser.add_argument("--log-level", type=str, default=None,
+                          choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                          help="Logging severity threshold (overrides --verbose/--quiet)")
+        parser.add_argument("--log-file", type=str, help="Log file path")
+
         return parser
 
     @staticmethod
@@ -517,9 +542,16 @@ Examples:
             verbose=args.verbose
         )
 
+        if getattr(args, 'quiet', False):
+            config.quiet = True
+        if getattr(args, 'log_level', None) is not None:
+            config.log_level = args.log_level
+        if getattr(args, 'log_file', None) is not None:
+            config.log_file = args.log_file
+
         if hasattr(args, 'batch_all') and args.batch_all:
             config.batch_mode = True
-        
+
         return config
 
     @staticmethod
@@ -563,5 +595,12 @@ Examples:
         config.colormap = args.colormap
         config.levels = levels
         config.extend = args.extend
-        
+
+        if getattr(args, 'quiet', False):
+            config.quiet = True
+        if getattr(args, 'log_level', None) is not None:
+            config.log_level = args.log_level
+        if getattr(args, 'log_file', None) is not None:
+            config.log_file = args.log_file
+
         return config

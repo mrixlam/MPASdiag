@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example III: Global Wind Vectors Represented as Barbs
+MPASdiag Example IV: Global Wind Vectors Represented as Barbs
 
 This example demonstrates how to extract wind components from MPAS 2D model output and plot them as a global wind map. We will extract the 10-meter u and v wind components at a specified time index (0-based) of the dataset and visualize them using barbs over a specified geographic region (e.g. CONUS). Note that the wind vectors can also be visualized as arrows by changing the plot_type argument in the create_wind_plot method.
 
@@ -30,6 +30,20 @@ tindex = 1
 # Extract wind components at time index 1
 u_data = processor.get_2d_variable_data('u10', tindex)
 v_data = processor.get_2d_variable_data('v10', tindex)
+
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
 
 # Extract coordinates
 lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
@@ -62,6 +76,9 @@ fig, ax = wind_plotter.create_wind_plot(
     title=f'MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}',
     config=cfg,
 )
+
+# Overlay cross-section transect lines
+wind_plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save figure as PNG file
 wind_plotter.save_plot(f'./output/mpas_wind_plot_conus_{valtime_str}', formats=['png'])

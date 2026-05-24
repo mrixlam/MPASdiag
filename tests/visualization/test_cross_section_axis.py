@@ -55,7 +55,7 @@ class TestAxisFormattingFinal:
             mpas_3d_processor (MPAS3DProcessor): A session-scoped fixture that provides a pre-loaded MPAS3DProcessor instance with real MPAS data.
 
         Returns:   
-            None: Asserts that the plotter is initialized and the processor is available for testing.
+            None
         """
         if mpas_3d_processor is None or not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
@@ -70,10 +70,10 @@ class TestAxisFormattingFinal:
         This test produces a plot using `vertical_coord='height'` and checks that the y-axis label contains 'Height' and that the maximum height limit is applied correctly. It verifies that the plot is created successfully without errors, confirming that the plotter can handle height-based vertical coordinates and apply axis formatting with a specified maximum height.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the figure is created successfully.
+            None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
@@ -94,10 +94,10 @@ class TestAxisFormattingFinal:
         This test produces a plot using `vertical_coord='modlev'` and checks that the y-axis label contains 'Model Level'. It verifies that the plot is created successfully without errors, confirming that the plotter can handle model level vertical coordinates and apply appropriate axis labeling for model levels.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the axis label contains 'Model Level'.
+            None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
             self.processor,

@@ -38,11 +38,10 @@ class TestWindDiagnostics:
         This test validates the `analyze_wind_components` method, which performs a comprehensive analysis of the `u` and `v` wind components. It uses real MPAS 2D diagnostic data to compute the analysis, which should return a dictionary containing keys for 'u_component', 'v_component', 'horizontal_speed', and 'direction'. The test asserts that the returned analysis is a dictionary with the expected keys and that each component contains statistics such as 'min', 'max', and 'mean'. This ensures that the method correctly processes real diagnostic data and provides a structured analysis output with relevant statistics for both wind components.
 
         Parameters:
-            self (Any): Test case instance.
             mock_mpas_2d_data (xarray.Dataset): Fixture with real u10/v10 arrays from diag files.
 
         Returns:
-            None: Assertions confirm presence of expected analysis keys and statistics.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -72,10 +71,10 @@ class TestWindDiagnosticsActual:
         This test validates the `compute_wind_speed` method using two-dimensional arrays for `u` and `v` components, simulating a time x cells structure. It creates 2D DataArrays by tiling deterministic 1D arrays loaded from a helper function, computes the wind speed, and asserts that the output has the same shape as the input components. The test also checks that all computed speed values are non-negative and that the speed is at least as large as the absolute values of either component. This ensures that the method correctly handles 2D inputs and produces physically consistent results.
 
         Parameters:
-            self ('TestWindDiagnosticsActual'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate returned shape and numeric relationships.
+            None
         """
         diag = WindDiagnostics(verbose=False)
         
@@ -100,7 +99,7 @@ class TestAnalyzeWindComponents:
         This fixture creates sample U, V, and W wind components with random values for testing the `analyze_wind_components` method. The `u` and `v` components are generated with a larger scale to represent typical horizontal wind speeds, while the `w` component is smaller to reflect vertical motion. Each component is an xarray DataArray with appropriate dimensions and units attributes. This fixture allows for comprehensive testing of the analysis function's ability to compute statistics across all three wind components.
 
         Parameters:
-            self ('TestAnalyzeWindComponents'): Test case instance.
+            None
 
         Returns:
             tuple: A tuple containing the `u`, `v`, and `w` DataArrays with sample wind components for analysis.
@@ -131,11 +130,10 @@ class TestAnalyzeWindComponents:
         This test validates the `analyze_wind_components` method when only 2D horizontal components (U and V) are provided. The analysis should compute summary statistics for the U and V components, as well as derived metrics like horizontal speed and direction. The test asserts that the returned analysis dictionary contains expected keys and that each component's statistics include minimum, maximum, mean, standard deviation, and units. This ensures that the method correctly handles 2D inputs and produces comprehensive diagnostics for horizontal wind components.
 
         Parameters:
-            self ('TestAnalyzeWindComponents'): Test case instance.
             sample_wind_components (Any): Fixture returning (u, v, w) DataArrays.
 
         Returns:
-            None: Assertions validate analysis dictionary structure for 2D input.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -165,11 +163,10 @@ class TestAnalyzeWindComponents:
         This test validates the `analyze_wind_components` method when all three components (U, V, W) are provided. The analysis should compute summary statistics for the W component in addition to the horizontal diagnostics. The test asserts that the returned analysis dictionary contains keys for both horizontal and vertical components, and that each component's statistics include minimum, maximum, mean, standard deviation, and units. This ensures that the method correctly handles 3D inputs and provides comprehensive diagnostics for all wind components.
 
         Parameters:
-            self ('TestAnalyzeWindComponents'): Test case instance.
             sample_wind_components (Any): Fixture returning (u, v, w) DataArrays.
 
         Returns:
-            None: Assertions validate analysis dictionary structure for 3D input.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -193,11 +190,10 @@ class TestAnalyzeWindComponents:
         This test checks the `analyze_wind_components` method with verbose logging enabled when analyzing only 2D horizontal components. The routine should print user-facing summaries about the U and V components, horizontal speed, and direction. Capturing stdout verifies the presence of expected summary lines in the output. The test asserts that the printed messages contain expected substrings indicating that the analysis was performed and that key metrics were reported.
 
         Parameters:
-            self ('TestAnalyzeWindComponents'): Test case instance.
             sample_wind_components (Any): Fixture returning (u, v, w) DataArrays.
 
         Returns:
-            None: Assertions validate printed summaries in verbose mode.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -223,11 +219,10 @@ class TestAnalyzeWindComponents:
         This test checks the `analyze_wind_components` method with verbose logging enabled when analyzing all three components (U, V, W). The routine should print user-facing summaries about the W component and total 3D speed in addition to the horizontal diagnostics. Capturing stdout verifies the presence of expected summary lines in the output. The test asserts that the printed messages contain expected substrings indicating that the analysis was performed for all components and that key metrics were reported.
 
         Parameters:
-            self ('TestAnalyzeWindComponents'): Test case instance.
             sample_wind_components (Any): Fixture returning (u, v, w) DataArrays.
 
         Returns:
-            None: Assertions validate verbose 3D analysis messages.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -254,7 +249,7 @@ class TestComputeWindShear:
         This fixture creates sample U and V wind components for two vertical levels (upper and lower) to test the `compute_wind_shear` method. The upper level has stronger winds than the lower level, allowing for a clear shear signal. The `u` and `v` DataArrays are designed to produce known shear magnitudes and directions based on the differences between the two levels. This fixture can be reused across multiple tests to ensure consistency in input data for vertical wind shear calculations.
 
         Parameters:
-            self ('TestComputeWindShear'): Test case instance.
+            None
 
         Returns:
             tuple: A tuple containing the `u` and `v` DataArrays for upper and lower levels, structured as (u_upper, v_upper, u_lower, v_lower).
@@ -288,11 +283,10 @@ class TestComputeWindShear:
         This test checks the `compute_wind_shear` method with verbose logging enabled. The routine should print user-facing summaries about the wind shear magnitude and direction ranges. Capturing stdout verifies the presence of expected summary lines in the output. The test asserts that the printed messages contain expected substrings indicating that the shear analysis was performed and that key metrics were reported. This ensures that the verbose logging functionality is working as intended and provides useful diagnostic information during the wind shear computation.
 
         Parameters:
-            self ('TestComputeWindShear'): Test case instance.
             sample_wind_levels (Any): Fixture returning upper/lower u/v DataArrays.
 
         Returns:
-            None: Assertions validate printed output in verbose mode.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -320,7 +314,7 @@ class TestGet3DWindComponents:
         This fixture creates a sample xarray Dataset with synthetic 3D wind component data (U, V, W) and pressure levels for testing the `get_3d_wind_components` method. The dataset includes dimensions for time, vertical levels, and horizontal cells, with random values for the wind components to mimic realistic variability. Pressure data is included to allow for testing of pressure-level selection. This fixture provides a comprehensive test dataset that can be used across multiple tests to validate the functionality of extracting 3D wind components based on different level specifications.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
+            None
 
         Returns:
             xr.Dataset: A synthetic dataset containing 3D wind components and pressure levels for testing.
@@ -352,11 +346,10 @@ class TestGet3DWindComponents:
         This test verifies that the `get_3d_wind_components` method correctly extracts U, V, and W components at a specified model vertical level index (e.g., level=5). The test asserts that the returned components are xarray DataArrays with the expected shape and that they include metadata indicating the selected level. This ensures that the method can successfully retrieve wind components based on model-level selection and that it annotates the results with relevant metadata for downstream use.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertions validate extraction and metadata for model-level selection.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -384,11 +377,10 @@ class TestGet3DWindComponents:
         This test verifies that the `get_3d_wind_components` method correctly extracts U, V, and W components at a specified pressure level (e.g., level=85000.0 Pa). The test asserts that the method identifies the correct vertical index corresponding to the requested pressure level and that the returned components are xarray DataArrays with appropriate metadata indicating the selected pressure level. This ensures that the method can successfully retrieve wind components based on pressure-level selection and provides informative output about the selection process when verbose mode is enabled.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertions validate printed output and returned DataArrays.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -415,11 +407,10 @@ class TestGet3DWindComponents:
         This test verifies that the `get_3d_wind_components` method correctly extracts U, V, and W components at the surface level when `level='surface'` is specified. The helper should identify the lowest vertical index (0) as the surface level and annotate the returned components with metadata indicating this selection. The test asserts that the `level_index` attribute of the returned U component equals 0, confirming that the surface level was correctly identified and extracted.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertion verifies `level_index` is 0 for surface.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -442,11 +433,10 @@ class TestGet3DWindComponents:
         This test verifies that the `get_3d_wind_components` method correctly extracts U, V, and W components at the top level when `level='top'` is specified. The helper should identify the highest vertical index (nVertLevels-1) as the top level and annotate the returned components with metadata indicating this selection. The test asserts that the `level_index` attribute of the returned U component equals the expected top index, confirming that the top level was correctly identified and extracted.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertion verifies `level_index` corresponds to top level.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -469,11 +459,10 @@ class TestGet3DWindComponents:
         This test verifies that when the specified W variable is missing from the dataset, the `get_3d_wind_components` method falls back to setting W to zero and prints a warning message. The test captures stdout to check for the presence of a warning about the missing W variable and asserts that the returned W component is an xarray DataArray filled with zeros. This ensures that the method handles missing vertical wind components gracefully while providing informative feedback to the user.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertions validate fallback W handling and messages.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -500,11 +489,10 @@ class TestGet3DWindComponents:
         This test verifies that when `verbose` mode is enabled, the `get_3d_wind_components` method prints diagnostic information about the extraction process. The test captures stdout to check for the presence of messages indicating that the method is extracting 3D wind components, along with details about the selected level and variable ranges. This ensures that the verbose logging functionality is working as intended and provides useful feedback during the component extraction process.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertions validate printed messages in verbose mode.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -534,11 +522,10 @@ class TestGet3DWindComponents:
         This test verifies that when requesting the 'uxarray' data type, the `get_3d_wind_components` method returns `xarray.DataArray` objects. The test ensures compatibility with downstream code that expects xarray objects. The test asserts that the returned U, V, and W components are instances of `xarray.DataArray`, confirming that the method correctly handles the 'uxarray' data type option and provides results in the expected format for further analysis.
 
         Parameters:
-            self ('TestGet3DWindComponents'): Test case instance.
             sample_3d_dataset (xr.Dataset): Fixture returning a synthetic 3D dataset.
 
         Returns:
-            None: Assertions validate returned types for 'uxarray' request.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -568,7 +555,7 @@ class TestGet2DWindComponents:
         This fixture creates a sample xarray Dataset with synthetic 2D wind component data (U and V) for testing the `get_2d_wind_components` method. The dataset includes dimensions for time and horizontal cells, with random values for the U and V components to mimic realistic variability. This fixture provides a simple test dataset that can be used across multiple tests to validate the functionality of extracting 2D wind components based on variable names and time indices.
 
         Parameters:
-            self ('TestGet2DWindComponents'): Test case instance.
+            None
 
         Returns:
             xr.Dataset: A synthetic dataset containing 2D wind components for testing.
@@ -592,10 +579,10 @@ class TestGet2DWindComponents:
         This test verifies that if the U and V variables have different units, the `get_2d_wind_components` method prints a warning message about the unit mismatch. The test creates a dataset where U and V components have different units (e.g., m/s for U and km/h for V) and captures stdout to check for the presence of a warning about the unit mismatch. This ensures that the method provides informative feedback to the user about potential issues with the input data, allowing them to address unit inconsistencies before proceeding with analysis.
 
         Parameters:
-            self ('TestGet2DWindComponents'): Test case instance.
+            None
 
         Returns:
-            None: Assertions validate warning is produced for unit mismatch.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
@@ -615,7 +602,6 @@ class TestGet2DWindComponents:
             )
         
         output = captured_output.getvalue()
-        assert 'Warning' in output
         assert 'different units' in output
     
     
@@ -628,10 +614,10 @@ class TestEdgeCasesAndErrorPaths:
         This test verifies that if the specified V variable is missing from the dataset, the `get_3d_wind_components` method raises a ValueError with an appropriate message indicating that the required 3D wind variables are not found. The test creates a dataset that includes U and W variables but omits the V variable, then attempts to extract 3D wind components. The assertion checks that the expected exception is raised with a message about missing variables, ensuring that the method provides clear feedback about incomplete input data rather than failing silently or producing incorrect results.
 
         Parameters:
-            self ('TestEdgeCasesAndErrorPaths'): Test case instance.
+            None
 
         Returns:
-            None: Assertion verifies formatted ValueError for missing variables.
+            None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         

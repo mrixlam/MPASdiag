@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example VI: Complex Weather Map
+MPASdiag Example VII: Complex Weather Map
 
 This example demonstrates how to create a complex weather map by overlaying multiple variables from MPAS 2D model output. The example extracts 2-meter specific humidity as the main surface variable and visualizes it as a filled contour map. It then overlays mean sea level pressure (MSLP) contours and 10-meter wind vectors on top of the surface map. The example uses data from the first time index of the dataset and focuses on the CONUS region. Note that the same plot can be generated with different variables, contour levels, colors, and wind vector styles by modifying the respective configuration dictionaries.
 
@@ -61,7 +61,21 @@ cfg = MPASConfig()
 cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 10.0
-cfg.lat_max = 60.0 
+cfg.lat_max = 60.0
+
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
 
 # Extract valid time from the dataset for the specified time index
 valtime = processor.dataset['Time'][tindex].values
@@ -128,6 +142,9 @@ wind_config = {
 wind_plotter.add_wind_overlay(ax, lon, lat, wind_config, 
                             lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
+
+# Overlay cross-section transect lines
+plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save the final plot with the filled contour, contour overlay, and wind vector overlay
 plotter.save_plot(f'./output/example_moisture_transport_with_mslp_valid_{valtime_str}', formats=['png'])

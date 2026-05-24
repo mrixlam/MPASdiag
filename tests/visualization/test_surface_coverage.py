@@ -14,6 +14,7 @@ Version: 1.0.0
 import matplotlib
 from typing import Generator
 matplotlib.use('Agg')
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -359,6 +360,15 @@ class TestFilterValidDataDask:
         _real_isfinite = np.isfinite 
 
         def _fake_isfinite(arr: object) -> _ComputableMask:
+            """
+            This function simulates a patched version of np.isfinite that returns a _ComputableMask view instead of a regular boolean array. It checks if np.isfinite has a __wrapped__ attribute (indicating it has been decorated), and if so, it uses the original function to compute the finite mask and returns it as a _ComputableMask. If not, it directly computes the finite mask using np.isfinite and returns it as a _ComputableMask. This allows us to test the branches in _filter_valid_data that handle Dask-like masks without needing to use actual Dask arrays.
+
+            Parameters:
+                arr (np.ndarray): Input array.
+
+            Returns:
+                _ComputableMask: A boolean mask array.
+            """
             return np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask)
 
         lon = np.linspace(-95.0, -85.0, N_CELLS)
@@ -807,12 +817,13 @@ class TestValidateContourLevels:
 class TestCreateBatchSurfaceMaps:
     """ Test coverage for create_batch_surface_maps, specifically the branches for no dataset and progress printing at step 10. """
 
-    def test_no_dataset_raises_valueerror(self: 'TestCreateBatchSurfaceMaps', tmp_path) -> None:
+    def test_no_dataset_raises_valueerror(self: 'TestCreateBatchSurfaceMaps', 
+                                          tmp_path: 'Path') -> None:
         """
         This test verifies that create_batch_surface_maps raises a ValueError when the processor's dataset is None. This covers the branch where the method should check if the dataset is loaded in the processor, and if it is not (i.e., it is None), it should raise a ValueError to inform the user that no data is available for plotting. The test creates a mock processor with dataset set to None, applies the create_batch_surface_maps method, and asserts that a ValueError is raised with an appropriate message, confirming that the method correctly handles the case of missing data. 
 
         Parameters:
-            None
+            tmp_path: pytest fixture providing a temporary directory for output files.
 
         Returns:
             None
@@ -827,12 +838,13 @@ class TestCreateBatchSurfaceMaps:
 
     def test_progress_printed_at_step_10(self: 'TestCreateBatchSurfaceMaps',
                                          capsys: pytest.CaptureFixture,
-                                         tmp_path) -> None:
+                                         tmp_path: 'Path') -> None:
         """
         This test verifies that create_batch_surface_maps prints progress at step 10 when processing a batch of surface maps. This covers the branch where the method should print a progress message to the console after completing the 10th map, allowing users to see that the process is advancing through the batch. The test creates a mock processor with a dataset containing 11 time steps, applies the create_batch_surface_maps method, captures the console output, and asserts that the expected progress message "Completed 10/11" is present in the output, confirming that progress is being printed at the correct step. 
 
         Parameters:
             capsys: pytest.CaptureFixture
+            tmp_path: pytest fixture providing a temporary directory for output files.
 
         Returns:
             None

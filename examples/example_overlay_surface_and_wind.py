@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MPASdiag Example V: Overlaying MSLP contours and 10-m wind vectors on a 2D surface map of 2-m temperature
+MPASdiag Example VI: Overlaying MSLP contours and 10-m wind vectors on a 2D surface map of 2-m temperature
 
 This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours and 10-meter wind vectors. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours and wind vectors are overlaid as arrows. Note that the same plot can be generated with wind vectors represented as barbs by changing the plot_type argument in the add_wind_overlay method. 
 
@@ -58,6 +58,20 @@ cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 20.0
 cfg.lat_max = 60.0 
+
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
 
 # Extract valid time from the dataset for the specified time index
 valtime = processor.dataset['Time'][tindex].values
@@ -124,6 +138,9 @@ wind_config = {
 wind_plotter.add_wind_overlay(ax, lon, lat, wind_config,
                               lon_min=cfg.lon_min, lon_max=cfg.lon_max,
                               lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
+
+# Overlay cross-section transect lines
+plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Create output directory if it doesn't exist
 os.makedirs('./output', exist_ok=True)

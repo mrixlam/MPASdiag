@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Test MPASVerticalCrossSectionPlotter Functionality
 
@@ -132,7 +133,8 @@ class TestPlottingConfigurations:
     """ Test plotting with various configurations using real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestPlottingConfigurations', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestPlottingConfigurations', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the test environment for the TestPlottingConfigurations class by initializing the MPASVerticalCrossSectionPlotter and assigning a shared MPAS3DProcessor instance to the test class. It checks if the processor is available and if the necessary grid and output files exist, skipping the tests if any of these conditions are not met. This ensures that the tests are only run when real MPAS data is accessible, allowing for validation of plotting functionality using actual datasets. The setup provides a realistic context for testing various plotting configurations, ensuring that the plotter can handle different scenarios effectively.
 
@@ -154,10 +156,10 @@ class TestPlottingConfigurations:
         This test invokes the cross-section plotter with a custom colormap ('coolwarm') and validates that a figure is returned and the call completes successfully for a representative subregion of the dataset. It checks that the returned figure object is not None, confirming that the plot was created successfully with the specified colormap. This validation ensures that the plotter can handle custom colormap configurations without errors, allowing users to customize the appearance of their plots according to their preferences.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the returned figure object is not None.
+            None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
@@ -178,10 +180,10 @@ class TestPlottingConfigurations:
         This test validates that the `create_vertical_cross_section` method can successfully create plots using different plot types, specifically 'pcolormesh' and 'contourf'. It checks that a figure is returned for each plot type, confirming that the method can handle various plotting configurations without errors. This ensures that users have flexibility in choosing their preferred plot type for visualizing cross-section data, and that the plotter can accommodate these choices effectively.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the returned figure object is not None.
+            None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,

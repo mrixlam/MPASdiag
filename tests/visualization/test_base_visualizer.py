@@ -22,6 +22,7 @@ import xarray as xr
 from datetime import datetime
 import matplotlib.pyplot as plt
 from typing import Generator, Any
+import cartopy.crs as ccrs
 from cartopy.mpl.geoaxes import GeoAxes
 from unittest.mock import patch
 
@@ -648,6 +649,200 @@ class TestVisualizerHelperMethods:
         bins = np.linspace(0, 10, 6)  # numpy array → exercises tolist() branch
         fig, ax = self.viz.create_histogram(data, bins=bins)
         assert fig is not None
+
+
+class TestTransectOverlay:
+    """Tests for MPASVisualizer.draw_transect_line and draw_transect_lines."""
+
+    @pytest.fixture(autouse=True)
+    def setup_method(self: 'TestTransectOverlay') -> Generator[None, None, None]:
+        self.viz = MPASVisualizer(figsize=(8, 6), dpi=72, verbose=False)
+        yield
+        plt.close('all')
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _geo_axes(self: 'TestTransectOverlay'):
+        """Return (fig, GeoAxes) with a fixed CONUS-ish extent."""
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+        ax.set_extent([-130, -50, 20, 60], crs=ccrs.PlateCarree())
+        return fig, ax
+
+    def _plain_axes(self: 'TestTransectOverlay'):
+        """Return (fig, plain Axes) with lon/lat-like limits."""
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_xlim(-130, -50)
+        ax.set_ylim(20, 60)
+        return fig, ax
+
+    # ── draw_transect_line ────────────────────────────────────────────────────
+
+    def test_draw_transect_line_returns_all_artist_keys(self: 'TestTransectOverlay') -> None:
+        """draw_transect_line must return a dict with line, start_marker, end_marker, start_label_text, end_label_text."""
+        fig, ax = self._geo_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+            data_crs=ccrs.PlateCarree(), start_label="A", end_label="B",
+        )
+        assert set(artists.keys()) == {"line", "start_marker", "end_marker", "start_label_text", "end_label_text"}
+        assert len(artists["line"]) > 0
+        assert len(artists["start_marker"]) > 0
+        assert len(artists["end_marker"]) > 0
+        assert artists["start_label_text"] is not None
+        assert artists["end_label_text"] is not None
+        plt.close(fig)
+
+    def test_draw_transect_line_no_label(self: 'TestTransectOverlay') -> None:
+        """show_labels=False must leave both label texts as None."""
+        fig, ax = self._geo_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+            show_labels=False, start_label="A", end_label="B",
+        )
+        assert artists["start_label_text"] is None
+        assert artists["end_label_text"] is None
+        plt.close(fig)
+
+    def test_draw_transect_line_no_label_string(self: 'TestTransectOverlay') -> None:
+        """No start_label/end_label with show_labels=True must leave both texts as None."""
+        fig, ax = self._geo_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+            show_labels=True,
+        )
+        assert artists["start_label_text"] is None
+        assert artists["end_label_text"] is None
+        plt.close(fig)
+
+    def test_draw_transect_line_custom_linewidth(self: 'TestTransectOverlay') -> None:
+        """Custom linewidth must be reflected on the returned Line2D."""
+        fig, ax = self._geo_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+            linewidth=3.5,
+        )
+        assert artists["line"][0].get_linewidth() == pytest.approx(3.5)
+        plt.close(fig)
+
+    def test_draw_transect_line_dashed_linestyle(self: 'TestTransectOverlay') -> None:
+        """A dashed linestyle must differ from the default solid line."""
+        fig, ax = self._geo_axes()
+        solid = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0), linestyle="-",
+        )
+        dashed = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0), linestyle="--",
+        )
+        assert solid["line"][0].get_linestyle() != dashed["line"][0].get_linestyle()
+        plt.close(fig)
+
+    def test_draw_transect_line_on_plain_axes(self: 'TestTransectOverlay') -> None:
+        """draw_transect_line must work on plain (non-geo) Axes without a transform."""
+        fig, ax = self._plain_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+            start_label="P", end_label="Q",
+        )
+        assert artists["line"] is not None
+        assert artists["start_label_text"] is not None
+        assert artists["end_label_text"] is not None
+        plt.close(fig)
+
+    def test_draw_transect_line_default_data_crs(self: 'TestTransectOverlay') -> None:
+        """GeoAxes call without explicit data_crs must not raise."""
+        fig, ax = self._geo_axes()
+        artists = self.viz.draw_transect_line(
+            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
+        )
+        assert artists["line"] is not None
+        plt.close(fig)
+
+    # ── draw_transect_lines ───────────────────────────────────────────────────
+
+    def test_draw_transect_lines_returns_all_labels(self: 'TestTransectOverlay') -> None:
+        """draw_transect_lines must return one entry per transect."""
+        fig, ax = self._geo_axes()
+        transects = {
+            "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0)},
+            "C-D": {"start": (-100.0, 25.0), "end": (-70.0, 45.0)},
+            "E-F": {"start": (-120.0, 35.0), "end": (-90.0, 55.0)},
+        }
+        result = self.viz.draw_transect_lines(
+            ax, transects, data_crs=ccrs.PlateCarree(),
+        )
+        assert set(result.keys()) == {"A-B", "C-D", "E-F"}
+        for artists in result.values():
+            assert "line" in artists
+            assert "start_marker" in artists
+            assert "end_marker" in artists
+        plt.close(fig)
+
+    def test_draw_transect_lines_per_transect_color_override(self: 'TestTransectOverlay') -> None:
+        """Per-transect color must take precedence over the default."""
+        from matplotlib.colors import to_rgba
+        fig, ax = self._geo_axes()
+        transects = {
+            "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0), "color": "royalblue"},
+            "C-D": {"start": (-100.0, 25.0), "end": (-70.0, 45.0)},
+        }
+        result = self.viz.draw_transect_lines(ax, transects, color="red")
+        line_ab = result["A-B"]["line"][0]
+        line_cd = result["C-D"]["line"][0]
+        assert np.allclose(to_rgba(line_ab.get_color()), to_rgba("royalblue"), atol=1e-3)
+        assert np.allclose(to_rgba(line_cd.get_color()), to_rgba("red"), atol=1e-3)
+        plt.close(fig)
+
+    def test_draw_transect_lines_per_transect_linewidth_override(self: 'TestTransectOverlay') -> None:
+        """Per-transect linewidth must override the default."""
+        fig, ax = self._geo_axes()
+        transects = {
+            "thick": {"start": (-110.0, 30.0), "end": (-80.0, 50.0), "linewidth": 4.0},
+            "thin":  {"start": (-100.0, 25.0), "end": (-70.0, 45.0)},
+        }
+        result = self.viz.draw_transect_lines(ax, transects, linewidth=1.0)
+        assert result["thick"]["line"][0].get_linewidth() == pytest.approx(4.0)
+        assert result["thin"]["line"][0].get_linewidth() == pytest.approx(1.0)
+        plt.close(fig)
+
+    def test_draw_transect_lines_per_endpoint_labels(self: 'TestTransectOverlay') -> None:
+        """start_label and end_label must appear at their respective endpoints."""
+        fig, ax = self._geo_axes()
+        transects = {
+            "A–B": {
+                "start": (-110.0, 30.0), "start_label": "A",
+                "end": (-80.0, 50.0), "end_label": "B",
+            },
+        }
+        result = self.viz.draw_transect_lines(ax, transects, data_crs=ccrs.PlateCarree())
+        assert result["A–B"]["start_label_text"] is not None
+        assert result["A–B"]["end_label_text"] is not None
+        assert result["A–B"]["start_label_text"].get_text() == "A"
+        assert result["A–B"]["end_label_text"].get_text() == "B"
+        plt.close(fig)
+
+    def test_draw_transect_lines_empty_dict(self: 'TestTransectOverlay') -> None:
+        """An empty transects dict must return an empty dict without errors."""
+        fig, ax = self._geo_axes()
+        result = self.viz.draw_transect_lines(ax, {})
+        assert result == {}
+        plt.close(fig)
+
+    def test_draw_transect_lines_show_labels_false(self: 'TestTransectOverlay') -> None:
+        """show_labels=False must suppress all labels unless per-entry overrides it."""
+        fig, ax = self._geo_axes()
+        transects = {
+            "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0),
+                    "start_label": "A", "end_label": "B"},
+            "C-D": {"start": (-100.0, 25.0), "end": (-70.0, 45.0),
+                    "start_label": "C", "end_label": "D", "show_labels": True},
+        }
+        result = self.viz.draw_transect_lines(ax, transects, show_labels=False)
+        assert result["A-B"]["start_label_text"] is None
+        assert result["A-B"]["end_label_text"] is None
+        assert result["C-D"]["start_label_text"] is not None
+        assert result["C-D"]["end_label_text"] is not None
+        plt.close(fig)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Visualization Integration Tests
 
@@ -45,14 +46,25 @@ def create_mock_create_map(plotter: Any) -> Any:
     Returns:
         Any: A mock `create_map` method that returns a simple figure and axes.
     """
-    def mock_create_map(*args, **kwargs):
+    def mock_create_map(*args, 
+                        **kwargs) -> Any:
+        """
+        This mock method simulates the behavior of the `create_map` method by creating a new matplotlib figure and axes, assigning the figure to the plotter's `_current_fig` attribute, and returning the figure and axes objects. This allows tests to verify that the `create_map` method is called and produces valid plotting objects without relying on actual map projection logic.
+
+        Parameters:
+            *args: Positional arguments (ignored in this mock).
+            **kwargs: Keyword arguments (ignored in this mock).
+
+        Returns:
+            Any: A tuple containing the created figure and axes objects.
+        """
         fig, ax = plt.subplots()
         plotter._current_fig = fig
         return fig, ax
     return mock_create_map
 
 
-def create_mock_save_plot():
+def create_mock_save_plot() -> Any:
     """
     This function creates a mock `save_plot` method that simulates the behavior of saving a plot without actually writing any files. The mock method does nothing when called, allowing tests to verify that the `save_plot` method is invoked without performing any file I/O operations. This is useful for testing the plotting workflow in isolation, ensuring that the logic for saving plots is exercised without creating unnecessary files during testing.
 
@@ -62,7 +74,18 @@ def create_mock_save_plot():
     Returns:
         Any: A mock `save_plot` method that does nothing when called.
     """
-    def mock_save_plot(*args, **kwargs):
+    def mock_save_plot(*args, 
+                       **kwargs) -> None:
+        """
+        This mock method simulates the behavior of the `save_plot` method by doing nothing when called. It allows tests to verify that the `save_plot` method is invoked without performing any file I/O operations, which is useful for testing the plotting workflow in isolation.
+
+        Parameters:
+            *args: Positional arguments (ignored in this mock).
+            **kwargs: Keyword arguments (ignored in this mock).
+
+        Returns:
+            None
+        """
         print("Mock save_plot called with args:", args, "and kwargs:", kwargs)
         print("This is a mock method. No file will be saved.")
         pass
@@ -79,7 +102,18 @@ def create_mock_close_plot(plotter: Any) -> Any:
     Returns:
         Any: A mock `close_plot` method that closes all matplotlib figures when called.
     """
-    def mock_close_plot(*args, **kwargs):
+    def mock_close_plot(*args, 
+                        **kwargs) -> None:
+        """
+        This mock method simulates the behavior of the `close_plot` method by closing all matplotlib figures when called. It allows tests to verify that the `close_plot` method is invoked without affecting other tests or leaving open figures, which helps maintain a clean testing environment and prevents resource leaks during automated testing.
+
+        Parameters:
+            *args: Positional arguments (ignored in this mock).
+            **kwargs: Keyword arguments (ignored in this mock).
+
+        Returns:
+            None
+        """
         plt.close('all')
     return mock_close_plot
 
@@ -199,7 +233,9 @@ class TestMPASVisualizer:
         This test verifies that the `create_simple_scatter_plot` method of `MPASSurfacePlotter` successfully generates a scatter plot with synthetic data and a custom colormap. The test generates 100 random points with longitude (100-110°E), latitude (-5 to 5°N), and data values (0-50) then confirms successful scatter plot creation. The test checks that figure and axes objects are non-None and match the plotter's stored references, ensuring proper object management. Scatter plot creation provides a foundation for visualizing irregular spatial data without requiring gridding or interpolation. This basic plotting capability supports exploratory data analysis and quick visualization of MPAS unstructured grid data before more sophisticated cartographic rendering.
 
         Parameters:
-            None
+            surface_plotter (MPASSurfacePlotter): The surface plotter instance to use for plotting.
+            mpas_coordinates: Real MPAS coordinate data for plotting.
+            mpas_wind_data: Real MPAS wind data for plotting.
 
         Returns:
             None
@@ -235,7 +271,8 @@ class TestMPASVisualizer:
         This test verifies that the `create_histogram` method of `MPASVisualizer` successfully generates histograms with customizable binning and scale options for statistical data distribution visualization. The test uses real MPAS wind data and generates a histogram with 30 bins plus custom labels for axes and title. The test checks that figure and axes objects are non-None for both linear and logarithmic y-axis scales, ensuring proper handling of diverse data distributions. Histogram functionality enables exploratory data analysis revealing distribution characteristics including central tendency, spread, and skewness. This statistical visualization capability supports quality control workflows where data distribution assessment guides subsequent processing decisions and identifies potential data quality issues.
 
         Parameters:
-            None
+            visualizer (MPASVisualizer): The visualizer instance to use for plotting.
+            mpas_wind_data: Real MPAS wind data to generate values for the histogram.
 
         Returns:
             None
@@ -275,7 +312,8 @@ class TestMPASVisualizer:
         This test verifies that the `create_time_series_plot` method of `MPASVisualizer` successfully generates time series plots with datetime x-axis and custom labeling for temporal data visualization. The test generates 24 hourly time points starting January 1, 2024, with random precipitation values (0-20 mm) then creates a time series plot with custom axis labels and title. The test checks that figure and axes objects are non-None, confirming that matplotlib datetime handling works correctly with visualizer methods. Time series plotting supports operational meteorology workflows displaying model forecast evolution, verification time series, and temporal precipitation accumulation. This temporal visualization capability enables analysis of forecast skill, diurnal cycles, and time-dependent meteorological phenomena.
 
         Parameters:
-            None
+            visualizer (MPASVisualizer): The visualizer instance to use for plotting.
+            mpas_wind_data: Real MPAS wind data to generate values for the time series plot.
 
         Returns:
             None
@@ -311,7 +349,10 @@ class TestMPASVisualizer:
         This test verifies that the `save_plot` method of `MPASSurfacePlotter` successfully writes matplotlib figures to disk files in specified formats. The test creates a simple scatter plot with real MPAS data then saves the figure to a temporary directory in PNG format, verifying that the output file exists at the expected path. The save operation demonstrates the complete visualization workflow from plot creation through file persistence. File format specification supports diverse output requirements including PNG for presentations, PDF for publications, and SVG for web applications. This file saving capability enables automated figure generation workflows where plots export to disk for documentation, reporting, and archival purposes.
 
         Parameters:
-            None
+            surface_plotter (MPASSurfacePlotter): The surface plotter instance to use for plotting.
+            temp_dir (str): The temporary directory to save the plot files.
+            mpas_coordinates: Real MPAS coordinate data for plotting.
+            mpas_wind_data: Real MPAS wind data for plotting.
 
         Returns:
             None
@@ -345,7 +386,9 @@ class TestMPASVisualizer:
         This test verifies that the `close_plot` method of `MPASSurfacePlotter` correctly handles plot cleanup by clearing figure and axes references, preventing memory leaks in batch processing workflows. The test creates a scatter plot, confirms the figure reference is not None, then calls `close_plot` and validates that the figure and axes attributes are reset to None. The cleanup operation closes matplotlib figure objects, releasing memory resources and preventing the accumulation of unused figures. Proper cleanup supports long-running batch workflows generating hundreds of plots without exhausting system memory. This resource management capability ensures that visualization operations scale efficiently to large-scale operational forecasting workflows requiring extensive plot generation.
 
         Parameters:
-            None
+            surface_plotter (MPASSurfacePlotter): The surface plotter instance to use for plotting.
+            mpas_coordinates: Real MPAS coordinate data for plotting.
+            mpas_wind_data: Real MPAS wind data for plotting.
 
         Returns:
             None
@@ -600,7 +643,7 @@ class TestVisualizationIntegration:
             tmp_path: Temporary directory for output files
             
         Returns:
-            None: Verified by successful plot creation and file existence
+            None
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("MPAS data not available")
@@ -649,7 +692,7 @@ class TestVisualizationIntegration:
             tmp_path: Temporary directory for output files
             
         Returns:
-            None: Verified by successful wind plot creation
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -703,7 +746,7 @@ class TestVisualizationIntegration:
             tmp_path: Temporary directory for output files
             
         Returns:
-            None: Verified by successful precipitation map creation
+            None
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
@@ -752,7 +795,7 @@ class TestVisualizationIntegration:
             mpas_wind_data: Real MPAS wind components (u, v)
             
         Returns:
-            None: Verified by appropriate style parameters
+            None
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -799,7 +842,7 @@ class TestVisualizationIntegration:
             tmp_path: Temporary directory for output files
             
         Returns:
-            None: Verified by creation of multiple plot files
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
@@ -856,7 +899,7 @@ class TestVisualizationIntegration:
             tmp_path: Temporary directory for output files
             
         Returns:
-            None: Verified by successful overlay plot creation
+            None
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")

@@ -21,7 +21,7 @@ from typing import Dict, List, Any, Optional
 from pathlib import Path
 
 from .utils_config import MPASConfig
-from .utils_logger import MPASLogger
+from .utils_logger import MPASLogger, get_logger
 from .utils_monitor import PerformanceMonitor
 from .processors_2d import MPAS2DProcessor
 from .processors_3d import MPAS3DProcessor
@@ -128,9 +128,14 @@ class MPASUnifiedCLI:
         )
         
         parser.add_argument('--config', type=str, help='Configuration file path (YAML format)')
-        parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose output')
-        parser.add_argument('--quiet', '-q', action='store_true', help='Suppress output messages')
+        parser.add_argument('--verbose', '-v', action='store_true',
+                            help='Enable verbose output (shortcut for --log-level DEBUG)')
+        parser.add_argument('--quiet', '-q', action='store_true',
+                            help='Suppress output messages (shortcut for --log-level ERROR)')
         parser.add_argument('--log-file', type=str, help='Log file path')
+        parser.add_argument('--log-level', type=str, default=None,
+                            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                            help='Logging severity threshold (overrides --verbose/--quiet)')
         parser.add_argument('--version', action='version', version='MPASdiag 1.0.0')
         
         subparsers = parser.add_subparsers(
@@ -801,35 +806,40 @@ class MPASUnifiedCLI:
         if hasattr(args, 'variables') and args.variables:
             config_dict['variables'] = [v.strip() for v in args.variables.split(',')]
     
-    def setup_logging(self: 'MPASUnifiedCLI', 
-                      config: 'MPASConfig', 
-                      log_file: Optional[str] = None) -> MPASLogger:
+    def setup_logging(self: 'MPASUnifiedCLI',
+                      config: 'MPASConfig',
+                      log_file: Optional[str] = None) -> logging.Logger:
         """
-        This method sets up the logging configuration for the MPASUnifiedCLI based on the user's preferences for logging verbosity and an optional log file path. It determines the appropriate logging level (e.g., ERROR, INFO, DEBUG) based on the presence of 'quiet' and 'verbose' flags in the configuration object. If the 'quiet' flag is set, it configures logging to only capture ERROR messages; if the 'verbose' flag is set, it configures logging to capture DEBUG messages; otherwise, it defaults to INFO level. The method also checks if a log file path is provided and configures the MPASLogger to write log messages to that file in addition to the console output. By setting up logging in this way, it allows for flexible control over the amount of information logged during execution and provides an option for persistent logging to a file for later review or debugging purposes. The configured MPASLogger instance is then returned for use throughout the CLI execution. 
+        This method sets up the logging configuration for the MPASUnifiedCLI based on the provided configuration object and an optional log file path. It determines the effective log file to use by checking if a log_file argument is provided; if not, it looks for a 'log_file' attribute in the configuration object. The method then determines the logging level based on the 'log_level' attribute in the configuration, or falls back to setting it to ERROR if 'quiet' mode is enabled, DEBUG if 'verbose' mode is enabled, or INFO by default. It also sets a 'verbose' flag based on whether 'quiet' mode is enabled. Finally, it initializes the MPASLogger with the determined logging level, log file, and verbosity settings, and retrieves a logger instance for the current module to be used for logging messages throughout the CLI execution. This setup allows for flexible logging configurations based on user preferences specified through command-line arguments or configuration settings. 
 
         Parameters:
-            config (MPASConfig): The configuration object containing user preferences for logging verbosity (e.g., 'quiet', 'verbose') that will be used to determine the appropriate logging level for the MPASLogger. 
-            log_file (Optional[str]): An optional file path to which log messages should be written. If provided, the MPASLogger will be configured to write logs to this file in addition to the console output. If None, logging will only occur on the console. 
+            config (MPASConfig): The configuration object containing settings that may influence logging behavior, such as log level and log file path.
+            log_file (Optional[str]): An optional argument specifying the log file path to use for logging output. If not provided, the method will look for a 'log_file' attribute in the configuration object.
 
         Returns:
-            MPASLogger: A configured instance of the MPASLogger class that is set up with the appropriate logging level and file handler based on the user's preferences specified in the configuration object and the optional log file path. This logger can then be used throughout the CLI execution to log messages at various levels (ERROR, INFO, DEBUG) as needed. 
+            logging.Logger: A logger instance configured according to the specified log level, log file, and verbosity settings, ready to be used for logging messages throughout the CLI execution.
         """
-        log_level = logging.INFO
+        effective_log_file = log_file if log_file is not None else getattr(config, 'log_file', None)
 
-        if hasattr(config, 'quiet') and config.quiet:
+        if getattr(config, 'log_level', None):
+            log_level = getattr(logging, config.log_level)
+        elif getattr(config, 'quiet', False):
             log_level = logging.ERROR
-        elif hasattr(config, 'verbose') and config.verbose:
+        elif getattr(config, 'verbose', False):
             log_level = logging.DEBUG
-        
-        verbose = not (hasattr(config, 'quiet') and config.quiet)
-        
-        self.logger = MPASLogger(
-            name="mpas-unified-cli",
+        else:
+            log_level = logging.INFO
+
+        verbose = not getattr(config, 'quiet', False)
+
+        MPASLogger(
+            name="mpasdiag",
             level=log_level,
-            log_file=log_file,
-            verbose=verbose
+            log_file=effective_log_file,
+            verbose=verbose,
         )
-        
+
+        self.logger = get_logger(__name__)
         return self.logger
     
     def _validate_file_path(self: 'MPASUnifiedCLI', 
@@ -968,14 +978,10 @@ class MPASUnifiedCLI:
         """
         error_header = "Configuration validation failed:"
 
-        if self.logger:
-            self.logger.error(error_header)
-            for error in errors:
-                self.logger.error(f"  - {error}")
-        else:
-            print(error_header)
-            for error in errors:
-                print(f"  - {error}")
+        emit = self.logger if self.logger else get_logger(__name__)
+        emit.error(error_header)
+        for error in errors:
+            emit.error("  - %s", error)
     
     def validate_config(self: 'MPASUnifiedCLI', 
                         config: 'MPASConfig') -> bool:
@@ -2034,12 +2040,9 @@ class MPASUnifiedCLI:
             int: Exit code (1) indicating an error condition.
         """
         import traceback
-        if self.logger:
-            self.logger.error(f"Unexpected error: {error}")
-            self.logger.error(traceback.format_exc())
-        else:
-            print(f"Error: {error}")
-            traceback.print_exc()
+        emit = self.logger if self.logger else get_logger(__name__)
+        emit.error("Unexpected error: %s", error)
+        emit.error(traceback.format_exc())
         return 1
     
     def main(self: 'MPASUnifiedCLI') -> int:
@@ -2071,7 +2074,8 @@ class MPASUnifiedCLI:
             return 0 if success else 1
             
         except KeyboardInterrupt:
-            print("\nAnalysis interrupted by user")
+            emit = self.logger if self.logger else get_logger(__name__)
+            emit.warning("Analysis interrupted by user")
             return 130
         except Exception as e:
             return self._handle_main_exception(e)

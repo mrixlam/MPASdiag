@@ -237,7 +237,7 @@ class TestRealMPASDataIntegration:
             None
 
         Returns:
-            None: Asserts that the returned file list is non-empty.
+            None
         """
         if not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")

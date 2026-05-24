@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Test MPASVerticalCrossSectionPlotter Functionality
 

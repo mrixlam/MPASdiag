@@ -147,7 +147,7 @@ class TestInterpolateAtPressure:
             capsys (pytest.CaptureFixture): Fixture to capture stdout/stderr output.
 
         Returns:
-            None: The test asserts conditions on the captured output, and does not return a value.
+            None
         """
         proc, ds, mean_p = self._setup(verbose=True)
         proc.dataset = ds   # _interpolate_at_pressure accesses self.dataset internally
@@ -169,7 +169,7 @@ class TestResolveLevelIndex:
             None
 
         Returns:
-            None: The test asserts conditions on the returned index and does not return a value.
+            None
         """
         proc = _make_processor(verbose=False)
         ds = _synthetic_mpas_data(n_cells=5, n_vert=4, with_pressure_components=True)
@@ -192,7 +192,7 @@ class TestGetVariableDataEarlyReturn:
             None
 
         Returns:
-            None: The test asserts that the returned result is a DataArray and does not return a value.
+            None
         """
         proc = _make_processor(verbose=False)
         ds = _synthetic_mpas_data(n_cells=5, n_vert=4, with_pressure_components=True)
@@ -218,7 +218,7 @@ class TestGetVariableDataNdimCheck:
             None
 
         Returns:
-            None: The test asserts that a ValueError is raised and does not return a value.
+            None
         """
         proc = _make_processor(verbose=False)
 

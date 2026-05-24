@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Tests for MPASdiag remapping functionality
 
@@ -34,10 +35,10 @@ class TestKDTreeRemapping:
         This fixture sets up synthetic MPAS coordinates and a test field for remapping tests. It uses a deterministic loader to generate longitude and latitude arrays along with synthetic data values based on a combination of sinusoidal patterns and noise derived from the u velocity component. The fixture ensures that the generated coordinates and data have the expected shapes and are suitable for testing the remapping functionality. This setup is shared across multiple remapping tests to provide consistent input data. 
 
         Parameters:
-            self ('TestKDTreeRemapping'): Test instance to receive prepared attributes.
+            None
 
         Returns:
-            None: Fixture populates instance variables and returns nothing.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon
 
@@ -68,10 +69,10 @@ class TestKDTreeRemapping:
         This test verifies that the `remap_mpas_to_latlon` function correctly remaps synthetic MPAS data to a regular latitude-longitude grid using the nearest neighbor method. The test checks that the output is an xarray DataArray with the expected dimensions and that all values are finite. This validates the core remapping functionality at a coarse resolution for speed. The test ensures that the function can handle typical input data and produce a valid remapped output without errors. 
 
         Parameters:
-            self ('TestKDTreeRemapping'): Test instance containing synthetic MPAS data.
+            None
 
         Returns:
-            None: Assertions validate the remapped DataArray structure and values.
+            None
         """
         remapped = self.remap_func(
             data=self.mpas_data,
@@ -96,7 +97,7 @@ class TestKDTreeRemapping:
             None
         
         Returns:
-            None: This test method performs assertions and raises exceptions on failure.
+            None
         """
         data_array = xr.DataArray(
             self.mpas_data,
@@ -125,7 +126,7 @@ class TestKDTreeRemapping:
             None
         
         Returns:
-            None: This test method performs assertions and raises exceptions on failure.
+            None
         """
         remapped = self.remap_func(
             data=self.mpas_data,
@@ -148,7 +149,7 @@ class TestKDTreeRemapping:
             None
         
         Returns:
-            None: This test method performs assertions and raises exceptions on failure.
+            None
         """
         remapped = self.remap_func(
             data=self.mpas_data,
@@ -172,7 +173,7 @@ class TestKDTreeRemapping:
             None
         
         Returns:
-            None: This test method performs assertions and raises exceptions on failure.
+            None
         """
         original_min = np.min(self.mpas_data)
         original_max = np.max(self.mpas_data)
@@ -200,7 +201,7 @@ class TestKDTreeRemapping:
             None
         
         Returns:
-            None: This test method performs assertions and raises exceptions on failure.
+            None
         """
         remapped = self.remap_func(
             data=self.mpas_data,
@@ -225,9 +226,10 @@ class TestRemapMpasToLatlon:
         This fixture sets up synthetic MPAS coordinates and a test field for remapping tests. It uses a deterministic loader to generate longitude and latitude arrays along with synthetic data values based on a combination of sinusoidal patterns and noise derived from the u velocity component. The fixture ensures that the generated coordinates and data have the expected shapes and are suitable for testing the remapping functionality. This setup is shared across multiple remapping tests to provide consistent input data. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance to receive generated attributes.
+            None
+        
         Returns:
-            None: Fixture populates instance attributes for use by tests.
+            None
         """
         self.n_cells = 500
 
@@ -245,10 +247,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function correctly remaps synthetic MPAS data to a regular latitude-longitude grid using the nearest neighbor method. The test checks that the output is an xarray DataArray with the expected dimensions and that all values are finite. This validates the core remapping functionality at a coarse resolution for speed. The test ensures that the function can handle typical input data and produce a valid remapped output without errors when using the nearest neighbor approach. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance containing synthetic MPAS coordinates and data.
+            None
 
         Returns:
-            None: Assertions validate type and numeric finiteness of results.
+            None
         """
         remapped = remap_mpas_to_latlon(
             data=self.mpas_data,
@@ -269,10 +271,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function correctly remaps synthetic MPAS data to a regular latitude-longitude grid using the linear interpolation method. The test checks that the output is an xarray DataArray with the expected dimensions and that all values are finite. This validates that the function can handle linear interpolation for remapping, which is a common method for producing smoother results compared to nearest neighbor. The test ensures that the function can process typical input data and produce a valid remapped output without errors when using linear interpolation. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance with prepared MPAS coords and data.
+            None
 
         Returns:
-            None: Assertions validate interpolation success.
+            None
         """
         remapped = remap_mpas_to_latlon(
             data=self.mpas_data,
@@ -294,10 +296,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function can handle xarray DataArray inputs and preserves variable attributes through the remapping process. The test creates a DataArray with synthetic MPAS data and associated metadata, then remaps it to a regular grid. Assertions confirm that the output is an xarray DataArray and that key attributes like 'units' and 'long_name' are retained in the remapped result. This ensures that users can maintain important metadata when using the convenience function for remapping, which is essential for data provenance and interpretability in scientific analyses. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance with prepared MPAS data.
+            None
 
         Returns:
-            None: Assertions validate preservation of attributes.
+            None
         """
         data_array = xr.DataArray(
             self.mpas_data,
@@ -320,10 +322,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function can handle an input data array that contains only zeros without producing errors. The test creates a zero-filled array with the same shape as the synthetic MPAS data and attempts to remap it to a regular grid. The function should return a valid xarray DataArray even when the input data has no variability, demonstrating that it can manage edge cases where the data values are uniform. This ensures that users can perform remapping operations on datasets that may contain constant values without encountering issues. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance containing synthetic MPAS coords.
+            None
 
         Returns:
-            None: Assertions validate result type.
+            None
         """
         zero_data = np.zeros(self.n_cells)
         
@@ -341,10 +343,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function can handle an input data array that contains only NaN values without producing errors. The test creates a NaN-filled array with the same shape as the synthetic MPAS data and attempts to remap it to a regular grid. The function should return a valid xarray DataArray, even if all values are NaN, demonstrating that it can manage edge cases where the data values are missing or undefined without crashing. This ensures that users can perform remapping operations on datasets that may contain NaNs without encountering issues. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance with synthetic coordinates.
+            None
 
         Returns:
-            None: Assertions validate output type.
+            None
         """
         nan_data = np.full(self.n_cells, np.nan)
         
@@ -362,10 +364,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function can handle remapping to a high-resolution grid without producing NaNs or errors. The test uses a 0.25-degree resolution over a 20x20 degree domain to validate fine-scale remapping capabilities. The function should produce a remapped DataArray with all finite values, demonstrating that it can manage the increased computational demands of denser target grids while maintaining data integrity. This test ensures that users can perform high-resolution remapping when needed without encountering issues, which is important for applications requiring detailed spatial analysis. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance with synthetic MPAS data.
+            None
 
         Returns:
-            None: Assertions validate target grid dimensions.
+            None
         """
         remapped = remap_mpas_to_latlon(
             data=self.mpas_data,
@@ -385,10 +387,10 @@ class TestRemapMpasToLatlon:
         This test verifies that the `remap_mpas_to_latlon` function can handle input longitude and latitude coordinates provided in radians. The test converts the synthetic MPAS longitude and latitude from degrees to radians before passing them to the remapping function. The function should correctly interpret the radian values, perform the remapping, and return a valid xarray DataArray with all finite values. This ensures that users can provide coordinates in radians if needed, and that the remapping function can accommodate different coordinate formats without errors. 
 
         Parameters:
-            self ('TestRemapMpasToLatlon'): Test instance containing radian-valued coordinates.
+            None
 
         Returns:
-            None: Assertions validate numeric finiteness of results.
+            None
         """
         lon_rad = np.radians(self.mpas_lon)
         lat_rad = np.radians(self.mpas_lat)
@@ -418,7 +420,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of all-NaN data.
+            None
         """
         n = 200
         lon = np.random.uniform(-110, -100, n)
@@ -439,7 +441,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of all-zero data.
+            None
         """
         n = 200
         lon = np.random.uniform(-110, -100, n)
@@ -459,7 +461,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates dateline wrapping behavior.
+            None
         """
         n = 5000
         lon = np.random.uniform(0, 360, n)
@@ -472,7 +474,8 @@ class TestRemappingCoverageGaps:
         assert isinstance(result, xr.DataArray)
         assert result.shape[0] > 0 and result.shape[1] > 0
 
-    def test_remap_mpas_statistics_printout(self: 'TestRemappingCoverageGaps', capsys) -> None:
+    def test_remap_mpas_statistics_printout(self: 'TestRemappingCoverageGaps', 
+                                            capsys: 'pytest.CaptureFixture') -> None:
         """
         This test verifies that the `remap_mpas_to_latlon` function prints out statistics about the remapping process when the `print_stats` flag is set to True. The test creates synthetic longitude, latitude, and data values, then calls the remapping function with `print_stats=True`. The test captures the standard output and checks that it contains a message indicating that remapping statistics are being printed. This ensures that users receive feedback about the remapping process when they enable statistics printout, which can be helpful for understanding performance and data coverage. 
 
@@ -480,7 +483,7 @@ class TestRemappingCoverageGaps:
             capsys: pytest fixture to capture stdout and stderr.
 
         Returns:
-            None: Test validates statistics printout behavior.
+            None
         """
         n = 500
         lon = np.random.uniform(-110, -100, n)
@@ -502,7 +505,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of radian input coordinates.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
@@ -530,7 +533,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of 'lon' and 'lat' coordinate keys.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
@@ -558,7 +561,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates auto-detection of bounds.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
@@ -586,7 +589,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of [-180,180] longitude convention.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
@@ -615,7 +618,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of [0,360] longitude convention.
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
@@ -645,7 +648,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of xr.DataArray input and preservation of attributes.
+            None
         """
         n = 200
         lon = np.random.uniform(-110, -100, n)
@@ -665,7 +668,7 @@ class TestRemappingCoverageGaps:
             None
 
         Returns:
-            None: Test validates handling of 'linear' interpolation method.
+            None
         """
         n = 500
         lon = np.random.uniform(-110, -100, n)
@@ -745,7 +748,7 @@ class TestDispatchRemap:
             small_dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that dispatch_remap returns a DataArray with correct dimensions for KDTree nearest neighbor remapping.
+            None
         """
         from mpasdiag.processing.remapping import dispatch_remap
         config = self._make_config('kdtree', 'nearest')
@@ -767,7 +770,7 @@ class TestDispatchRemap:
             small_dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that dispatch_remap returns a DataArray for KDTree linear interpolation remapping. 
+            None
         """
         from mpasdiag.processing.remapping import dispatch_remap
         config = self._make_config('kdtree', 'linear')
@@ -789,7 +792,7 @@ class TestDispatchRemap:
             small_dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that the output coordinates from dispatch_remap match the specified resolution. 
+            None
         """
         from mpasdiag.processing.remapping import dispatch_remap
         config = self._make_config('kdtree', 'nearest')
@@ -815,7 +818,7 @@ class TestDispatchRemap:
             small_dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that dispatch_remap can accept NumPy array input and return a DataArray. 
+            None
         """
         from mpasdiag.processing.remapping import dispatch_remap
         n = small_dataset.sizes['nCells']
@@ -842,7 +845,7 @@ class TestMPASConfigRemapValidation:
             method (str): The remapping method to test for validity with the 'kdtree' remap_engine (e.g., 'nearest', 'linear').
 
         Returns:
-            None: Test validates that all valid remap_method options for 'kdtree' remap_engine are accepted without errors. 
+            None
         """
         from mpasdiag.processing.utils_config import MPASConfig
         cfg = MPASConfig(remap_engine='kdtree', remap_method=method)
@@ -862,7 +865,7 @@ class TestMPASConfigRemapValidation:
             method (str): The remapping method to test for validity with the 'esmf' remap_engine (e.g., 'bilinear', 'conservative', 'nearest_s2d', etc.).
 
         Returns:
-            None: Test validates that all valid remap_method options for 'esmf' remap engine are accepted without errors.
+            None
         """
         from mpasdiag.processing.utils_config import MPASConfig
         cfg = MPASConfig(remap_engine='esmf', remap_method=method)
@@ -934,7 +937,7 @@ class TestRemapWithMaskingConfigRouting:
             dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon_with_masking uses method parameter when config is None and returns a DataArray. 
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
 
@@ -956,7 +959,7 @@ class TestRemapWithMaskingConfigRouting:
             dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon_with_masking correctly routes to KDTree nearest neighbor remapping when specified via config and returns a DataArray with dimensions ('lat', 'lon'). 
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         config = self._make_config('kdtree', 'nearest')
@@ -980,7 +983,7 @@ class TestRemapWithMaskingConfigRouting:
             dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon_with_masking correctly routes to KDTree linear interpolation remapping when specified via config, even if method parameter is different, and returns a DataArray. 
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         config = self._make_config('kdtree', 'linear')
@@ -991,7 +994,6 @@ class TestRemapWithMaskingConfigRouting:
         )
 
         assert isinstance(result, xr.DataArray)
-        # Linear interpolation leaves NaN outside convex hull — not 0.0
         assert not np.any(result.values == pytest.approx(0.0)), "linear fill_value must be NaN, not 0"
 
     def test_esmf_engine_via_config_routes_to_dispatch(self: 'TestRemapWithMaskingConfigRouting', 
@@ -1005,7 +1007,7 @@ class TestRemapWithMaskingConfigRouting:
             dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon_with_masking correctly routes to ESMPy remapping when specified via config and returns a DataArray, or raises ImportError if ESMPy is not available. 
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         config = self._make_config('esmf', 'bilinear')
@@ -1033,7 +1035,7 @@ class TestRemapWithMaskingConfigRouting:
             dataset (xr.Dataset): The fixture providing longitude and latitude coordinates for testing.
 
         Returns:
-            None: Test validates that remap_mpas_to_latlon_with_masking with KDTree nearest neighbor remapping produces a DataArray with 'lat' and 'lon' dimensions. 
+            None
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         config = self._make_config('kdtree', 'nearest')

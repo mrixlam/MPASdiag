@@ -16,6 +16,10 @@ from datetime import datetime, timedelta
 from typing import Dict
 from contextlib import contextmanager
 
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
+
 
 class PerformanceMonitor:
     """ Performance monitoring utilities for measuring and reporting elapsed time of MPAS data analysis operations. """
@@ -54,7 +58,7 @@ class PerformanceMonitor:
             duration = end_time - start_time
             self.durations[operation_name] = duration
             
-            print(f"{operation_name} completed in {duration.total_seconds():.2f} seconds")
+            logger.info("%s completed in %.2f seconds", operation_name, duration.total_seconds())
     
     def get_summary(self: 'PerformanceMonitor') -> Dict[str, float]:
         """
@@ -79,10 +83,10 @@ class PerformanceMonitor:
         Returns:
             None: This method does not return any value, as its primary purpose is to print the performance summary to stdout. 
         """
-        print("\n=== Performance Summary ===")
+        logger.info("=== Performance Summary ===")
         for name, duration in self.durations.items():
-            print(f"{name}: {duration.total_seconds():.2f} seconds")
+            logger.info("%s: %.2f seconds", name, duration.total_seconds())
 
         if self.durations:
             total_time = sum(elapsed.total_seconds() for elapsed in self.durations.values())
-            print(f"Total time: {total_time:.2f} seconds")
+            logger.info("Total time: %.2f seconds", total_time)

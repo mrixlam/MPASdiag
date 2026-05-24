@@ -29,6 +29,9 @@ from .styling import MPASVisualizationStyle
 from ..processing.processors_3d import MPAS3DProcessor
 from ..processing.utils_unit import UnitConverter
 from ..processing.utils_metadata import MPASFileMetadata
+from ..processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPASVerticalCrossSectionPlotter(MPASVisualizer):
@@ -101,14 +104,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             display_units = UnitConverter.get_display_units(var_name, original_units)
 
             if original_units != display_units and original_units:
-                print(f"Converting {var_name} from {original_units} to {display_units}")
+                logger.debug("Converting %s from %s to %s", var_name, original_units, display_units)
                 data_values = UnitConverter.convert_units(data_values, original_units, display_units)
                 metadata['units'] = display_units
-                print(f"Data range after conversion: {np.nanmin(data_values):.4f} to {np.nanmax(data_values):.4f} {display_units}")
+                logger.debug(
+                    "Data range after conversion: %.4f to %.4f %s",
+                    float(np.nanmin(data_values)), float(np.nanmax(data_values)), display_units,
+                )
             else:
-                print(f"No unit conversion needed for {var_name} (units: {original_units})")
+                logger.debug("No unit conversion needed for %s (units: %s)", var_name, original_units)
         except Exception as e:
-            print(f"Warning: Unit conversion failed for {var_name}: {e}")
+            logger.warning("Unit conversion failed for %s: %s", var_name, e)
             metadata = {'units': '', 'long_name': var_name}
 
         moisture_vars = ['q2', 'qv', 'qc', 'qr', 'qi', 'qs', 'qg', 'qv2m', 'humidity', 'mixing_ratio']
@@ -116,7 +122,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         if any(mv in var_name.lower() for mv in moisture_vars):
             n_negative = np.sum(data_values < 0)
             if n_negative > 0:
-                print(f"Warning: Found {n_negative:,} negative {var_name} values (min: {np.nanmin(data_values):.4f}). Clipping to 0 (physically invalid).")
+                logger.warning(
+                    "Found %s negative %s values (min: %.4f). Clipping to 0 (physically invalid).",
+                    f"{n_negative:,}", var_name, float(np.nanmin(data_values)),
+                )
                 data_values = np.clip(data_values, 0, None)
 
         return np.asarray(data_values), metadata
@@ -140,15 +149,24 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, str]: The vertical coordinates formatted for display and the type of vertical coordinate being displayed. 
         """
-        # DEBUG: trace vertical display resolution
-        print(f"[DEBUG _resolve_vertical_display] desired_display='{desired_display}', vertical_coord_type='{vertical_coord_type}'")
-        print(f"[DEBUG _resolve_vertical_display] vertical_coords shape={np.asarray(vertical_coords).shape}, min={np.nanmin(vertical_coords):.4f}, max={np.nanmax(vertical_coords):.4f}")
+        logger.debug(
+            "_resolve_vertical_display: desired_display='%s', vertical_coord_type='%s'",
+            desired_display, vertical_coord_type,
+        )
+        logger.debug(
+            "_resolve_vertical_display: vertical_coords shape=%s, min=%.4f, max=%.4f",
+            np.asarray(vertical_coords).shape,
+            float(np.nanmin(vertical_coords)), float(np.nanmax(vertical_coords)),
+        )
 
         if desired_display == 'height':
             result_coords, result_type = self._convert_vertical_to_height(
                 vertical_coords, vertical_coord_type, mpas_3d_processor, time_index
             )
-            print(f"[DEBUG _resolve_vertical_display] after height conversion: type='{result_type}', min={np.nanmin(result_coords):.4f}, max={np.nanmax(result_coords):.4f}")
+            logger.debug(
+                "_resolve_vertical_display: after height conversion: type='%s', min=%.4f, max=%.4f",
+                result_type, float(np.nanmin(result_coords)), float(np.nanmax(result_coords)),
+            )
             return result_coords, result_type
 
         if desired_display == 'pressure':
@@ -157,7 +175,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             except Exception:
                 pressure_values = np.asarray(vertical_coords, dtype=float)
             if not np.all(np.isfinite(pressure_values)) or np.nanmin(pressure_values) <= 0:
-                print("Warning: vertical coordinates contain non-positive or non-finite values; cannot display as pressure. Falling back to model levels.")
+                logger.warning(
+                    "Vertical coordinates contain non-positive or non-finite values; "
+                    "cannot display as pressure. Falling back to model levels."
+                )
                 return np.arange(len(vertical_coords), dtype=float), 'modlev'
             return (pressure_values / 100.0 if np.nanmax(pressure_values) > 10000 else pressure_values), 'pressure_hPa'
 
@@ -201,7 +222,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             mask = np.asarray(vertical_display) <= float(max_height)
             if np.any(mask):
                 return np.asarray(vertical_display)[mask], np.asarray(data_values)[mask, :]
-            print("Warning: No vertical levels are below the requested max_height; showing full range")
+            logger.warning("No vertical levels are below the requested max_height; showing full range")
         except Exception:
             pass
 
@@ -356,7 +377,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         assert self.fig is not None, "Figure must be initialized before saving"
 
         self.fig.savefig(save_path, **save_kwargs)
-        print(f"Vertical cross-section saved to: {save_path}")
+        logger.info("Vertical cross-section saved to: %s", save_path)
 
     def create_vertical_cross_section(self: 'MPASVerticalCrossSectionPlotter', 
                                       mpas_3d_processor: Any, 
@@ -401,8 +422,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         """
         self._validate_cross_section_inputs(mpas_3d_processor, var_name)
 
-        print(f"Creating vertical cross-section for {var_name}")
-        print(f"Cross-section from ({start_point[0]:.2f}, {start_point[1]:.2f}) to ({end_point[0]:.2f}, {end_point[1]:.2f})")
+        logger.info("Creating vertical cross-section for %s", var_name)
+        logger.info(
+            "Cross-section from (%.2f, %.2f) to (%.2f, %.2f)",
+            start_point[0], start_point[1], end_point[0], end_point[1],
+        )
 
         cross_section_data = self._generate_cross_section_data(
             mpas_3d_processor, var_name, start_point, end_point,
@@ -485,24 +509,38 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
             vertical_levels = np.array(vertical_levels)
 
-            # DEBUG: trace vertical level resolution
-            print(f"[DEBUG _resolve_vertical_levels] return_pressure={return_pressure}")
-            print(f"[DEBUG _resolve_vertical_levels] vertical_coord_type='{vertical_coord}'")
-            print(f"[DEBUG _resolve_vertical_levels] vertical_levels dtype={vertical_levels.dtype}, shape={vertical_levels.shape}")
-            print(f"[DEBUG _resolve_vertical_levels] vertical_levels min={np.nanmin(vertical_levels):.4f}, max={np.nanmax(vertical_levels):.4f}")
+            logger.debug("_resolve_vertical_levels: return_pressure=%s", return_pressure)
+            logger.debug("_resolve_vertical_levels: vertical_coord_type='%s'", vertical_coord)
+            logger.debug(
+                "_resolve_vertical_levels: vertical_levels dtype=%s, shape=%s",
+                vertical_levels.dtype, vertical_levels.shape,
+            )
+            logger.debug(
+                "_resolve_vertical_levels: vertical_levels min=%.4f, max=%.4f",
+                float(np.nanmin(vertical_levels)), float(np.nanmax(vertical_levels)),
+            )
 
             if len(vertical_levels) <= 60:
-                print(f"[DEBUG _resolve_vertical_levels] all values (Pa if pressure): {vertical_levels}")
+                logger.debug(
+                    "_resolve_vertical_levels: all values (Pa if pressure): %s",
+                    vertical_levels,
+                )
             else:
-                print(f"[DEBUG _resolve_vertical_levels] first 5: {vertical_levels[:5]}, last 5: {vertical_levels[-5:]}")
+                logger.debug(
+                    "_resolve_vertical_levels: first 5: %s, last 5: %s",
+                    vertical_levels[:5], vertical_levels[-5:],
+                )
 
             if np.issubdtype(vertical_levels.dtype, np.integer):
                 vertical_coord = 'modlev'
                 if self.fig is not None and self.verbose:
-                    print("Note: vertical levels appear to be integer indices; switching vertical_coord to 'modlev'")
+                    logger.info(
+                        "Vertical levels appear to be integer indices; "
+                        "switching vertical_coord to 'modlev'"
+                    )
             return vertical_levels, vertical_coord
         except Exception as e:
-            print(f"Warning: Could not get vertical levels, using indices: {e}")
+            logger.warning("Could not get vertical levels, using indices: %s", e)
             n_levels = (
                 mpas_3d_processor.dataset.sizes.get('nVertLevels')
                 or mpas_3d_processor.dataset.sizes.get('nVertLevelsP1')
@@ -538,15 +576,25 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             lon_coords = np.degrees(lon_coords)
             lat_coords = np.degrees(lat_coords)
 
-        print(f"Grid domain: lon [{np.min(lon_coords):.2f}, {np.max(lon_coords):.2f}], lat [{np.min(lat_coords):.2f}, {np.max(lat_coords):.2f}]")
-        print(f"Cross-section path: ({path_lons[0]:.2f}, {path_lats[0]:.2f}) to ({path_lons[-1]:.2f}, {path_lats[-1]:.2f})")
+        logger.debug(
+            "Grid domain: lon [%.2f, %.2f], lat [%.2f, %.2f]",
+            float(np.min(lon_coords)), float(np.max(lon_coords)),
+            float(np.min(lat_coords)), float(np.max(lat_coords)),
+        )
+        
+        logger.debug(
+            "Cross-section path: (%.2f, %.2f) to (%.2f, %.2f)",
+            path_lons[0], path_lats[0], path_lons[-1], path_lats[-1],
+        )
 
         path_in_lon = path_lons[0] >= np.min(lon_coords) and path_lons[-1] <= np.max(lon_coords)
         path_in_lat = min(path_lats[0], path_lats[-1]) >= np.min(lat_coords) and max(path_lats[0], path_lats[-1]) <= np.max(lat_coords)
 
         if not (path_in_lon and path_in_lat):
-            print("WARNING: Cross-section path extends outside grid domain!")
-            print(f"  Longitude OK: {path_in_lon}, Latitude OK: {path_in_lat}")
+            logger.warning("Cross-section path extends outside grid domain")
+            logger.warning(
+                "  Longitude OK: %s, Latitude OK: %s", path_in_lon, path_in_lat,
+            )
 
         return lon_coords, lat_coords
 
@@ -658,16 +706,20 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     lon_coords, lat_coords, data_values, path_lons, path_lats
                 )
             except Exception as e:
-                print(f"Warning: Could not extract data for level {level}: {e}")
+                logger.warning("Could not extract data for level %s: %s", level, e)
 
         valid_mask = ~np.isnan(cross_section_data)
 
         if np.any(valid_mask):
             data_min = np.min(cross_section_data[valid_mask])
             data_max = np.max(cross_section_data[valid_mask])
-            print(f"Final cross-section data: {data_min:.3f} to {data_max:.3f} ({np.sum(valid_mask)}/{cross_section_data.size} valid points)")
+            logger.debug(
+                "Final cross-section data: %.3f to %.3f (%d/%d valid points)",
+                float(data_min), float(data_max),
+                int(np.sum(valid_mask)), cross_section_data.size,
+            )
         else:
-            print("WARNING: Final cross-section data contains NO valid values!")
+            logger.warning("Final cross-section data contains NO valid values")
 
         return cross_section_data
 
@@ -707,7 +759,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             mpas_3d_processor, var_name, path_lons, path_lats
         )
 
-        print(f"Interpolating {var_name} data along cross-section...")
+        logger.info("Interpolating %s data along cross-section", var_name)
         var_da, time_dim, vert_dim = self._unwrap_dataset_var(mpas_3d_processor, var_name)
 
         cross_section_data = self._interpolate_all_levels(
@@ -983,22 +1035,33 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Optional[Tuple[np.ndarray, str]]: A tuple containing the extracted height values in kilometers and the string 'height_km' if extraction is successful, or None if extraction fails for both variable names.
         """
-        print("[DEBUG _try_extract_height_km] Attempting to extract geometric height from dataset")
+        logger.debug("_try_extract_height_km: Attempting to extract geometric height from dataset")
         try:
             for var in ('zgrid', 'height'):
-                print(f"[DEBUG _try_extract_height_km] Trying variable '{var}'...")
+                logger.debug("_try_extract_height_km: Trying variable '%s'", var)
                 height_m = self._extract_height_from_dataset(
                     mpas_3d_processor, time_index, vertical_coords, var
                 )
                 if height_m is not None:
-                    print(f"[DEBUG _try_extract_height_km] SUCCESS with '{var}': min={np.nanmin(height_m):.2f} m, max={np.nanmax(height_m):.2f} m")
-                    print(f"[DEBUG _try_extract_height_km] Converted to km: min={np.nanmin(height_m/1000.0):.4f}, max={np.nanmax(height_m/1000.0):.4f}")
+                    logger.debug(
+                        "_try_extract_height_km: SUCCESS with '%s': min=%.2f m, max=%.2f m",
+                        var, float(np.nanmin(height_m)), float(np.nanmax(height_m)),
+                    )
+                    logger.debug(
+                        "_try_extract_height_km: Converted to km: min=%.4f, max=%.4f",
+                        float(np.nanmin(height_m / 1000.0)), float(np.nanmax(height_m / 1000.0)),
+                    )
                     return height_m / 1000.0, 'height_km'
                 else:
-                    print(f"[DEBUG _try_extract_height_km] '{var}' not found or extraction failed")
+                    logger.debug(
+                        "_try_extract_height_km: '%s' not found or extraction failed", var,
+                    )
         except Exception as e:
-            print(f"[DEBUG _try_extract_height_km] Exception: {e}")
-        print("[DEBUG _try_extract_height_km] No geometric height found, will fall back to barometric approximation")
+            logger.debug("_try_extract_height_km: Exception: %s", e)
+        logger.debug(
+            "_try_extract_height_km: No geometric height found, "
+            "will fall back to barometric approximation"
+        )
         return None
 
     @staticmethod
@@ -1064,42 +1127,64 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             pressure_pa = vertical_coords.astype(float).copy()
 
-            # DEBUG: input pressure values
-            print("[DEBUG _pressure_to_height_approx] Input pressure values:")
-            print(f"[DEBUG _pressure_to_height_approx]   dtype={pressure_pa.dtype}, shape={pressure_pa.shape}")
-            print(f"[DEBUG _pressure_to_height_approx]   min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
+            logger.debug("_pressure_to_height_approx: Input pressure values:")
+            logger.debug(
+                "_pressure_to_height_approx: dtype=%s, shape=%s",
+                pressure_pa.dtype, pressure_pa.shape,
+            )
+            logger.debug(
+                "_pressure_to_height_approx: min=%.4f, max=%.4f",
+                float(np.nanmin(pressure_pa)), float(np.nanmax(pressure_pa)),
+            )
 
-            if np.nanmax(pressure_pa) < 10000:  # Likely in hPa
-                print("[DEBUG _pressure_to_height_approx]   max < 10000 => treating as hPa, multiplying by 100")
+            if np.nanmax(pressure_pa) < 10000:
+                logger.debug(
+                    "_pressure_to_height_approx: max < 10000 => treating as hPa, multiplying by 100"
+                )
                 pressure_pa = pressure_pa * 100.0
             else:
-                print("[DEBUG _pressure_to_height_approx]   max >= 10000 => treating as Pa (no conversion)")
+                logger.debug(
+                    "_pressure_to_height_approx: max >= 10000 => treating as Pa (no conversion)"
+                )
 
             min_positive = 1.0
 
             if np.any(pressure_pa <= 0) or np.any(~np.isfinite(pressure_pa)):
-                print("[DEBUG _pressure_to_height_approx]   WARNING: non-positive/non-finite values detected, clipping")
+                logger.debug(
+                    "_pressure_to_height_approx: non-positive/non-finite values detected, clipping"
+                )
                 if self.verbose:
-                    print(
-                        "Warning: pressure levels contained non-positive or non-finite values; "
+                    logger.warning(
+                        "Pressure levels contained non-positive or non-finite values; "
                         "clipping to minimum positive value to avoid log(0)"
                     )
                 pressure_pa = np.where(np.isfinite(pressure_pa), pressure_pa, min_positive)
                 pressure_pa = np.clip(pressure_pa, min_positive, None)
 
-            print("[DEBUG _pressure_to_height_approx]   Using US Standard Atmosphere 1976 (piecewise, 5 layers)")
-            print(f"[DEBUG _pressure_to_height_approx]   pressure_pa after processing: min={np.nanmin(pressure_pa):.4f}, max={np.nanmax(pressure_pa):.4f}")
+            logger.debug(
+                "_pressure_to_height_approx: Using US Standard Atmosphere 1976 (piecewise, 5 layers)"
+            )
+            logger.debug(
+                "_pressure_to_height_approx: pressure_pa after processing: min=%.4f, max=%.4f",
+                float(np.nanmin(pressure_pa)), float(np.nanmax(pressure_pa)),
+            )
 
             height_m = self._std_atm_pressure_to_height(pressure_pa)
             height_km = np.maximum(height_m / 1000.0, 0.0)
 
-            print(f"[DEBUG _pressure_to_height_approx]   height_km: min={np.nanmin(height_km):.4f}, max={np.nanmax(height_km):.4f}")
+            logger.debug(
+                "_pressure_to_height_approx: height_km: min=%.4f, max=%.4f",
+                float(np.nanmin(height_km)), float(np.nanmax(height_km)),
+            )
             if len(height_km) <= 60:
-                print(f"[DEBUG _pressure_to_height_approx]   all height_km values: {np.array2string(height_km, precision=3, separator=', ')}")
+                logger.debug(
+                    "_pressure_to_height_approx: all height_km values: %s",
+                    np.array2string(height_km, precision=3, separator=', '),
+                )
 
             return height_km, 'height_km'
         except Exception as e:
-            print(f"[DEBUG _pressure_to_height_approx] EXCEPTION: {e}")
+            logger.debug("_pressure_to_height_approx: EXCEPTION: %s", e)
             return vertical_coords / 100.0, 'pressure_hPa'
 
     def _convert_vertical_to_height(self: 'MPASVerticalCrossSectionPlotter', 
@@ -1119,29 +1204,42 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, str]: A tuple containing the converted vertical coordinates in kilometers and a string indicating the type of vertical coordinate used for display (e.g., 'height_km', 'pressure_hPa', or 'modlev'). 
         """
-        print(f"[DEBUG _convert_vertical_to_height] vertical_coord_type='{vertical_coord_type}'")
-        print(f"[DEBUG _convert_vertical_to_height] vertical_coords: shape={vertical_coords.shape}, min={np.nanmin(vertical_coords):.4f}, max={np.nanmax(vertical_coords):.4f}")
+        logger.debug(
+            "_convert_vertical_to_height: vertical_coord_type='%s'", vertical_coord_type,
+        )
+        logger.debug(
+            "_convert_vertical_to_height: vertical_coords: shape=%s, min=%.4f, max=%.4f",
+            vertical_coords.shape,
+            float(np.nanmin(vertical_coords)), float(np.nanmax(vertical_coords)),
+        )
 
         if vertical_coord_type == 'height':
-            print("[DEBUG _convert_vertical_to_height] Path: direct height -> dividing by 1000 for km")
+            logger.debug(
+                "_convert_vertical_to_height: Path: direct height -> dividing by 1000 for km"
+            )
             return vertical_coords / 1000.0, 'height_km'
 
         if vertical_coord_type == 'pressure':
-            print("[DEBUG _convert_vertical_to_height] Path: pressure -> trying geometric height first, then barometric approx")
+            logger.debug(
+                "_convert_vertical_to_height: Path: pressure -> trying geometric height first, "
+                "then barometric approx"
+            )
             result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
             if result is not None:
-                print("[DEBUG _convert_vertical_to_height] Using extracted geometric height")
+                logger.debug("_convert_vertical_to_height: Using extracted geometric height")
                 return result
-            print("[DEBUG _convert_vertical_to_height] Falling back to barometric approximation")
+            logger.debug("_convert_vertical_to_height: Falling back to barometric approximation")
             return self._pressure_to_height_approx(vertical_coords)
 
-        print("[DEBUG _convert_vertical_to_height] Path: modlev -> trying geometric height")
+        logger.debug("_convert_vertical_to_height: Path: modlev -> trying geometric height")
         result = self._try_extract_height_km(mpas_3d_processor, time_index, vertical_coords)
 
         if result is not None:
             return result
-        
-        print("[DEBUG _convert_vertical_to_height] No height conversion possible, returning raw model levels")
+
+        logger.debug(
+            "_convert_vertical_to_height: No height conversion possible, returning raw model levels"
+        )
         return vertical_coords, 'modlev'
 
     def _apply_standard_pressure_ticks(self: 'MPASVerticalCrossSectionPlotter',
@@ -1192,11 +1290,14 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             vmin = np.nanmin(vertical_coords)
         except Exception:
-            print("Warning: could not determine pressure coordinate min; using linear y-scale")
+            logger.warning("Could not determine pressure coordinate min; using linear y-scale")
             return
 
         if vmin <= 0:
-            print("Warning: detected non-positive pressure coordinate values; using linear y-scale for pressure display")
+            logger.warning(
+                "Detected non-positive pressure coordinate values; "
+                "using linear y-scale for pressure display"
+            )
             return
 
         self.ax.set_yscale('log')
@@ -1428,7 +1529,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         self.close_plot()
 
         if (time_idx + 1) % 5 == 0 or time_idx == 0:
-            print(f"Completed {time_idx + 1}/{total_times} cross-sections (time index {time_idx})...")
+            logger.info(
+                "Completed %d/%d cross-sections (time index %d)",
+                time_idx + 1, total_times, time_idx,
+            )
 
         return [f"{output_path}.{fmt}" for fmt in formats]
 
@@ -1485,14 +1589,18 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         total_times = mpas_3d_processor.dataset.sizes[time_dim]
 
         created_files: List[str] = []
-        print(f"\nCreating vertical cross-section plots for {total_times} time steps...")
-        print(f"Variable: {var_name}")
-        print(f"Cross-section from ({start_point[0]:.2f}, {start_point[1]:.2f}) to ({end_point[0]:.2f}, {end_point[1]:.2f})")
-        print(f"Vertical coordinate: {vertical_coord}")
+        logger.info(
+            "Creating vertical cross-section plots for %d time steps", total_times,
+        )
+        logger.info("Variable: %s", var_name)
+        logger.info(
+            "Cross-section from (%.2f, %.2f) to (%.2f, %.2f)",
+            start_point[0], start_point[1], end_point[0], end_point[1],
+        )
+        logger.info("Vertical coordinate: %s", vertical_coord)
 
         if max_height:
-            print(f"Maximum height: {max_height} km")
-        print()
+            logger.info("Maximum height: %s km", max_height)
 
         for time_idx in range(total_times):
             try:
@@ -1504,8 +1612,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 )
                 created_files.extend(step_files)
             except Exception as e:
-                print(f"Error creating cross-section for time index {time_idx}: {e}")
+                logger.error(
+                    "Error creating cross-section for time index %d: %s", time_idx, e,
+                )
 
-        print(f"\nBatch cross-section processing completed. Created {len(created_files)} files.")
+        logger.info(
+            "Batch cross-section processing completed. Created %d files.",
+            len(created_files),
+        )
 
         return created_files

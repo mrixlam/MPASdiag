@@ -53,6 +53,9 @@ except ImportError:
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
 from mpasdiag.processing.constants import PRECIP_REQUIRED_VARS, CROSS_SECTION_AUX_VARS, COORDS_FALLBACK_MSG, PRELOAD_COORDS_MSG
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 _rank_processor_cache: Dict[str, Any] = {}
 
@@ -295,10 +298,9 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         time_idx = args[0] if args else 'unknown'
         error_msg = f"Error processing time index {time_idx}: {str(e)}"
         error_trace = traceback.format_exc()
-        print(f"\n{'='*60}\nWORKER ERROR\n{'='*60}")
-        print(error_msg)
-        print(error_trace)
-        print('='*60)
+        logger.error("=== WORKER ERROR ===")
+        logger.error("%s", error_msg)
+        logger.error("%s", error_trace)
         return {
             'error': error_msg,
             'traceback': error_trace,
@@ -661,18 +663,24 @@ def _process_parallel_results(results: List[Any],
         if result.success:
             if 'error' in result.result:
                 failed += 1
-                print(f"Failed time index {time_indices[result.task_id]}: {result.result['error']}")
+                logger.error(
+                    "Failed time index %s: %s",
+                    time_indices[result.task_id], result.result['error'],
+                )
                 continue
             created_files.extend(result.result['files'])
             successful += 1
-            
+
             timings = result.result['timings']
             for key in all_timings:
                 all_timings[key].append(timings[key])
         else:
             failed += 1
-            print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
-    
+            logger.error(
+                "Failed time index %s: %s",
+                time_indices[result.task_id], result.error,
+            )
+
     timing_stats = {}
 
     for key, values in all_timings.items():
@@ -683,46 +691,46 @@ def _process_parallel_results(results: List[Any],
                 'mean': sum(values) / len(values),
                 'total': sum(values)
             }
-    
-    print(f"\n{'='*70}")
-    print(f"{processing_type} BATCH PROCESSING RESULTS")
-    print(f"{'='*70}")
+
+    logger.info("=== %s BATCH PROCESSING RESULTS ===", processing_type)
 
     if var_info:
-        print(var_info)
+        logger.info("%s", var_info)
 
-    print("Status:" if not var_info else "\nStatus:")
-    print(f"  Successful: {successful}/{len(time_indices)}")
-    print(f"  Failed: {failed}/{len(time_indices)}")
-    print(f"  Created files: {len(created_files)} in {output_dir}")
-    
+    logger.info("Status:")
+    logger.info("  Successful: %d/%d", successful, len(time_indices))
+    logger.info("  Failed: %d/%d", failed, len(time_indices))
+    logger.info("  Created files: %d in %s", len(created_files), output_dir)
+
     if timing_stats:
-        print("\nTiming Breakdown (per time step):")
-        print("  Data Processing:")
-        print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
-        print("  Plotting:")
-        print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
-        print("  Saving:")
-        print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
-        print("  Total per step:")
-        print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
-        
+        logger.info("Timing Breakdown (per time step):")
+        logger.info("  Data Processing:")
+        logger.info("    Min:  %6.3fs", timing_stats['data_processing']['min'])
+        logger.info("    Max:  %6.3fs", timing_stats['data_processing']['max'])
+        logger.info("    Mean: %6.3fs", timing_stats['data_processing']['mean'])
+        logger.info("  Plotting:")
+        logger.info("    Min:  %6.3fs", timing_stats['plotting']['min'])
+        logger.info("    Max:  %6.3fs", timing_stats['plotting']['max'])
+        logger.info("    Mean: %6.3fs", timing_stats['plotting']['mean'])
+        logger.info("  Saving:")
+        logger.info("    Min:  %6.3fs", timing_stats['saving']['min'])
+        logger.info("    Max:  %6.3fs", timing_stats['saving']['max'])
+        logger.info("    Mean: %6.3fs", timing_stats['saving']['mean'])
+        logger.info("  Total per step:")
+        logger.info("    Min:  %6.3fs", timing_stats['total']['min'])
+        logger.info("    Max:  %6.3fs", timing_stats['total']['max'])
+        logger.info("    Mean: %6.3fs", timing_stats['total']['mean'])
+
         stats = manager.get_statistics()
         if stats:
-            print("\nOverall Parallel Execution:")
-            print(f"  Wall time: {stats.total_time:.2f}s")
-            print(f"  Speedup potential: {timing_stats['total']['total']:.2f}s / {stats.total_time:.2f}s = {timing_stats['total']['total']/stats.total_time:.2f}x")
-            print(f"  Load imbalance: {100*stats.load_imbalance:.1f}%")
-    
-    print(f"{'='*70}\n")
+            logger.info("Overall Parallel Execution:")
+            logger.info("  Wall time: %.2fs", stats.total_time)
+            logger.info(
+                "  Speedup potential: %.2fs / %.2fs = %.2fx",
+                timing_stats['total']['total'], stats.total_time,
+                timing_stats['total']['total'] / stats.total_time,
+            )
+            logger.info("  Load imbalance: %.1f%%", 100 * stats.load_imbalance)
     
     del all_timings, timing_stats
     
@@ -838,7 +846,9 @@ class ParallelPrecipitationProcessor:
             time_indices = [idx for idx in time_indices if idx >= min_time_idx]
         
         if not time_indices:
-            print(f"Warning: No valid time indices for accumulation period {accum_period}")
+            logger.warning(
+                "No valid time indices for accumulation period %s", accum_period,
+            )
             return []
         
         manager = MPASParallelManager(
@@ -883,13 +893,13 @@ class ParallelPrecipitationProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
 
-            print(PRELOAD_COORDS_MSG)
+            logger.info(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                print(f"Coordinates cached for variable: {var_name}")
+                logger.debug("Coordinates cached for variable: %s", var_name)
             except Exception as e:
-                print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print(COORDS_FALLBACK_MSG)
+                logger.warning("Could not pre-load coordinates into cache: %s", e)
+                logger.warning(COORDS_FALLBACK_MSG)
 
             worker_kwargs = {
                 'processor': processor,
@@ -923,9 +933,14 @@ class ParallelPrecipitationProcessor:
         os.makedirs(output_dir, exist_ok=True)
         
         if manager.is_master:
-            print(f"\nCreating precipitation maps for {len(time_indices)} time steps in parallel...")
-            print(f"Using accumulation period: {accum_period} ({accum_hours} hours)")
-            print(f"Output directory: {output_dir}")
+            logger.info(
+                "Creating precipitation maps for %d time steps in parallel",
+                len(time_indices),
+            )
+            logger.info(
+                "Using accumulation period: %s (%d hours)", accum_period, accum_hours,
+            )
+            logger.info("Output directory: %s", output_dir)
         
         tasks = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
@@ -1038,13 +1053,13 @@ class ParallelSurfaceProcessor:
         else:
             cache = MPASDataCache(max_variables=5)
 
-            print(PRELOAD_COORDS_MSG)
+            logger.info(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                print(f"Coordinates cached for variable: {var_name}")
+                logger.debug("Coordinates cached for variable: %s", var_name)
             except Exception as e:
-                print(f"Warning: Could not pre-load coordinates into cache: {e}")
-                print(COORDS_FALLBACK_MSG)
+                logger.warning("Could not pre-load coordinates into cache: %s", e)
+                logger.warning(COORDS_FALLBACK_MSG)
 
             worker_kwargs = {
                 'processor': processor,
@@ -1070,9 +1085,12 @@ class ParallelSurfaceProcessor:
         os.makedirs(output_dir, exist_ok=True)
         
         if manager.is_master:
-            print(f"\nCreating surface maps for {len(time_indices)} time steps in parallel...")
-            print(f"Variable: {var_name}, Plot type: {plot_type}")
-            print(f"Output directory: {output_dir}")
+            logger.info(
+                "Creating surface maps for %d time steps in parallel",
+                len(time_indices),
+            )
+            logger.info("Variable: %s, Plot type: %s", var_name, plot_type)
+            logger.info("Output directory: %s", output_dir)
         
         results = manager.parallel_map(_surface_worker, worker_args)
         
@@ -1154,14 +1172,14 @@ class ParallelWindProcessor:
             return {**shared_kwargs, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
 
         cache = MPASDataCache(max_variables=5)
-        print(PRELOAD_COORDS_MSG)
+        logger.info(PRELOAD_COORDS_MSG)
 
         try:
             cache.load_coordinates_from_dataset(processor.dataset, u_variable)
-            print(f"Coordinates cached for variable: {u_variable}")
+            logger.debug("Coordinates cached for variable: %s", u_variable)
         except Exception as e:
-            print(f"Warning: Could not pre-load coordinates into cache: {e}")
-            print(COORDS_FALLBACK_MSG)
+            logger.warning("Could not pre-load coordinates into cache: %s", e)
+            logger.warning(COORDS_FALLBACK_MSG)
         return {**shared_kwargs, 'processor': processor, 'cache': cache}
 
     @staticmethod
@@ -1242,14 +1260,20 @@ class ParallelWindProcessor:
         os.makedirs(output_dir, exist_ok=True)
         
         if manager.is_master:
-            print(f"\nCreating wind vector plots for {len(time_indices)} time steps in parallel...")
-            print(f"U variable: {u_variable}, V variable: {v_variable}")
-            print(f"Plot type: {plot_type}")
+            logger.info(
+                "Creating wind vector plots for %d time steps in parallel",
+                len(time_indices),
+            )
+            logger.info("U variable: %s, V variable: %s", u_variable, v_variable)
+            logger.info("Plot type: %s", plot_type)
             if show_background:
-                print("Background wind speed field: enabled")
+                logger.info("Background wind speed field: enabled")
             if grid_resolution:
-                print(f"Grid resolution: {grid_resolution}° (regrid method: {regrid_method})")
-            print(f"Output directory: {output_dir}")
+                logger.info(
+                    "Grid resolution: %s° (regrid method: %s)",
+                    grid_resolution, regrid_method,
+                )
+            logger.info("Output directory: %s", output_dir)
         
         results = manager.parallel_map(_wind_worker, worker_args)
         
@@ -1293,18 +1317,24 @@ class ParallelCrossSectionProcessor:
             if result.success:
                 if isinstance(result.result, dict) and 'error' in result.result:
                     failed += 1
-                    print(f"Failed time index {time_indices[result.task_id]}: {result.result['error']}")
+                    logger.error(
+                        "Failed time index %s: %s",
+                        time_indices[result.task_id], result.result['error'],
+                    )
                     continue
                 created_files.extend(result.result.get('files', []) if isinstance(result.result, dict) else result.result)
                 successful += 1
             else:
                 failed += 1
-                print(f"Failed time index {time_indices[result.task_id]}: {result.error}")
+                logger.error(
+                    "Failed time index %s: %s",
+                    time_indices[result.task_id], result.error,
+                )
 
-        print("\nBatch processing completed:")
-        print(f"  Successful: {successful}/{len(time_indices)}")
-        print(f"  Failed: {failed}/{len(time_indices)}")
-        print(f"  Created {len(created_files)} files in: {output_dir}")
+        logger.info("Batch processing completed:")
+        logger.info("  Successful: %d/%d", successful, len(time_indices))
+        logger.info("  Failed: %d/%d", failed, len(time_indices))
+        logger.info("  Created %d files in: %s", len(created_files), output_dir)
 
         return created_files
 
@@ -1415,13 +1445,19 @@ class ParallelCrossSectionProcessor:
         os.makedirs(output_dir, exist_ok=True)
         
         if manager.is_master:
-            print(f"\nCreating vertical cross-section plots for {len(time_indices)} time steps in parallel...")
-            print(f"Variable: {var_name}")
-            print(f"Cross-section from ({start_point[0]:.2f}, {start_point[1]:.2f}) to ({end_point[0]:.2f}, {end_point[1]:.2f})")
-            print(f"Vertical coordinate: {vertical_coord}")
+            logger.info(
+                "Creating vertical cross-section plots for %d time steps in parallel",
+                len(time_indices),
+            )
+            logger.info("Variable: %s", var_name)
+            logger.info(
+                "Cross-section from (%.2f, %.2f) to (%.2f, %.2f)",
+                start_point[0], start_point[1], end_point[0], end_point[1],
+            )
+            logger.info("Vertical coordinate: %s", vertical_coord)
             if max_height:
-                print(f"Maximum height: {max_height} km")
-            print(f"Output directory: {output_dir}")
+                logger.info("Maximum height: %s km", max_height)
+            logger.info("Output directory: %s", output_dir)
         
         results = manager.parallel_map(_cross_section_worker, worker_args)
         

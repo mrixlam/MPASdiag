@@ -79,7 +79,6 @@ class TestExtract2DCoordinates:
         This fixture sets up the MPAS2DProcessor with loaded diagnostic data for coordinate extraction tests. It uses the session-scoped `mpas_2d_processor_diag` fixture to avoid redundant loading across multiple tests. If the MPAS dataset is not available, it will skip all tests in this class, ensuring that they only run when valid data is present. Shared attributes are stored on `self` for use in individual tests. This setup ensures that the tests are deterministic and do not fail due to missing data on machines that do not have the MPAS test dataset.
 
         Parameters:
-            self: Test instance provided by pytest.
             mpas_2d_processor_diag: Session-scoped processor with loaded diagnostic data
             mpas_data_available: Boolean flag indicating if MPAS data exists
 
@@ -99,7 +98,7 @@ class TestExtract2DCoordinates:
         This test checks that the coordinate extraction method produces output when verbose mode is enabled. It creates a new processor instance with `verbose=True`, loads the diagnostic data, and patches the built-in `print` function to capture output during the coordinate extraction process. The test asserts that some output was produced, confirming that the method provides user feedback in verbose mode. It also checks that the output contains messages indicating the progress of coordinate extraction, ensuring that the method communicates useful information to the user.
 
         Parameters:
-            self: Test instance provided by pytest.
+            None
 
         Returns:
             None
@@ -138,7 +137,7 @@ class TestLoad2DData:
         This test verifies that the `load_2d_data` method returns the MPAS2DProcessor instance itself, allowing for method chaining. It creates a new processor instance, calls the `load_2d_data` method with the diagnostic directory path, and asserts that the returned value is the same instance as the processor. This confirms that the method is designed to return `self`, enabling a fluent interface for loading data and performing subsequent operations on the same processor instance. 
 
         Parameters:
-            self: Test instance provided by pytest.
+            None
 
         Returns:
             None

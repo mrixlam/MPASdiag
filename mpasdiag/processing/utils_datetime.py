@@ -19,6 +19,9 @@ import xarray as xr
 from datetime import datetime
 from typing import List, Tuple, Optional, Any
 from .constants import DATASET_NOT_LOADED_MSG
+from .utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPASDateTimeUtils:
@@ -51,11 +54,11 @@ class MPASDateTimeUtils:
                     file_datetime = datetime(int(year), int(month), int(day), int(hour), int(minute), int(second))
                 except ValueError:
                     if verbose:
-                        print(f"Warning: Invalid datetime parsed from filename: {filename}")
+                        logger.warning("Invalid datetime parsed from filename: %s", filename)
                     file_datetime = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
             else:
                 if verbose:
-                    print(f"Warning: Could not parse datetime from filename: {filename}")
+                    logger.warning("Could not parse datetime from filename: %s", filename)
                 file_datetime = datetime(2000, 1, 1) + pd.Timedelta(hours=len(file_datetimes))
 
             file_datetimes.append(file_datetime)
@@ -84,7 +87,10 @@ class MPASDateTimeUtils:
         
         if time_index >= time_size:
             if verbose:
-                print(f"Warning: time_index {time_index} exceeds available times {time_size}, using last time")
+                logger.warning(
+                    "time_index %d exceeds available times %d, using last time",
+                    time_index, time_size,
+                )
             time_index = time_size - 1
         
         return time_dim, time_index, time_size
@@ -136,15 +142,15 @@ class MPASDateTimeUtils:
 
         if time_str is not None:
             context_suffix = f" (using variable: {var_context})" if var_context else ""
-            print(f"Time index {time_index} corresponds to: {time_str}{context_suffix}")
+            logger.info("Time index %d corresponds to: %s%s", time_index, time_str, context_suffix)
         elif error is not None:
             context_suffix = (f" (could not parse time: {error}, using variable: {var_context})"
                               if var_context else f" (could not parse time: {error})")
-            print(f"Using time index {time_index}{context_suffix}")
+            logger.info("Using time index %d%s", time_index, context_suffix)
         else:
             context_suffix = (f" (time coordinate not available, using variable: {var_context})"
                               if var_context else " (time coordinate not available)")
-            print(f"Using time index {time_index}{context_suffix}")
+            logger.info("Using time index %d%s", time_index, context_suffix)
 
     @staticmethod
     def get_time_info(dataset: xr.Dataset,

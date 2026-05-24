@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Parallel Processing - MPI and Synchronization Tests
 
@@ -84,7 +85,16 @@ class TestExecuteLocalTasks:
         assert_expected_public_methods(manager, 'MPASParallelManager')
         manager.set_error_policy('continue')
         
-        def failing_func(task):
+        def failing_func(task) -> int:
+            """ 
+            This function simulates a task that fails for a specific input (task == 5) by raising a ValueError. For all other tasks, it simply returns the task value. This allows us to test the error handling and verbose output when a task fails under the 'continue' error policy. The test will check that the error message is printed for the failed task while other tasks continue to execute successfully.
+
+            Parameters:
+                task: The input task to be processed.
+
+            Returns:
+                The original task value if it does not equal 5; otherwise, raises a ValueError indicating that the task failed.
+            """
             if task == 5:
                 raise ValueError(f"Task {task} failed")
             return task
@@ -137,7 +147,16 @@ class TestMPIMapExecution:
                 manager.collector = MPASResultCollector(mock_comm)
                 assert_expected_public_methods(manager.collector, 'MPASResultCollector')
                 
-                def simple_func(task):
+                def simple_func(task) -> int:
+                    """
+                    This is a simple function that takes a task (in this case, an integer) and returns its doubled value. It is used as the mapping function in the `_mpi_map` test to verify that the MPI mapping logic correctly processes tasks and produces results. The function is straightforward and serves as a stand-in for more complex processing that might occur in real use cases, allowing us to focus on testing the MPI execution flow and verbose output. 
+
+                    Parameters:
+                        task: The input task to be processed.
+
+                    Returns:
+                        The doubled value of the input task.
+                    """
                     return task * 2
                 
                 import io
@@ -187,7 +206,16 @@ class TestMPIMapReturnValue:
                 assert_expected_public_methods(manager.collector, 'MPASResultCollector')
                 assert_expected_public_methods(manager, 'MPASParallelManager')
                 
-                def simple_func(task):
+                def simple_func(task) -> int:
+                    """
+                    This is a simple function that takes a task (in this case, an integer) and returns its doubled value. It is used as the mapping function in the `_mpi_map` test to verify that the MPI mapping logic correctly processes tasks and produces results. The function is straightforward and serves as a stand-in for more complex processing that might occur in real use cases, allowing us to focus on testing the MPI execution flow and verbose output. 
+
+                    Parameters:
+                        task: The input task to be processed.
+
+                    Returns:
+                        The doubled value of the input task.
+                    """
                     return task * 2
                 
                 results = manager._mpi_map(simple_func, list(range(10)))
@@ -196,18 +224,11 @@ class TestMPIMapReturnValue:
 
 
 class TestSetupMPIBackendFallback:
-    """Tests that an exception raised inside _setup_mpi_backend causes graceful fallback to multiprocessing."""
+    """ Tests that an exception raised inside _setup_mpi_backend causes graceful fallback to multiprocessing. """
 
-    def test_mpi_setup_exception_falls_back_to_multiprocessing(
-        self: 'TestSetupMPIBackendFallback',
-    ) -> None:
+    def test_mpi_setup_exception_falls_back_to_multiprocessing(self: 'TestSetupMPIBackendFallback',) -> None:
         """
-        This test verifies that when MPI is nominally available (MPI_AVAILABLE=True)
-        but the underlying communicator raises an exception during Get_rank, the
-        MPASParallelManager catches the exception and falls back to the multiprocessing
-        backend (lines 379-383). It patches MPI_AVAILABLE to True and makes
-        mock_comm.Get_rank raise a RuntimeError, then asserts that the manager ends
-        up in multiprocessing mode and that the verbose fallback messages are printed.
+        This test verifies that if an exception occurs during the setup of the MPI backend (e.g., due to a failure in MPI initialization), the `MPASParallelManager` gracefully falls back to using the multiprocessing backend. It simulates an MPI initialization failure by having the mock communicator's `Get_rank` method raise a `RuntimeError`. The test captures stdout to confirm that appropriate error messages are printed, indicating the failure and the fallback to multiprocessing. Finally, it asserts that the manager's backend is set to 'multiprocessing' after the fallback, confirming that the error handling logic correctly switches to a functional backend without crashing. 
 
         Parameters:
             None
@@ -240,18 +261,11 @@ class TestSetupMPIBackendFallback:
 
 
 class TestParallelMapMPIDispatch:
-    """Tests that parallel_map dispatches to _mpi_map when backend is 'mpi' (line 469)."""
+    """ Tests that parallel_map dispatches to _mpi_map when backend is 'mpi'. """
 
-    def test_parallel_map_with_mpi_backend_calls_mpi_map(
-        self: 'TestParallelMapMPIDispatch',
-    ) -> None:
+    def test_parallel_map_with_mpi_backend_calls_mpi_map(self: 'TestParallelMapMPIDispatch',) -> None:
         """
-        This test verifies that calling parallel_map on a manager whose backend is
-        'mpi' correctly dispatches to _mpi_map (line 469) rather than the
-        multiprocessing or serial paths. It sets up a mock MPI communicator at rank 0
-        with size 4, constructs an MPASParallelManager in MPI mode, and then calls
-        parallel_map (not _mpi_map directly). The test asserts that results are
-        returned from the master rank, confirming that the dispatch branch executes.
+        This test verifies that when the `parallel_map` method is called on a manager with the 'mpi' backend, it correctly dispatches to the `_mpi_map` method. It sets up a mock MPI environment with a communicator and patches the `MPI_AVAILABLE` flag to True. The test defines a simple function to be mapped and calls `parallel_map`, asserting that the results are returned as expected and that the manager's public methods are intact. This confirms that the `parallel_map` method correctly routes execution to the MPI-specific mapping logic when the appropriate backend is selected, ensuring that parallel execution occurs as intended in an MPI context. 
 
         Parameters:
             None
@@ -278,6 +292,15 @@ class TestParallelMapMPIDispatch:
                 manager.collector = MPASResultCollector(mock_comm)
 
                 def simple_func(task: int) -> int:
+                    """
+                    This is a simple function that takes a task (in this case, an integer) and returns its doubled value. It is used as the mapping function in the `_mpi_map` test to verify that the MPI mapping logic correctly processes tasks and produces results. The function is straightforward and serves as a stand-in for more complex processing that might occur in real use cases, allowing us to focus on testing the MPI execution flow and verbose output. 
+
+                    Parameters:
+                        task: The input task to be processed.
+
+                    Returns:
+                        The doubled value of the input task.
+                    """
                     return task * 2
 
                 results = manager.parallel_map(simple_func, list(range(6)))
@@ -287,16 +310,11 @@ class TestParallelMapMPIDispatch:
 
 
 class TestBarrierAndFinalize:
-    """Tests for the barrier() and finalize() methods across MPI and non-MPI backends."""
+    """ Tests for the barrier() and finalize() methods across MPI and non-MPI backends. """
 
-    def test_barrier_calls_comm_barrier_when_mpi_backend(
-        self: 'TestBarrierAndFinalize',
-    ) -> None:
+    def test_barrier_calls_comm_barrier_when_mpi_backend(self: 'TestBarrierAndFinalize',) -> None:
         """
-        This test verifies that calling barrier() on a manager in MPI mode invokes
-        comm.Barrier() exactly once (lines 766-767). It constructs an MPI-mode manager
-        with a mock communicator and asserts that Barrier was called after invoking
-        barrier().
+        This test verifies that calling barrier() on a manager in MPI mode invokes comm.Barrier() exactly once (lines 766-767). It constructs an MPI-mode manager with a mock communicator and asserts that Barrier was called after invoking barrier(). This ensures that the barrier method correctly triggers MPI synchronization when running in an MPI environment, allowing for proper coordination between ranks. 
 
         Parameters:
             None
@@ -323,13 +341,9 @@ class TestBarrierAndFinalize:
         mock_comm.Barrier.assert_called_once()
         assert_expected_public_methods(manager, 'MPASParallelManager')
 
-    def test_barrier_is_noop_for_serial_backend(
-        self: 'TestBarrierAndFinalize',
-    ) -> None:
+    def test_barrier_is_noop_for_serial_backend(self: 'TestBarrierAndFinalize',) -> None:
         """
-        This test confirms that barrier() is a no-op for a serial-mode manager — it
-        completes without error and does not attempt any MPI communication. The serial
-        backend has comm=None, so the MPI branch inside barrier() must not execute.
+        This test confirms that calling barrier() on a manager with the 'serial' backend does not raise any exceptions and effectively acts as a no-op (lines 768-769). It creates a serial-mode manager and calls barrier(), asserting that no exceptions are raised and that the method can be called without issues in a non-MPI context. This ensures that the barrier method is implemented in a way that allows it to be safely called regardless of the backend, providing a consistent interface for synchronization even when MPI is not available. 
 
         Parameters:
             None
@@ -341,14 +355,9 @@ class TestBarrierAndFinalize:
         assert_expected_public_methods(manager, 'MPASParallelManager')
         manager.barrier()  # must not raise
 
-    def test_finalize_mpi_calls_barrier_and_prints(
-        self: 'TestBarrierAndFinalize',
-    ) -> None:
+    def test_finalize_mpi_calls_barrier_and_prints(self: 'TestBarrierAndFinalize',) -> None:
         """
-        This test verifies that finalize() on an MPI-mode manager calls barrier()
-        (and therefore comm.Barrier()) and prints the finalization message when
-        is_master=True and verbose=True (lines 779-783). It asserts that Barrier was
-        called and that "finalized" appears in stdout.
+        This test confirms that finalize() on an MPI-mode master manager calls comm.Barrier() and prints a finalization message (lines 771-773). It sets up a mock MPI environment with a master rank, captures stdout during the call to finalize(), and asserts that Barrier was called and that the output contains "finalized". This ensures that the finalize method performs necessary synchronization and provides user feedback when running in an MPI context, allowing for proper cleanup and communication of the finalization status across ranks. 
 
         Parameters:
             None
@@ -380,14 +389,9 @@ class TestBarrierAndFinalize:
         mock_comm.Barrier.assert_called()
         assert "finalized" in f.getvalue().lower()
 
-    def test_finalize_serial_prints_message(
-        self: 'TestBarrierAndFinalize',
-    ) -> None:
+    def test_finalize_serial_prints_message(self: 'TestBarrierAndFinalize',) -> None:
         """
-        This test confirms that finalize() on a serial-mode master manager prints
-        the finalization message without invoking any MPI communication (lines 782-783
-        reached via the non-MPI path). It captures stdout and asserts "finalized"
-        appears in the output.
+        This test confirms that finalize() on a serial-mode manager prints a finalization message without raising exceptions. It creates a serial-mode manager, captures stdout during the call to finalize(), and asserts that the output contains "finalized". This ensures that the finalize method provides user feedback even in non-MPI contexts, allowing for consistent finalization behavior and messaging regardless of the execution backend. 
 
         Parameters:
             None
@@ -406,3 +410,7 @@ class TestBarrierAndFinalize:
             manager.finalize()
 
         assert "finalized" in f.getvalue().lower()
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

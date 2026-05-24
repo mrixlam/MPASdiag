@@ -63,7 +63,7 @@ class TestAdditionalCoverage:
             None
 
         Returns:
-            None
+            Generator[None, None, None]: A generator that yields control to the test functions and performs cleanup after they complete.
         """
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.temp_dir = tempfile.mkdtemp()

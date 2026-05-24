@@ -27,7 +27,7 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 from pathlib import Path
-from typing import Tuple, Optional, List, Any, Union, Sequence, cast
+from typing import Tuple, Optional, List, Any, Union, Sequence, Dict, cast
 
 from ..processing.processors_3d import MPAS3DProcessor
 
@@ -39,6 +39,9 @@ from ..processing.remapping import (
 )
 
 from .styling import MPASVisualizationStyle
+from ..processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 plt.rcParams.update({"font.family": "serif", "mathtext.fontset": "cm", "text.usetex": False})
 
@@ -450,8 +453,11 @@ class MPASVisualizer:
         v_filtered = v_data[valid_wind_mask]
         wind_speed_filtered = wind_speed[valid_wind_mask]
 
-        print(f"Plotting {np.sum(valid_wind_mask)} wind vectors")
-        print(f"Wind speed range: {np.min(wind_speed_filtered):.1f} to {np.max(wind_speed_filtered):.1f} m/s")
+        logger.info("Plotting %d wind vectors", int(np.sum(valid_wind_mask)))
+        logger.debug(
+            "Wind speed range: %.1f to %.1f m/s",
+            float(np.min(wind_speed_filtered)), float(np.max(wind_speed_filtered)),
+        )
 
         if show_background:
             self._create_wind_background(lon_filtered, lat_filtered, wind_speed_filtered, 
@@ -466,7 +472,7 @@ class MPASVisualizer:
             else:
                 subsample = 1
             
-            print(f"Auto-subsampling: using every {subsample} point(s)")
+            logger.debug("Auto-subsampling: using every %d point(s)", subsample)
 
         if subsample > 1:
             subsample_indices = np.arange(0, len(lon_filtered), subsample)
@@ -499,8 +505,182 @@ class MPASVisualizer:
 
         plt.tight_layout()
         self.add_timestamp_and_branding()
-        
+
         return self.fig, self.ax
+
+    def draw_transect_line(self: 'MPASVisualizer',
+                           ax: Axes,
+                           start: Tuple[float, float],
+                           end: Tuple[float, float],
+                           data_crs: Optional[ccrs.CRS] = None,
+                           start_label: Optional[str] = None,
+                           end_label: Optional[str] = None,
+                           color: str = "red",
+                           linestyle: str = "-",
+                           linewidth: float = 2.0,
+                           marker: str = "o",
+                           end_marker: str = "s",
+                           marker_size: float = 5.0,
+                           show_labels: bool = True,
+                           xoffset: float = 1.0,
+                           yoffset: float = 1.0,
+                           fontsize: int = 8,
+                           zorder: int = 5) -> Dict[str, Any]:
+        """
+        This method draws a single transect line on the given axes between specified start and end points, with optional markers and labels. It supports both GeoAxes (for map panels) and plain Axes, automatically applying coordinate transformations if a data CRS is provided. The method allows for customization of line style, color, marker types, label visibility, and positioning to ensure that the transect is clearly visible and informative on the plot. The resulting line, markers, and label text objects are returned in a structured dictionary for easy access and further manipulation if needed. This functionality is essential for visualizing cross-sections or specific paths of interest in MPAS visualizations, such as flight tracks, ocean transects, or atmospheric profiles. 
+
+        Parameters: 
+            ax (Axes): Target axes to draw the transect line on, can be a GeoAxes for map panels or a plain Axes for non-map plots.
+            start (Tuple[float, float]): Starting point of the transect as (longitude, latitude) in degrees.
+            end (Tuple[float, float]): Ending point of the transect as (longitude, latitude) in degrees.
+            data_crs (Optional[ccrs.CRS]): Coordinate reference system for the input coordinates, used for accurate plotting on map projections. Defaults to PlateCarree if not provided and ax is a GeoAxes.
+            start_label (Optional[str]): Optional label for the start point of the transect (default: None).
+            end_label (Optional[str]): Optional label for the end point of the transect (default: None).
+            color (str): Line and marker color for the transect (default: "red").
+            linestyle (str): Line style for the transect (default: "-").
+            linewidth (float): Line width in points for the transect (default: 2.0).
+            marker (str): Matplotlib marker code for the start point of the transect (default: "o").
+            end_marker (str): Matplotlib marker code for the end point of the transect (default: "s").
+            marker_size (float): Size of the markers in points for both start and end points (default: 5.0).
+            show_labels (bool): Whether to display labels for the start and end points of the transect (default: True).
+            xoffset (float): Horizontal offset in degrees to apply to labels to prevent overlap with markers (default: 1.0).
+            yoffset (float): Vertical offset in degrees to apply to labels to prevent overlap with markers (default: 1.0).
+            fontsize (int): Font size for the labels in points (default: 8).
+            zorder (int): Z-order for layering the transect line and markers on the plot, higher values are drawn on top of lower values (default: 5). 
+
+        Returns: 
+            Dict[str, Any]: A dictionary containing the matplotlib artist objects for the transect line, start marker, end marker, and optional label text objects, structured as follows:
+                {
+                    "line": Line2D object for the transect line,
+                    "start_marker": Line2D object for the start point marker,
+                    "end_marker": Line2D object for the end point marker,
+                    "start_label_text": Text object for the start label (or None if show_labels is False or start_label is None),
+                    "end_label_text": Text object for the end label (or None if show_labels is False or end_label is None)
+                }
+        """
+        slon, slat = start
+        elon, elat = end
+
+        plot_kwargs: Dict[str, Any] = {}
+
+        if isinstance(ax, GeoAxes):
+            plot_kwargs["transform"] = data_crs if data_crs is not None else ccrs.PlateCarree()
+
+        line = ax.plot(
+            [slon, elon], [slat, elat],
+            color=color, linestyle=linestyle, linewidth=linewidth,
+            zorder=zorder, **plot_kwargs,
+        )
+        start_marker_line = ax.plot(
+            slon, slat,
+            marker=marker, color=color, markersize=marker_size,
+            linestyle="none", zorder=zorder + 1, **plot_kwargs,
+        )
+        end_marker_line = ax.plot(
+            elon, elat,
+            marker=end_marker, color=color, markersize=marker_size,
+            linestyle="none", zorder=zorder + 1, **plot_kwargs,
+        )
+
+        text_kwargs: Dict[str, Any] = dict(
+            fontsize=fontsize, fontweight="bold", color=color, zorder=zorder + 2,
+            clip_on=False,
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.7,
+                      boxstyle="round,pad=0.15"),
+        )
+
+        if isinstance(ax, GeoAxes):
+            text_kwargs["transform"] = plot_kwargs["transform"]
+
+        start_text = None
+
+        if show_labels and start_label is not None:
+            start_text = ax.text(slon + xoffset, slat + yoffset, start_label, **text_kwargs)
+
+        end_text = None
+        
+        if show_labels and end_label is not None:
+            end_text = ax.text(elon + xoffset, elat + yoffset, end_label, **text_kwargs)
+
+        return {
+            "line": line,
+            "start_marker": start_marker_line,
+            "end_marker": end_marker_line,
+            "start_label_text": start_text,
+            "end_label_text": end_text,
+        }
+
+    def draw_transect_lines(self: 'MPASVisualizer',
+                            ax: Axes,
+                            transects: Dict[str, Dict[str, Any]],
+                            data_crs: Optional[ccrs.CRS] = None,
+                            color: str = "red",
+                            linestyle: str = "-",
+                            linewidth: float = 2.0,
+                            marker: str = "o",
+                            end_marker: str = "s",
+                            marker_size: float = 5.0,
+                            show_labels: bool = True,
+                            xoffset: float = 1.0,
+                            yoffset: float = 1.0,
+                            fontsize: int = 8,
+                            zorder: int = 5) -> Dict[str, Dict[str, Any]]:
+        """
+        This method draws multiple transect lines on the given axes based on a dictionary of specifications for each transect. Each entry in the *transects* dictionary should contain the start and end coordinates, optional labels, and any style overrides for that specific transect. The method iterates through the provided transects, calling draw_transect_line() for each one with the appropriate parameters, and collects the resulting artist objects in a structured dictionary for easy access. This allows users to define multiple cross-section lines on a map or plot with varying styles and labels in a single method call, enhancing the efficiency of creating complex visualizations. 
+
+        Example spec dict::
+
+            TRANSECTS = {
+                "A–B": {"start": (-120.0, 30.0), "start_label": "A",
+                        "end": (-80.0, 50.0), "end_label": "B",
+                        "color": "red", "linestyle": "--"},
+                "C–D": {"start": (-115.0, 45.0), "start_label": "C",
+                        "end": (-95.0, 35.0), "end_label": "D",
+                        "color": "royalblue"},
+            }
+            viz.draw_transect_lines(ax, TRANSECTS, data_crs=ccrs.PlateCarree())
+
+        Parameters: 
+            ax (Axes): Target axes to draw the transect lines on.
+            transects (Dict[str, Dict[str, Any]]): Dictionary where each key is a label for the transect and each value is a dictionary containing specifications for that transect, including 'start', 'end', optional 'start_label', 'end_label', and style overrides like 'color', 'linestyle', etc.
+            data_crs (Optional[ccrs.CRS]): Coordinate reference system for the input coordinates, used for accurate plotting on map projections. Defaults to PlateCarree if not provided and ax is a GeoAxes.
+            color (str): Default line and marker color for transects (default "red"), can be overridden in individual transect specs.
+            linestyle (str): Default line style for transects (default "-"), can be overridden in individual transect specs.
+            linewidth (float): Default line width in points for transects (default 2.0), can be overridden in individual transect specs.
+            marker (str): Default matplotlib marker code for the start point of transects (default "o"), can be overridden in individual transect specs.
+            end_marker (str): Default matplotlib marker code for the end point of transects (default "s"), can be overridden in individual transect specs.
+            marker_size (float): Default marker size in points for transect markers (default 5.0), can be overridden in individual transect specs.
+            show_labels (bool): Whether to show labels for all transects by default (default True), can be overridden in individual transect specs.
+            xoffset (float): Default horizontal label offset in degrees for all transects (default 1.0), can be overridden in individual transect specs.
+            yoffset (float): Default vertical label offset in degrees for all transects (default 1.0), can be overridden in individual transect specs.
+            fontsize (int): Default font size in points for all labels (default 8), can be overridden in individual transect specs.
+            zorder (int): Drawing order for all elements of the transects; higher values appear on top (default 5), can be overridden in individual transect specs.
+
+        Returns: 
+            Dict[str, Dict[str, Any]]: A dictionary where each key corresponds to a transect label from the input *transects* dictionary, and each value is a dictionary containing the matplotlib artist objects created for that transect, including 'line', 'start_marker', 'end_marker', 'start_label_text', and 'end_label_text'. This allows for easy access to the individual components of each transect for further customization or manipulation after they have been drawn.
+        """
+        result: Dict[str, Dict[str, Any]] = {}
+        for key, spec in transects.items():
+            result[key] = self.draw_transect_line(
+                ax,
+                start=spec["start"],
+                end=spec["end"],
+                data_crs=data_crs,
+                start_label=spec.get("start_label"),
+                end_label=spec.get("end_label"),
+                color=spec.get("color", color),
+                linestyle=spec.get("linestyle", linestyle),
+                linewidth=spec.get("linewidth", linewidth),
+                marker=spec.get("marker", marker),
+                end_marker=spec.get("end_marker", end_marker),
+                marker_size=spec.get("marker_size", marker_size),
+                show_labels=spec.get("show_labels", show_labels),
+                xoffset=spec.get("xoffset", xoffset),
+                yoffset=spec.get("yoffset", yoffset),
+                fontsize=spec.get("fontsize", fontsize),
+                zorder=zorder,
+            )
+        return result
 
     def _create_wind_background(self: 'MPASVisualizer', 
                                 lon: np.ndarray, 
@@ -881,9 +1061,9 @@ class MPASVisualizer:
                 try:
                     lon_full, lat_full = self._extract_full_grid(dataset)  # type: ignore[arg-type]
                     full_data = self._backmap_to_full_grid(lon, lat, data, lon_full, lat_full)
-                    print(
-                        f"Remapping {len(lon_full):,} cells via ESMPy/{esmf_method} "
-                        f"(resolution {resolution:.3f}°)..."
+                    logger.info(
+                        "Remapping %s cells via ESMPy/%s (resolution %.3f°)",
+                        f"{len(lon_full):,}", esmf_method, resolution,
                     )
                     remap_result = self._remap_conservative(
                         full_data, lon_full, lat_full, dataset,  # type: ignore[arg-type]
@@ -899,11 +1079,9 @@ class MPASVisualizer:
                 except Exception as exc:
                     if engine == 'esmf':
                         raise
-                    warnings.warn(
-                        f"ESMPy/{esmf_method} remapping failed ({exc}); "
-                        "falling back to KD-Tree.",
-                        UserWarning,
-                        stacklevel=2,
+                    logger.warning(
+                        "ESMPy/%s remapping failed (%s); falling back to KD-Tree.",
+                        esmf_method, exc,
                     )
             elif engine == 'esmf':
                 raise ValueError(
@@ -912,7 +1090,7 @@ class MPASVisualizer:
                 )
 
         # --- KDTree path ---
-        print(f"Interpolating {len(data)} points using KDTree ({kdtree_method})...")
+        logger.info("Interpolating %d points using KDTree (%s)", len(data), kdtree_method)
 
         if dataset is None:
             lon_arr = lon if isinstance(lon, np.ndarray) else lon.values
@@ -942,7 +1120,7 @@ class MPASVisualizer:
         lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
         data_interp = remapped_result.values
 
-        print(f"KDTree produced {data_interp.shape[0]}x{data_interp.shape[1]} grid")
+        logger.debug("KDTree produced %dx%d grid", data_interp.shape[0], data_interp.shape[1])
         return lon_mesh, lat_mesh, data_interp
 
     def _create_scatter_plot(self: 'MPASVisualizer',
@@ -1168,3 +1346,4 @@ class MPASVisualizer:
                 colorbar.ax.tick_params(labelsize=8)
         except Exception:
             pass
+

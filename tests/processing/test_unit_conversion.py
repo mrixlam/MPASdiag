@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Tests for MPASdiag unit conversion functionality
 
@@ -94,7 +95,8 @@ class TestUnitConversion:
         assert float(UnitConverter.convert_units(2.0, 'mm/hr', 'mm/day')) == pytest.approx(48.0, abs=0.1)
         assert float(UnitConverter.convert_units(25.4, 'mm/hr', 'in/hr')) == pytest.approx(1.0, abs=0.01)
     
-    def test_array_conversions(self: 'TestUnitConversion', mpas_surface_temp_data) -> None:
+    def test_array_conversions(self: 'TestUnitConversion', 
+                               mpas_surface_temp_data: np.ndarray) -> None:
         """
         This test validates that the unit converter can handle numpy arrays of data, applying element-wise transformations while preserving array shape and data type. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in a numpy array using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places, and the test also checks that the converted values are within a reasonable physical range for surface temperatures. These array conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows without requiring manual looping or restructuring of data. 
 
@@ -120,7 +122,8 @@ class TestUnitConversion:
         np.testing.assert_array_almost_equal(converted, expected, decimal=2)
         assert np.all(converted >= -80.0) and np.all(converted <= 60.0)
     
-    def test_xarray_conversions(self: 'TestUnitConversion', mpas_surface_temp_data) -> None:
+    def test_xarray_conversions(self: 'TestUnitConversion', 
+                                mpas_surface_temp_data: np.ndarray) -> None:
         """
         This test validates that the unit converter can handle xarray DataArray objects, applying element-wise transformations while preserving the DataArray structure, dimensions, and coordinate information. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in an xarray DataArray using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places using xarray testing utilities, which also confirm that the DataArray structure is preserved through the conversion process. These xarray conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows while maintaining the self-describing data structure benefits that xarray provides. 
 
@@ -199,7 +202,8 @@ class TestUnitConversion:
         assert metadata.get('original_units') == 'Pa'
         assert 'Pressure' in metadata['long_name']
     
-    def test_convert_data_for_display(self: 'TestUnitConversion', mpas_surface_temp_data) -> None:
+    def test_convert_data_for_display(self: 'TestUnitConversion', 
+                                      mpas_surface_temp_data: np.ndarray) -> None:
         """
         This test validates the end-to-end functionality of the convert_data_for_display method, which applies unit conversions to data arrays while also updating metadata for display purposes. The test confirms that when converting a variable like 't2m' from 'K' to '°C', the method returns a converted data array with values correctly transformed (input values minus 273.15) and metadata that reflects the new display units ('°C') while retaining the original units ('K') for provenance. The test uses real MPAS surface temperature data to verify conversion accuracy with precision validation to 2 decimal places and checks that the converted values are within a reasonable physical range for surface temperatures. This comprehensive test ensures that the convert_data_for_display method functions correctly in a realistic scenario, enabling seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows. 
 

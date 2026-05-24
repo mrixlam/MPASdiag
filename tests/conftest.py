@@ -12,7 +12,10 @@ Date: February 2026
 Version: 1.0.0
 """
 # Load standard libraries
+import logging
 import shutil
+import sys
+
 import pytest
 import tempfile
 import numpy as np
@@ -21,6 +24,64 @@ import pandas as pd
 from pathlib import Path
 from unittest.mock import Mock
 from typing import Dict, Any, Optional, Tuple, Generator
+
+
+class _DynamicStdoutHandler(logging.Handler):
+    """ Logging handler that writes formatted log records to stdout immediately. """
+
+    def emit(self: '_DynamicStdoutHandler', 
+             record: logging.LogRecord) -> None:  # type: ignore[override]
+        """
+        This method formats the given log record and writes it to standard output, followed by a newline. It ensures that the output is flushed immediately so that log messages appear in real-time during test execution. If any exceptions occur during formatting or writing, they are handled gracefully by invoking the standard error handling mechanism of the logging framework.
+
+        Parameters:
+            record (logging.LogRecord): The log record to be emitted, containing the message and associated metadata.
+
+        Returns:
+            None
+        """
+        try:
+            msg = self.format(record)
+            sys.stdout.write(msg + "\n")
+            sys.stdout.flush()
+        except Exception:
+            self.handleError(record)
+
+
+@pytest.fixture(autouse=True)
+def _configure_mpasdiag_logger_for_capture() -> Generator[None, None, None]:
+    """
+    This fixture configures the MPASdiag logger to use a custom handler that writes log messages to standard output, ensuring that logs are captured by pytest's output capture system. It temporarily replaces the logger's handlers and settings for the duration of each test, allowing log messages to be visible in test reports and debugging output. After the test completes, the original logger configuration is restored to avoid side effects on other tests or modules. 
+
+    Parameters:
+        None
+
+    Returns:    
+        Generator[None, None, None]: A generator that sets up the logger before yielding control to the test and restores it afterward.
+    """
+    root = logging.getLogger("mpasdiag")
+    original_handlers = list(root.handlers)
+    original_level = root.level
+    original_propagate = root.propagate
+
+    for h in original_handlers:
+        root.removeHandler(h)
+
+    handler = _DynamicStdoutHandler()
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)
+    root.propagate = True
+
+    try:
+        yield
+    finally:
+        root.removeHandler(handler)
+        for h in original_handlers:
+            root.addHandler(h)
+        root.setLevel(original_level)
+        root.propagate = original_propagate
 
 
 _GRID_FILE = 'data/grids/x1.10242.static.nc'
@@ -724,14 +785,15 @@ def assert_valid_dataset(ds: xr.Dataset) -> None:
         ds (xr.Dataset): The dataset to validate.
 
     Returns:
-        None: The function raises an AssertionError on invalid datasets; it returns `None` when the dataset passes validation.
+        None
     """
     assert isinstance(ds, xr.Dataset)
     assert len(ds.data_vars) > 0
     assert all(var in ds for var in ds.data_vars)
 
 
-def assert_valid_array(arr: np.ndarray, expected_shape: Optional[Tuple[int, ...]] = None) -> None:
+def assert_valid_array(arr: np.ndarray, 
+                       expected_shape: Optional[Tuple[int, ...]] = None) -> None:
     """
     The function asserts the input is an `np.ndarray`, contains at least one element and that all values are finite. If `expected_shape` is provided the array's shape is compared to that tuple, allowing tests to validate structural expectations in addition to element-level checks.
 
@@ -740,7 +802,7 @@ def assert_valid_array(arr: np.ndarray, expected_shape: Optional[Tuple[int, ...]
         expected_shape (Optional[Tuple[int, ...]]): If provided, the function verifies the array's shape matches this tuple.
 
     Returns:
-        None: Raises AssertionError for invalid arrays; returns `None` on success.
+        None
     """
     assert isinstance(arr, np.ndarray)
     assert arr.size > 0
@@ -749,7 +811,8 @@ def assert_valid_array(arr: np.ndarray, expected_shape: Optional[Tuple[int, ...]
         assert arr.shape == expected_shape
 
 
-def create_mock_netcdf_file(filepath: Path, dataset: xr.Dataset) -> None:
+def create_mock_netcdf_file(filepath: Path, 
+                            dataset: xr.Dataset) -> None:
     """
     Tests use this helper to persist small datasets to disk for I/O and integration-style checks. The helper forwards the call to `xarray.Dataset.to_netcdf` and does not perform additional validation.
 
@@ -758,7 +821,7 @@ def create_mock_netcdf_file(filepath: Path, dataset: xr.Dataset) -> None:
         dataset (xr.Dataset): The xarray Dataset to serialize.
 
     Returns:
-        None: The function writes the dataset to disk and returns `None` on success.
+        None
     """
     dataset.to_netcdf(filepath)
 

@@ -15,9 +15,12 @@ import numpy as np
 import xarray as xr
 from typing import Tuple, Dict, Any
 
+from mpasdiag.processing.utils_logger import get_logger
 from mpasdiag.processing.constants import (
     GRAVITY, KG_PER_M2, KG_PER_M_PER_S, NVERT_LEVELS_DIM
 )
+
+logger = get_logger(__name__)
 
 
 def _trapezoidal_column_integral(integrand_arr: np.ndarray,
@@ -32,8 +35,13 @@ def _trapezoidal_column_integral(integrand_arr: np.ndarray,
     Returns:
         np.ndarray: Array with the vertical axis removed, containing the column-integrated quantity divided by gravity.
     """
+    # Calculate the pressure thickness (dp) between model levels using the difference in pressure values 
     pressure_thickness = np.abs(np.diff(pressure_arr, axis=-1))
+
+    # Compute the integrand at the midpoints between model levels using the trapezoidal rule
     integrand_midpoints = (integrand_arr[..., :-1] + integrand_arr[..., 1:]) / 2.0
+
+    # Return the column-integrated quantity divided by gravity to convert from mass flux to a column-integrated value
     return np.sum(integrand_midpoints * pressure_thickness, axis=-1) / GRAVITY
 
 
@@ -51,6 +59,7 @@ class MoistureTransportDiagnostics:
         Returns:
             None
         """
+        # Store the verbose flag as an instance variable 
         self.verbose = verbose
 
     def _integrate_column(self: 'MoistureTransportDiagnostics',
@@ -66,6 +75,7 @@ class MoistureTransportDiagnostics:
         Returns:
             xr.DataArray: Column-integrated quantity divided by gravity, with the vertical dimension removed.
         """
+        # Use xarray's apply_ufunc to apply the trapezoidal column integral function 
         return xr.apply_ufunc(
             _trapezoidal_column_integral,
             integrand,
@@ -89,21 +99,25 @@ class MoistureTransportDiagnostics:
         Returns:
             xr.DataArray: Vertically integrated water vapor in kg m⁻² with CF-compliant attributes.
         """
+        # Compute IWV by integrating specific humidity over the vertical dimension
         iwv = self._integrate_column(specific_humidity, pressure)
 
+        # Assign CF-compliant attributes to the IWV DataArray
         iwv.attrs.update({
             'units': KG_PER_M2,
             'standard_name': 'atmosphere_water_vapor_content',
             'long_name': 'Vertically Integrated Water Vapor',
         })
 
+        # If verbose mode is enabled, print the range and mean of the computed IWV
         if self.verbose:
             iwv_min = float(iwv.min())
             iwv_max = float(iwv.max())
             iwv_mean = float(iwv.mean())
-            print(f"IWV range: {iwv_min:.2f} to {iwv_max:.2f} kg/m²")
-            print(f"IWV mean:  {iwv_mean:.2f} kg/m²")
+            logger.debug("IWV range: %.2f to %.2f kg/m²", iwv_min, iwv_max)
+            logger.debug("IWV mean:  %.2f kg/m²", iwv_mean)
 
+        # Return the computed IWV DataArray with attributes
         return iwv
 
     def compute_ivt_components(self: 'MoistureTransportDiagnostics',
@@ -123,27 +137,32 @@ class MoistureTransportDiagnostics:
         Returns:
             Tuple[xr.DataArray, xr.DataArray]: Two DataArrays containing the vertically integrated eastward (IVT_u) and northward (IVT_v) water vapor flux components in kg m⁻¹ s⁻¹ with CF-compliant attributes.
         """
+        # Compute IVT components by integrating the product of specific humidity and wind components
         ivt_u = self._integrate_column(specific_humidity * u_component, pressure)
         ivt_v = self._integrate_column(specific_humidity * v_component, pressure)
 
+        # Assign CF-compliant attributes to the eastward IVT component DataArray
         ivt_u.attrs.update({
             'units': KG_PER_M_PER_S,
             'standard_name': 'eastward_water_vapor_flux',
             'long_name': 'Vertically Integrated Eastward Water Vapor Flux',
         })
 
+        # Assign CF-compliant attributes to the northward IVT component DataArray
         ivt_v.attrs.update({
             'units': KG_PER_M_PER_S,
             'standard_name': 'northward_water_vapor_flux',
             'long_name': 'Vertically Integrated Northward Water Vapor Flux',
         })
 
+        # If verbose mode is enabled, print the range and mean of both IVT components
         if self.verbose:
-            print(f"IVT_u range: {float(ivt_u.min()):.2f} to {float(ivt_u.max()):.2f} kg/(m·s)")
-            print(f"IVT_u mean:  {float(ivt_u.mean()):.2f} kg/(m·s)")
-            print(f"IVT_v range: {float(ivt_v.min()):.2f} to {float(ivt_v.max()):.2f} kg/(m·s)")
-            print(f"IVT_v mean:  {float(ivt_v.mean()):.2f} kg/(m·s)")
+            logger.debug("IVT_u range: %.2f to %.2f kg/(m·s)", float(ivt_u.min()), float(ivt_u.max()))
+            logger.debug("IVT_u mean:  %.2f kg/(m·s)", float(ivt_u.mean()))
+            logger.debug("IVT_v range: %.2f to %.2f kg/(m·s)", float(ivt_v.min()), float(ivt_v.max()))
+            logger.debug("IVT_v mean:  %.2f kg/(m·s)", float(ivt_v.mean()))
 
+        # Return the computed IVT components as a tuple of DataArrays with attributes
         return ivt_u, ivt_v
 
     def compute_ivt(self: 'MoistureTransportDiagnostics',
@@ -159,21 +178,25 @@ class MoistureTransportDiagnostics:
         Returns:
             xr.DataArray: Total vertically integrated water vapor flux magnitude in kg m⁻¹ s⁻¹ with CF-compliant attributes.
         """
+        # Compute the total IVT magnitude using the Pythagorean theorem
         ivt = xr.apply_ufunc(np.sqrt, ivt_u**2 + ivt_v**2, keep_attrs=False, dask='parallelized')
 
+        # Assign CF-compliant attributes to the IVT magnitude DataArray
         ivt.attrs.update({
             'units': KG_PER_M_PER_S,
             'standard_name': 'water_vapor_flux',
             'long_name': 'Vertically Integrated Water Vapor Flux',
         })
 
+        # If verbose mode is enabled, print the range and mean of the computed IVT magnitude
         if self.verbose:
             ivt_min = float(ivt.min())
             ivt_max = float(ivt.max())
             ivt_mean = float(ivt.mean())
-            print(f"IVT range: {ivt_min:.2f} to {ivt_max:.2f} kg/(m·s)")
-            print(f"IVT mean:  {ivt_mean:.2f} kg/(m·s)")
+            logger.debug("IVT range: %.2f to %.2f kg/(m·s)", ivt_min, ivt_max)
+            logger.debug("IVT mean:  %.2f kg/(m·s)", ivt_mean)
 
+        # Return the computed IVT magnitude DataArray with attributes
         return ivt
 
     def analyze_moisture_transport(self: 'MoistureTransportDiagnostics',
@@ -193,16 +216,19 @@ class MoistureTransportDiagnostics:
         Returns:
             Dict[str, Any]: A dictionary containing the computed diagnostics (IWV, IVT_u, IVT_v, IVT) along with their summary statistics and units.
         """
-        # Use a silent copy of self to avoid duplicate verbose prints from sub-methods
+        # Temporarily disable verbose output during the computation of diagnostics
         saved_verbose = self.verbose
         self.verbose = False
 
+        # Compute IWV, IVT components, and total IVT magnitude using the respective methods
         iwv = self.compute_iwv(specific_humidity, pressure)
         ivt_u, ivt_v = self.compute_ivt_components(specific_humidity, u_component, v_component, pressure)
         ivt = self.compute_ivt(ivt_u, ivt_v)
 
+        # Restore the original verbose setting after computations are complete
         self.verbose = saved_verbose
 
+        # Compile the computed diagnostics and their summary statistics into a dictionary for analysis
         analysis: Dict[str, Any] = {
             'iwv': {
                 'data': iwv,
@@ -238,10 +264,15 @@ class MoistureTransportDiagnostics:
             },
         }
 
+        # If verbose mode is enabled, print a summary of the computed diagnostics
         if self.verbose:
-            print("Moisture Transport Analysis:")
+            logger.info("Moisture Transport Analysis:")
             for name, stats in analysis.items():
-                print(f"  {name.upper()}: {stats['min']:.2f} to {stats['max']:.2f} {stats['units']} "
-                      f"(mean: {stats['mean']:.2f}, std: {stats['std']:.2f})")
+                logger.info(
+                    "  %s: %.2f to %.2f %s (mean: %.2f, std: %.2f)",
+                    name.upper(), stats['min'], stats['max'], stats['units'],
+                    stats['mean'], stats['std'],
+                )
 
+        # Return the dictionary containing the computed diagnostics and their summary statistics 
         return analysis

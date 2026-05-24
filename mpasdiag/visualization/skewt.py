@@ -20,6 +20,9 @@ from typing import Tuple, Optional, Dict, Any
 
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
+from ..processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 try:
     from metpy.plots import SkewT
@@ -106,7 +109,7 @@ class MPASSkewTPlotter(MPASVisualizer):
                 bbox_inches='tight', pad_inches=0.1, dpi=self.dpi,
             )
             if self.verbose:
-                print(f"Skew-T diagram saved to: {save_path}")
+                logger.info("Skew-T diagram saved to: %s", save_path)
 
         return fig, ax
 
@@ -163,7 +166,7 @@ class MPASSkewTPlotter(MPASVisualizer):
                     skew.shade_cin(pressure_hpa, temp_degc, lifted_parcel)
         except Exception as exc:
             if self.verbose:
-                print(f"Warning: parcel profile plotting failed: {exc}")
+                logger.warning("Parcel profile plotting failed: %s", exc)
 
     def _create_metpy_skewt(self: 'MPASSkewTPlotter',
                             pressure_arr: np.ndarray,

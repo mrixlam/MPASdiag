@@ -18,6 +18,7 @@ import os
 import numpy as np
 import pytest
 import xarray as xr
+from pathlib import Path
 import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
@@ -622,7 +623,8 @@ class TestCreateFooterAxes:
 class TestSavePlot:
     """ Test coverage for save_plot, specifically the branches for None figure and missing output directory. """
 
-    def test_none_figure_raises_value_error(self: 'TestSavePlot', tmp_path) -> None:
+    def test_none_figure_raises_value_error(self: 'TestSavePlot', 
+                                            tmp_path: 'Path') -> None:
         """
         This test verifies that when the figure is None, the save_plot function correctly raises a ValueError. This confirms that the specific branch for None figure is functioning as intended.
 
@@ -635,7 +637,8 @@ class TestSavePlot:
         with pytest.raises(ValueError, match="No figure to save"):
             MPASVisualizationStyle.save_plot(None, str(tmp_path / 'test_output'))
 
-    def test_creates_output_directory_if_missing(self: 'TestSavePlot', tmp_path) -> None:
+    def test_creates_output_directory_if_missing(self: 'TestSavePlot', 
+                                                 tmp_path: 'Path') -> None:
         """
         This test verifies that when the output directory does not exist, the save_plot function correctly creates it. This confirms that the specific branch for missing output directory is functioning as intended.
 
@@ -1101,9 +1104,7 @@ class TestCalculateAdaptiveMarkerSize:
 
     def test_density_above_500_branch(self: 'TestCalculateAdaptiveMarkerSize') -> None:
         """
-        This test verifies that when the density is above 500,
-        the calculate_adaptive_marker_size function correctly returns a base size of 0.25.
-        This confirms that the specific branch for handling this density range is functioning as intended.
+        This test verifies that when the density is above 500, the calculate_adaptive_marker_size function correctly returns a base size of 0.1. This confirms that the specific branch for handling high density ranges is functioning as intended.
 
         Parameters:
             None
@@ -1118,9 +1119,7 @@ class TestCalculateAdaptiveMarkerSize:
 
     def test_small_map_area_uses_large_area_scale(self: 'TestCalculateAdaptiveMarkerSize') -> None:
         """
-        This test verifies that when the map area is small,
-        the calculate_adaptive_marker_size function correctly uses a large area scale.
-        This confirms that the specific branch for handling small map areas is functioning as intended.
+        This test verifies that when the map area is small, the calculate_adaptive_marker_size function correctly applies a larger area scale factor to increase the marker size. This confirms that the specific branch for handling small map areas is functioning as intended.
 
         Parameters:
             None

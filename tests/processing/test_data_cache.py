@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 MPASdiag Test Suite: Data Caching Functionality
 
@@ -32,7 +33,6 @@ class TestLoadVariableData:
         This fixture sets up the test environment for all tests in the TestLoadVariableData class by providing access to a shared MPAS dataset processor. It checks if the processor is available and skips tests if not, ensuring that tests only run when the necessary data is present. The fixture also handles cleanup after tests by closing any open matplotlib figures to prevent resource leaks. This setup allows individual test methods to focus on their specific assertions without worrying about dataset loading or cleanup. 
 
         Parameters:
-            self (Any): Test case instance providing dataset fixtures.
             mpas_3d_processor (Any): A fixture that provides a pre-loaded MPAS dataset processor for testing.
 
         Returns:
@@ -53,7 +53,7 @@ class TestLoadVariableData:
         This test verifies that when `load_variable_data` is called with a valid variable name from the dataset, it loads the variable data into the cache and creates a `CachedVariable` object with the correct attributes. It searches for a variable with a `Time` dimension and an `nCells` dimension, loads it into the cache, and asserts that the cached variable has the expected name, time index, and that the data is stored as a `CachedVariable` instance. This test ensures that the basic functionality of loading variable data into the cache works correctly. 
 
         Parameters:
-            self (Any): Test case instance configured with MPAS sample data paths.
+            None
 
         Returns:
             None
@@ -84,7 +84,7 @@ class TestLoadVariableData:
         This test confirms that if `load_variable_data` is called for a variable that is already cached, it does not reload the data or modify the existing cache entry. It loads a variable into the cache, records the original timestamp of the cached variable, and then calls the loader again for the same variable. The test asserts that the timestamp of the cached variable remains unchanged, indicating that the existing cache entry was reused rather than reloaded. This behavior is important for performance optimization and cache stability. 
 
         Parameters:
-            self (Any): Test case instance configured with MPAS sample data paths.
+            None
 
         Returns:
             None
@@ -105,7 +105,7 @@ class TestLoadVariableData:
         This test verifies that when `load_variable_data` is called for a variable with a `Time` dimension, it correctly loads the data for the specified time index and stores it in the cache. It searches the dataset for a variable with a `Time` dimension, loads it with a specific time index, and asserts that the cached variable's `time_index` matches the requested index. Additionally, it checks that the loaded data does not contain the `Time` dimension, confirming that the loader correctly slices the data along the time dimension. Proper handling of time indexing is crucial for working with time-varying variables in MPAS datasets. 
 
         Parameters:
-            self (Any): Test case instance with real MPAS dataset paths.
+            None
 
         Returns:
             None
@@ -131,7 +131,7 @@ class TestLoadVariableData:
         This test verifies that variables with an `nVertLevels` dimension support vertical level indexing. It searches the dataset for a variable with `nVertLevels`, loads it with a specified level index, and asserts that the cached variable's `level_index` matches the requested index. This confirms that the loader correctly handles vertical slicing for 3D variables, which is essential for layer-based diagnostics and visualizations. Proper vertical indexing ensures users can access specific levels of interest without loading unnecessary data. 
 
         Parameters:
-            self (Any): Test case instance prepared with MPAS dataset fixtures.
+            None
 
         Returns:
             None
@@ -155,7 +155,7 @@ class TestLoadVariableData:
         This test confirms that variables with an `nVertLevelsP1` dimension also support vertical level indexing. It searches the dataset for a variable with `nVertLevelsP1`, loads it with a specified level index, and asserts that the cached variable's `level_index` matches the requested index. This ensures that the loader can handle both standard vertical levels and the additional "P1" levels that may be present in some MPAS datasets, providing flexibility for users working with different types of vertical coordinate systems. Proper handling of `nVertLevelsP1` is important for accessing surface or top-level data in certain diagnostics. 
 
         Parameters:
-            self (Any): Test case instance set up with real dataset paths.
+            None
 
         Returns:
             None
@@ -179,7 +179,7 @@ class TestLoadVariableData:
         This test checks that when `load_variable_data` is called, it correctly extracts and stores metadata such as units and long name from the dataset variable attributes. It loads a variable into the cache and asserts that the cached variable's `units` and `long_name` attributes are not None, confirming that metadata extraction is functioning properly. Accurate metadata is important for labeling plots and understanding the physical meaning of variables in diagnostics. 
 
         Parameters:
-            self (Any): Test case instance with MPAS dataset available.
+            None
 
         Returns:
             None
@@ -199,7 +199,7 @@ class TestLoadVariableData:
         This test verifies that when the number of variables loaded into the cache exceeds the specified `max_variables` limit, the cache correctly evicts the least accessed variable to make room for new data. It loads multiple variables into the cache, accesses one of them multiple times to increase its access count, and then loads an additional variable to trigger eviction. The test asserts that the least accessed variable is evicted while the most accessed variable remains in the cache, confirming that the eviction policy based on access counts is functioning as intended. This behavior is crucial for managing memory usage effectively when working with large datasets. 
 
         Parameters:
-            self (Any): Test case instance configured for real-data tests.
+            None
 
         Returns:
             None
@@ -232,7 +232,6 @@ class TestRealDataIntegration:
         This fixture sets up the test environment for all tests in the TestRealDataIntegration class by providing access to a shared MPAS dataset processor loaded with real data. It checks if the processor is available and skips tests if not, ensuring that tests only run when the necessary data is present. The fixture also handles cleanup after tests by closing any open matplotlib figures to prevent resource leaks. This setup allows individual test methods to focus on their specific assertions related to real data integration without worrying about dataset loading or cleanup. 
 
         Parameters:
-            self (Any): Test case instance providing dataset fixtures.
             mpas_3d_processor (Any): A fixture that provides a pre-loaded MPAS dataset processor for testing.
 
         Returns:
@@ -253,7 +252,7 @@ class TestRealDataIntegration:
         This test verifies that the complete workflow of loading coordinates and variable data into the cache works correctly when using a real MPAS dataset. It loads coordinates from the dataset, retrieves them to confirm they are cached, loads a variable with time indexing, retrieves the variable data to confirm it is cached, checks the cache information for correctness, and finally clears the cache to ensure it resets properly. This end-to-end test confirms that the caching mechanism functions as intended in a real-data context, allowing for efficient access to coordinates and variable data across different parts of the application. 
 
         Parameters:
-            self (Any): Test case instance with access to real MPAS dataset.
+            None
 
         Returns:
             None
@@ -286,7 +285,7 @@ class TestRealDataIntegration:
         This test checks that the global cache instance behaves as a singleton and can load coordinates from a real MPAS dataset. It clears the global cache, retrieves it twice to confirm both references point to the same instance, loads coordinates from the dataset using one reference, and then retrieves the coordinates using the other reference to confirm they are shared. Finally, it clears the global cache again to ensure it resets properly. This test confirms that the global cache mechanism works correctly in a real-data context and that coordinate data is accessible across different parts of the application through the singleton pattern. 
 
         Parameters:
-            self (Any): Test case instance with access to real MPAS dataset.
+            None
 
         Returns:
             None

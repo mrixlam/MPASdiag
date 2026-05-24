@@ -220,7 +220,16 @@ class TestRenderWindVectorsStreamline1D:
     """ Covers ValueError branch in _render_wind_vectors when plot_type='streamlines' and 1D longitude array is provided."""
 
     @pytest.fixture
-    def plotter(self) -> MPASWindPlotter:
+    def plotter(self: 'TestRenderWindVectorsStreamline1D') -> MPASWindPlotter:
+        """
+        This fixture provides a fresh instance of MPASWindPlotter for each test method in this class. It allows us to test the _render_wind_vectors method specifically for scenarios where the plot_type is set to 'streamlines' and the longitude array is 1D, ensuring that the method correctly raises a ValueError with an appropriate message indicating that streamlines require gridded data. 
+
+        Parameters:
+            None
+
+        Returns:
+            MPASWindPlotter: An instance of the MPASWindPlotter class to be used in the test methods.
+        """
         return MPASWindPlotter()
 
     def test_streamlines_with_1d_lon_raises(self: 'TestRenderWindVectorsStreamline1D', 
@@ -371,7 +380,7 @@ class TestCreateWindPlotNoValidData:
                 )
 
         out = capsys.readouterr().out
-        assert "Warning: No valid wind data found" in out
+        assert "No valid wind data found" in out
         assert fig is mock_fig
         assert ax is mock_ax
 
@@ -400,7 +409,7 @@ class TestCreateWindPlotNoValidData:
             with patch.object(plotter, '_handle_streamline_regridding', return_value=None):
                 fig, ax = plotter.create_wind_plot(lon, lat, u, v, -100., -80., 30., 50.)
 
-        assert "Warning: No valid wind data found" in capsys.readouterr().out
+        assert "No valid wind data found" in capsys.readouterr().out
 
 
 class TestExtractWindConfig:
@@ -528,7 +537,7 @@ class TestConvertWindUnits:
         v = np.ones(N_CELLS)
         u_ret, v_ret = plotter._convert_wind_units(u, v, None)
         out = capsys.readouterr().out
-        assert "Warning: Wind data may not be in m/s" in out
+        assert "Wind data may not be in m/s" in out
         np.testing.assert_array_equal(u_ret, u)
 
     def test_no_units_below_threshold_no_warning(self: 'TestConvertWindUnits', 
@@ -610,7 +619,7 @@ class TestConvertWindUnits:
                    side_effect=ValueError("unsupported unit")):
             u_ret, v_ret = plotter._convert_wind_units(u, v, 'bad_unit')
         out = capsys.readouterr().out
-        assert "Warning: Could not convert" in out
+        assert "Could not convert" in out
         np.testing.assert_array_equal(u_ret, u)
         np.testing.assert_array_equal(v_ret, v)
 
@@ -712,12 +721,13 @@ class TestCreateBatchWindPlots:
 
     def test_dataset_none_raises_value_error(self: 'TestCreateBatchWindPlots',
                                              plotter: MPASWindPlotter,
-                                             tmp_path) -> None:
+                                             tmp_path: 'Path') -> None:
         """
         This test verifies that the create_batch_wind_plots method raises a ValueError when the processor object's dataset attribute is None, ensuring that the method correctly identifies when there is no loaded dataset available for processing and provides appropriate feedback to the user about the issue. By testing with a processor object that has its dataset set to None, we can confirm that the method's error handling for missing datasets is functioning as intended and that it prevents further execution when the necessary data is not available, which is crucial for maintaining the integrity of the plot creation process and avoiding downstream errors. 
 
         Parameters:
             plotter (MPASWindPlotter): The MPASWindPlotter instance provided by the fixture.
+            tmp_path (Path): A temporary directory provided by pytest for saving the generated plots.
 
         Returns:
             None
@@ -729,12 +739,13 @@ class TestCreateBatchWindPlots:
 
     def test_no_dataset_attr_raises_value_error(self: 'TestCreateBatchWindPlots',
                                                  plotter: MPASWindPlotter,
-                                                 tmp_path) -> None:
+                                                 tmp_path: 'Path') -> None:
         """
         This test verifies that the create_batch_wind_plots method raises a ValueError when the processor object does not have a dataset attribute, ensuring that the method correctly identifies when there is no loaded dataset available for processing and provides appropriate feedback to the user about the issue. By testing with a processor object that lacks the dataset attribute entirely, we can confirm that the method's error handling for missing datasets is functioning as intended and that it prevents further execution when the necessary data is not available, which is crucial for maintaining the integrity of the plot creation process and avoiding downstream errors. 
 
         Parameters:
             plotter (MPASWindPlotter): The MPASWindPlotter instance provided by the fixture.
+            tmp_path (Path): A temporary directory provided by pytest for saving the generated plots.
 
         Returns:
             None
@@ -749,7 +760,7 @@ class TestCreateBatchWindPlots:
 
     def test_time_info_exception_falls_back_to_time_idx(self: 'TestCreateBatchWindPlots', 
                                                         plotter: MPASWindPlotter, 
-                                                        tmp_path: "Path") -> None:
+                                                        tmp_path: 'Path') -> None:
         """
         This test verifies that when the get_time_info function raises an exception during the execution of create_batch_wind_plots, the method correctly falls back to using the time index to generate a time string for the plot title, ensuring that even when time information cannot be extracted from the dataset, the method can still proceed with plot creation and provide a meaningful title based on the time index. By testing with a mocked get_time_info that raises an exception, we can confirm that the method's error handling for time information extraction is functioning as intended and that it allows for continued functionality without crashing, while also ensuring that the generated plot titles are consistent with the expected format based on the time index. 
 
@@ -789,7 +800,7 @@ class TestCreateBatchWindPlots:
 
     def test_time_info_exception_uses_correct_index(self: 'TestCreateBatchWindPlots', 
                                                     plotter: MPASWindPlotter, 
-                                                    tmp_path: "Path") -> None:
+                                                    tmp_path: 'Path') -> None:
         """
         This test verifies that when the get_time_info function raises an exception during the execution of create_batch_wind_plots, the method correctly falls back to using the time index to generate a time string for the plot title, and that the time string includes the correct time index value. This ensures that even when time information cannot be extracted from the dataset, the method can still proceed with plot creation and provide a meaningful title based on the time index, with the correct index value reflected in the title format. By testing with a mocked get_time_info that raises an exception and checking the resulting plot title, we can confirm that the method's error handling for time information extraction is functioning as intended and that it generates plot titles that accurately reflect the time index when falling back from failed time extraction. 
 

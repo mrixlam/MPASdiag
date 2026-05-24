@@ -14,6 +14,7 @@ Version: 1.0.0
 import numpy as np
 import pytest
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.visualization.skewt import MPASSkewTPlotter
@@ -27,12 +28,13 @@ DEWPOINT = np.array([20.0, 10.0, 0.0, -15.0, -40.0])
 class TestCreateSkewTSaveVerbose:
     """ Test if the create_skewt_diagram method correctly prints the saved path when verbose is True, and does not print when verbose is False. """
 
-    def test_verbose_prints_saved_path(self: 'TestCreateSkewTSaveVerbose', tmp_path) -> None:
+    def test_verbose_prints_saved_path(self: 'TestCreateSkewTSaveVerbose', 
+                                       tmp_path: 'Path') -> None:
         """
         This test verifies that when the MPASSkewTPlotter is initialized with verbose=True, the create_skewt_diagram method prints the path where the plot is saved after successfully saving the plot. It mocks the internal methods to avoid actual file I/O and captures the standard output to check for the expected print statement. 
 
         Parameters:
-            None
+            tmp_path (Path): A temporary directory provided by pytest for saving the plot.
 
         Returns:
             None
@@ -58,12 +60,13 @@ class TestCreateSkewTSaveVerbose:
         assert fig is mock_fig
         assert ax is mock_ax
 
-    def test_verbose_false_no_print_after_save(self: 'TestCreateSkewTSaveVerbose', tmp_path) -> None:
+    def test_verbose_false_no_print_after_save(self: 'TestCreateSkewTSaveVerbose', 
+                                               tmp_path: 'Path') -> None:
         """
         This test checks that when the MPASSkewTPlotter is initialized with verbose=False, the create_skewt_diagram method does not print any output to the console after saving the plot. It mocks the necessary methods to prevent actual file I/O and captures the standard output to confirm that it remains empty.
 
         Parameters:
-            None
+            tmp_path (Path): A temporary directory provided by pytest for saving the plot.
 
         Returns:
             None
@@ -142,7 +145,7 @@ class TestPlotParcelProfileException:
                 )
 
         out = captured.getvalue()
-        assert "Warning: parcel profile plotting failed:" in out
+        assert "Parcel profile plotting failed:" in out
         assert "profile calculation failed" in out
 
     def test_exception_verbose_false_silent(self: 'TestPlotParcelProfileException') -> None:
@@ -200,7 +203,7 @@ class TestPlotParcelProfileException:
                     skew, pressure_hpa, temp_degc, dewpoint_degc, indices=indices
                 )
 
-        assert "Warning: parcel profile plotting failed:" in captured.getvalue()
+        assert "Parcel profile plotting failed:" in captured.getvalue()
 
 
 if __name__ == "__main__":

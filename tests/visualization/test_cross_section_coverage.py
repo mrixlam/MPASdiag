@@ -412,7 +412,7 @@ class TestApplyMaxHeightFilter:
         dv = np.ones((N_VERT, N_CELLS))
         out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         captured = capsys.readouterr()
-        assert "Warning" in captured.out
+        assert "No vertical levels are below the requested max_height" in captured.out
         assert len(out_vd) == N_VERT
 
     def test_no_max_height_returns_unchanged(self: 'TestApplyMaxHeightFilter') -> None:
@@ -734,9 +734,9 @@ class TestInterpolateAllLevels:
             )
 
         captured = capsys.readouterr()
-        assert "Warning" in captured.out
+        assert "Could not extract data" in captured.out
 
-    def test_all_nan_result_prints_warning(self: 'TestInterpolateAllLevels', 
+    def test_all_nan_result_prints_warning(self: 'TestInterpolateAllLevels',
                                            capsys: pytest.CaptureFixture) -> None:
         """
         This test verifies that the _interpolate_all_levels method correctly prints a warning when the result is all-NaN. It creates a plotter instance and a DataArray with dimensions ['Time', 'nCells', 'nVertLevels']. The test then patches the _extract_level_data method to raise a RuntimeError and asserts that the warning message is printed.

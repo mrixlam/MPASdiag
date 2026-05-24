@@ -23,7 +23,7 @@ def require_wind_fixtures(mpas_coordinates: tuple,
         mpas_wind_data: Session fixture providing real MPAS u/v wind data.
 
     Returns:
-        None: Calls pytest.skip() if data is unavailable, otherwise returns normally.
+        None
     """
     if (
         mpas_coordinates is None or mpas_wind_data is None or

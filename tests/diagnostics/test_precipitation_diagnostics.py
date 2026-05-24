@@ -37,8 +37,7 @@ class TestComputePrecipitationDifference:
         This fixture provides a sample dataset for testing the `compute_precipitation_difference` method. It uses real MPAS 2D processor diagnostics data if available, allowing tests to run with realistic input. If the MPAS data is not available, the fixture will skip the test. This approach ensures that tests can be executed in environments with access to MPAS data while still allowing for graceful handling when data is missing.
         
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
-            mpas_2d_processor_diag: Fixture providing MPAS 2D processor diagnostics.
+            mpas_2d_processor_diag (Any): Fixture providing MPAS 2D processor diagnostics.
 
         Returns:
             Any: Sample MPAS dataset for testing.
@@ -55,11 +54,10 @@ class TestComputePrecipitationDifference:
         This test verifies that the `compute_precipitation_difference` method can be called with a sample dataset and that it returns a valid `xarray.DataArray`. It checks that the method executes without errors and that the output is of the expected type. This serves as a basic functional test for the difference computation logic, ensuring that it can process real MPAS data and produce an output.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset for testing.
 
         Returns:
-            None: Assertions validate output type, shape, and metadata.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=False)
 
@@ -81,11 +79,10 @@ class TestComputePrecipitationDifference:
         This test checks that the `compute_precipitation_difference` method produces verbose output when the diagnostics object is initialized with `verbose=True`. It captures the standard output during the method execution and verifies that expected logging messages are present. This ensures that the verbose mode is functioning correctly and provides useful information during computations.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset for testing.
 
         Returns:
-            None: Assertions check captured output and result type.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=True)
         captured_output = StringIO()
@@ -106,11 +103,10 @@ class TestComputePrecipitationDifference:
         This test verifies that the `compute_precipitation_difference` method can compute total precipitation by combining convective and non-convective components. It checks that the method returns a valid `xarray.DataArray` with non-negative values when given a dataset containing `rainc` and `rainnc`. This test ensures that the method correctly handles the 'total' var_name case and produces physically reasonable results. It serves as an integration test for the difference computation logic.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset for testing.
 
         Returns:
-            None: Assertions validate output type, shape, and non-negativity.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=False)
 
@@ -129,11 +125,10 @@ class TestComputePrecipitationDifference:
         This test checks that the `compute_precipitation_difference` method can compute differences for all supported accumulation periods. It iterates through a list of standard accumulation period codes and verifies that the method returns a valid `xarray.DataArray` with expected metadata for each period. This ensures that the method correctly handles different lookback periods and that the output includes necessary attributes for interpretation.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset for testing.
 
         Returns:
-            None: Assertions verify each period returns a DataArray with expected metadata.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=False)
         periods = ['a01h', 'a03h', 'a06h', 'a12h', 'a24h']
@@ -153,11 +148,10 @@ class TestComputePrecipitationDifference:
         This test verifies that the `compute_precipitation_difference` method can handle a `time_index` of 0, which typically represents the first timestep in the dataset. The method should return a valid `xarray.DataArray` even when there is no prior data to compute a difference, often by using a fallback approach. This test ensures that the method can gracefully handle edge cases at the start of the time series and still produce an output with expected properties.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset.
 
         Returns:
-            None: Assertions validate output type and shape for time_index 0.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=False)
 
@@ -175,11 +169,10 @@ class TestComputePrecipitationDifference:
         This test checks that the `compute_precipitation_difference` method can handle cases where the specified `time_index` does not have sufficient prior data for the requested accumulation period. For example, if `time_index=2` is used with an accumulation period of 'a06h' that requires 6 hours of lookback, the method should detect the insufficient data and return a valid `xarray.DataArray` with appropriate metadata indicating the issue. This ensures that the method can gracefully handle edge cases where lookback requirements cannot be met and still provide informative output.
 
         Parameters:
-            self ('TestComputePrecipitationDifference'): Test case instance.
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset.
 
         Returns:
-            None: Assertions verify fallback behavior when lookback is insufficient.
+            None
         """
         diag = PrecipitationDiagnostics(verbose=False)
 

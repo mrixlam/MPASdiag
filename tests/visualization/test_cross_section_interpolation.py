@@ -19,6 +19,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -45,13 +46,13 @@ class TestInterpolationWithRealData:
     """ Tests for interpolation with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestInterpolationWithRealData', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestInterpolationWithRealData', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This setup method initializes the MPASVerticalCrossSectionPlotter instance and assigns the shared session-scoped MPAS3DProcessor instance for use in tests that involve interpolation with real MPAS data. It checks for the availability of the necessary data files and skips the tests if the data is not available, ensuring that the tests are only run when valid MPAS data can be accessed. By using an autouse fixture, this setup is automatically applied to all test methods within the TestInterpolationWithRealData class, providing a consistent testing environment for interpolation tests that rely on real data.
 
         Parameters:
-            self (TestInterpolationWithRealData): The test case instance for which the plotter and processor are being initialized.
-            mpas_3d_processor (Any): The shared session-scoped MPAS3DProcessor instance.
+            mpas_3d_processor (MPAS3DProcessor): The shared session-scoped MPAS3DProcessor instance.
 
         Returns:
             None
@@ -68,10 +69,10 @@ class TestInterpolationWithRealData:
         This test verifies the interpolation of real MPAS data along a specified path with a very limited number of points. It checks that the interpolation method can still produce valid results when only a few points are available along the path, ensuring that the plotter can handle scenarios where data may be sparse or where users may choose to generate cross-sections with fewer points for performance reasons. The test confirms that the resulting plot is created successfully without errors, validating the robustness of the interpolation method under these conditions.
 
         Parameters:
-            self (Any): Test case instance with `processor` and `plotter` fixtures.
+            None
 
         Returns:
-            None: Asserts that the plot is created successfully.
+            None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
             self.processor,

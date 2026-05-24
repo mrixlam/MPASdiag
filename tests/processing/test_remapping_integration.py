@@ -26,16 +26,16 @@ from mpasdiag.processing.remapping import (
 class TestWithRealMPASData:
     """ Integration tests using actual MPAS data files. """
     
-    def test_remap_mpas_to_latlon_with_real_data(self: 'TestWithRealMPASData', mpas_test_data: Any) -> None:
+    def test_remap_mpas_to_latlon_with_real_data(self: 'TestWithRealMPASData', 
+                                                 mpas_test_data: Any) -> None:
         """
         This test verifies that the `remap_mpas_to_latlon` function can successfully remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then calls the remapping function. The assertions check that the output is an xarray DataArray and that it contains the expected longitude and latitude coordinates, confirming that the remapping process produces the expected structured output. 
 
         Parameters:
-            self ('TestWithRealMPASData'): Test instance (unused).
             mpas_test_data (Any): Fixture returning an xarray Dataset.
 
         Returns:
-            None: Assertions validate the remapped DataArray contains expected coords.
+            None
         """
         n_test = min(1000, len(mpas_test_data['lonCell']))
         
@@ -56,17 +56,18 @@ class TestWithRealMPASData:
         assert 'lon' in result.coords
         assert 'lat' in result.coords
     
-    def test_mpas_remapper_with_real_data(self: 'TestWithRealMPASData', mpas_test_data: Any, temp_weights_dir: Path) -> None:
+    def test_mpas_remapper_with_real_data(self: 'TestWithRealMPASData', 
+                                          mpas_test_data: Any, 
+                                          temp_weights_dir: Path) -> None:
         """
         This test verifies that the `MPASRemapper` class can be used to remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test first extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then uses the `MPASRemapper` class to perform the remapping. The assertions check that the output is an xarray DataArray, confirming that the remapping process produces the expected structured output when using the class-based approach. 
 
         Parameters:
-            self ('TestWithRealMPASData'): Test instance (unused).
             mpas_test_data (Any): Fixture returning an xarray Dataset.
             temp_weights_dir (Path): Temporary directory for weight files.
 
         Returns:
-            None: Assertions validate the remapped DataArray type.
+            None
         """
         n_test = min(500, len(mpas_test_data['lonCell']))
         

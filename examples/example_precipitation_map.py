@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-MPASdiag Example II: Global Precipitation Map as Filled Contour Plot
+MPASdiag Example III: Global Precipitation Map as Filled Contour Plot
 
 This example demonstrates how to compute total precipitation from MPAS 2D model output and plot it as a filled contour map. The example computes the 1-hour accumulated precipitation difference between time indices 0 and 1, which corresponds to the total precipitation over the first hour of the simulation. Note that the same variable can also be visualized as a scatter plot by changing the plot_type argument in the create_surface_map method. 
 
@@ -51,6 +51,20 @@ cfg.lon_max = 180.0
 cfg.lat_min = -90.0
 cfg.lat_max = 90.0
 
+# Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
+TRANSECTS = {
+    "A–B": {
+        "start": (-120.0, 30.0), "start_label": "A", 
+        "end": (-80.0,  50.0), "end_label": "B", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "red"},
+    "C–D": {
+        "start": (0.0,  0.0), "start_label": "C", 
+        "end": ( 45.0,  30.0), "end_label": "D", 
+        "xoffset": -1.0, "yoffset": 3.0, 
+        "color": "royalblue"},
+}
+
 # Extract valid time from the dataset for the specified time index
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
@@ -64,6 +78,9 @@ fig, ax = plotter.create_precipitation_map(
   lon, lat, precip.values, cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
   plot_type='contourf', title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}',
   accum_period='a01h', data_array=precip, grid_resolution=1.0, dataset=processor.dataset, config=cfg)
+
+# Overlay cross-section transect lines
+plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save the generated plot in PNG format
 plotter.save_plot(f'./output/total_precipitation_valid_{valtime_str}', formats=['png'])

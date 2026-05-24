@@ -85,7 +85,8 @@ class TestVerticalLevelExtraction:
     """ Tests for vertical level extraction edge cases. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestVerticalLevelExtraction', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestVerticalLevelExtraction', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the test environment for vertical level extraction tests by initializing the MPASVerticalCrossSectionPlotter and assigning a shared MPAS3DProcessor instance. If the processor is not available, it skips the tests to avoid failures due to missing data. This setup allows the subsequent tests to focus on validating vertical level extraction logic using real or mock MPAS data without needing to load the processor separately in each test case.
 
@@ -216,7 +217,8 @@ class TestVerticalToHeightConversion:
     """ Tests for vertical coordinate to height conversion. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestVerticalToHeightConversion', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestVerticalToHeightConversion', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the test environment for vertical coordinate to height conversion tests by initializing the MPASVerticalCrossSectionPlotter and assigning a shared MPAS3DProcessor instance to the test class. If the processor is not available, it skips the tests to avoid failures due to missing data. This setup allows the subsequent tests to focus on validating the conversion logic from pressure or model levels to height using real or mock MPAS data without needing to load the processor separately in each test case.
 
@@ -301,7 +303,8 @@ class TestHeightCoordinates:
     """ Test height extraction and coordinate conversion with real data. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestHeightCoordinates', mpas_3d_processor) -> None:
+    def setup_method(self: 'TestHeightCoordinates', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the test environment for height coordinate tests by initializing the MPASVerticalCrossSectionPlotter and assigning a shared MPAS3DProcessor instance to the test class. If the processor is not available or if the necessary grid and output files are missing, it skips the tests to avoid failures due to missing data. This setup allows the subsequent tests to focus on validating height extraction and coordinate conversion logic using real MPAS data, ensuring that the plotter can handle scenarios where height information is derived from model levels when `zgrid` is not available.
 

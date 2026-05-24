@@ -29,6 +29,9 @@ from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.visualization.styling import MPASVisualizationStyle
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPASWindPlotter(MPASVisualizer):
@@ -280,7 +283,10 @@ class MPASWindPlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Regridded longitude, latitude, U component, and V component arrays on the regular grid ready for plotting.
         """
-        print(f"Regridding wind components to {grid_resolution}° grid using {regrid_method} interpolation...")
+        logger.info(
+            "Regridding wind components to %s° grid using %s interpolation",
+            grid_resolution, regrid_method,
+        )
 
         lon_arr = self.convert_to_numpy(lon)
         lat_arr = self.convert_to_numpy(lat)
@@ -342,7 +348,10 @@ class MPASWindPlotter(MPASVisualizer):
         # If the plot type is streamlines and no grid resolution is provided, set a default resolution 
         if plot_type == 'streamlines' and grid_resolution is None:
             grid_resolution = 0.1
-            print(f"Streamlines require gridded data. Auto-enabling regridding with resolution: {grid_resolution}°")
+            logger.info(
+                "Streamlines require gridded data. Auto-enabling regridding with resolution: %s°",
+                grid_resolution,
+            )
         # Return the (possibly updated) grid resolution for use in the plotting workflow
         return grid_resolution
     
@@ -406,7 +415,10 @@ class MPASWindPlotter(MPASVisualizer):
                          crs=ccrs.PlateCarree())
             
             # Print the adjusted extent for debugging purposes to confirm that global coverage is being handled correctly
-            print(f"Using global extent (adjusted): [{adjusted_lon_min}, {adjusted_lon_max}, {adjusted_lat_min}, {adjusted_lat_max}]")
+            logger.debug(
+                "Using global extent (adjusted): [%s, %s, %s, %s]",
+                adjusted_lon_min, adjusted_lon_max, adjusted_lat_min, adjusted_lat_max,
+            )
         else:
             # Set the map extent directly using the provided longitude and latitude boundaries for regional plots
             ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
@@ -513,18 +525,24 @@ class MPASWindPlotter(MPASVisualizer):
         wind_speed = np.sqrt(u_valid**2 + v_valid**2)
         
         if lon_valid.ndim == 2:
-            # For 2D arrays, calculate the number of vectors based on the grid dimensions and print the range of wind speeds while ignoring NaN values
             num_vectors = lon_valid.shape[0] * lon_valid.shape[1]
             wind_speed_valid = wind_speed[np.isfinite(wind_speed)]
-            print(f"Plotted {num_vectors} wind vectors on {lon_valid.shape[0]}x{lon_valid.shape[1]} grid")
+            logger.info(
+                "Plotted %d wind vectors on %dx%d grid",
+                num_vectors, lon_valid.shape[0], lon_valid.shape[1],
+            )
 
-            # Print the range of wind speeds for the valid points in the 2D array to provide insight into the wind conditions being visualized
             if len(wind_speed_valid) > 0:
-                print(f"Wind speed range: {np.min(wind_speed_valid):.1f} to {np.max(wind_speed_valid):.1f} m/s")
+                logger.debug(
+                    "Wind speed range: %.1f to %.1f m/s",
+                    float(np.min(wind_speed_valid)), float(np.max(wind_speed_valid)),
+                )
         else:
-            # For 1D arrays, calculate the number of valid vectors directly from the length of the valid longitude array 
-            print(f"Plotted {len(lon_valid)} wind vectors")
-            print(f"Wind speed range: {np.min(wind_speed):.1f} to {np.max(wind_speed):.1f} m/s")
+            logger.info("Plotted %d wind vectors", len(lon_valid))
+            logger.debug(
+                "Wind speed range: %.1f to %.1f m/s",
+                float(np.min(wind_speed)), float(np.max(wind_speed)),
+            )
     
     def create_wind_plot(self: 'MPASWindPlotter',
                          lon: Union[np.ndarray, xr.DataArray],
@@ -601,7 +619,10 @@ class MPASWindPlotter(MPASVisualizer):
                 figsize=self.figsize,
                 plot_type=plot_type
             )
-            print(f"Auto-calculated subsample factor: {subsample} (from {num_points} points)")
+            logger.debug(
+                "Auto-calculated subsample factor: %d (from %d points)",
+                subsample, num_points,
+            )
         
         # Prepare wind data by applying subsampling and filtering out invalid values, returning only the valid points for plotting.
         lon_valid, lat_valid, u_valid, v_valid = self._prepare_wind_data(
@@ -610,7 +631,7 @@ class MPASWindPlotter(MPASVisualizer):
         
         # Check if there are valid points to plot after preparation and print a warning if not
         if len(lon_valid) == 0:
-            print("Warning: No valid wind data found")
+            logger.warning("No valid wind data found")
             return self.fig, self.ax
         
         # Set map extent and add features before plotting vectors to ensure proper layering of elements on the map
@@ -698,7 +719,9 @@ class MPASWindPlotter(MPASVisualizer):
         if original_units is None:
             u_mean = np.nanmean(np.abs(u_data))
             if u_mean > 100:
-                print("Warning: Wind data may not be in m/s. Consider specifying 'original_units' in config.")
+                logger.warning(
+                    "Wind data may not be in m/s. Consider specifying 'original_units' in config."
+                )
             return u_data, v_data
         
         # Define the display units for wind speed, which is typically meters per second (m/s) for meteorological data visualization.
@@ -716,10 +739,12 @@ class MPASWindPlotter(MPASVisualizer):
             # Convert the converted data to NumPy arrays if they are not already, ensuring that the returned data is in a consistent format 
             u_data = self.convert_to_numpy(u_converted)
             v_data = self.convert_to_numpy(v_converted)
-            print(f"Converted overlay wind from {original_units} to {display_units}")
+            logger.debug("Converted overlay wind from %s to %s", original_units, display_units)
         except ValueError as e:
-            # If conversion fails, print a warning and return the original data without modification 
-            print(f"Warning: Could not convert overlay wind from {original_units} to {display_units}: {e}")
+            logger.warning(
+                "Could not convert overlay wind from %s to %s: %s",
+                original_units, display_units, e,
+            )
         
         # Return the (possibly converted) U and V component arrays for use in the overlay plotting workflow
         return u_data, v_data
@@ -798,7 +823,10 @@ class MPASWindPlotter(MPASVisualizer):
         )
 
         # Log the calculated subsample factor along with the number of valid points 
-        print(f"Auto-calculated overlay subsample factor: {subsample} (from {num_points} points)")
+        logger.debug(
+            "Auto-calculated overlay subsample factor: %d (from %d points)",
+            subsample, int(num_points),
+        )
 
         # Return the calculated subsample factor 
         return subsample
@@ -822,15 +850,14 @@ class MPASWindPlotter(MPASVisualizer):
 
             # If no valid points are found, print a warning and return False to indicate that the overlay cannot be plotted.
             if num_vectors == 0:
-                print("Warning: No valid wind data for overlay")
+                logger.warning("No valid wind data for overlay")
                 return False
-            print(f"Added {num_vectors} wind vectors as overlay")
+            logger.info("Added %d wind vectors as overlay", int(num_vectors))
         else:
-            # For 1D arrays, count valid points by checking for finite values in the longitude array
             if len(lon_valid) == 0:
-                print("Warning: No valid wind data for overlay")
+                logger.warning("No valid wind data for overlay")
                 return False
-            print(f"Added {len(lon_valid)} wind vectors as overlay")
+            logger.info("Added %d wind vectors as overlay", len(lon_valid))
         # If valid points are found, return True to indicate that the overlay can be plotted successfully.
         return True
     

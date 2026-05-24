@@ -34,6 +34,9 @@ from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking, dispatch_remap
 from .styling import MPASVisualizationStyle
+from mpasdiag.processing.utils_logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class MPASSurfacePlotter(MPASVisualizer):
@@ -89,21 +92,22 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Extract the appropriate 2D slice based on level_index or level_value, defaulting to surface level if neither is provided. 
         if level_index is not None:
             data = self._apply_level_index_slice(data, level_index)
-            print(f"Extracted 2D data using level_index={level_index}")
+            logger.debug("Extracted 2D data using level_index=%s", level_index)
         else:
-            # Default to surface level (level_value selection not yet implemented)
             data = data[:, -1] if data.ndim == 2 else data[:, -1, ...]
             if data.ndim > 1:
                 data = data[..., 0]
             if level_value is not None:
-                print(f"Extracted 2D data using surface level (level_value={level_value} not yet implemented)")
+                logger.debug(
+                    "Extracted 2D data using surface level (level_value=%s not yet implemented)",
+                    level_value,
+                )
             else:
-                print("Extracted 2D data using surface level (default)")
-        
-        # Flatten the remaining dimensions to 1D for plotting and convert to numpy array
+                logger.debug("Extracted 2D data using surface level (default)")
+
         if data.ndim > 1:
             data = data.flatten()
-            print(f"Flattened remaining dimensions to 1D, final shape: {data.shape}")
+            logger.debug("Flattened remaining dimensions to 1D, final shape: %s", data.shape)
         
         # Convert to numpy array if it's still an xarray DataArray and return
         return self.convert_to_numpy(data)
@@ -178,9 +182,12 @@ class MPASSurfacePlotter(MPASVisualizer):
                 )
                 # Ensure the converted data is a numpy array regardless of the input type
                 data = self._coerce_converted_data(converted_data)
-                print(f"Converted {var_name} from {original_unit} to {display_unit}")
+                logger.debug("Converted %s from %s to %s", var_name, original_unit, display_unit)
             except ValueError as e:
-                print(f"Warning: Could not convert {var_name} from {original_unit} to {display_unit}: {e}")
+                logger.warning(
+                    "Could not convert %s from %s to %s: %s",
+                    var_name, original_unit, display_unit, e,
+                )
         
         # Specify the list of moisture-related variable names to check for physical constraints (e.g., non-negative values)
         moisture_vars = ['q2', 'qv', 'qc', 'qr', 'qi', 'qs', 'qg', 'qv2m', 'humidity', 'mixing_ratio']
@@ -192,7 +199,10 @@ class MPASSurfacePlotter(MPASVisualizer):
 
             # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
             if n_negative > 0:
-                print(f"Warning: Found {n_negative:,} negative {var_name} values (min: {np.min(data):.4f}). Clipping to 0 (physically invalid).")
+                logger.warning(
+                    "Found %s negative %s values (min: %.4f). Clipping to 0 (physically invalid).",
+                    f"{n_negative:,}", var_name, float(np.min(data)),
+                )
                 data = np.clip(data, 0, None)
         
         # Return the converted data as a numpy array along with the variable metadata
@@ -284,7 +294,10 @@ class MPASSurfacePlotter(MPASVisualizer):
 
             # Set the map extent to the adjusted global bounds and log the chosen extent for debugging
             self.ax.set_extent([filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max], crs=data_crs)
-            print(f"Using global extent (adjusted to avoid dateline): [{filter_lon_min}, {filter_lon_max}, {filter_lat_min}, {filter_lat_max}]")
+            logger.debug(
+                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
+                filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
+            )
             
             # Use original lon/lat bounds for filtering data since we want to include all points in the dataset for global plots
             filter_lon_min_data = -180.01
@@ -416,8 +429,14 @@ class MPASSurfacePlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Filtered longitude, latitude, and data arrays containing only valid points for plotting.
         """
-        print(f"DEBUG: filter_lon_min_data={filter_lon_min_data:.4f}, filter_lon_max_data={filter_lon_max_data:.4f}")
-        print(f"DEBUG: lon range in data: [{np.min(lon):.4f}, {np.max(lon):.4f}]")
+        logger.debug(
+            "filter_lon_min_data=%.4f, filter_lon_max_data=%.4f",
+            filter_lon_min_data, filter_lon_max_data,
+        )
+        logger.debug(
+            "lon range in data: [%.4f, %.4f]",
+            float(np.min(lon)), float(np.max(lon)),
+        )
         
         # For scatter plots, we enforce both finite values and geographic bounds to ensure we only plot valid points within the desired extent. 
         if plot_type == 'scatter':
@@ -448,8 +467,11 @@ class MPASSurfacePlotter(MPASVisualizer):
         lat_valid = lat[valid_mask]
         data_valid = data[valid_mask]
         
-        print(f"Plotting {len(data_valid):,} data points for {var_name}")
-        print(f"Data range: {data_valid.min():.3f} to {data_valid.max():.3f} {var_metadata['units']}")
+        logger.info("Plotting %s data points for %s", f"{len(data_valid):,}", var_name)
+        logger.debug(
+            "Data range: %.3f to %.3f %s",
+            float(data_valid.min()), float(data_valid.max()), var_metadata['units'],
+        )
         
         # Return the filtered longitude, latitude, and data arrays containing only valid points for plotting.
         return lon_valid, lat_valid, data_valid
@@ -594,11 +616,11 @@ class MPASSurfacePlotter(MPASVisualizer):
             try:
                 wind_plotter = MPASWindPlotter()
                 wind_plotter.add_wind_overlay(self.ax, lon, lat, wind_overlay, config=config)
-                print("Added wind overlay to surface map")
+                logger.info("Added wind overlay to surface map")
             except ValueError:
                 raise
             except Exception as e:
-                print(f"Warning: Failed to add wind overlay: {e}")
+                logger.warning("Failed to add wind overlay: %s", e)
         
         # If a surface overlay configuration is provided, we attempt to add the surface overlay using internal helper methods.
         if surface_overlay is not None:
@@ -611,11 +633,11 @@ class MPASSurfacePlotter(MPASVisualizer):
                     dataset=dataset,
                     config=config,
                 )
-                print("Added surface overlay to surface map")
+                logger.info("Added surface overlay to surface map")
             except ValueError:
                 raise
             except Exception as e:
-                print(f"Warning: Failed to add surface overlay: {e}")
+                logger.warning("Failed to add surface overlay: %s", e)
     
     def create_surface_map(self: 'MPASSurfacePlotter',
                            lon: np.ndarray,
@@ -897,9 +919,15 @@ class MPASSurfacePlotter(MPASVisualizer):
                 overlay_data = self.convert_to_numpy(
                     UnitConverter.convert_units(overlay_data, original_units, display_units)
                 )
-                print(f"Converted overlay {var_name} from {original_units} to {display_units}")
+                logger.debug(
+                    "Converted overlay %s from %s to %s",
+                    var_name, original_units, display_units,
+                )
             except ValueError as e:
-                print(f"Warning: Could not convert overlay {var_name} from {original_units} to {display_units}: {e}")
+                logger.warning(
+                    "Could not convert overlay %s from %s to %s: %s",
+                    var_name, original_units, display_units, e,
+                )
         return overlay_data
 
     def _prepare_overlay_data(self: 'MPASSurfacePlotter',
@@ -935,7 +963,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         if overlay_data.ndim > 1:
             level_index = surface_config.get('level_index', None)
             overlay_data = overlay_data[:, level_index] if level_index is not None else overlay_data[:, -1]
-            print("Extracted 2D overlay data from multi-dimensional array")
+            logger.debug("Extracted 2D overlay data from multi-dimensional array")
         
         # Filter valid data points by checking for finite values in the overlay data and corresponding longitude and latitude arrays
         valid_mask = np.isfinite(overlay_data) & np.isfinite(lon) & np.isfinite(lat)
@@ -1061,7 +1089,10 @@ class MPASSurfacePlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Longitude mesh, latitude mesh, and interpolated data array corresponding to the regular grid for contour plotting. 
         """
-        print(f"Interpolating {var_name} overlay using MPASRemapper (resolution: {resolution:.4f}°)")
+        logger.info(
+            "Interpolating %s overlay using MPASRemapper (resolution: %.4f°)",
+            var_name, resolution,
+        )
         
         # Convert the valid data array to an xarray DataArray with a dimension name 
         data_xr = xr.DataArray(data_valid, dims=['nCells'])
@@ -1116,15 +1147,17 @@ class MPASSurfacePlotter(MPASVisualizer):
         """
         # Compute the minimum and maximum values of the interpolated data to determine the range of values that will be plotted in the contours.
         data_min, data_max = np.nanmin(data_interp), np.nanmax(data_interp)
-        print(f"  Overlay data range: {data_min:.2f} to {data_max:.2f}")
-        
+        logger.debug("Overlay data range: %.2f to %.2f", float(data_min), float(data_max))
+
         if levels is not None:
-            # Check which of the provided contour levels fall within the range of the data and log a warning if none of the levels are within the data range
             levels_in_range = [level_value for level_value in levels if data_min <= level_value <= data_max]
             if len(levels_in_range) == 0:
-                print(f"  WARNING: No contour levels {levels} fall within data range [{data_min:.2f}, {data_max:.2f}]!")
+                logger.warning(
+                    "No contour levels %s fall within data range [%.2f, %.2f]",
+                    levels, float(data_min), float(data_max),
+                )
             else:
-                print(f"  Contour levels in data range: {levels_in_range}")
+                logger.debug("Contour levels in data range: %s", levels_in_range)
     
     def _render_overlay(self: 'MPASSurfacePlotter',
                         ax: Axes,
@@ -1238,7 +1271,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 overlay_data, lon, lat, var_name, surface_config
             )
         except ValueError as e:
-            print(f"Warning: {e}")
+            logger.warning("%s", e)
             return
         
         # Calculate bounds using valid points and any provided explicit bounds to ensure that the interpolation grid is properly defined around the valid data points 
@@ -1276,7 +1309,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             surface_config.get('add_labels', False)
         )
         
-        print(f"Added {plot_type} surface overlay for {var_name}")
+        logger.info("Added %s surface overlay for %s", plot_type, var_name)
 
     def create_batch_surface_maps(self: 'MPASSurfacePlotter',
                                   processor: Any,
@@ -1324,7 +1357,7 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         # Initialize an empty list to keep track of the file paths of the created surface maps
         created_files = []
-        print(f"\nCreating surface maps for {total_times} time steps...")
+        logger.info("Creating surface maps for %d time steps", total_times)
 
         for time_idx in range(total_times):
             try:
@@ -1373,13 +1406,15 @@ class MPASSurfacePlotter(MPASVisualizer):
 
                 # Print a progress update every 10 time steps to inform the user about the processing status, including how many surface maps have been completed 
                 if (time_idx + 1) % 10 == 0:
-                    print(f"Completed {time_idx + 1}/{total_times} surface maps...")
+                    logger.info(
+                        "Completed %d/%d surface maps", time_idx + 1, total_times,
+                    )
 
             except Exception as e:
-                print(f"Error creating surface map for time index {time_idx}: {e}")
+                logger.error("Error creating surface map for time index %d: %s", time_idx, e)
                 continue
 
-        print(f"\nBatch processing completed. Created {len(created_files)} files.")
+        logger.info("Batch processing completed. Created %d files.", len(created_files))
         return created_files
 
     def get_surface_colormap_and_levels(self: 'MPASSurfacePlotter',
