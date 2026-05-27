@@ -951,6 +951,7 @@ class TestCreateContourfPlot:
         lon_mesh, lat_mesh = np.meshgrid(lon_g, lat_g)
         data_2d = np.ones((5, 5))
         mock_cf = Mock()
+        mock_cf.get_figure.return_value = v.fig
         try:
             with patch.object(v, '_interpolate_to_grid',
                                return_value=(lon_mesh, lat_mesh, data_2d)):

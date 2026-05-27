@@ -11,17 +11,17 @@ authors = [
 description = "Python package for MPAS model output analysis and visualization"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 keywords = [
@@ -88,6 +88,9 @@ mpasdiag = "mpasdiag.cli:main"
 "Source" = "https://github.com/mrixlam/MPASdiag"
 "Documentation" = "https://github.com/mrixlam/MPASdiag#readme"
 
+[tool.uv.sources]
+esmpy = { git = "https://github.com/esmf-org/esmf", subdirectory = "src/addon/esmpy" }
+
 [tool.setuptools]
 packages = ["mpasdiag"]
 include-package-data = true
@@ -105,7 +108,7 @@ include-package-data = true
 # Development tools configuration
 [tool.black]
 line-length = 88
-target-version = ['py38']
+target-version = ['py310']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -145,10 +148,12 @@ filterwarnings = [
     "ignore:facecolor will have no effect.*:UserWarning",
     "ignore:Using dimensions.*from data variable.*:UserWarning",
     "ignore:Behaviour of argmin/argmax.*:DeprecationWarning",
+    "ignore:invalid value encountered in create_collection:RuntimeWarning",
+    "ignore:.*found in sys.modules after import of package.*:RuntimeWarning",
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

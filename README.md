@@ -4,7 +4,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 
 [![CI](https://github.com/mrixlam/MPASdiag/workflows/MPASdiag%20CI/badge.svg)](https://github.com/mrixlam/MPASdiag/actions)
 [![codecov](https://codecov.io/gh/mrixlam/MPASdiag/branch/main/graph/badge.svg)](https://codecov.io/gh/mrixlam/MPASdiag)
-![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-yellow.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19486544.svg)](https://doi.org/10.5281/zenodo.19486544)
@@ -13,7 +13,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - NetCDF4-compatible system libraries
 - HDF5 libraries (for h5netcdf)
 - MPI libraries (OpenMPI or MPICH for parallel processing)
@@ -27,32 +27,32 @@ git clone https://github.com/mrixlam/MPASdiag.git
 cd MPASdiag
 
 # Create a new conda environment
-conda create -n mpasdiag python=3.9
+conda create -n mpasdiag python=3.10 -y
 conda activate mpasdiag
 
 # Install required scientific python libraries
-conda install -y -c conda-forge numpy pandas scipy xarray dask numba
+conda install -y -c conda-forge numpy pandas scipy xarray dask numba -y
 
 # Install additional dependencies
-conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil 
+conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil -y
 
 # Install testing suite dependencies
-conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet
+conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet pytest-mock -y
 
 # Install matplotlib and cartopy for plotting support
-conda install -y -c conda-forge matplotlib cartopy
+conda install -y -c conda-forge matplotlib cartopy -y
 
 # Install UXarray (for unstructured grid support)
-conda install -y -c conda-forge uxarray
+conda install -y -c conda-forge uxarray -y
 
 # Install MPI support for parallel processing
-conda install -y -c conda-forge mpi4py
+conda install -y -c conda-forge mpi4py -y
 
 # Install esmpy and xESMF for remapping capabilities
-conda install -y -c conda-forge esmpy xesmf 
+conda install -y -c conda-forge esmpy xesmf -y
 
 # Install MetPy for thermodynamic diagnostics
-conda install -y -c conda-forge metpy
+conda install -y -c conda-forge metpy -y
 
 # Install the package
 pip install -e .

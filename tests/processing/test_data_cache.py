@@ -91,7 +91,7 @@ class TestLoadVariableData:
         """
         processor = self.processor        
         cache = MPASDataCache()
-        var_name = list(processor.dataset.data_vars.keys())[0]
+        var_name = next(iter(processor.dataset.data_vars.keys()))
         
         cache.load_variable_data(processor.dataset, var_name)
         original_timestamp = cache._variables[var_name].timestamp        
@@ -186,7 +186,7 @@ class TestLoadVariableData:
         """
         processor = self.processor        
         cache = MPASDataCache()        
-        var_name = list(processor.dataset.data_vars.keys())[0]
+        var_name = next(iter(processor.dataset.data_vars.keys()))
         
         cache.load_variable_data(processor.dataset, var_name)        
         cached = cache.get_variable_data(var_name)
@@ -266,7 +266,7 @@ class TestRealDataIntegration:
         assert len(lon) > 0
         assert len(lat) > 0
         
-        var_name = list(processor.dataset.data_vars.keys())[0]
+        var_name = next(iter(processor.dataset.data_vars.keys()))
         cache.load_variable_data(processor.dataset, var_name, time_index=0)
         
         cached_var = cache.get_variable_data(var_name, time_index=0)

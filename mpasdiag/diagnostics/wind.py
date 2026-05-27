@@ -762,7 +762,7 @@ class WindDiagnostics:
             )
 
         # Extract the indices and pressures of the levels 
-        layer_indices  = np.where(in_layer)[0]
+        layer_indices  = np.nonzero(in_layer)[0]
         layer_pressures = mean_p[layer_indices] 
 
         # Extract the domain-mean U and V wind components at the selected time step 

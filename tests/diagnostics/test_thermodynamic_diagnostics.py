@@ -13,7 +13,7 @@ Version: 1.0.0
 """
 import matplotlib
 matplotlib.use('Agg')
-
+import math
 import numpy as np
 import pandas as pd
 import pytest
@@ -734,7 +734,7 @@ class TestColdPoolStrength:
         # Element 0 is colder than env → buoyancy negative, C > 0
         # Element 2 is warmer than env → C == 0 there
         assert c.values[0] > 0.0
-        assert c.values[2] == 0.0
+        assert math.isclose(c.values[2], 0.0)
         assert b.attrs['units'] == 'm s-2'
         assert c.attrs['units'] == 'm s-1'
 
@@ -772,7 +772,7 @@ class TestColdPoolStrength:
             theta_rho, theta_rho_env=env,
         )
         assert c.values[0] > 0.0
-        assert c.values[1] == 0.0
+        assert math.isclose(c.values[1], 0.0)
 
     def test_no_cold_pool_anywhere_verbose(self: 'TestColdPoolStrength', 
                                            diag_verbose: ThermodynamicDiagnostics,) -> None:
@@ -791,7 +791,7 @@ class TestColdPoolStrength:
         c, _ = diag_verbose.compute_cold_pool_strength(
             theta_rho, theta_rho_env=300.0,
         )
-        assert float(c.max()) == 0.0
+        assert math.isclose(float(c.max()), 0.0)
 
 
 class TestResolveLevelIndex:

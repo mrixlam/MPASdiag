@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13']
 
     steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -208,18 +208,20 @@ jobs:
         fi
     
     - name: Prepare artifact name
+      id: prepare_artifact_name
       if: always()
       shell: bash
       run: |
         ARTIFACT_NAME="build-logs-${{ matrix.os }}-py${{ matrix.python-version }}"
         ARTIFACT_NAME="${ARTIFACT_NAME//./-}"
         echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
+        echo "name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
     
     - name: Upload logs
       if: always()
       uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.4.3
       with:
-        name: ${{ env.ARTIFACT_NAME }}
+        name: ${{ steps.prepare_artifact_name.outputs.name }}
         path: ${{ github.workspace }}/logs/
         retention-days: 30
         if-no-files-found: warn
@@ -245,7 +247,7 @@ jobs:
       if: always()
       uses: codecov/codecov-action@5c47607acb93fed5485fdbf7232e8a31425f672a # v5.0.2
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
         fail_ci_if_error: false
