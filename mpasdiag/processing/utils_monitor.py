@@ -13,8 +13,8 @@ Version: 1.0.0
 """
 
 from datetime import datetime, timedelta
-from typing import Dict
 from contextlib import contextmanager
+from typing import Dict, Generator
 
 from .utils_logger import get_logger
 
@@ -38,15 +38,16 @@ class PerformanceMonitor:
         self.durations: Dict[str, timedelta] = {}
     
     @contextmanager
-    def timer(self: 'PerformanceMonitor', operation_name: str):
+    def timer(self: 'PerformanceMonitor', 
+              operation_name: str) -> Generator[None, None, None]:
         """
         This context manager method allows users to measure the execution time of a specific operation by wrapping the code block that performs the operation within a with statement. When the context is entered, the current datetime is recorded as the start time for the specified operation name. Once the code block within the context is executed, the end time is recorded, and the duration of the operation is calculated as a timedelta. The duration is then stored in the durations dictionary under the corresponding operation name, and a formatted message is printed to stdout indicating the completion of the operation along with its execution time in seconds. This method provides a convenient and reusable way to instrument performance monitoring throughout MPASdiag processing workflows. 
 
         Parameters:
             operation_name (str): A descriptive name for the operation being timed, which will be used as a key in the internal tracking dictionaries and included in the output messages. 
 
-        Yields:
-            None: The context manager does not yield any value, as its primary purpose is to measure and report the execution time of the code block it wraps. 
+        Returns: 
+            Generator[None, None, None]: This method is a context manager that yields control back to the caller after setting up the timing mechanism, allowing the wrapped code block to execute while the performance monitoring is active. 
         """
         start_time = datetime.now()
         self.start_times[operation_name] = start_time
@@ -58,7 +59,7 @@ class PerformanceMonitor:
             duration = end_time - start_time
             self.durations[operation_name] = duration
             
-            logger.info("%s completed in %.2f seconds", operation_name, duration.total_seconds())
+            print(f"{operation_name} completed in {duration.total_seconds():.2f} seconds")
     
     def get_summary(self: 'PerformanceMonitor') -> Dict[str, float]:
         """
@@ -83,10 +84,11 @@ class PerformanceMonitor:
         Returns:
             None: This method does not return any value, as its primary purpose is to print the performance summary to stdout. 
         """
-        logger.info("=== Performance Summary ===")
+        print("=== Performance Summary ===")
+        
         for name, duration in self.durations.items():
-            logger.info("%s: %.2f seconds", name, duration.total_seconds())
+            print(f"{name}: {duration.total_seconds():.2f} seconds")
 
         if self.durations:
             total_time = sum(elapsed.total_seconds() for elapsed in self.durations.values())
-            logger.info("Total time: %.2f seconds", total_time)
+            print(f"Total time: {total_time:.2f} seconds")

@@ -1597,16 +1597,7 @@ def remap_mpas_to_latlon_with_masking(data: Union[xr.DataArray, np.ndarray],
                                       config: Optional[Any] = None,
                                       comm: Optional[Any] = None) -> xr.DataArray:
     """
-    This function provides a convenient interface for remapping MPAS unstructured grid data to a
-    regular latitude-longitude grid. The remapping engine and method are controlled by the optional
-    ``config`` argument (an MPASConfig instance or any object with ``remap_engine`` /
-    ``remap_method`` attributes):
-
-    * ``config.remap_engine == 'esmf'``  — delegates to the ESMPy path via ``dispatch_remap``.
-      ESMPy natively produces NaN for unmapped target cells, so the convex-hull masking step is
-      skipped (``apply_mask`` is ignored for this path).
-    * ``config.remap_engine == 'kdtree'`` (default when config is None) — uses scipy KDTree
-      interpolation, then optionally applies a convex-hull mask to set out-of-domain cells to NaN.
+    This function provides a high-level interface for remapping MPAS unstructured grid data to a regular latitude-longitude grid with optional convex hull masking. It supports both a KDTree-based nearest neighbor interpolation method and an ESMF-based regridding method, allowing users to choose the remapping engine via the configuration. The function automatically resolves grid bounds, applies longitude conventions, and handles the remapping process while ensuring that points outside the original MPAS domain can be masked as NaN if desired. The resulting remapped data is returned as an xarray DataArray on the regular lat/lon target grid, ready for analysis or visualization. This function serves as a convenient wrapper that abstracts away the complexities of different remapping approaches while providing flexibility and control over the remapping process through its parameters and configuration options.
 
     Parameters:
         data (Union[xr.DataArray, np.ndarray]): Input data on MPAS unstructured grid, shape (nCells,).
@@ -1617,12 +1608,9 @@ def remap_mpas_to_latlon_with_masking(data: Union[xr.DataArray, np.ndarray],
         lat_max (Optional[float]): Northern bound of target grid in degrees (auto-derived if None).
         resolution (float): Target grid spacing in degrees (default: 0.1).
         method (str): KDTree interpolation method — 'nearest' or 'linear' (default: 'nearest').
-            Ignored when config specifies remap_engine='esmf'; use config.remap_method instead.
         apply_mask (bool): Apply convex-hull masking for the KDTree path (default: True).
-            Ignored for the ESMPy path.
         lon_convention (str): Longitude convention — 'auto', '[-180,180]', or '[0,360]' (default: 'auto').
         config (Optional[Any]): MPASConfig or SimpleNamespace with remap_engine / remap_method fields.
-            When None, the KDTree path is used with the ``method`` argument (default: None).
         comm (Optional[Any]): MPI communicator forwarded to the ESMPy path (default: None).
 
     Returns:

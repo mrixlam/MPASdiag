@@ -416,12 +416,13 @@ class TestVerticalCoordinateConversion:
     """ Tests for vertical coordinate conversion methods. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestVerticalCoordinateConversion', mpas_3d_processor) -> Generator[None, None, None]:
+    def setup_method(self: 'TestVerticalCoordinateConversion', 
+                     mpas_3d_processor: 'MPAS3DProcessor') -> Generator[None, None, None]:
         """
         This fixture sets up the testing environment for vertical coordinate conversion tests by initializing an MPASVerticalCrossSectionPlotter instance and providing a real MPAS3DProcessor with loaded data. The fixture ensures that the plotter is available for testing the conversion of pressure coordinates to height, model levels to height, and height extraction from the dataset. If the MPAS 3D processor is not available, the fixture will skip the tests that depend on it.
 
         Parameters:
-            mpas_3d_processor: Session-scoped fixture providing real MPAS3DProcessor with loaded data 
+            mpas_3d_processor ('MPAS3DProcessor'): Session-scoped fixture providing real MPAS3DProcessor with loaded data 
 
         Returns:
             Generator yielding None for setup and teardown of test environment.

@@ -176,16 +176,14 @@ EXPECTED_PUBLIC_METHODS = {
 def assert_expected_public_methods(instance: object, 
                                    class_key: str) -> None:
     """
-    Assert that *instance* exposes every public method listed for *class_key*
-    in the ``EXPECTED_PUBLIC_METHODS`` registry.
+    This function asserts that *instance* exposes every public method listed for *class_key* in the global dictionary *EXPECTED_PUBLIC_METHODS*. It is used in tests to ensure that the public API of each class remains consistent and that no expected methods are accidentally removed or renamed. If any expected method is missing from the instance, an AssertionError is raised with a message indicating which methods are missing. If *class_key* is not registered in *EXPECTED_PUBLIC_METHODS*, a KeyError is raised.
 
     Parameters:
-        instance: An instance of the class under test.
+        instance (object): An instance of the class under test.
         class_key (str): Key into ``EXPECTED_PUBLIC_METHODS``.
 
-    Raises:
-        AssertionError: If any expected method is missing from the instance.
-        KeyError: If *class_key* is not registered.
+    Returns:
+        None
     """
     expected = EXPECTED_PUBLIC_METHODS[class_key]
     public = [m for m in dir(instance) if not m.startswith('_')]

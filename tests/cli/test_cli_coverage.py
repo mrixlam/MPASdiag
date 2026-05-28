@@ -208,7 +208,6 @@ class TestRunSingleCrossSectionLowerHalf:
 
             mock_plotter.save_plot.assert_called_once()
             mock_plotter.close_plot.assert_called_once()
-            cli.logger.info.assert_called()
 
     def test_uses_config_output_when_set(self: 'TestRunSingleCrossSectionLowerHalf', 
                                          tmp_path: 'Path') -> None:
@@ -249,24 +248,24 @@ class TestRunSingleCrossSectionLowerHalf:
 class TestLogCreatedFilesWithLogger:
     """ Test if _log_created_files correctly logs the file count and type when a logger is set, and does nothing when the files list is empty. """
 
-    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger', 
-                                               tmp_path: 'Path') -> None:
+    def test_calls_logger_info_with_file_count(self: 'TestLogCreatedFilesWithLogger',
+                                               tmp_path: 'Path',
+                                               capsys: 'pytest.CaptureFixture[str]') -> None:
         """
-        This test verifies that _log_created_files calls self.logger.info with a message that includes the count of created files and the file type description when a logger is set (lines 1675-1676). It checks that the log message contains the number of files and the provided description to confirm that the logging is informative and accurate. 
+        This test verifies that _log_created_files prints a message to stdout that includes the count of files and the file type when a logger is set. It checks that the output contains the expected file count and type, confirming that the method is correctly reporting the created files.
 
         Parameters:
             tmp_path (Path): pytest temporary directory fixture used for creating temporary files.
+            capsys: pytest fixture capturing stdout/stderr.
 
         Returns:
             None
         """
         cli = MPASUnifiedCLI()
-        cli.logger = MagicMock()
         cli._log_created_files([str(tmp_path / 'a.png'), str(tmp_path / 'b.png')], 'test plots')
-        cli.logger.info.assert_called_once()
-        log_msg = cli.logger.info.call_args.args[0]
-        assert '2' in log_msg
-        assert 'test plots' in log_msg
+        captured = capsys.readouterr()
+        assert '2' in captured.out
+        assert 'test plots' in captured.out
 
     def test_does_nothing_when_files_is_empty(self: 'TestLogCreatedFilesWithLogger') -> None:
         """
@@ -407,7 +406,6 @@ class TestRunSoundingBatch:
 
         assert mock_plotter.create_skewt_diagram.call_count == 2
         assert mock_plotter.close_plot.call_count == 2
-        cli.logger.info.assert_called()
 
     def test_uses_none_time_bounds_defaults(self: 'TestRunSoundingBatch', 
                                             tmp_path: 'Path') -> None:

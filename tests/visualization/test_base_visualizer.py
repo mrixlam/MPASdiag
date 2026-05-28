@@ -19,8 +19,11 @@ import tempfile
 import warnings
 import numpy as np
 import xarray as xr
+from typing import Tuple
 from datetime import datetime
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 from typing import Generator, Any
 import cartopy.crs as ccrs
 from cartopy.mpl.geoaxes import GeoAxes
@@ -656,30 +659,59 @@ class TestTransectOverlay:
 
     @pytest.fixture(autouse=True)
     def setup_method(self: 'TestTransectOverlay') -> Generator[None, None, None]:
+        """
+        This fixture sets up the context for testing the `draw_transect_line` method of the `MPASVisualizer`. It initializes an instance of `MPASVisualizer` with specific parameters (e.g., `figsize`, `dpi`, `verbose`) before yielding control to the test methods. After the tests complete, it ensures that all matplotlib figures are closed to clean up any resources used during plotting. This setup allows the test methods to operate on a consistent visualizer instance and ensures that any figures created during the tests are properly closed afterward.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         self.viz = MPASVisualizer(figsize=(8, 6), dpi=72, verbose=False)
         yield
         plt.close('all')
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    def _geo_axes(self: 'TestTransectOverlay') -> Tuple[Figure, GeoAxes]:
+        """
+        This helper method creates and returns a matplotlib figure and a GeoAxes with a PlateCarree projection. The axes are set to a specific geographic extent covering a portion of North America. This setup is used for testing the `draw_transect_line` method on geospatial axes, ensuring that the method can handle coordinate transformations correctly when plotting transects on a map. The method returns the figure and GeoAxes objects for use in the test cases. 
 
-    def _geo_axes(self: 'TestTransectOverlay'):
-        """Return (fig, GeoAxes) with a fixed CONUS-ish extent."""
+        Parameters:
+            None
+
+        Returns:
+            Tuple[Figure, GeoAxes]: A tuple containing the figure and GeoAxes objects.
+        """
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
         ax.set_extent([-130, -50, 20, 60], crs=ccrs.PlateCarree())
         return fig, ax
 
-    def _plain_axes(self: 'TestTransectOverlay'):
-        """Return (fig, plain Axes) with lon/lat-like limits."""
+    def _plain_axes(self: 'TestTransectOverlay') -> Tuple[Figure, Axes]:
+        """
+        This helper method creates and returns a matplotlib figure and a plain Axes (non-geo) object. The axes are set to a specific extent that roughly corresponds to the geographic area used in the geo axes, but without any projection. This setup is used for testing the `draw_transect_line` method on non-geospatial axes, ensuring that the method can handle plotting transects in a simple Cartesian coordinate system. The method returns the figure and plain Axes objects for use in the test cases.
+
+        Parameters:
+            None
+
+        Returns:
+            Tuple[Figure, Axes]: A tuple containing the figure and plain Axes objects.
+        """
         fig, ax = plt.subplots(figsize=(8, 6))
         ax.set_xlim(-130, -50)
         ax.set_ylim(20, 60)
         return fig, ax
 
-    # ── draw_transect_line ────────────────────────────────────────────────────
-
     def test_draw_transect_line_returns_all_artist_keys(self: 'TestTransectOverlay') -> None:
-        """draw_transect_line must return a dict with line, start_marker, end_marker, start_label_text, end_label_text."""
+        """
+        This test case verifies that the `draw_transect_line` method returns a dictionary containing all expected keys for the artists created during the plotting of a transect line. It ensures that the returned dictionary includes keys for the line, start and end markers, and start and end label texts, confirming that the method provides comprehensive information about all the visual elements it creates. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -694,7 +726,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_no_label(self: 'TestTransectOverlay') -> None:
-        """show_labels=False must leave both label texts as None."""
+        """
+        This test case verifies that the `draw_transect_line` method correctly handles the scenario where `show_labels` is set to False, ensuring that both `start_label_text` and `end_label_text` are None, indicating that no labels are displayed on the transect line. It confirms that the method respects the `show_labels` parameter and does not create label text artists when labels are not requested. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -705,7 +745,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_no_label_string(self: 'TestTransectOverlay') -> None:
-        """No start_label/end_label with show_labels=True must leave both texts as None."""
+        """
+        This test case verifies that the `draw_transect_line` method correctly handles the scenario where `show_labels` is set to True but no label strings are provided, ensuring that both `start_label_text` and `end_label_text` are None, indicating that no labels are displayed on the transect line. It confirms that the method does not create label text artists when label strings are not provided, even if `show_labels` is True, and that it gracefully handles this case without errors. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -716,7 +764,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_custom_linewidth(self: 'TestTransectOverlay') -> None:
-        """Custom linewidth must be reflected on the returned Line2D."""
+        """
+        This test case verifies that the `draw_transect_line` method correctly applies a custom linewidth to the transect line when the `linewidth` parameter is provided. It ensures that the linewidth of the created line artist matches the specified value, confirming that the method can customize line styling based on user input. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -726,7 +782,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_dashed_linestyle(self: 'TestTransectOverlay') -> None:
-        """A dashed linestyle must differ from the default solid line."""
+        """
+        This test case verifies that the `draw_transect_line` method correctly applies a dashed linestyle to the transect line when the `linestyle` parameter is set to "--". It ensures that the linestyle of the created line artist differs from the default solid line, confirming that the method can customize line styling based on user input and that it correctly applies different linestyles when specified. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         solid = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0), linestyle="-",
@@ -738,7 +802,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_on_plain_axes(self: 'TestTransectOverlay') -> None:
-        """draw_transect_line must work on plain (non-geo) Axes without a transform."""
+        """
+        This test case verifies that the `draw_transect_line` method works correctly on plain (non-geo) Axes without a transform. It ensures that the method can handle scenarios where the Axes do not have a geographic projection, confirming that it can plot transect lines in a simple Cartesian coordinate system without requiring geospatial transformations. The test checks that the line and label artists are created successfully on plain axes, demonstrating the method's flexibility in handling different types of plotting contexts.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._plain_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -750,7 +822,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_line_default_data_crs(self: 'TestTransectOverlay') -> None:
-        """GeoAxes call without explicit data_crs must not raise."""
+        """
+        This test case verifies that the `draw_transect_line` method works correctly when no explicit `data_crs` is provided. It ensures that the method can handle scenarios where the data coordinate reference system is not specified, confirming that it can still plot the transect line correctly by assuming a default coordinate system or by handling the absence of a specified CRS gracefully. The test checks that the line artist is created successfully even without an explicit `data_crs`, demonstrating the method's robustness in handling different input configurations. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
             ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
@@ -758,10 +838,16 @@ class TestTransectOverlay:
         assert artists["line"] is not None
         plt.close(fig)
 
-    # ── draw_transect_lines ───────────────────────────────────────────────────
-
     def test_draw_transect_lines_returns_all_labels(self: 'TestTransectOverlay') -> None:
-        """draw_transect_lines must return one entry per transect."""
+        """
+        This test case verifies that the `draw_transect_lines` method returns a dictionary containing all expected keys for each transect's artists when multiple transects are plotted. It ensures that for each transect, the returned dictionary includes keys for the line, start and end markers, and start and end label texts, confirming that the method provides comprehensive information about all visual elements created for each transect when plotting multiple lines.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         transects = {
             "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0)},
@@ -779,7 +865,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_lines_per_transect_color_override(self: 'TestTransectOverlay') -> None:
-        """Per-transect color must take precedence over the default."""
+        """
+        This test case verifies that the `draw_transect_lines` method correctly applies per-transect color overrides. It ensures that the color specified for each transect takes precedence over the default color, providing flexibility in line styling. The test checks that the line artists for each transect have the expected colors based on the overrides specified in the input transects dictionary, confirming that the method can handle individual styling options for multiple transects.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         from matplotlib.colors import to_rgba
         fig, ax = self._geo_axes()
         transects = {
@@ -794,7 +888,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_lines_per_transect_linewidth_override(self: 'TestTransectOverlay') -> None:
-        """Per-transect linewidth must override the default."""
+        """
+        This test case verifies that the `draw_transect_lines` method correctly applies per-transect linewidth overrides. It ensures that the linewidth specified for each transect takes precedence over the default linewidth, allowing for customization of line thickness on a per-transect basis. The test checks that the line artists for each transect have the expected linewidths based on the overrides specified in the input transects dictionary, confirming that the method can handle individual styling options for multiple transects.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         transects = {
             "thick": {"start": (-110.0, 30.0), "end": (-80.0, 50.0), "linewidth": 4.0},
@@ -806,7 +908,15 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_lines_per_endpoint_labels(self: 'TestTransectOverlay') -> None:
-        """start_label and end_label must appear at their respective endpoints."""
+        """
+        This test case verifies that the `draw_transect_lines` method correctly applies per-transect endpoint labels. It ensures that the start and end labels specified for each transect are correctly created as text artists and that they display the expected label strings. The test checks that the label text artists for each transect have the correct text based on the input transects dictionary, confirming that the method can handle individual labeling options for multiple transects.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         transects = {
             "A–B": {
@@ -822,14 +932,30 @@ class TestTransectOverlay:
         plt.close(fig)
 
     def test_draw_transect_lines_empty_dict(self: 'TestTransectOverlay') -> None:
-        """An empty transects dict must return an empty dict without errors."""
+        """
+        This test case verifies that the `draw_transect_lines` method can handle an empty transects dictionary without raising an exception. It ensures that when no transects are provided, the method returns an empty dictionary and does not attempt to create any artists, confirming that it can gracefully handle cases where there are no transects to plot.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         result = self.viz.draw_transect_lines(ax, {})
         assert result == {}
         plt.close(fig)
 
     def test_draw_transect_lines_show_labels_false(self: 'TestTransectOverlay') -> None:
-        """show_labels=False must suppress all labels unless per-entry overrides it."""
+        """
+        This test case verifies that the `draw_transect_lines` method correctly handles the scenario where `show_labels` is set to False for multiple transects, ensuring that all `start_label_text` and `end_label_text` entries in the returned dictionary are None, indicating that no labels are displayed on any of the transect lines. It confirms that the method respects the `show_labels` parameter across multiple transects and does not create label text artists when labels are not requested, even if individual transects have label strings specified.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         fig, ax = self._geo_axes()
         transects = {
             "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0),

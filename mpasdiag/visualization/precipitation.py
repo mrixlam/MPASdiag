@@ -499,6 +499,16 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Set title and add time annotation
         self.ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
         
+        # Derive time_end from dataset and config if not provided
+        if time_end is None and dataset is not None and config is not None:
+            time_idx = getattr(config, "time_index", None)
+            if (
+                time_idx is not None
+                and hasattr(dataset, "Time")
+                and len(dataset.Time) > time_idx
+            ):
+                time_end = pd.Timestamp(dataset.Time.values[time_idx]).to_pydatetime()
+
         # Add time annotation for accumulation period
         self._add_time_annotation(time_end, time_start, accum_period)
         

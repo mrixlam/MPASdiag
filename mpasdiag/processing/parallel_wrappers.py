@@ -394,8 +394,8 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     save_start = time.time()
     
-    time_str = str(processor.dataset['Time'].values[time_idx])
-    safe_time_str = time_str.replace(':', '').replace('-', '').replace(' ', 'T')[:13]
+    time_str = pd.Timestamp(processor.dataset['Time'].values[time_idx]).strftime('%Y%m%dT%H')
+    safe_time_str = time_str
 
     output_path = os.path.join(
         output_dir,
@@ -692,45 +692,45 @@ def _process_parallel_results(results: List[Any],
                 'total': sum(values)
             }
 
-    logger.info("=== %s BATCH PROCESSING RESULTS ===", processing_type)
+    print(f"=== {processing_type} BATCH PROCESSING RESULTS ===")
 
     if var_info:
-        logger.info("%s", var_info)
+        print(f"{var_info}")
 
-    logger.info("Status:")
-    logger.info("  Successful: %d/%d", successful, len(time_indices))
-    logger.info("  Failed: %d/%d", failed, len(time_indices))
-    logger.info("  Created files: %d in %s", len(created_files), output_dir)
+    print("Status:")
+    print(f"  Successful: {successful}/{len(time_indices)}")
+    print(f"  Failed: {failed}/{len(time_indices)}")
+    print(f"  Created files: {len(created_files)} in {output_dir}")
 
     if timing_stats:
-        logger.info("Timing Breakdown (per time step):")
-        logger.info("  Data Processing:")
-        logger.info("    Min:  %6.3fs", timing_stats['data_processing']['min'])
-        logger.info("    Max:  %6.3fs", timing_stats['data_processing']['max'])
-        logger.info("    Mean: %6.3fs", timing_stats['data_processing']['mean'])
-        logger.info("  Plotting:")
-        logger.info("    Min:  %6.3fs", timing_stats['plotting']['min'])
-        logger.info("    Max:  %6.3fs", timing_stats['plotting']['max'])
-        logger.info("    Mean: %6.3fs", timing_stats['plotting']['mean'])
-        logger.info("  Saving:")
-        logger.info("    Min:  %6.3fs", timing_stats['saving']['min'])
-        logger.info("    Max:  %6.3fs", timing_stats['saving']['max'])
-        logger.info("    Mean: %6.3fs", timing_stats['saving']['mean'])
-        logger.info("  Total per step:")
-        logger.info("    Min:  %6.3fs", timing_stats['total']['min'])
-        logger.info("    Max:  %6.3fs", timing_stats['total']['max'])
-        logger.info("    Mean: %6.3fs", timing_stats['total']['mean'])
+        print("Timing Breakdown (per time step):")
+        print("  Data Processing:")
+        print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
+        print("  Plotting:")
+        print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
+        print("  Saving:")
+        print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
+        print("  Total per step:")
+        print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
+        print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
+        print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
 
         stats = manager.get_statistics()
         if stats:
-            logger.info("Overall Parallel Execution:")
-            logger.info("  Wall time: %.2fs", stats.total_time)
-            logger.info(
-                "  Speedup potential: %.2fs / %.2fs = %.2fx",
-                timing_stats['total']['total'], stats.total_time,
-                timing_stats['total']['total'] / stats.total_time,
+            print("Overall Parallel Execution:")
+            print(f"  Wall time: {stats.total_time:.2f}s")
+            speedup = timing_stats['total']['total'] / stats.total_time
+            print(
+                f"  Speedup potential: {timing_stats['total']['total']:.2f}s / "
+                f"{stats.total_time:.2f}s = {speedup:.2f}x"
             )
-            logger.info("  Load imbalance: %.1f%%", 100 * stats.load_imbalance)
+            print(f"  Load imbalance: {100 * stats.load_imbalance:.1f}%")
     
     del all_timings, timing_stats
     
@@ -1115,11 +1115,16 @@ class ParallelWindProcessor:
     def _build_wind_worker_kwargs(processor: 'MPAS2DProcessor',
                                   is_mpi_mode: bool,
                                   output_dir: str,
-                                  lon_min: float, lon_max: float,
-                                  lat_min: float, lat_max: float,
-                                  u_variable: str, v_variable: str,
-                                  plot_type: str, subsample: int,
-                                  scale: Optional[float], show_background: bool,
+                                  lon_min: float, 
+                                  lon_max: float,
+                                  lat_min: float, 
+                                  lat_max: float,
+                                  u_variable: str, 
+                                  v_variable: str,
+                                  plot_type: str, 
+                                  subsample: int,
+                                  scale: Optional[float], 
+                                  show_background: bool,
                                   grid_resolution: Optional[float],
                                   regrid_method: str,
                                   formats: List[str],
@@ -1331,10 +1336,10 @@ class ParallelCrossSectionProcessor:
                     time_indices[result.task_id], result.error,
                 )
 
-        logger.info("Batch processing completed:")
-        logger.info("  Successful: %d/%d", successful, len(time_indices))
-        logger.info("  Failed: %d/%d", failed, len(time_indices))
-        logger.info("  Created %d files in: %s", len(created_files), output_dir)
+        print("Batch processing completed:")
+        print(f"  Successful: {successful}/{len(time_indices)}")
+        print(f"  Failed: {failed}/{len(time_indices)}")
+        print(f"  Created {len(created_files)} files in: {output_dir}")
 
         return created_files
 

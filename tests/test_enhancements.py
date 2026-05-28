@@ -17,6 +17,7 @@ import pytest
 import matplotlib
 import numpy as np
 matplotlib.use('Agg')  
+from typing import Any
 from datetime import datetime
 import matplotlib.pyplot as plt
 from cartopy.mpl.geoaxes import GeoAxes
@@ -132,7 +133,7 @@ class TestConditionalTimeDisplay:
             None
 
         Returns:
-            Tuple[MagicMock, MagicMock, List]: Mock figure, mock axes with text capture, and text_calls list
+            Tuple[MagicMock, MagicMock, List[Tuple[Tuple, dict]]]: Mock figure, mock axes with text capture, and text_calls list
         """
         mock_fig = MagicMock()
         mock_ax = MagicMock(spec=GeoAxes)
@@ -140,7 +141,18 @@ class TestConditionalTimeDisplay:
         
         text_calls = []
 
-        def capture_text(*args, **kwargs):
+        def capture_text(*args: Any, 
+                         **kwargs: Any) -> None:
+            """
+            This inner function captures calls to the text method of the mock axes, storing the arguments and keyword arguments in the text_calls list for later assertions. It allows the tests to verify that time information is correctly added as corner text when appropriate, without relying on actual rendering.
+
+            Parameters:
+                *args (Any): Positional arguments passed to the text method.
+                **kwargs (Any): Keyword arguments passed to the text method.
+
+            Returns:
+                None
+            """
             text_calls.append((args, kwargs))
 
         mock_ax.text = capture_text

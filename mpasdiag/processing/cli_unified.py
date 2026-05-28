@@ -223,6 +223,19 @@ class MPASUnifiedCLI:
         proc_group.add_argument('--chunk-size', type=int, default=100000,
                                help='Data chunk size for processing (default: 100000)')
 
+        log_group = parser.add_argument_group('Logging Options')
+        log_group.add_argument('--verbose', '-v', action='store_true',
+                              default=argparse.SUPPRESS,
+                              help='Enable verbose output (shortcut for --log-level DEBUG)')
+        log_group.add_argument('--quiet', '-q', action='store_true',
+                              default=argparse.SUPPRESS,
+                              help='Suppress output messages (shortcut for --log-level ERROR)')
+        log_group.add_argument('--log-file', type=str, default=argparse.SUPPRESS,
+                              help='Log file path')
+        log_group.add_argument('--log-level', type=str, default=argparse.SUPPRESS,
+                              choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                              help='Logging severity threshold (overrides --verbose/--quiet)')
+
         remap_group = parser.add_argument_group('Remapping Options')
         remap_group.add_argument(
             '--remap-engine',
@@ -588,6 +601,8 @@ class MPASUnifiedCLI:
             'chunk_size': 'chunk_size',
             'remap_engine': 'remap_engine',
             'remap_method': 'remap_method',
+            'log_level': 'log_level',
+            'log_file': 'log_file',
         }
         
         for arg_name, config_attr in common_mapping.items():
@@ -1182,8 +1197,8 @@ class MPASUnifiedCLI:
                 config=config,
             )
 
-        if self.logger and created_files:
-            self.logger.info(f"Created {len(created_files)} precipitation maps")
+        if created_files:
+            print(f"Created {len(created_files)} precipitation maps")
 
     def _run_precipitation_single(self: 'MPASUnifiedCLI',
                                   processor: 'MPAS2DProcessor',
@@ -1222,18 +1237,20 @@ class MPASUnifiedCLI:
             plot_type=getattr(config, 'plot_type', 'scatter'),
             grid_resolution=getattr(config, 'grid_resolution', None),
             dataset=dataset,
+            config=config,
         )
 
+        plot_type = getattr(config, 'plot_type', 'scatter')
         output_path = config.output or os.path.join(
             config.output_dir,
-            f"mpas_precipitation_{config.variable}_{time_str}"
+            f"mpas_precipitation_map_vartype_{config.variable}"
+            f"_acctype_{config.accumulation_period}_valid_{time_str}_ptype_{plot_type}"
         )
 
         plotter.save_plot(output_path, formats=config.output_formats or ['png'])
         plotter.close_plot()
 
-        if self.logger:
-            self.logger.info(f"Precipitation plot saved: {output_path}")
+        print(f"Precipitation plot saved: {output_path}")
 
     def _run_precipitation_analysis(self: 'MPASUnifiedCLI', 
                                     config: 'MPASConfig') -> bool:
@@ -1311,8 +1328,8 @@ class MPASUnifiedCLI:
                 config=config,
             )
 
-        if self.logger and created_files:
-            self.logger.info(f"Created {len(created_files)} surface maps")
+        if created_files:
+            print(f"Created {len(created_files)} surface maps")
 
     def _run_surface_single(self: 'MPASUnifiedCLI',
                             processor: 'MPAS2DProcessor',
@@ -1353,14 +1370,13 @@ class MPASUnifiedCLI:
 
         output_path = config.output or os.path.join(
             config.output_dir,
-            f"mpas_surface_{config.variable}_{config.plot_type}_{time_str}"
+            f"mpas_surface_{config.variable}_{config.plot_type}_valid_{time_str}"
         )
 
         plotter.save_plot(output_path, formats=config.output_formats or ['png'])
         plotter.close_plot()
 
-        if self.logger:
-            self.logger.info(f"Surface plot saved: {output_path}")
+        print(f"Surface plot saved: {output_path}")
 
     def _run_surface_analysis(self: 'MPASUnifiedCLI', 
                               config: 'MPASConfig') -> bool:
@@ -1448,8 +1464,8 @@ class MPASUnifiedCLI:
                 config=config,
             )
 
-        if self.logger and created_files:
-            self.logger.info(f"Created {len(created_files)} wind plots")
+        if created_files:
+            print(f"Created {len(created_files)} wind plots")
 
     def _run_wind_single(self: 'MPASUnifiedCLI',
                          processor: 'MPAS2DProcessor',
@@ -1496,8 +1512,7 @@ class MPASUnifiedCLI:
         plotter.save_plot(output_path, formats=config.output_formats or ['png'])
         plotter.close_plot()
 
-        if self.logger:
-            self.logger.info(f"Wind plot saved: {output_path}")
+        print(f"Wind plot saved: {output_path}")
 
     def _run_wind_analysis(self: 'MPASUnifiedCLI', 
                            config: 'MPASConfig') -> bool:
@@ -1641,8 +1656,7 @@ class MPASUnifiedCLI:
         plotter.save_plot(output_path, formats=config.output_formats or ['png'])
         plotter.close_plot()
         
-        if self.logger:
-            self.logger.info(f"Cross-section plot saved: {output_path}")
+        print(f"Cross-section plot saved: {output_path}")
     
     def _log_created_files(self: 'MPASUnifiedCLI', 
                            created_files: Optional[List[str]], 
@@ -1657,8 +1671,8 @@ class MPASUnifiedCLI:
         Returns:
             None
         """
-        if self.logger and created_files:
-            self.logger.info(f"Created {len(created_files)} {file_type}")
+        if created_files:
+            print(f"Created {len(created_files)} {file_type}")
     
     def _run_cross_analysis(self: 'MPASUnifiedCLI', 
                             config: 'MPASConfig') -> bool:
@@ -1931,8 +1945,7 @@ class MPASUnifiedCLI:
                 if self.logger:
                     self.logger.info("Creating temperature + pressure overlay")
             
-            if self.logger:
-                self.logger.info("Overlay analysis completed (placeholder implementation)")
+            print("Overlay analysis completed (placeholder implementation)")
         
         return True
     

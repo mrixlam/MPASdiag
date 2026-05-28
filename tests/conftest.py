@@ -354,12 +354,12 @@ def temp_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
-def mock_mpas_mesh(grid_file) -> xr.Dataset:
+def mock_mpas_mesh(grid_file: Optional[str]) -> xr.Dataset:
     """
     This fixture loads the actual MPAS grid file when available, providing real mesh geometry and topology. If the grid file is not available, it generates a minimal synthetic dataset with the same structure for CI/CD environments without data files.
 
     Parameters:
-        grid_file: Session-scoped fixture providing path to MPAS grid file.
+        grid_file (Optional[str]): Session-scoped fixture providing path to MPAS grid file.
 
     Returns:
         xr.Dataset: An xarray Dataset containing MPAS mesh variables like `latCell`, `lonCell`, `cellsOnCell`, and `areaCell`.
@@ -476,13 +476,13 @@ def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset,
 
 @pytest.fixture
 def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset, 
-                      mpas_3d_processor) -> xr.Dataset:
+                      mpas_3d_processor: Optional[object]) -> xr.Dataset:
     """
     This fixture provides real MPAS 3D data from mpasout files when available, which includes theta, pressure, w, and other 3D fields. Since uReconstructZonal and uReconstructMeridional were removed from mpasout files to save space, synthetic wind components are added for tests that require them. For actual wind testing, use mock_mpas_2d_data which has real u10/v10 from diag files.
 
     Parameters:
         mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture.
-        mpas_3d_processor: Session-scoped processor with loaded 3D mpasout data.
+        mpas_3d_processor (Optional[object]): Session-scoped processor with loaded 3D mpasout data.
 
     Returns:
         xr.Dataset: An xarray Dataset with `Time` and vertical levels containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
@@ -495,13 +495,13 @@ def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset,
 
 @pytest.fixture
 def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset, 
-                      mpas_2d_processor_diag) -> xr.Dataset:
+                      mpas_2d_processor_diag: Optional[object]) -> xr.Dataset:
     """
     This fixture provides real MPAS 2D diagnostic data from diag files when available, which includes surface variables like t2m, rainnc, u10, v10. Falls back to synthetic data only when real data is unavailable. Uses diag files (not mpasout) for optimal 2D diagnostic coverage.
 
     Parameters:
         mock_mpas_mesh (xr.Dataset): The mesh dataset from `mock_mpas_mesh` fixture.
-        mpas_2d_processor_diag: Session-scoped processor with loaded 2D diag data.
+        mpas_2d_processor_diag (Optional[object]): Session-scoped processor with loaded 2D diag data.
 
     Returns:
         xr.Dataset: An xarray Dataset containing 2D diagnostic variables with a `Time` dimension from diag files.
@@ -681,7 +681,18 @@ def mock_cli_args() -> Any:
         Any: An object with attributes matching expected CLI options (e.g. `invariant_file`, `data_dir`, `variable`, `time_index`).
     """
     class Args:
-        def __init__(self):
+        """ A simple class to hold CLI argument attributes for testing purposes. """
+
+        def __init__(self: 'Args') -> None:
+            """
+            The constructor initializes attributes with default values that are commonly used in CLI entry points. Tests can modify these attributes as needed to simulate different command-line scenarios without needing to construct complex argument parsing logic.
+
+            Parameters:
+                None
+
+            Returns:
+                None
+            """
             self.invariant_file = _GRID_FILE
             self.data_dir = 'data/u240k/mpasout'
             self.output_dir = 'output/test'

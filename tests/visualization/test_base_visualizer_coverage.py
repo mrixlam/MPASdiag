@@ -15,6 +15,7 @@ import numpy as np
 import pytest
 import xarray as xr
 import matplotlib
+from typing import Any
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -205,7 +206,18 @@ class TestCreateHistogram:
                    wraps=isinstance) as mock_isinstance:
             original_isinstance = isinstance
 
-            def patched_isinstance(obj, cls):
+            def patched_isinstance(obj: Any, 
+                                   cls: Any) -> bool:
+                """
+                This patched isinstance function is designed to simulate a scenario where the bins object is an instance of np.ndarray but has a tolist method that raises an exception. It checks if the object being checked is the bad_bins mock and if the class being checked against is np.ndarray. If both conditions are true, it returns True to indicate that bad_bins is considered an instance of np.ndarray. For all other cases, it delegates to the original isinstance function to maintain normal behavior for other objects and classes.
+
+                Parameters:
+                    obj (Any): The object being checked for instance type.
+                    cls (Any): The class or tuple of classes to check against.
+
+                Returns:
+                    bool: True if obj is an instance of cls, False otherwise.
+                """
                 if cls is np.ndarray and obj is bad_bins:
                     return True
                 return original_isinstance(obj, cls)

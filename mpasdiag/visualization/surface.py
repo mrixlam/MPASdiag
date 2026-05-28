@@ -1392,7 +1392,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 )
 
                 # Construct the output file path using the specified output directory, file prefix, variable name, plot type, and time string
-                output_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_{plot_type}_{time_str}")
+                output_path = os.path.join(output_dir, f"{file_prefix}_{var_name}_{plot_type}_valid_{time_str}")
 
                 # Save the created plot in the requested formats and append the paths of the created files to the list for tracking
                 self.save_plot(output_path, formats=formats)

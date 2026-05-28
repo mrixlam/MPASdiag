@@ -615,10 +615,10 @@ class SoundingDiagnostics:
         This function computes the height of the wet bulb zero isotherm (the level where the wet bulb temperature reaches 0°C) using MetPy's wet bulb temperature calculation. It takes pressure, temperature, and dewpoint profiles with MetPy units, along with the corresponding height profile in meters. The function calculates the wet bulb temperature at each level, converts it to degrees Celsius, and then finds the first crossing of the 0°C isotherm. If a crossing is found, it performs a linear interpolation between the two levels that bracket the crossing to estimate the height of the wet bulb zero. If any step of the process fails (e.g., due to insufficient profile levels or invalid values), it returns None. This provides an important diagnostic for understanding freezing level conditions in the sounding profile. 
 
         Parameters:
-            p: Pressure profile with MetPy units.
-            T: Temperature profile with MetPy units.
-            Td: Dewpoint profile with MetPy units.
-            height_m: Height profile in meters (AGL).
+            pressure_metpy (Any): Pressure profile with MetPy units (e.g., hPa).
+            temperature_metpy (Any): Temperature profile with MetPy units (e.g., °C).
+            dewpoint_metpy (Any): Dewpoint profile with MetPy units (e.g., °C).
+            height_m (np.ndarray): Height profile in meters corresponding to the pressure levels.
 
         Returns:
             Optional[float]: Height of the wet bulb zero isotherm in meters, or None if computation failed.

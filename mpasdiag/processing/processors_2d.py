@@ -29,7 +29,8 @@ logger = get_logger(__name__)
 class MPAS2DProcessor(MPASBaseProcessor):
     """ Processor class for handling 2D surface and diagnostic variables from MPAS model output. """
     
-    def __init__(self: 'MPAS2DProcessor', grid_file: str, 
+    def __init__(self: 'MPAS2DProcessor', 
+                 grid_file: str, 
                  verbose: bool = True) -> None:
         """
         This constructor initializes the MPAS2DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the necessary attributes for processing 2D diagnostic data, ensuring that the processor is ready to load datasets, extract spatial coordinates, and prepare data for visualization. By inheriting from MPASBaseProcessor, it leverages common functionality while allowing for specific implementations tailored to 2D surface data processing workflows. 
