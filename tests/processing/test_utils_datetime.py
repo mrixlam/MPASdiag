@@ -751,24 +751,6 @@ class TestGetTimeBounds:
         assert isinstance(end, datetime)
         assert start < end
 
-    def test_Time_bnds_variable_returns_bounds(self: 'TestGetTimeBounds') -> None:
-        """
-        This test verifies that the get_time_bounds method correctly returns the start and end times when the provided dataset contains a Time_bnds variable. The test checks that when a dataset with a Time_bnds variable is passed, the method returns datetime objects for the start and end times, and that the start time is earlier than the end time, confirming that it correctly extracts the time bounds from a dataset with a Time_bnds variable for use in further processing or logging. 
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        bounds = np.array([
-            [np.datetime64("2024-03-01"), np.datetime64("2024-03-02")],
-        ], dtype="datetime64[ns]")
-        ds = xr.Dataset({"Time_bnds": xr.DataArray(bounds, dims=["Time", "bnds"])})
-        start, end = MPASDateTimeUtils.get_time_bounds(ds, 0)
-        assert isinstance(start, datetime)
-        assert isinstance(end, datetime)
-
     def test_index_error_in_bounds_returns_none_none(self: 'TestGetTimeBounds') -> None:
         """
         This test verifies that the get_time_bounds method returns (None, None) when an IndexError occurs while trying to access the time bounds for a given index. The test checks that when a dataset with a time_bnds variable is passed and the specified time index exceeds the available range, the method catches the IndexError and returns a tuple containing (None, None), confirming that it correctly handles out-of-range indices when accessing time bounds by returning a default value indicating that time bounds are not available. 

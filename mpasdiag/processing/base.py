@@ -482,7 +482,7 @@ class MPASBaseProcessor:
                 try:
                     return self._load_single_file_fallback(reference_file, data_files)
                 except Exception as e3:
-                    logger.error("All loading strategies failed: %s", e3)
+                    logger.exception("All loading strategies failed: %s", e3)
                     sys.exit(1)
 
     def _print_loading_success(self: 'MPASBaseProcessor', 

@@ -20,6 +20,8 @@ from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_WIND_COMPONENT_RANGE_MSG = "Wind component %s range: %.2f to %.2f m/s"
+
 
 class WindDiagnostics:
     """ Computes diagnostics related to wind fields in MPAS model output, including wind speed, direction, shear, and component analysis. """
@@ -651,9 +653,9 @@ class WindDiagnostics:
         wind_min, wind_max = float(wind_speed.min()), float(wind_speed.max())
         
         # Log the ranges of the U, V, and W components along with the horizontal wind speed range
-        logger.debug("Wind component %s range: %.2f to %.2f m/s", u_variable, u_min, u_max)
-        logger.debug("Wind component %s range: %.2f to %.2f m/s", v_variable, v_min, v_max)
-        logger.debug("Wind component %s range: %.2f to %.2f m/s", w_variable, w_min, w_max)
+        logger.debug(_WIND_COMPONENT_RANGE_MSG, u_variable, u_min, u_max)
+        logger.debug(_WIND_COMPONENT_RANGE_MSG, v_variable, v_min, v_max)
+        logger.debug(_WIND_COMPONENT_RANGE_MSG, w_variable, w_min, w_max)
         logger.debug("Horizontal wind speed range: %.2f to %.2f m/s", wind_min, wind_max)
 
         # Log the units of the U component for reference
@@ -883,12 +885,12 @@ class WindDiagnostics:
             if self.verbose:
                 # Log the range of the U component for diagnostics
                 logger.debug(
-                    "Wind component %s range: %.2f to %.2f m/s", u_variable, u_min, u_max,
+                    _WIND_COMPONENT_RANGE_MSG, u_variable, u_min, u_max,
                 )
 
                 # Log the range of the V component for diagnostics
                 logger.debug(
-                    "Wind component %s range: %.2f to %.2f m/s", v_variable, v_min, v_max,
+                    _WIND_COMPONENT_RANGE_MSG, v_variable, v_min, v_max,
                 )
 
                 # Log the range of the horizontal wind speed for diagnostics

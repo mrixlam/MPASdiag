@@ -685,7 +685,7 @@ class MPASParallelManager:
                         raise
                 
                 if self.verbose:
-                    logger.error(
+                    logger.exception(
                         "[Rank %d] Error processing task %d: %s",
                         self.rank, task_id, str(e),
                     )

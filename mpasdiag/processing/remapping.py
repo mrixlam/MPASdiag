@@ -663,7 +663,7 @@ class MPASRemapper:
             try:
                 remapped_vars[var_name] = self.remap(dataset[var_name])
             except Exception as e:
-                logger.error("Error remapping %s: %s", var_name, e)
+                logger.exception("Error remapping %s: %s", var_name, e)
                 if not skip_missing:
                     raise
 

@@ -1612,7 +1612,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 )
                 created_files.extend(step_files)
             except Exception as e:
-                logger.error(
+                logger.exception(
                     "Error creating cross-section for time index %d: %s", time_idx, e,
                 )
 

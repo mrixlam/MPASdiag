@@ -465,7 +465,7 @@ class PrecipitationDiagnostics:
         # Catch any exceptions that occur during the handling of the first time step 
         except Exception as e:
             if self.verbose:
-                logger.error("Error handling first time step: %s", e)
+                logger.exception("Error handling first time step: %s", e)
             raise ValueError(f"Cannot handle time index {time_index} for variable {var_name}: {e}")
     
     def _apply_precipitation_filters_and_attributes(self: 'PrecipitationDiagnostics', 

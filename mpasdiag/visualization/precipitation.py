@@ -1385,7 +1385,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     )
 
             except Exception as e:
-                logger.error("Error creating map for time index %d: %s", time_idx, e)
+                logger.exception("Error creating map for time index %d: %s", time_idx, e)
                 continue
 
         logger.info(

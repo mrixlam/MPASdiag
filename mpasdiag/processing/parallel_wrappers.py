@@ -57,6 +57,12 @@ from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_DATETIME_HOUR_FORMAT = '%Y%m%dT%H'
+_FAILED_TIME_INDEX_MSG = "Failed time index %s: %s"
+_COORD_CACHE_MSG = "Coordinates cached for variable: %s"
+_COORD_PRELOAD_MSG = "Could not pre-load coordinates into cache: %s"
+_OUTDIR_MSG = "Output directory: %s"
+
 _rank_processor_cache: Dict[str, Any] = {}
 
 
@@ -169,7 +175,7 @@ def _get_time_str(dataset: xr.Dataset,
     """
     if hasattr(dataset, 'Time') and len(dataset.Time) > time_idx:
         time_end = pd.Timestamp(dataset.Time.values[time_idx])
-        return time_end.strftime('%Y%m%dT%H'), time_end
+        return time_end.strftime(_DATETIME_HOUR_FORMAT), time_end
     return f"t{time_idx:03d}", None
 
 
@@ -394,7 +400,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     save_start = time.time()
     
-    time_str = pd.Timestamp(processor.dataset['Time'].values[time_idx]).strftime('%Y%m%dT%H')
+    time_str = pd.Timestamp(processor.dataset['Time'].values[time_idx]).strftime(_DATETIME_HOUR_FORMAT)
     safe_time_str = time_str
 
     output_path = os.path.join(
@@ -489,7 +495,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
     if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
         time_end = pd.Timestamp(processor.dataset.Time.values[time_idx]).to_pydatetime()
-        time_str = time_end.strftime('%Y%m%dT%H')
+        time_str = time_end.strftime(_DATETIME_HOUR_FORMAT)
     else:
         time_str = f"t{time_idx:03d}"
     
@@ -664,7 +670,7 @@ def _process_parallel_results(results: List[Any],
             if 'error' in result.result:
                 failed += 1
                 logger.error(
-                    "Failed time index %s: %s",
+                    _FAILED_TIME_INDEX_MSG,
                     time_indices[result.task_id], result.result['error'],
                 )
                 continue
@@ -677,7 +683,7 @@ def _process_parallel_results(results: List[Any],
         else:
             failed += 1
             logger.error(
-                "Failed time index %s: %s",
+                _FAILED_TIME_INDEX_MSG,
                 time_indices[result.task_id], result.error,
             )
 
@@ -896,9 +902,9 @@ class ParallelPrecipitationProcessor:
             logger.info(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                logger.debug("Coordinates cached for variable: %s", var_name)
+                logger.debug(_COORD_CACHE_MSG, var_name)
             except Exception as e:
-                logger.warning("Could not pre-load coordinates into cache: %s", e)
+                logger.warning(_COORD_PRELOAD_MSG, e)
                 logger.warning(COORDS_FALLBACK_MSG)
 
             worker_kwargs = {
@@ -940,7 +946,7 @@ class ParallelPrecipitationProcessor:
             logger.info(
                 "Using accumulation period: %s (%d hours)", accum_period, accum_hours,
             )
-            logger.info("Output directory: %s", output_dir)
+            logger.info(_OUTDIR_MSG, output_dir)
         
         tasks = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
@@ -1056,9 +1062,9 @@ class ParallelSurfaceProcessor:
             logger.info(PRELOAD_COORDS_MSG)
             try:
                 cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                logger.debug("Coordinates cached for variable: %s", var_name)
+                logger.debug(_COORD_CACHE_MSG, var_name)
             except Exception as e:
-                logger.warning("Could not pre-load coordinates into cache: %s", e)
+                logger.warning(_COORD_PRELOAD_MSG, e)
                 logger.warning(COORDS_FALLBACK_MSG)
 
             worker_kwargs = {
@@ -1090,7 +1096,7 @@ class ParallelSurfaceProcessor:
                 len(time_indices),
             )
             logger.info("Variable: %s, Plot type: %s", var_name, plot_type)
-            logger.info("Output directory: %s", output_dir)
+            logger.info(_OUTDIR_MSG, output_dir)
         
         results = manager.parallel_map(_surface_worker, worker_args)
         
@@ -1181,9 +1187,9 @@ class ParallelWindProcessor:
 
         try:
             cache.load_coordinates_from_dataset(processor.dataset, u_variable)
-            logger.debug("Coordinates cached for variable: %s", u_variable)
+            logger.debug(_COORD_CACHE_MSG, u_variable)
         except Exception as e:
-            logger.warning("Could not pre-load coordinates into cache: %s", e)
+            logger.warning(_COORD_PRELOAD_MSG, e)
             logger.warning(COORDS_FALLBACK_MSG)
         return {**shared_kwargs, 'processor': processor, 'cache': cache}
 
@@ -1278,7 +1284,7 @@ class ParallelWindProcessor:
                     "Grid resolution: %s° (regrid method: %s)",
                     grid_resolution, regrid_method,
                 )
-            logger.info("Output directory: %s", output_dir)
+            logger.info(_OUTDIR_MSG, output_dir)
         
         results = manager.parallel_map(_wind_worker, worker_args)
         
@@ -1323,7 +1329,7 @@ class ParallelCrossSectionProcessor:
                 if isinstance(result.result, dict) and 'error' in result.result:
                     failed += 1
                     logger.error(
-                        "Failed time index %s: %s",
+                        _FAILED_TIME_INDEX_MSG,
                         time_indices[result.task_id], result.result['error'],
                     )
                     continue
@@ -1332,7 +1338,7 @@ class ParallelCrossSectionProcessor:
             else:
                 failed += 1
                 logger.error(
-                    "Failed time index %s: %s",
+                    _FAILED_TIME_INDEX_MSG,
                     time_indices[result.task_id], result.error,
                 )
 
@@ -1462,7 +1468,7 @@ class ParallelCrossSectionProcessor:
             logger.info("Vertical coordinate: %s", vertical_coord)
             if max_height:
                 logger.info("Maximum height: %s km", max_height)
-            logger.info("Output directory: %s", output_dir)
+            logger.info(_OUTDIR_MSG, output_dir)
         
         results = manager.parallel_map(_cross_section_worker, worker_args)
         

@@ -209,7 +209,7 @@ class FileManager:
             return MPASConfig.load_from_file(config_file)
 
         except Exception as e:
-            logger.error("Error loading configuration file: %s", e)
+            logger.exception("Error loading configuration file: %s", e)
             logger.warning("Using default configuration")
             return MPASConfig()
     

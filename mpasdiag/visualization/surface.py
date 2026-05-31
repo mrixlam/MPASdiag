@@ -1411,7 +1411,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                     )
 
             except Exception as e:
-                logger.error("Error creating surface map for time index %d: %s", time_idx, e)
+                logger.exception("Error creating surface map for time index %d: %s", time_idx, e)
                 continue
 
         logger.info("Batch processing completed. Created %d files.", len(created_files))
