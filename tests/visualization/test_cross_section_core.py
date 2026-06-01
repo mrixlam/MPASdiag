@@ -34,6 +34,9 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
+_RNG = np.random.default_rng()
+
+
 def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
     """
     This helper function searches through the variables in the processor's dataset to find a variable that has a vertical dimension (either 'nVertLevels' or 'nVertLevelsP1'). It returns the name of the first variable that meets this criterion, which can be used for testing purposes when a specific 3D variable is needed. If no such variable is found, it returns None. This function is useful for dynamically identifying a suitable 3D variable in the dataset for testing the vertical cross-section plotting functionality.
@@ -531,7 +534,7 @@ class TestVerticalCoordinateEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array(['invalid', 'data', 'type']),  
-                'data_values': np.random.rand(3, 50),
+                'data_values': _RNG.random((3, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),
@@ -570,7 +573,7 @@ class TestVerticalCoordinateEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array([-100, 0, -50, -200]),  
-                'data_values': np.random.rand(4, 50),
+                'data_values': _RNG.random((4, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),
@@ -608,7 +611,7 @@ class TestVerticalCoordinateEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array([100000, 85000, 70000, 50000]),
-                'data_values': np.random.rand(4, 50),
+                'data_values': _RNG.random((4, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),
@@ -645,7 +648,7 @@ class TestVerticalCoordinateEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array([15, 20, 25, 30]), 
-                'data_values': np.random.rand(4, 50),
+                'data_values': _RNG.random((4, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),

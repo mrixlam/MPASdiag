@@ -27,6 +27,9 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 
 
+_RNG = np.random.default_rng()
+
+
 def make_getitem(mapping: dict, 
                  default: Any = None) -> Any:
     """
@@ -448,7 +451,7 @@ class TestGet3DVariableData:
         mock_var.attrs = {'units': 'K'}
         
         mock_data = MagicMock()
-        mock_data.values = np.random.randn(40962) + 300
+        mock_data.values = _RNG.standard_normal(40962) + 300
         mock_data.attrs = {'units': 'K'}
         mock_data.ndim = 1
         mock_data.compute.return_value = mock_data
@@ -543,7 +546,7 @@ class TestGet3DVariableData:
         mock_theta.sizes = {'nCells': 40962, 'nVertLevels': 55, 'Time': 10}
         mock_theta.dims = ('Time', 'nCells', 'nVertLevels')
         
-        theta_data = np.random.randn(40962, 55)
+        theta_data = _RNG.standard_normal((40962, 55))
         theta_isel_result = MagicMock()
         theta_isel_result.values = theta_data
         theta_isel_result.attrs = {'units': 'K'}

@@ -449,11 +449,11 @@ def main() -> None:
             })
 
         benchmarks = [
-            ('precipitation', lambda p2d=processor_2d: run_benchmark_precipitation(p2d, exp_out, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('surface',       lambda p2d=processor_2d: run_benchmark_surface(p2d, exp_out, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('wind',          lambda p2d=processor_2d: run_benchmark_wind(p2d, exp_out, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('cross_section', lambda p3d=processor_3d: run_benchmark_cross_section(p3d, exp_out, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('skewt',         lambda p3d=processor_3d: run_benchmark_skewt(p3d, exp_out) if RANK == 0 else (0.0, 0)),
+            ('precipitation', lambda p2d=processor_2d, eo=exp_out: run_benchmark_precipitation(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
+            ('surface',       lambda p2d=processor_2d, eo=exp_out: run_benchmark_surface(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
+            ('wind',          lambda p2d=processor_2d, eo=exp_out: run_benchmark_wind(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
+            ('cross_section', lambda p3d=processor_3d, eo=exp_out: run_benchmark_cross_section(p3d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
+            ('skewt',         lambda p3d=processor_3d, eo=exp_out: run_benchmark_skewt(p3d, eo) if RANK == 0 else (0.0, 0)),
         ]
 
         for plotter_name, bench_fn in benchmarks:

@@ -28,6 +28,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from mpasdiag.diagnostics.wind import WindDiagnostics
 
 
+_RNG = np.random.default_rng()
+
+
 class TestWindDiagnostics:
     """ Test wind diagnostic computations using actual API. """
     
@@ -105,19 +108,19 @@ class TestAnalyzeWindComponents:
             tuple: A tuple containing the `u`, `v`, and `w` DataArrays with sample wind components for analysis.
         """
         u = xr.DataArray(
-            np.random.randn(100) * 5,
+            _RNG.standard_normal(100) * 5,
             dims=['nCells'],
             attrs={'units': 'm s^{-1}'}
         )
 
         v = xr.DataArray(
-            np.random.randn(100) * 5,
+            _RNG.standard_normal(100) * 5,
             dims=['nCells'],
             attrs={'units': 'm s^{-1}'}
         )
 
         w = xr.DataArray(
-            np.random.randn(100) * 0.5,
+            _RNG.standard_normal(100) * 0.5,
             dims=['nCells'],
             attrs={'units': 'm s^{-1}'}
         )
@@ -323,11 +326,11 @@ class TestGet3DWindComponents:
         nVertLevels = 10
         nTime = 5
         
-        u_data = np.random.randn(nTime, nVertLevels, nCells) * 10
-        v_data = np.random.randn(nTime, nVertLevels, nCells) * 10
-        w_data = np.random.randn(nTime, nVertLevels, nCells) * 0.5
+        u_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
+        v_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
+        w_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 0.5
         
-        pressure_p = np.random.rand(nTime, nVertLevels, nCells) * 10000 + 50000
+        pressure_p = _RNG.random((nTime, nVertLevels, nCells)) * 10000 + 50000
         pressure_base = np.ones((nTime, nVertLevels, nCells)) * 50000
         
         ds = xr.Dataset({
@@ -563,8 +566,8 @@ class TestGet2DWindComponents:
         nCells = 100
         nTime = 10
         
-        u_data = np.random.randn(nTime, nCells) * 5
-        v_data = np.random.randn(nTime, nCells) * 5
+        u_data = _RNG.standard_normal((nTime, nCells)) * 5
+        v_data = _RNG.standard_normal((nTime, nCells)) * 5
         
         ds = xr.Dataset({
             'u10': (['Time', 'nCells'], u_data, {'units': 'm s^{-1}'}),
@@ -587,9 +590,9 @@ class TestGet2DWindComponents:
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
         ds = xr.Dataset({
-            'u10': (['Time', 'nCells'], np.random.randn(10, 100), 
+            'u10': (['Time', 'nCells'], _RNG.standard_normal((10, 100)), 
                    {'units': 'm s^{-1}'}),
-            'v10': (['Time', 'nCells'], np.random.randn(10, 100), 
+            'v10': (['Time', 'nCells'], _RNG.standard_normal((10, 100)), 
                    {'units': 'km h^{-1}'}), 
         })
         
@@ -626,7 +629,7 @@ class TestEdgeCasesAndErrorPaths:
         nTime = 2
         
         dataset = xr.Dataset({
-            'u': (['Time', 'nVertLevels', 'nCells'], np.random.randn(nTime, nVertLevels, nCells)),
+            'u': (['Time', 'nVertLevels', 'nCells'], _RNG.standard_normal((nTime, nVertLevels, nCells))),
             'xtime': (['Time'], [b'2023-01-01_00:00:00', b'2023-01-01_01:00:00'])
         })
         

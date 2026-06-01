@@ -36,6 +36,9 @@ from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+_RNG = np.random.default_rng()
+
+
 class TestUnitConversion:
     """ Tests for unit conversion and metadata handling. """
     
@@ -158,7 +161,7 @@ class TestPlotExtent:
         """
         lon = np.linspace(-180, 180, 200)
         lat = np.linspace(-90, 90, 200)
-        precip = np.random.rand(200) * 20
+        precip = _RNG.random(200) * 20
         
         fig, ax = self.plotter.create_precipitation_map(
             lon, lat, precip,
@@ -180,7 +183,7 @@ class TestPlotExtent:
         """
         lon = np.linspace(-100, -90, 50)
         lat = np.linspace(30, 40, 50)
-        precip = np.random.rand(50) * 20
+        precip = _RNG.random(50) * 20
         
         fig, ax = self.plotter.create_precipitation_map(
             lon, lat, precip,
@@ -331,7 +334,7 @@ class TestBatchProcessing:
         times = pd.date_range('2025-01-01', periods=5, freq='h')
         
         ds = xr.Dataset({
-            'rainnc': (['Time', 'nCells'], np.random.rand(5, 50) * 20),
+            'rainnc': (['Time', 'nCells'], _RNG.random((5, 50)) * 20),
             'lonCell': ('nCells', np.linspace(-100, -90, 50)),
             'latCell': ('nCells', np.linspace(30, 40, 50))
         }, coords={'Time': times})
@@ -655,7 +658,7 @@ class TestPrepareOverlayData:
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
-        data = np.random.uniform(-5, 10, 50)
+        data = _RNG.uniform(-5, 10, 50)
 
         captured = StringIO()
         with patch('sys.stdout', captured):
@@ -678,7 +681,7 @@ class TestPrepareOverlayData:
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
-        data = np.random.uniform(0, 5, 50)
+        data = _RNG.uniform(0, 5, 50)
 
         captured = StringIO()
         with patch('sys.stdout', captured):
@@ -699,7 +702,7 @@ class TestPrepareOverlayData:
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
-        data = np.random.uniform(1500, 2000, 50)
+        data = _RNG.uniform(1500, 2000, 50)
 
         captured = StringIO()
 
@@ -721,7 +724,7 @@ class TestPrepareOverlayData:
         """
         lon = np.linspace(-110, -100, 50)
         lat = np.linspace(35, 45, 50)
-        data = np.random.uniform(0, 5, 50)
+        data = _RNG.uniform(0, 5, 50)
 
         result_scatter = self.plotter._prepare_overlay_data(lon, lat, data, 'test', None, 'scatter')
         result_contour = self.plotter._prepare_overlay_data(lon, lat, data, 'test', None, 'contourf')
@@ -774,7 +777,7 @@ class TestContourPlotCreation:
         n = 100
         lon = np.linspace(-110, -100, n)
         lat = np.linspace(35, 45, n)
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
         levels = [0.1, 1, 2, 5, 10]
         cmap = matplotlib.colormaps["Blues"]
         norm = mcolors.BoundaryNorm(levels, cmap.N)
@@ -783,7 +786,7 @@ class TestContourPlotCreation:
         with patch.object(self.plotter, '_interpolate_to_grid', return_value=(
             np.linspace(-110, -100, 10),
             np.linspace(35, 45, 10),
-            np.random.uniform(0, 10, (10, 10))
+            _RNG.uniform(0, 10, (10, 10))
         )):
             self.plotter._create_contourf_plot(
                 lon, lat, data, -110, -100, 35, 45,
@@ -834,7 +837,7 @@ class TestAddPrecipitationOverlay:
             None
         """
         config = {
-            'data': np.random.uniform(0, 5, 100),
+            'data': _RNG.uniform(0, 5, 100),
             'plot_type': 'scatter',
             'accum_period': 'a01h',
             'var_name': 'precip',
@@ -884,7 +887,7 @@ class TestAddPrecipitationOverlay:
             None
         """
         config = {
-            'data': np.random.uniform(0, 5, 100),
+            'data': _RNG.uniform(0, 5, 100),
             'plot_type': 'contourf',
             'accum_period': 'a01h',
             'var_name': 'precip',
@@ -894,7 +897,7 @@ class TestAddPrecipitationOverlay:
         mock_remapped = MagicMock()
         mock_remapped.lon.values = np.linspace(-110, -100, 10)
         mock_remapped.lat.values = np.linspace(35, 45, 10)
-        mock_remapped.values = np.random.uniform(0, 5, (10, 10))
+        mock_remapped.values = _RNG.uniform(0, 5, (10, 10))
 
         captured = StringIO()
 
@@ -918,7 +921,7 @@ class TestAddPrecipitationOverlay:
             None
         """
         config = {
-            'data': np.random.uniform(0, 5, 100),
+            'data': _RNG.uniform(0, 5, 100),
             'plot_type': 'scatter',
             'var_name': 'precip',
         }
@@ -957,9 +960,9 @@ class TestPrecipitationOverlayEdgeCases:
         Returns:
             None
         """
-        lon = np.random.uniform(-110, -100, 50)
-        lat = np.random.uniform(30, 40, 50)
-        data = np.random.uniform(-5, 5, 50)
+        lon = _RNG.uniform(-110, -100, 50)
+        lat = _RNG.uniform(30, 40, 50)
+        data = _RNG.uniform(-5, 5, 50)
 
         result = self.plotter._prepare_overlay_data(
             lon, lat, data, 'rainnc', None, 'scatter'
@@ -982,9 +985,9 @@ class TestPrecipitationOverlayEdgeCases:
         Returns:
             None
         """
-        lon = np.random.uniform(-110, -100, 50)
-        lat = np.random.uniform(30, 40, 50)
-        data = np.random.uniform(0, 5, 50)
+        lon = _RNG.uniform(-110, -100, 50)
+        lat = _RNG.uniform(30, 40, 50)
+        data = _RNG.uniform(0, 5, 50)
 
         result = self.plotter._prepare_overlay_data(
             lon, lat, data, 'rainnc', 'kg m-2', 'scatter'
@@ -1004,9 +1007,9 @@ class TestPrecipitationOverlayEdgeCases:
         Returns:
             None
         """
-        lon = xr.DataArray(np.random.uniform(-110, -100, 50))
-        lat = xr.DataArray(np.random.uniform(30, 40, 50))
-        data = np.random.uniform(0, 5, 50)
+        lon = xr.DataArray(_RNG.uniform(-110, -100, 50))
+        lat = xr.DataArray(_RNG.uniform(30, 40, 50))
+        data = _RNG.uniform(0, 5, 50)
 
         result = self.plotter._prepare_overlay_data(
             lon, lat, data, 'rainnc', None, 'scatter'

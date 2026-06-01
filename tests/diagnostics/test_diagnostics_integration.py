@@ -25,6 +25,9 @@ from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+_RNG = np.random.default_rng()
+
+
 class TestDiagnosticsIntegration:
     """ Integration tests for diagnostics modules. """
     
@@ -76,7 +79,7 @@ class TestIntegrationWithRealData:
         nCells = 100
         nTime = 24
         
-        hourly_rates = np.random.exponential(2.0, (nTime, nCells))
+        hourly_rates = _RNG.exponential(2.0, (nTime, nCells))
         rainnc_data = np.cumsum(hourly_rates, axis=0)
         
         ds = xr.Dataset({
@@ -107,9 +110,9 @@ class TestIntegrationWithRealData:
         nCells = 50
         nTime = 25
         
-        hourly_rates = np.random.rand(nTime, nCells) * 5
+        hourly_rates = _RNG.random((nTime, nCells)) * 5
         rainnc_data = np.cumsum(hourly_rates, axis=0)
-        rainc_data = np.cumsum(np.random.rand(nTime, nCells) * 2, axis=0)
+        rainc_data = np.cumsum(_RNG.random((nTime, nCells)) * 2, axis=0)
         
         ds = xr.Dataset({
             'rainnc': (['Time', 'nCells'], rainnc_data),
@@ -144,8 +147,8 @@ class TestIntegrationWithRealData:
         nCells = 200
         nTime = 24
         
-        u10_data = np.random.randn(nTime, nCells) * 5 + 2  
-        v10_data = np.random.randn(nTime, nCells) * 5 + 1 
+        u10_data = _RNG.standard_normal((nTime, nCells)) * 5 + 2  
+        v10_data = _RNG.standard_normal((nTime, nCells)) * 5 + 1 
         
         ds = xr.Dataset({
             'u10': (['Time', 'nCells'], u10_data, {'units': 'm s^{-1}'}),
@@ -183,9 +186,9 @@ class TestIntegrationWithRealData:
         nVertLevels = 20
         nTime = 10
         
-        u_data = np.random.randn(nTime, nVertLevels, nCells) * 10
-        v_data = np.random.randn(nTime, nVertLevels, nCells) * 10
-        w_data = np.random.randn(nTime, nVertLevels, nCells) * 0.5
+        u_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
+        v_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
+        w_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 0.5
         
         ds = xr.Dataset({
             'uReconstructZonal': (['Time', 'nVertLevels', 'nCells'], u_data),

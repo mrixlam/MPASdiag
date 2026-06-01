@@ -34,6 +34,9 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
+_RNG = np.random.default_rng()
+
+
 def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
     """
     This helper function searches through the dataset in the provided MPAS3DProcessor to find a variable that has a vertical dimension (either 'nVertLevels' or 'nVertLevelsP1'). It returns the name of the first variable it finds that meets this criterion, or None if no such variable is found. This function is useful for identifying a suitable variable to use in tests that require 3D data with vertical levels.
@@ -90,7 +93,7 @@ class TestAdditionalEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array([5, 10, 15, 20]),  
-                'data_values': np.random.rand(4, 50),
+                'data_values': _RNG.random((4, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),
@@ -126,7 +129,7 @@ class TestAdditionalEdgeCases:
             mock_gen.return_value = {
                 'distances': np.linspace(0, 100, 50),
                 'vertical_coords': np.array([1000, 850, 700, 500]),  
-                'data_values': np.random.rand(4, 50),
+                'data_values': _RNG.random((4, 50)),
                 'path_lons': np.linspace(-100, -90, 50),
                 'path_lats': np.linspace(30, 40, 50),
                 'longitudes': np.linspace(-100, -90, 50),

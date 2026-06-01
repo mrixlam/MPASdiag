@@ -34,6 +34,9 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
+_RNG = np.random.default_rng()
+
+
 def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
     """
     This helper function searches through the data variables in the provided MPAS3DProcessor's dataset to identify a variable that has either 'nVertLevels' or 'nVertLevelsP1' as one of its dimensions. It returns the name of the first variable that meets this criterion, which is typically indicative of a 3D variable suitable for vertical cross-section plotting. If no such variable is found, it returns None.
@@ -160,7 +163,7 @@ class TestCrossSectionBatch:
         mock_proc = MagicMock(spec=MPAS3DProcessor)
 
         mock_proc.dataset = xr.Dataset({
-            'theta': (['Time', 'nVertLevels', 'nCells'], np.random.uniform(200, 350, (3, 5, 100))),
+            'theta': (['Time', 'nVertLevels', 'nCells'], _RNG.uniform(200, 350, (3, 5, 100))),
             'Time': (['Time'], pd.date_range('2025-01-01', periods=3, freq='h').values),
         })
 

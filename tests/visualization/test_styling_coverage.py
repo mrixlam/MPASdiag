@@ -25,6 +25,9 @@ from unittest.mock import MagicMock, patch
 from mpasdiag.visualization.styling import MPASVisualizationStyle
 
 
+_RNG = np.random.default_rng()
+
+
 class TestCreatePrecipColormapException:
     """ Test coverage for exception handling in create_precip_colormap, specifically when re.search raises an exception. """
 
@@ -848,7 +851,7 @@ class TestAddColorbarWithFormatter:
             None
         """
         fig, ax = plt.subplots()
-        data = np.random.rand(5, 5)
+        data = _RNG.random((5, 5))
         im = ax.imshow(data)
 
         cbar = MPASVisualizationStyle.add_colorbar(
@@ -869,7 +872,7 @@ class TestAddColorbarWithFormatter:
             None
         """
         fig, ax = plt.subplots()
-        im = ax.imshow(np.random.rand(4, 4))
+        im = ax.imshow(_RNG.random((4, 4)))
 
         cbar = MPASVisualizationStyle.add_colorbar(
             fig, ax, im, fmt=None, orientation='horizontal'

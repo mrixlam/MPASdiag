@@ -37,6 +37,9 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 
 
+_RNG = np.random.default_rng()
+
+
 class TestProcessParallelResults:
     """ Tests for the `_process_parallel_results` function that summarizes parallel task outcomes. """
     
@@ -230,7 +233,7 @@ class TestParallelPrecipitationProcessor:
 
         self.mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (n_time, n_cells)),
+                _RNG.uniform(0, 50, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             )
@@ -321,7 +324,7 @@ class TestParallelSurfaceProcessor:
 
         self.mock_dataset = xr.Dataset({
             't2m': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_cells)),
                 dims=['Time', 'nCells']
             )
         })
@@ -410,8 +413,8 @@ class TestParallelWindProcessor:
         n_time, n_cells = 5, 100
 
         self.mock_dataset = xr.Dataset({
-            'u10': xr.DataArray(np.random.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
-            'v10': xr.DataArray(np.random.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells'])
+            'u10': xr.DataArray(_RNG.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
+            'v10': xr.DataArray(_RNG.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells'])
         })
         
         self.mock_processor.dataset = self.mock_dataset
@@ -500,7 +503,7 @@ class TestParallelCrossSectionProcessor:
 
         self.mock_dataset = xr.Dataset({
             'temperature': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_levels, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_levels, n_cells)),
                 dims=['Time', 'nVertLevels', 'nCells']
             )
         })
@@ -595,7 +598,7 @@ class TestEdgeCases:
         mock_processor = Mock()
 
         mock_dataset = xr.Dataset({
-            'rainnc': xr.DataArray(np.random.uniform(0, 50, (5, 100)), dims=['Time', 'nCells'])
+            'rainnc': xr.DataArray(_RNG.uniform(0, 50, (5, 100)), dims=['Time', 'nCells'])
         })
 
         mock_processor.dataset = mock_dataset        
@@ -649,7 +652,7 @@ class TestParallelPrecipitationProcessorEdgeCases:
         n_time, n_cells = 5, 100
         self.mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (n_time, n_cells)),
+                _RNG.uniform(0, 50, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             )
@@ -820,7 +823,7 @@ class TestParallelSurfaceProcessorEdgeCases:
         n_time, n_cells = 5, 100
         self.mock_dataset = xr.Dataset({
             't2m': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
             )
         })
@@ -1037,8 +1040,8 @@ class TestParallelWindProcessorEdgeCases:
         self.mock_processor = Mock()
         n_time, n_cells = 5, 100
         self.mock_dataset = xr.Dataset({
-            'u10': xr.DataArray(np.random.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
-            'v10': xr.DataArray(np.random.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
+            'u10': xr.DataArray(_RNG.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
+            'v10': xr.DataArray(_RNG.uniform(-10, 10, (n_time, n_cells)), dims=['Time', 'nCells']),
         })
         self.mock_processor.dataset = self.mock_dataset
 
@@ -1287,7 +1290,7 @@ class TestParallelCrossSectionProcessorEdgeCases:
         n_time, n_levels, n_cells = 3, 20, 100
         self.mock_dataset = xr.Dataset({
             'temperature': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_levels, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_levels, n_cells)),
                 dims=['Time', 'nVertLevels', 'nCells'],
             )
         })

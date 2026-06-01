@@ -30,6 +30,9 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 N_CELLS = 8
 
 
+_RNG = np.random.default_rng()
+
+
 @pytest.fixture(autouse=True)
 def close_all_figures() -> Generator[None, None, None]:
     """
@@ -939,7 +942,7 @@ class TestPlot3dVariableSlice:
         """
         n_levels = 5
         da = xr.DataArray(
-            np.random.rand(N_CELLS, n_levels),
+            _RNG.random((N_CELLS, n_levels)),
             dims=['nCells', 'nVertLevels'],
         )
         lon = np.linspace(-180.0, 180.0, N_CELLS)

@@ -33,6 +33,9 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 
 
+_RNG = np.random.default_rng()
+
+
 class TestPrecipitationWorkerCacheException:
     """ Tests for handling exceptions related to cache loading in the precipitation worker. """
     
@@ -52,7 +55,7 @@ class TestPrecipitationWorkerCacheException:
         
         mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (n_time, n_cells)),
+                _RNG.uniform(0, 50, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -73,7 +76,7 @@ class TestPrecipitationWorkerCacheException:
         mock_cache.get_cache_info.return_value = {'hits': 0, 'misses': 1}
         
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, n_cells))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, n_cells))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
         
         mock_plotter = Mock()
@@ -131,7 +134,7 @@ class TestPrecipitationWorkerTimeString:
         
         mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, n_cells),
+                _RNG.uniform(0, 50, n_cells),
                 dims=['nCells']
             ),
             'lonCell': xr.DataArray(np.linspace(-120, -80, n_cells), dims=['nCells']),
@@ -147,7 +150,7 @@ class TestPrecipitationWorkerTimeString:
         )
         
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, n_cells))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, n_cells))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
         
         mock_plotter = Mock()
@@ -202,7 +205,7 @@ class TestPrecipitationWorkerCustomTitle:
         
         mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (n_time, n_cells)),
+                _RNG.uniform(0, 50, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -219,7 +222,7 @@ class TestPrecipitationWorkerCustomTitle:
         )
         
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, n_cells))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, n_cells))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
         
         mock_plotter = Mock()
@@ -279,7 +282,7 @@ class TestSurfaceWorkerCacheException:
         
         mock_dataset = xr.Dataset({
             't2m': xr.DataArray(
-                np.random.uniform(280, 300, (n_time, n_cells)),
+                _RNG.uniform(280, 300, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -350,8 +353,8 @@ class TestWindWorkerTimeString:
         n_cells = 50
         
         mock_dataset = xr.Dataset({
-            'u10': xr.DataArray(np.random.uniform(-10, 10, n_cells), dims=['nCells']),
-            'v10': xr.DataArray(np.random.uniform(-10, 10, n_cells), dims=['nCells']),
+            'u10': xr.DataArray(_RNG.uniform(-10, 10, n_cells), dims=['nCells']),
+            'v10': xr.DataArray(_RNG.uniform(-10, 10, n_cells), dims=['nCells']),
             'lonCell': xr.DataArray(np.linspace(-120, -80, n_cells), dims=['nCells']),
             'latCell': xr.DataArray(np.linspace(30, 50, n_cells), dims=['nCells'])
         })
@@ -416,12 +419,12 @@ class TestWindWorkerCacheException:
         
         mock_dataset = xr.Dataset({
             'u10': xr.DataArray(
-                np.random.uniform(-10, 10, (n_time, n_cells)),
+                _RNG.uniform(-10, 10, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
             'v10': xr.DataArray(
-                np.random.uniform(-10, 10, (n_time, n_cells)),
+                _RNG.uniform(-10, 10, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -498,7 +501,7 @@ class TestCrossSectionWorkerMultipleFormats:
         
         mock_dataset = xr.Dataset({
             'theta': xr.DataArray(
-                np.random.uniform(280, 320, (n_time, 10, 100)),
+                _RNG.uniform(280, 320, (n_time, 10, 100)),
                 dims=['Time', 'nVertLevels', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             )

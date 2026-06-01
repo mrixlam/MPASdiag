@@ -22,6 +22,9 @@ from unittest.mock import MagicMock, patch
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 
 
+_RNG = np.random.default_rng()
+
+
 @pytest.fixture
 def mock_proc(tmp_path: Path) -> MPAS2DProcessor:
     """
@@ -58,7 +61,7 @@ def loaded_proc(mock_proc: 'MPAS2DProcessor') -> 'MPAS2DProcessor':
 
     mock_proc.dataset = xr.Dataset({
         'temperature': xr.DataArray(
-            np.random.rand(5, n),
+            _RNG.random((5, n)),
             dims=['Time', 'nCells'],
             coords={'Time': times},
         ),

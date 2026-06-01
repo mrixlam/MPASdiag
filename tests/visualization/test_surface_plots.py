@@ -27,6 +27,9 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+_RNG = np.random.default_rng()
+
+
 class TestPlotTypes:
     """ Tests for different plot types and rendering options. """
     
@@ -501,7 +504,7 @@ class TestColorbarMethod:
         with patch.object(MPASSurfacePlotter, '_format_ticks_dynamic', side_effect=Exception("Format failed")):
             lon = np.linspace(-100, -90, 50)
             lat = np.linspace(30, 40, 50)
-            data = np.random.rand(50) * 300
+            data = _RNG.random(50) * 300
             
             fig, _ = self.plotter.create_surface_map(
                 lon, lat, data, 't2m',

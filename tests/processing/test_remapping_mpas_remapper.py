@@ -28,6 +28,9 @@ from mpasdiag.processing.remapping import (
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 
+_RNG = np.random.default_rng()
+
+
 class TestMPASRemapper:
     """ Test the MPASRemapper class """
     
@@ -332,7 +335,7 @@ class TestRemapMethod:
         n_test = min(200, len(mpas_test_data['lonCell']))
         lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test)).values
         lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test)).values
-        data = np.random.randn(n_test)
+        data = _RNG.standard_normal(n_test)
 
         data_array, grid_dataset = MPASRemapper.unstructured_to_structured_grid(
             data=data,
@@ -385,8 +388,8 @@ class TestRemapDataset:
         lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test)).values
         lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test)).values
         
-        temp_data = np.random.randn(n_test)
-        pressure_data = np.random.randn(n_test)
+        temp_data = _RNG.standard_normal(n_test)
+        pressure_data = _RNG.standard_normal(n_test)
         
         temp_array, grid_dataset = MPASRemapper.unstructured_to_structured_grid(
             data=temp_data,
@@ -446,7 +449,7 @@ class TestRemapDataset:
         remapper.build_regridder()
         
         dataset = xr.Dataset({
-            'temp': xr.DataArray(np.random.randn(20), dims=['x']),
+            'temp': xr.DataArray(_RNG.standard_normal(20), dims=['x']),
         })
         
         with pytest.raises(ValueError, match="Variable.*not found in dataset"):
@@ -475,7 +478,7 @@ class TestRemapDataset:
         remapper.build_regridder()
         
         dataset = xr.Dataset({
-            'temp': xr.DataArray(np.random.randn(100), dims=['x']),  
+            'temp': xr.DataArray(_RNG.standard_normal(100), dims=['x']),  
         })
         
         result = remapper.remap_dataset(dataset, skip_missing=True)
@@ -607,7 +610,7 @@ class TestRemapDatasetSkipMissingFalse:
         remapper.build_regridder()
 
         bad_dataset = xr.Dataset({
-            'bad_var': xr.DataArray(np.random.randn(100), dims=['x']),
+            'bad_var': xr.DataArray(_RNG.standard_normal(100), dims=['x']),
         })
         with pytest.raises(Exception):
             remapper.remap_dataset(bad_dataset, skip_missing=False)

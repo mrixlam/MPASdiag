@@ -23,6 +23,9 @@ from mpasdiag.processing.remapping import (
 )
 
 
+_RNG = np.random.default_rng()
+
+
 class TestWithRealMPASData:
     """ Integration tests using actual MPAS data files. """
     
@@ -42,7 +45,7 @@ class TestWithRealMPASData:
         lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test))
         lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test))
         
-        data = np.random.randn(n_test)
+        data = _RNG.standard_normal(n_test)
         
         result = remap_mpas_to_latlon(
             data=data,
@@ -74,7 +77,7 @@ class TestWithRealMPASData:
         lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test)).values
         lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test)).values
         
-        data = np.random.randn(n_test)
+        data = _RNG.standard_normal(n_test)
         
         data_array, grid_dataset = MPASRemapper.unstructured_to_structured_grid(
             data=data,

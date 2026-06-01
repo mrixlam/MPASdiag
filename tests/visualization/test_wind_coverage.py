@@ -26,6 +26,9 @@ from mpasdiag.visualization.wind import MPASWindPlotter
 N_CELLS = 10
 
 
+_RNG = np.random.default_rng()
+
+
 class TestCalculateOptimalSubsample:
     """ Covers calculate_optimal_subsample branches: figsize fallback, plot_type density, large dataset calculation, and small dataset early return."""
 
@@ -866,8 +869,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 5)
-        v = np.random.rand(N_CELLS, 5)
+        u = _RNG.random((N_CELLS, 5))
+        v = _RNG.random((N_CELLS, 5))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_index=2)
         np.testing.assert_array_equal(u2d, u[:, 2])
         np.testing.assert_array_equal(v2d, v[:, 2])
@@ -883,8 +886,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 4)
-        v = np.random.rand(N_CELLS, 4)
+        u = _RNG.random((N_CELLS, 4))
+        v = _RNG.random((N_CELLS, 4))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_index=0)
         np.testing.assert_array_equal(u2d, u[:, 0])
 
@@ -899,8 +902,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 5)
-        v = np.random.rand(N_CELLS, 5)
+        u = _RNG.random((N_CELLS, 5))
+        v = _RNG.random((N_CELLS, 5))
         pressure_levels = np.array([1000., 850., 700., 500., 300.])
         u2d, v2d = plotter.extract_2d_from_3d_wind(
             u, v, level_value=850., pressure_levels=pressure_levels
@@ -919,8 +922,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 5)
-        v = np.random.rand(N_CELLS, 5)
+        u = _RNG.random((N_CELLS, 5))
+        v = _RNG.random((N_CELLS, 5))
         pressure_levels = np.array([1000., 850., 700., 500., 300.])
         u2d, v2d = plotter.extract_2d_from_3d_wind(
             u, v, level_value=650., pressure_levels=pressure_levels
@@ -938,8 +941,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 5)
-        v = np.random.rand(N_CELLS, 5)
+        u = _RNG.random((N_CELLS, 5))
+        v = _RNG.random((N_CELLS, 5))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_value=850.)
         np.testing.assert_array_equal(u2d, u[:, -1])
 
@@ -954,8 +957,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 5)
-        v = np.random.rand(N_CELLS, 5)
+        u = _RNG.random((N_CELLS, 5))
+        v = _RNG.random((N_CELLS, 5))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v)
         np.testing.assert_array_equal(u2d, u[:, -1])
         np.testing.assert_array_equal(v2d, v[:, -1])
@@ -971,8 +974,8 @@ class TestExtract2DFrom3DWind:
         Returns:
             None
         """
-        u = np.random.rand(N_CELLS, 7)
-        v = np.random.rand(N_CELLS, 7)
+        u = _RNG.random((N_CELLS, 7))
+        v = _RNG.random((N_CELLS, 7))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_index=3)
         assert u2d.shape == (N_CELLS,)
         assert v2d.shape == (N_CELLS,)
@@ -1040,8 +1043,8 @@ class TestComputeWindSpeedAndDirection:
         Returns:
             None
         """
-        u = np.random.rand(20)
-        v = np.random.rand(20)
+        u = _RNG.random(20)
+        v = _RNG.random(20)
         speed, direction = plotter.compute_wind_speed_and_direction(u, v)
         assert speed.shape == (20,)
         assert direction.shape == (20,)

@@ -36,6 +36,9 @@ from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+_RNG = np.random.default_rng()
+
+
 def create_mock_create_map(plotter: Any) -> Any:
     """
     This function creates a mock `create_map` method that simulates the behavior of setting up a map projection and returns a simple figure and axes. The mock method generates a new matplotlib figure and axes, assigns the figure to the plotter's `_current_fig` attribute, and returns the figure and axes objects. This allows tests to verify that the `create_map` method is called and that it produces valid plotting objects without needing to rely on actual map projection logic or external dependencies. By using this mock, tests can focus on the downstream effects of map creation without being affected by the complexities of geospatial plotting.
@@ -656,7 +659,7 @@ class TestVisualizationIntegration:
         
         lon_subset = lon[:500]
         lat_subset = lat[:500]
-        data = np.random.uniform(990, 1020, 500)  
+        data = _RNG.uniform(990, 1020, 500)  
         
         fig, ax = plotter.create_surface_map(
             lon_subset, lat_subset, data,
@@ -916,7 +919,7 @@ class TestVisualizationIntegration:
         lon_subset = lon[:n_points]
         lat_subset = lat[:n_points]
         
-        pressure = np.random.uniform(995, 1015, n_points)
+        pressure = _RNG.uniform(995, 1015, n_points)
         
         wind_overlay = {
             'u_data': u[:n_points],

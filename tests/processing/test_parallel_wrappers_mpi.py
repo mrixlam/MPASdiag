@@ -38,6 +38,9 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 
 
+_RNG = np.random.default_rng()
+
+
 class TestWorkerExceptionHandler:
     """ Tests for the catch-all exception handler in worker functions. """
 
@@ -204,7 +207,7 @@ class TestMPIModeBranches:
              patch('mpasdiag.processing.parallel_wrappers.MPASPrecipitationPlotter') as mock_plotter_cls:
             mock_cls.return_value = mock_proc
             mock_diag = MagicMock()
-            mock_diag.compute_precipitation_difference.return_value = xr.DataArray(np.random.uniform(0, 5, 10))
+            mock_diag.compute_precipitation_difference.return_value = xr.DataArray(_RNG.uniform(0, 5, 10))
             mock_diag_cls.return_value = mock_diag
             mock_plotter = MagicMock()
             mock_plotter.create_precipitation_map.return_value = (MagicMock(), MagicMock())
@@ -228,7 +231,7 @@ class TestMPIModeBranches:
         mock_proc = MagicMock()
 
         mock_proc.dataset = xr.Dataset({
-            't2m': (['Time', 'nCells'], np.random.uniform(260, 310, (2, 10))),
+            't2m': (['Time', 'nCells'], _RNG.uniform(260, 310, (2, 10))),
             'Time': (['Time'], pd.date_range('2025-01-01', periods=2, freq='h').values),
         })
 
@@ -269,13 +272,13 @@ class TestMPIModeBranches:
         mock_proc = MagicMock()
 
         mock_proc.dataset = xr.Dataset({
-            'u10': (['Time', 'nCells'], np.random.uniform(-5, 5, (2, 10))),
-            'v10': (['Time', 'nCells'], np.random.uniform(-5, 5, (2, 10))),
+            'u10': (['Time', 'nCells'], _RNG.uniform(-5, 5, (2, 10))),
+            'v10': (['Time', 'nCells'], _RNG.uniform(-5, 5, (2, 10))),
             'Time': (['Time'], pd.date_range('2025-01-01', periods=2, freq='h').values),
         })
 
         mock_proc.load_2d_data.return_value = mock_proc
-        mock_proc.get_2d_variable_data.return_value = xr.DataArray(np.random.uniform(-5, 5, 10))
+        mock_proc.get_2d_variable_data.return_value = xr.DataArray(_RNG.uniform(-5, 5, 10))
         mock_proc.extract_2d_coordinates_for_variable.return_value = (np.zeros(10), np.zeros(10))
 
         kwargs = self._make_mpi_kwargs(str(tmp_path))

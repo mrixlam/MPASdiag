@@ -60,9 +60,9 @@ def sample_grid_coords() -> tuple[np.ndarray, np.ndarray]:
     Returns:
         tuple[np.ndarray, np.ndarray]: Arrays of longitude and latitude coordinates for the grid cells.
     """
-    np.random.seed(42)
-    lon = np.random.uniform(-180, 180, 100)
-    lat = np.random.uniform(-90, 90, 100)
+    rng = np.random.default_rng(42)
+    lon = rng.uniform(-180, 180, 100)
+    lat = rng.uniform(-90, 90, 100)
     return lon, lat
 
 
@@ -81,19 +81,19 @@ def synthetic_3d_dataset() -> xr.Dataset:
     n_vert = 30
     n_time = 2
 
-    np.random.seed(0)
+    rng = np.random.default_rng(0)
     p_levels = np.linspace(101000, 5000, n_vert)
     pressure = np.tile(p_levels, (n_time, n_cells, 1))
 
     theta = np.linspace(300, 350, n_vert)
-    theta_3d = np.tile(theta, (n_time, n_cells, 1)) + np.random.normal(0, 1, (n_time, n_cells, n_vert))
+    theta_3d = np.tile(theta, (n_time, n_cells, 1)) + rng.normal(0, 1, (n_time, n_cells, n_vert))
 
     qv = np.linspace(0.015, 0.0001, n_vert)
-    qv_3d = np.tile(qv, (n_time, n_cells, 1)) * np.random.uniform(0.8, 1.2, (n_time, n_cells, n_vert))
+    qv_3d = np.tile(qv, (n_time, n_cells, 1)) * rng.uniform(0.8, 1.2, (n_time, n_cells, n_vert))
     qv_3d = np.clip(qv_3d, 0, None)
 
-    u_wind = np.random.uniform(-20, 20, (n_time, n_cells, n_vert))
-    v_wind = np.random.uniform(-20, 20, (n_time, n_cells, n_vert))
+    u_wind = rng.uniform(-20, 20, (n_time, n_cells, n_vert))
+    v_wind = rng.uniform(-20, 20, (n_time, n_cells, n_vert))
 
     ds = xr.Dataset({
         'pressure': (['Time', 'nCells', 'nVertLevels'], pressure),
@@ -120,7 +120,6 @@ def mock_processor(synthetic_3d_dataset: xr.Dataset,
         MPAS3DProcessor: A mock MPAS3DProcessor instance.
     """
     n_cells = 50
-    np.random.seed(42)
     lon = np.linspace(-110, -90, n_cells)
     lat = np.linspace(25, 45, n_cells)
 

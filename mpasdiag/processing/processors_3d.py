@@ -26,6 +26,8 @@ from .utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_TOP_PRESSURE_LEVEL_MSG = "  Top: %.1f Pa"
+
 
 class MPAS3DProcessor(MPASBaseProcessor):
     """ Specialized processor for 3D MPAS atmospheric data. """
@@ -727,7 +729,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 var_name, num_levels,
             )
             logger.debug("  Surface: %.1f Pa", float(levels[0]))
-            logger.debug("  Top: %.1f Pa", float(levels[-1]))
+            logger.debug(_TOP_PRESSURE_LEVEL_MSG, float(levels[-1]))
 
         return levels
 
@@ -763,7 +765,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if self.verbose:
             logger.debug("Pressure levels for %s (%d levels):", var_name, num_levels)
             logger.debug("  Surface: %.1f Pa", float(levels[0]))
-            logger.debug("  Top: %.1f Pa", float(levels[-1]))
+            logger.debug(_TOP_PRESSURE_LEVEL_MSG, float(levels[-1]))
             logger.debug(
                 "  Range: %.1f to %.1f Pa",
                 float(levels.min()), float(levels.max()),
@@ -836,7 +838,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                     var_name, num_levels,
                 )
                 logger.debug("  Surface (mean): %.1f Pa", mean_surface_pressure)
-                logger.debug("  Top: %.1f Pa", float(levels[-1]))
+                logger.debug(_TOP_PRESSURE_LEVEL_MSG, float(levels[-1]))
 
             return levels
         except Exception as exc:

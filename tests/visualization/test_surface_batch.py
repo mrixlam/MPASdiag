@@ -34,6 +34,9 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_pl
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+_RNG = np.random.default_rng()
+
+
 class TestBatchProcessing:
     """ Tests for batch surface map creation. """
     
@@ -71,7 +74,7 @@ class TestBatchProcessing:
         times = pd.date_range('2025-01-01', periods=3, freq='6h')
         
         ds = xr.Dataset({
-            't2m': (['Time', 'nCells'], np.random.rand(3, 50) * 300),
+            't2m': (['Time', 'nCells'], _RNG.random((3, 50)) * 300),
             'lonCell': ('nCells', np.linspace(-100, -90, 50)),
             'latCell': ('nCells', np.linspace(30, 40, 50))
         }, coords={'Time': times})
@@ -106,7 +109,7 @@ class TestBatchProcessing:
         mock_processor = Mock()
         
         ds = xr.Dataset({
-            't2m': (['time', 'nCells'], np.random.rand(2, 50) * 300),
+            't2m': (['time', 'nCells'], _RNG.random((2, 50)) * 300),
             'lonCell': ('nCells', np.linspace(-100, -90, 50)),
             'latCell': ('nCells', np.linspace(30, 40, 50))
         })
@@ -140,7 +143,7 @@ class TestBatchProcessing:
         times = pd.date_range('2025-01-01', periods=2, freq='6h')
         
         ds = xr.Dataset({
-            't2m': (['Time', 'nCells'], np.random.rand(2, 50) * 300),
+            't2m': (['Time', 'nCells'], _RNG.random((2, 50)) * 300),
             'lonCell': ('nCells', np.linspace(-100, -90, 50)),
             'latCell': ('nCells', np.linspace(30, 40, 50))
         }, coords={'Time': times})

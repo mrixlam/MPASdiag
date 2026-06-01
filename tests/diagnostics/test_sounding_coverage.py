@@ -29,6 +29,9 @@ except ImportError:
     HAS_METPY_TEST = False
 
 
+_RNG = np.random.default_rng()
+
+
 def _synthetic_mpas_data(n_cells: int = 5,
                          n_vert: int = 10,
                          pressure_varname: str = "pressure",
@@ -218,8 +221,8 @@ class TestThermodynamicIndicesWithWindAndHeight:
         p = np.linspace(1000.0, 200.0, n)
         t = np.linspace(25.0, -60.0, n)
         td = t - 5.0
-        u = np.random.uniform(-15.0, 15.0, n)
-        v = np.random.uniform(-15.0, 15.0, n)
+        u = _RNG.uniform(-15.0, 15.0, n)
+        v = _RNG.uniform(-15.0, 15.0, n)
         height = np.linspace(0.0, 12000.0, n)
 
         result = diag.compute_thermodynamic_indices(

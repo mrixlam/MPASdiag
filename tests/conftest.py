@@ -25,6 +25,8 @@ from pathlib import Path
 from unittest.mock import Mock
 from typing import Dict, Any, Optional, Tuple, Generator
 
+_RNG = np.random.default_rng()
+
 
 class _DynamicStdoutHandler(logging.Handler):
     """ Logging handler that writes formatted log records to stdout immediately. """
@@ -376,16 +378,16 @@ def mock_mpas_mesh(grid_file: Optional[str]) -> xr.Dataset:
         max_edges = 7
         
         ds = xr.Dataset({
-            'latCell': (['nCells'], np.random.uniform(-90, 90, n_cells)),
-            'lonCell': (['nCells'], np.random.uniform(-180, 180, n_cells)),
-            'xCell': (['nCells'], np.random.uniform(-1e7, 1e7, n_cells)),
-            'yCell': (['nCells'], np.random.uniform(-1e7, 1e7, n_cells)),
-            'zCell': (['nCells'], np.random.uniform(-1e7, 1e7, n_cells)),
-            'areaCell': (['nCells'], np.random.uniform(1e9, 1e10, n_cells)),
-            'nEdgesOnCell': (['nCells'], np.random.randint(3, max_edges + 1, n_cells)),
-            'cellsOnCell': (['nCells', 'maxEdges'], np.random.randint(0, n_cells, (n_cells, max_edges))),
-            'edgesOnCell': (['nCells', 'maxEdges'], np.random.randint(0, n_edges, (n_cells, max_edges))),
-            'verticesOnCell': (['nCells', 'maxEdges'], np.random.randint(0, n_vertices, (n_cells, max_edges))),
+            'latCell': (['nCells'], _RNG.uniform(-90, 90, n_cells)),
+            'lonCell': (['nCells'], _RNG.uniform(-180, 180, n_cells)),
+            'xCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
+            'yCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
+            'zCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
+            'areaCell': (['nCells'], _RNG.uniform(1e9, 1e10, n_cells)),
+            'nEdgesOnCell': (['nCells'], _RNG.integers(3, max_edges + 1, n_cells)),
+            'cellsOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_cells, (n_cells, max_edges))),
+            'edgesOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_edges, (n_cells, max_edges))),
+            'verticesOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_vertices, (n_cells, max_edges))),
         })
         
         ds.attrs['on_a_sphere'] = 'YES'
@@ -427,10 +429,10 @@ def _build_3d_ds_from_real(ds_real: xr.Dataset,
     dims_3d = ['Time', 'nCells', 'nVertLevels']
 
     if 'uReconstructZonal' not in ds:
-        ds['uReconstructZonal'] = (dims_3d, np.random.uniform(-30, 30, shape_3d))
+        ds['uReconstructZonal'] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
 
     if 'uReconstructMeridional' not in ds:
-        ds['uReconstructMeridional'] = (dims_3d, np.random.uniform(-30, 30, shape_3d))
+        ds['uReconstructMeridional'] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
 
     if 'temperature' not in ds and 'theta' in ds:
         ds['temperature'] = ds['theta']
@@ -457,13 +459,13 @@ def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset,
     ds = mock_mpas_mesh.copy()
     ds = ds.expand_dims({'Time': n_time})
 
-    ds['pressure'] = (dims_3d, np.random.uniform(10000, 101325, (n_time, n_cells, n_vertical)))
-    ds['theta'] = (dims_3d, np.random.uniform(250, 400, (n_time, n_cells, n_vertical)))
-    ds['temperature'] = (dims_3d, np.random.uniform(200, 320, (n_time, n_cells, n_vertical)))
-    ds['uReconstructZonal'] = (dims_3d, np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-    ds['uReconstructMeridional'] = (dims_3d, np.random.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-    ds['w'] = (dims_3d, np.random.uniform(-5, 5, (n_time, n_cells, n_vertical)))
-    ds['rho'] = (dims_3d, np.random.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
+    ds['pressure'] = (dims_3d, _RNG.uniform(10000, 101325, (n_time, n_cells, n_vertical)))
+    ds['theta'] = (dims_3d, _RNG.uniform(250, 400, (n_time, n_cells, n_vertical)))
+    ds['temperature'] = (dims_3d, _RNG.uniform(200, 320, (n_time, n_cells, n_vertical)))
+    ds['uReconstructZonal'] = (dims_3d, _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)))
+    ds['uReconstructMeridional'] = (dims_3d, _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)))
+    ds['w'] = (dims_3d, _RNG.uniform(-5, 5, (n_time, n_cells, n_vertical)))
+    ds['rho'] = (dims_3d, _RNG.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
 
     ds['xtime'] = (['Time'], [
         '2024-01-01_00:00:00',
@@ -532,11 +534,11 @@ def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset,
         ds = mock_mpas_mesh.copy()
         ds = ds.expand_dims({'Time': n_time})
         
-        ds['rainnc'] = (['Time', 'nCells'], np.random.uniform(0, 50, (n_time, n_cells)))
-        ds['t2m'] = (['Time', 'nCells'], np.random.uniform(250, 310, (n_time, n_cells)))
-        ds['u10'] = (['Time', 'nCells'], np.random.uniform(-20, 20, (n_time, n_cells)))
-        ds['v10'] = (['Time', 'nCells'], np.random.uniform(-20, 20, (n_time, n_cells)))
-        ds['surface_pressure'] = (['Time', 'nCells'], np.random.uniform(95000, 105000, (n_time, n_cells)))
+        ds['rainnc'] = (['Time', 'nCells'], _RNG.uniform(0, 50, (n_time, n_cells)))
+        ds['t2m'] = (['Time', 'nCells'], _RNG.uniform(250, 310, (n_time, n_cells)))
+        ds['u10'] = (['Time', 'nCells'], _RNG.uniform(-20, 20, (n_time, n_cells)))
+        ds['v10'] = (['Time', 'nCells'], _RNG.uniform(-20, 20, (n_time, n_cells)))
+        ds['surface_pressure'] = (['Time', 'nCells'], _RNG.uniform(95000, 105000, (n_time, n_cells)))
         
         ds['xtime'] = (['Time'], [
             '2024-01-01_00:00:00',
@@ -567,13 +569,13 @@ def mock_remapped_data() -> xr.Dataset:
     
     ds = xr.Dataset({
         'temperature': (['time', 'lat', 'lon'], 
-                       np.random.uniform(200, 320, (n_time, n_lat, n_lon))),
+                       _RNG.uniform(200, 320, (n_time, n_lat, n_lon))),
         'precipitation': (['time', 'lat', 'lon'], 
-                         np.random.uniform(0, 50, (n_time, n_lat, n_lon))),
+                         _RNG.uniform(0, 50, (n_time, n_lat, n_lon))),
         'u_wind': (['time', 'lat', 'lon'], 
-                   np.random.uniform(-30, 30, (n_time, n_lat, n_lon))),
+                   _RNG.uniform(-30, 30, (n_time, n_lat, n_lon))),
         'v_wind': (['time', 'lat', 'lon'], 
-                   np.random.uniform(-30, 30, (n_time, n_lat, n_lon))),
+                   _RNG.uniform(-30, 30, (n_time, n_lat, n_lon))),
     }, coords={
         'lat': lat,
         'lon': lon,
@@ -625,9 +627,9 @@ def mock_weight_file(temp_dir: Path) -> str:
     n_b = 50
     
     ds = xr.Dataset({
-        'row': (['n_s'], np.random.randint(0, n_b, n_s)),
-        'col': (['n_s'], np.random.randint(0, 1000, n_s)),
-        'S': (['n_s'], np.random.uniform(0, 1, n_s)),
+        'row': (['n_s'], _RNG.integers(0, n_b, n_s)),
+        'col': (['n_s'], _RNG.integers(0, 1000, n_s)),
+        'S': (['n_s'], _RNG.uniform(0, 1, n_s)),
     })
     
     ds.to_netcdf(weight_file)

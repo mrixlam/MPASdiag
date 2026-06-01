@@ -106,6 +106,7 @@ The package exposes a small, focused programmatic API in the `mpasdiag` package.
 - `mpasdiag.diagnostics.wind.WindDiagnostics` — compute wind speed, direction, shear, and derived quantities
 - `mpasdiag.diagnostics.sounding.SoundingDiagnostics` — extract vertical sounding profiles from MPAS 3D output and compute comprehensive thermodynamic indices (CAPE, CIN, LI, K-Index, STP, SCP, SRH, bulk shear, precipitable water, wet-bulb zero, and more) using MetPy
 - `mpasdiag.diagnostics.moisture_transport.MoistureTransportDiagnostics` — compute vertically integrated water vapor (IWV) and vertically integrated water vapor transport (IVT) components using trapezoidal pressure-coordinate integration
+- `mpasdiag.diagnostics.thermodynamics.ThermodynamicDiagnostics` — compute potential temperature, equivalent potential temperature, wet-bulb temperature, and other thermodynamic variables 
 
 #### Visualization
 - `mpasdiag.visualization.precipitation.MPASPrecipitationPlotter` — create professional precipitation accumulation maps

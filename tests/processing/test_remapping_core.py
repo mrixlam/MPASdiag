@@ -24,6 +24,9 @@ from mpasdiag.processing.remapping import ESMPY_AVAILABLE
 REMAPPING_AVAILABLE = True
 
 
+_RNG = np.random.default_rng()
+
+
 @pytest.mark.skipif(not REMAPPING_AVAILABLE, reason="Remapping module not available")
 
 
@@ -423,8 +426,8 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 200
-        lon = np.random.uniform(-110, -100, n)
-        lat = np.random.uniform(30, 40, n)
+        lon = _RNG.uniform(-110, -100, n)
+        lat = _RNG.uniform(30, 40, n)
         data = np.full(n, np.nan)
 
         result = remap_mpas_to_latlon(data, lon, lat, lon_min=-110, lon_max=-100,
@@ -444,8 +447,8 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 200
-        lon = np.random.uniform(-110, -100, n)
-        lat = np.random.uniform(30, 40, n)
+        lon = _RNG.uniform(-110, -100, n)
+        lat = _RNG.uniform(30, 40, n)
         data = np.zeros(n)
 
         result = remap_mpas_to_latlon(data, lon, lat, lon_min=-110, lon_max=-100,
@@ -464,9 +467,9 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 5000
-        lon = np.random.uniform(0, 360, n)
-        lat = np.random.uniform(-60, 60, n)
-        data = np.random.uniform(0, 10, n)
+        lon = _RNG.uniform(0, 360, n)
+        lat = _RNG.uniform(-60, 60, n)
+        data = _RNG.uniform(0, 10, n)
 
         result = remap_mpas_to_latlon(data, lon, lat, lon_min=0, lon_max=360,
                                        lat_min=-60, lat_max=60, resolution=5.0)
@@ -486,9 +489,9 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 500
-        lon = np.random.uniform(-110, -100, n)
-        lat = np.random.uniform(30, 40, n)
-        data = np.random.uniform(1, 100, n)
+        lon = _RNG.uniform(-110, -100, n)
+        lat = _RNG.uniform(30, 40, n)
+        data = _RNG.uniform(1, 100, n)
 
         remap_mpas_to_latlon(data, lon, lat, lon_min=-110, lon_max=-100,
                               lat_min=30, lat_max=40, resolution=1.0)
@@ -509,15 +512,15 @@ class TestRemappingCoverageGaps:
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
-        lon_rad = np.random.uniform(-2.0, -1.5, n)
-        lat_rad = np.random.uniform(0.5, 0.8, n)
+        lon_rad = _RNG.uniform(-2.0, -1.5, n)
+        lat_rad = _RNG.uniform(0.5, 0.8, n)
 
         ds = xr.Dataset({
             'lonCell': ('nCells', lon_rad),
             'latCell': ('nCells', lat_rad),
         })
 
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
 
         result = remap_mpas_to_latlon_with_masking(
             data, ds, lon_min=-120, lon_max=-80, lat_min=25, lat_max=50, resolution=2.0
@@ -537,15 +540,15 @@ class TestRemappingCoverageGaps:
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
-        lon_deg = np.random.uniform(-110, -100, n)
-        lat_deg = np.random.uniform(30, 40, n)
+        lon_deg = _RNG.uniform(-110, -100, n)
+        lat_deg = _RNG.uniform(30, 40, n)
 
         ds = xr.Dataset({
             'lon': ('nCells', lon_deg),
             'lat': ('nCells', lat_deg),
         })
 
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
 
         result = remap_mpas_to_latlon_with_masking(
             data, ds, lon_min=-110, lon_max=-100, lat_min=30, lat_max=40, resolution=2.0
@@ -565,15 +568,15 @@ class TestRemappingCoverageGaps:
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
-        lon_deg = np.random.uniform(-110, -100, n)
-        lat_deg = np.random.uniform(30, 40, n)
+        lon_deg = _RNG.uniform(-110, -100, n)
+        lat_deg = _RNG.uniform(30, 40, n)
 
         ds = xr.Dataset({
             'lonCell': ('nCells', lon_deg),
             'latCell': ('nCells', lat_deg),
         })
 
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
         
         result = remap_mpas_to_latlon_with_masking(
             data, ds, lon_min=None, lon_max=None, lat_min=None, lat_max=None, resolution=2.0
@@ -593,15 +596,15 @@ class TestRemappingCoverageGaps:
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
-        lon_deg = np.random.uniform(240, 280, n)
-        lat_deg = np.random.uniform(30, 40, n)
+        lon_deg = _RNG.uniform(240, 280, n)
+        lat_deg = _RNG.uniform(30, 40, n)
 
         ds = xr.Dataset({
             'lonCell': ('nCells', lon_deg),
             'latCell': ('nCells', lat_deg),
         })
 
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
         
         result = remap_mpas_to_latlon_with_masking(
             data, ds, lon_min=-120, lon_max=-80, lat_min=30, lat_max=40,
@@ -622,15 +625,15 @@ class TestRemappingCoverageGaps:
         """
         from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
         n = 300
-        lon_deg = np.random.uniform(-120, -80, n)
-        lat_deg = np.random.uniform(30, 40, n)
+        lon_deg = _RNG.uniform(-120, -80, n)
+        lat_deg = _RNG.uniform(30, 40, n)
 
         ds = xr.Dataset({
             'lonCell': ('nCells', lon_deg),
             'latCell': ('nCells', lat_deg),
         })
 
-        data = np.random.uniform(0, 10, n)
+        data = _RNG.uniform(0, 10, n)
         
         result = remap_mpas_to_latlon_with_masking(
             data, ds, lon_min=240, lon_max=280, lat_min=30, lat_max=40,
@@ -651,9 +654,9 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 200
-        lon = np.random.uniform(-110, -100, n)
-        lat = np.random.uniform(30, 40, n)
-        data = xr.DataArray(np.random.uniform(0, 10, n), attrs={'units': 'K'})
+        lon = _RNG.uniform(-110, -100, n)
+        lat = _RNG.uniform(30, 40, n)
+        data = xr.DataArray(_RNG.uniform(0, 10, n), attrs={'units': 'K'})
 
         result = remap_mpas_to_latlon(data, lon, lat, lon_min=-110, lon_max=-100,
                                        lat_min=30, lat_max=40, resolution=1.0)
@@ -671,9 +674,9 @@ class TestRemappingCoverageGaps:
             None
         """
         n = 500
-        lon = np.random.uniform(-110, -100, n)
-        lat = np.random.uniform(30, 40, n)
-        data = np.random.uniform(0, 10, n)
+        lon = _RNG.uniform(-110, -100, n)
+        lat = _RNG.uniform(30, 40, n)
+        data = _RNG.uniform(0, 10, n)
 
         result = remap_mpas_to_latlon(data, lon, lat, lon_min=-110, lon_max=-100,
                                        lat_min=30, lat_max=40, resolution=2.0, method='linear')

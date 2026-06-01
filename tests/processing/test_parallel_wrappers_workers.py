@@ -35,6 +35,9 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 
 
+_RNG = np.random.default_rng()
+
+
 class TestPrecipitationWorker:
     """ Tests for the precipitation worker wrapper that generates precipitation maps. """
     
@@ -55,7 +58,7 @@ class TestPrecipitationWorker:
         
         self.mock_dataset = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (n_time, n_cells)),
+                _RNG.uniform(0, 50, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -92,7 +95,7 @@ class TestPrecipitationWorker:
         assert_expected_public_methods(orig_diag, 'PrecipitationDiagnostics')
 
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, 100))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, 100))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
         
         mock_plotter = Mock()
@@ -154,7 +157,7 @@ class TestPrecipitationWorker:
         )
         
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, 100))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, 100))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
         
         mock_plotter = Mock()
@@ -203,7 +206,7 @@ class TestPrecipitationWorker:
         orig_plotter, orig_diag = _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics
 
         mock_diag = Mock()
-        mock_precip_data = xr.DataArray(np.random.uniform(0, 10, 100))
+        mock_precip_data = xr.DataArray(_RNG.uniform(0, 10, 100))
         mock_diag.compute_precipitation_difference.return_value = mock_precip_data
 
         mock_plotter = Mock()
@@ -258,7 +261,7 @@ class TestSurfaceWorker:
         
         self.mock_dataset = xr.Dataset({
             't2m': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -398,12 +401,12 @@ class TestWindWorker:
         
         self.mock_dataset = xr.Dataset({
             'u10': xr.DataArray(
-                np.random.uniform(-10, 10, (n_time, n_cells)),
+                _RNG.uniform(-10, 10, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
             'v10': xr.DataArray(
-                np.random.uniform(-10, 10, (n_time, n_cells)),
+                _RNG.uniform(-10, 10, (n_time, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             ),
@@ -549,7 +552,7 @@ class TestCrossSectionWorker:
         
         self.mock_dataset = xr.Dataset({
             'temperature': xr.DataArray(
-                np.random.uniform(250, 310, (n_time, n_levels, n_cells)),
+                _RNG.uniform(250, 310, (n_time, n_levels, n_cells)),
                 dims=['Time', 'nVertLevels', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=n_time, freq='h')}
             )
@@ -675,7 +678,7 @@ class TestWorkerCacheKeyErrorFallback:
         self.mock_processor_precip = Mock()
         ds_precip = xr.Dataset({
             'rainnc': xr.DataArray(
-                np.random.uniform(0, 50, (3, n_cells)),
+                _RNG.uniform(0, 50, (3, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=3, freq='h')}
             ),
@@ -687,7 +690,7 @@ class TestWorkerCacheKeyErrorFallback:
         self.mock_processor_surface = Mock()
         ds_surface = xr.Dataset({
             't2m': xr.DataArray(
-                np.random.uniform(260, 310, (3, n_cells)),
+                _RNG.uniform(260, 310, (3, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=3, freq='h')}
             ),
@@ -698,19 +701,19 @@ class TestWorkerCacheKeyErrorFallback:
         self.mock_processor_wind = Mock()
         self.mock_processor_wind.dataset = xr.Dataset({
             'u10': xr.DataArray(
-                np.random.uniform(-5, 5, (3, n_cells)),
+                _RNG.uniform(-5, 5, (3, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=3, freq='h')}
             ),
             'v10': xr.DataArray(
-                np.random.uniform(-5, 5, (3, n_cells)),
+                _RNG.uniform(-5, 5, (3, n_cells)),
                 dims=['Time', 'nCells'],
                 coords={'Time': pd.date_range('2024-01-01', periods=3, freq='h')}
             ),
         })
         self.mock_processor_wind.extract_2d_coordinates_for_variable.return_value = (lon, lat)
         self.mock_processor_wind.get_2d_variable_data.return_value = xr.DataArray(
-            np.random.uniform(-5, 5, n_cells)
+            _RNG.uniform(-5, 5, n_cells)
         )
 
         self.lon, self.lat = lon, lat
@@ -746,7 +749,7 @@ class TestWorkerCacheKeyErrorFallback:
 
         mock_diag = Mock()
         mock_diag.compute_precipitation_difference.return_value = xr.DataArray(
-            np.random.uniform(0, 5, 100)
+            _RNG.uniform(0, 5, 100)
         )
         mock_plotter = Mock()
         mock_plotter.create_precipitation_map.return_value = (Mock(), Mock())

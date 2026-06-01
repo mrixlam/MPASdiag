@@ -35,6 +35,9 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
+_RNG = np.random.default_rng()
+
+
 def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:
     """
     This helper function searches through the data variables in the processor's dataset to find a variable that has either 'nVertLevels' or 'nVertLevelsP1' as one of its dimensions. It returns the name of the first variable that meets this criterion, which is likely to be a 3D variable suitable for testing vertical cross-section plotting. If no such variable is found, it returns None. This function is useful for dynamically identifying a variable to use in tests without hardcoding specific variable names, allowing for more flexible and robust test cases.
@@ -87,7 +90,7 @@ class TestAdditionalCoverage:
         
         ds = xr.Dataset({
             'theta': (['Time', 'nVertLevels', 'nCells'], 
-                           np.full((2, 10, 100), 270.0) + np.random.randn(2, 10, 100) * 10.0),
+                           np.full((2, 10, 100), 270.0) + _RNG.standard_normal((2, 10, 100)) * 10.0),
             'lonCell': ('nCells', np.linspace(-100, -90, 100)),
             'latCell': ('nCells', np.linspace(30, 40, 100))
         }, coords={'Time': times})
@@ -121,7 +124,7 @@ class TestAdditionalCoverage:
             mock_meta.return_value = {'units': 'K', 'long_name': 'Temperature'}
             mock_display.return_value = 'degC'
 
-            mock_convert.return_value = np.full((10, 20), 15.0) + np.random.randn(10, 20) * 5.0
+            mock_convert.return_value = np.full((10, 20), 15.0) + _RNG.standard_normal((10, 20)) * 5.0
             
             fig, _ = self.plotter.create_vertical_cross_section(
                 mpas_3d_processor=mock_processor,
@@ -365,7 +368,7 @@ class TestAdditionalCoverage:
 
         ds = xr.Dataset({
             'theta': (['Time', 'nVertLevelsP1', 'nCells'], 
-                           np.random.rand(2, 11, 100) * 300),
+                           _RNG.random((2, 11, 100)) * 300),
             'lonCell': ('nCells', np.linspace(-100, -90, 100)),
             'latCell': ('nCells', np.linspace(30, 40, 100))
         }, coords={'Time': pd.date_range('2025-01-01', periods=2, freq='1h')})
@@ -431,7 +434,7 @@ class TestAdditionalCoverage:
 
         ds = xr.Dataset({
             'theta': (['Time', 'nVertLevels', 'nCells'], 
-                           np.random.rand(2, 10, 100) * 300),
+                           _RNG.random((2, 10, 100)) * 300),
             'lonCell': ('nCells', np.radians(np.linspace(-100, -90, 100))),
             'latCell': ('nCells', np.radians(np.linspace(30, 40, 100)))
         }, coords={'Time': pd.date_range('2025-01-01', periods=2, freq='1h')})
@@ -470,7 +473,7 @@ class TestAdditionalCoverage:
         mock_processor = self._create_basic_processor()
 
         mock_processor.get_3d_variable_data = Mock(
-            return_value=np.random.rand(100)
+            return_value=_RNG.random(100)
         )
         
         fig, _ = self.plotter.create_vertical_cross_section(
@@ -552,7 +555,7 @@ class TestAdditionalCoverage:
         
         ds = xr.Dataset({
             'theta': (['Time', 'nVertLevels', 'nCells'], 
-                           np.random.rand(2, 10, 100) * 300),
+                           _RNG.random((2, 10, 100)) * 300),
             'lonCell': ('nCells', np.linspace(-100, -90, 100)),
             'latCell': ('nCells', np.linspace(30, 40, 100))
         }, coords={'Time': times})

@@ -805,6 +805,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                              dataset: Optional[xr.Dataset] = None,
                              method: str = 'nearest',
                              resolution_bounds: Optional[Tuple[float, float]] = None,
+                             comm: Optional[Any] = None,
                              config: Optional[dict] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         This helper function performs interpolation of the original longitude, latitude, and data points onto a regular lat-lon grid defined by the specified geographic bounds and grid resolution. It uses the specified interpolation method (e.g., 'nearest', 'linear', 'cubic') to interpolate the data values onto the new grid. The function can optionally take an xarray Dataset to assist with interpolation, such as providing coordinate information or metadata, but it can also operate solely based on the provided lon/lat/data arrays. The resolution_bounds parameter can be used to specify minimum and maximum allowable grid resolutions for adaptive interpolation if a specific grid resolution is not provided. The function returns the interpolated longitude, latitude, and data arrays corresponding to the regular grid for use in contour plotting or other visualizations that require gridded data. 
@@ -821,6 +822,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             dataset (Optional[xr.Dataset]): Optional xarray Dataset that may assist with interpolation, such as providing coordinate information or metadata.
             method (str): Interpolation method to use ('nearest', 'linear', 'cubic').
             resolution_bounds (Optional[Tuple[float, float]]): Minimum and maximum allowable grid resolutions for adaptive interpolation.
+            comm (Optional[Any]): Optional MPI communicator for parallel execution in distributed computing environments (default: None).
             config (Optional[dict]): Optional configuration dictionary for additional parameters.
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Interpolated longitude, latitude, and data arrays corresponding to the regular grid.
@@ -828,7 +830,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         return super()._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
             grid_resolution, dataset, method=method,
-            resolution_bounds=resolution_bounds, config=config
+            resolution_bounds=resolution_bounds, comm=comm, config=config
         )
 
 
