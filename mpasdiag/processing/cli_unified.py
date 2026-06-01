@@ -1941,9 +1941,8 @@ class MPASUnifiedCLI:
                 if self.logger:
                     self.logger.info("Creating precipitation + wind overlay")
             
-            elif config.overlay_type == 'temp_pressure':
-                if self.logger:
-                    self.logger.info("Creating temperature + pressure overlay")
+            elif config.overlay_type == 'temp_pressure' and self.logger:
+                self.logger.info("Creating temperature + pressure overlay")
             
             print("Overlay analysis completed (placeholder implementation)")
         
@@ -1986,10 +1985,7 @@ class MPASUnifiedCLI:
 
         while i < len(cli_args):
             arg = cli_args[i]
-            if arg in globals_no_value:
-                global_args.append(arg)
-                i += 1
-            elif any(arg.startswith(g + "=") for g in globals_with_value):
+            if arg in globals_no_value or any(arg.startswith(g + "=") for g in globals_with_value):
                 global_args.append(arg)
                 i += 1
             elif arg in globals_with_value:

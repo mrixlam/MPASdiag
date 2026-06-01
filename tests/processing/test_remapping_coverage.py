@@ -382,7 +382,7 @@ class TestBroadcastWeightsInMemory:
         call_idx = [0]
         arrays = [row_data, col_data, val_data]
 
-        def mock_Bcast(arr: np.ndarray, 
+        def mock_bcast(arr: np.ndarray, 
                        root: int = 0) -> None:
             """
             This mock Bcast function simulates the broadcasting of weight arrays from rank 0.  It uses a call index to determine which array to copy into the provided arr argument, allowing the test to verify that the correct arrays are being broadcast in the expected order (row, col, data). 
@@ -399,7 +399,7 @@ class TestBroadcastWeightsInMemory:
 
         mock_comm = Mock()
         mock_comm.bcast = lambda data, root=0: meta
-        mock_comm.Bcast = mock_Bcast
+        mock_comm.Bcast = mock_bcast
 
         remapper = MPASRemapper()
         remapper._broadcast_weights_in_memory(mock_comm, mpi_rank=1)
@@ -434,7 +434,7 @@ class TestBroadcastWeightsInMemory:
         call_idx = [0]
         arrays = [row_data, col_data, val_data, coe_data]
 
-        def mock_Bcast(arr: np.ndarray, 
+        def mock_bcast(arr: np.ndarray, 
                        root: int = 0) -> None:
             """
             This mock Bcast function simulates the broadcasting of weight arrays and cell_of_element from rank 0.  It uses a call index to determine which array to copy into the provided arr argument, allowing the test to verify that the correct arrays are being broadcast in the expected order (row, col, data, cell_of_element). 
@@ -451,7 +451,7 @@ class TestBroadcastWeightsInMemory:
 
         mock_comm = Mock()
         mock_comm.bcast = lambda data, root=0: meta
-        mock_comm.Bcast = mock_Bcast
+        mock_comm.Bcast = mock_bcast
 
         remapper = MPASRemapper()
         remapper._broadcast_weights_in_memory(mock_comm, mpi_rank=1)

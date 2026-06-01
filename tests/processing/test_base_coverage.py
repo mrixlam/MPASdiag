@@ -864,7 +864,7 @@ class TestLoadGridFileProbeException:
             """
             call_n[0] += 1
             if call_n[0] == 1:
-                raise Exception("probe failed")
+                raise OSError("probe failed")
             return mock_ds
 
         with patch('xarray.open_dataset', side_effect=side_effect):

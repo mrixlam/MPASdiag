@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 from types import ModuleType
 from scipy.spatial import KDTree as cKDTree
-from typing import TYPE_CHECKING, Dict, Any, Optional, Tuple, cast
+from typing import Dict, Any, Optional, Tuple, cast
 
 # Import MPASdiag utilities and base classes
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
@@ -26,9 +26,6 @@ from mpasdiag.processing.constants import P0_REF_PA, KAPPA, EPSILON_RD_RV
 from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
-
-if TYPE_CHECKING:
-    pass
 
 _mpcalc: Optional[ModuleType] = None
 _munits: Any = None

@@ -107,8 +107,8 @@ def synthetic_3d_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def mock_processor(synthetic_3d_dataset: xr.Dataset, 
-                   tmp_path: Path) -> MPAS3DProcessor:
+def mock_processor(synthetic_3d_dataset: xr.Dataset,
+                   tmp_path: Path) -> Mock:
     """
     This fixture creates a mock MPAS3DProcessor instance that includes a synthetic 3D dataset and a grid file. The grid file is created as a tiny NetCDF file with longitude and latitude coordinates for 50 cells, which are randomly generated within typical ranges. The mock processor has the dataset and grid_file attributes set, allowing it to be used in tests that require an MPAS3DProcessor instance without needing to load actual data from disk. This approach enables testing of the SoundingDiagnostics class in isolation with controlled inputs. 
 
@@ -117,7 +117,7 @@ def mock_processor(synthetic_3d_dataset: xr.Dataset,
         tmp_path (pathlib.Path): A temporary directory for creating the grid file.
 
     Returns:
-        MPAS3DProcessor: A mock MPAS3DProcessor instance.
+        Mock: A mock MPAS3DProcessor instance (Mock with spec=MPAS3DProcessor).
     """
     n_cells = 50
     lon = np.linspace(-110, -90, n_cells)

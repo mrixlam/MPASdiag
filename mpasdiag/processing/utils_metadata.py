@@ -809,14 +809,13 @@ class MPASFileMetadata:
         if 'spatial_dim' not in metadata:
             metadata['spatial_dim'] = 'nCells'
         
-        if data_array is not None:
-            if hasattr(data_array, 'attrs'):
-                if 'units' in data_array.attrs:
-                    metadata['units'] = data_array.attrs['units']
-                if 'long_name' in data_array.attrs:
-                    metadata['long_name'] = data_array.attrs['long_name']
-                elif 'standard_name' in data_array.attrs:
-                    metadata['long_name'] = data_array.attrs['standard_name']
+        if data_array is not None and hasattr(data_array, 'attrs'):
+            if 'units' in data_array.attrs:
+                metadata['units'] = data_array.attrs['units']
+            if 'long_name' in data_array.attrs:
+                metadata['long_name'] = data_array.attrs['long_name']
+            elif 'standard_name' in data_array.attrs:
+                metadata['long_name'] = data_array.attrs['standard_name']
         
         if include_visualization:
             visualization_entry = visualization_metadata.get(var_name.lower(), {})

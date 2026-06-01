@@ -567,8 +567,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                               precip_data: np.ndarray,
                               var_name: str,
                               original_units: Optional[str],
-                              plot_type: str,
-                              config: Optional[dict] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
+                              plot_type: str,) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
         """
        This method prepares and validates the longitude, latitude, and precipitation data for overlay plotting. It handles unit conversion if original units are provided, checks for physically valid precipitation values (e.g., non-negative), and creates a validity mask based on the plot type. For scatter plots, it filters out points that fall outside the map extent in addition to invalid precipitation values. For contour and contourf plots, it focuses on validating the precipitation values since geographic masking will be handled during interpolation. The method returns only the valid points that can be plotted along with the geographic bounds for use in rendering the overlay. If no valid points exist after filtering, it raises a ValueError to indicate that the overlay cannot be plotted with the given data. 
         

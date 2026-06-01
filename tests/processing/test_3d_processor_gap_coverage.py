@@ -544,7 +544,7 @@ class TestResolveIntLevelExceedsMax:
         Returns:
             None
         """
-        proc.dataset = _make_3d_ds()  # nVertLevels=4
+        proc.dataset = _make_3d_ds()  
         with pytest.raises(ValueError, match="Model level 10 exceeds"):
             proc._resolve_int_level(10)
 
@@ -693,7 +693,7 @@ class TestInterpolateAtPressureVerbosePaths:
             None
         """
         proc_v.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()   # max = 100000
+        mean_p = _mean_p_ascending() 
         ds_raw = _make_3d_ds()
         captured = StringIO()
 
@@ -739,7 +739,7 @@ class TestInterpolateAtPressureVerbosePaths:
             None
         """
         proc_v.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()   # min = 50000
+        mean_p = _mean_p_ascending() 
         ds_raw = _make_3d_ds()
         captured = StringIO()
 

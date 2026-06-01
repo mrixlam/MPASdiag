@@ -183,7 +183,7 @@ class TestMultiprocessingExecution:
         original_get_context = _parallel_mod.get_context
 
         def _always_fail(method: str) -> None:
-            raise Exception("Pool creation failed")
+            raise ValueError("Pool creation failed")
 
         _parallel_mod.get_context = _always_fail
 

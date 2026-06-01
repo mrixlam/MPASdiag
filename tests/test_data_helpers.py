@@ -266,11 +266,9 @@ def _grid_file_path() -> str:
 
     if not grid_file.exists():
         pytest.skip(f"MPAS grid file not found: {grid_file}")
-        return
 
     if _is_lfs_pointer(grid_file):
         pytest.skip("MPAS grid file is a Git LFS pointer (LFS data not pulled)")
-        return
 
     return str(grid_file)
 
@@ -307,14 +305,9 @@ def _find_and_load_2d_processor(data_subdir: str) -> MPAS2DProcessor:
  
     if not data_dir.exists():
         pytest.skip(f"Data directory not found: {data_dir}")
-        return
 
     grid_file = _grid_file_path()
 
-    if grid_file is None:
-        pytest.skip("MPAS grid file not available")
-        return
-    
     proc = MPAS2DProcessor(grid_file, verbose=False)
     proc.load_2d_data(str(data_dir), use_pure_xarray=True)
 

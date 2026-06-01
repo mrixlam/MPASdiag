@@ -54,8 +54,7 @@ def load_mpas_processor(verbose: bool = False,
     
     if not os.path.exists(paths['grid_file']):
         pytest.skip("MPAS test data not found")
-        return
-    
+
     processor = MPAS2DProcessor(paths['grid_file'], verbose=verbose)
     
     if os.path.exists(paths['diag_dir']):
@@ -63,8 +62,7 @@ def load_mpas_processor(verbose: bool = False,
             processor.load_2d_data(paths['diag_dir'], use_pure_xarray=use_pure_xarray)
         except Exception as e:
             pytest.skip(f"Could not load MPAS data: {e}")
-            return
-    
+
     return processor
 
 

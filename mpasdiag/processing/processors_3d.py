@@ -112,9 +112,12 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         try:
             # Determine which coordinate variables we need before opening the grid file
-            sizes = data_array.sizes if data_array is not None else (
-                self.dataset[var_name].sizes if var_name in self.dataset else {}
-            )
+            if data_array is not None:
+                sizes = data_array.sizes
+            elif var_name in self.dataset:
+                sizes = self.dataset[var_name].sizes
+            else:
+                sizes = {}
             spatial_dim = self._detect_spatial_dim(sizes)
             lon_names, lat_names = self._COORD_NAMES.get(spatial_dim, self._COORD_NAMES['nCells'])
             needed_vars = list(lon_names) + list(lat_names)

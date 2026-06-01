@@ -248,9 +248,12 @@ class MPAS2DProcessor(MPASBaseProcessor):
         if self.dataset is None:
             raise ValueError("Dataset not loaded. Call load_2d_data() first.")
 
-        sizes = data_array.sizes if data_array is not None else (
-            self.dataset[var_name].sizes if var_name in self.dataset else {}
-        )
+        if data_array is not None:
+            sizes = data_array.sizes
+        elif var_name in self.dataset:
+            sizes = self.dataset[var_name].sizes
+        else:
+            sizes = {}
         
         spatial_dim = self._detect_2d_spatial_dim(sizes)
         lon_names, lat_names = self._COORD_NAMES_2D[spatial_dim]

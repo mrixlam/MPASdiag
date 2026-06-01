@@ -142,7 +142,7 @@ def _make_mock_proc(ds: xr.Dataset,
                     prefix: str = "grid",
                     extra_vars: bool = False, 
                     omit_lon: bool = False,
-                    omit_lat: bool = False) -> MPAS3DProcessor:
+                    omit_lat: bool = False) -> Mock:
     """
     This function creates a mock MPAS3DProcessor with a synthetic grid file based on the provided dataset. The grid file can be customized to include or omit longitude and latitude variables, as well as to add extra variables that are not part of the standard sounding coordinates. This allows for testing how the SoundingDiagnostics class handles different grid configurations and ensures that it can correctly extract necessary information from the grid file under various conditions. The mock processor is set up with the provided dataset and a path to the generated grid file, ready for use in unit tests.
 
@@ -155,7 +155,7 @@ def _make_mock_proc(ds: xr.Dataset,
         omit_lat (bool): Whether to omit the latitude variable from the grid file.
     
     Returns:
-        MPAS3DProcessor: A mock MPAS3DProcessor instance with the synthetic grid file.
+        Mock: A mock MPAS3DProcessor instance (Mock with spec=MPAS3DProcessor) with the synthetic grid file.
     """
     n_cells = ds.sizes.get("nCells", 5)
     lon = np.linspace(-110.0, -90.0, n_cells)

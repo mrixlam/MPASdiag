@@ -617,7 +617,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             ds = xr.Dataset(dict(ds.data_vars), coords=ds.coords, attrs=ds.attrs)
 
         var_da = ds[var_name]
-        time_dim = 'Time' if 'Time' in var_da.sizes else ('time' if 'time' in var_da.sizes else None)
+        if 'Time' in var_da.sizes:
+            time_dim: Optional[str] = 'Time'
+        elif 'time' in var_da.sizes:
+            time_dim = 'time'
+        else:
+            time_dim = None
 
         if 'nVertLevels' in var_da.sizes:
             vert_dim: Optional[str] = 'nVertLevels'

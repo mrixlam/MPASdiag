@@ -187,9 +187,10 @@ class MPASGeographicUtils:
         n_points = min(sample_size, len(lon))
 
         if n_points < len(lon):
-            indices = np.random.choice(len(lon), n_points, replace=False)
+            rng = np.random.default_rng(0)
+            indices = rng.choice(len(lon), n_points, replace=False)
             sample_lon = lon[indices]
-            sample_lat = lat[indices] 
+            sample_lat = lat[indices]
         else:
             sample_lon = lon
             sample_lat = lat
