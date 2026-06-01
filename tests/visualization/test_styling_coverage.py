@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 from mpasdiag.visualization.styling import MPASVisualizationStyle
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestCreatePrecipColormapException:

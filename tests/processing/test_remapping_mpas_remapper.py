@@ -28,7 +28,7 @@ from mpasdiag.processing.remapping import (
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestMPASRemapper:

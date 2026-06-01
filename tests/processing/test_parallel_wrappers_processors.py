@@ -37,7 +37,7 @@ TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__f
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestProcessParallelResults:

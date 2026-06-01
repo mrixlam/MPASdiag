@@ -25,7 +25,7 @@ from pathlib import Path
 from unittest.mock import Mock
 from typing import Dict, Any, Optional, Tuple, Generator
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class _DynamicStdoutHandler(logging.Handler):

@@ -36,7 +36,7 @@ from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 def create_mock_create_map(plotter: Any) -> Any:

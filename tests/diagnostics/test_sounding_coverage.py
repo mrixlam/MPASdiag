@@ -29,7 +29,7 @@ except ImportError:
     HAS_METPY_TEST = False
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 def _synthetic_mpas_data(n_cells: int = 5,

@@ -30,7 +30,7 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 N_CELLS = 8
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 @pytest.fixture(autouse=True)

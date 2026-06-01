@@ -26,7 +26,7 @@ from mpasdiag.visualization.wind import MPASWindPlotter
 N_CELLS = 10
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestCalculateOptimalSubsample:

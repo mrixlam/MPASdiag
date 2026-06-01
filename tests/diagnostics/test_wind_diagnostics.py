@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from mpasdiag.diagnostics.wind import WindDiagnostics
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestWindDiagnostics:

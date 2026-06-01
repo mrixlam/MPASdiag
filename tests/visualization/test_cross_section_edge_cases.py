@@ -35,7 +35,7 @@ GRID_FILE = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
 MPASOUT_DIR = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 def _find_3d_var(processor: MPAS3DProcessor) -> Union[str, None]:

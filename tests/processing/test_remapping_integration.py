@@ -23,7 +23,7 @@ from mpasdiag.processing.remapping import (
 )
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestWithRealMPASData:

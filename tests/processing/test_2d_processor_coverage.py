@@ -22,7 +22,7 @@ from unittest.mock import MagicMock, patch
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 @pytest.fixture

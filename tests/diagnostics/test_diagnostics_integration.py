@@ -25,7 +25,7 @@ from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 class TestDiagnosticsIntegration:

@@ -24,7 +24,7 @@ from mpasdiag.processing.remapping import ESMPY_AVAILABLE
 REMAPPING_AVAILABLE = True
 
 
-_RNG = np.random.default_rng()
+_RNG = np.random.default_rng(42)
 
 
 @pytest.mark.skipif(not REMAPPING_AVAILABLE, reason="Remapping module not available")
