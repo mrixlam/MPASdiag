@@ -322,16 +322,16 @@ class TestGet3DWindComponents:
         Returns:
             xr.Dataset: A synthetic dataset containing 3D wind components and pressure levels for testing.
         """
-        nCells = 50
-        nVertLevels = 10
-        nTime = 5
-        
-        u_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
-        v_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
-        w_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 0.5
-        
-        pressure_p = _RNG.random((nTime, nVertLevels, nCells)) * 10000 + 50000
-        pressure_base = np.ones((nTime, nVertLevels, nCells)) * 50000
+        n_cells = 50
+        n_vert_levels = 10
+        n_time = 5
+
+        u_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
+        v_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
+        w_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 0.5
+
+        pressure_p = _RNG.random((n_time, n_vert_levels, n_cells)) * 10000 + 50000
+        pressure_base = np.ones((n_time, n_vert_levels, n_cells)) * 50000
         
         ds = xr.Dataset({
             'uReconstructZonal': (['Time', 'nVertLevels', 'nCells'], u_data),
@@ -563,11 +563,11 @@ class TestGet2DWindComponents:
         Returns:
             xr.Dataset: A synthetic dataset containing 2D wind components for testing.
         """
-        nCells = 100
-        nTime = 10
-        
-        u_data = _RNG.standard_normal((nTime, nCells)) * 5
-        v_data = _RNG.standard_normal((nTime, nCells)) * 5
+        n_cells = 100
+        n_time = 10
+
+        u_data = _RNG.standard_normal((n_time, n_cells)) * 5
+        v_data = _RNG.standard_normal((n_time, n_cells)) * 5
         
         ds = xr.Dataset({
             'u10': (['Time', 'nCells'], u_data, {'units': 'm s^{-1}'}),
@@ -624,12 +624,12 @@ class TestEdgeCasesAndErrorPaths:
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
-        nCells = 30
-        nVertLevels = 10
-        nTime = 2
-        
+        n_cells = 30
+        n_vert_levels = 10
+        n_time = 2
+
         dataset = xr.Dataset({
-            'u': (['Time', 'nVertLevels', 'nCells'], _RNG.standard_normal((nTime, nVertLevels, nCells))),
+            'u': (['Time', 'nVertLevels', 'nCells'], _RNG.standard_normal((n_time, n_vert_levels, n_cells))),
             'xtime': (['Time'], [b'2023-01-01_00:00:00', b'2023-01-01_01:00:00'])
         })
         

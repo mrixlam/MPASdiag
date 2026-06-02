@@ -76,10 +76,10 @@ class TestIntegrationWithRealData:
         Returns:
             None
         """
-        nCells = 100
-        nTime = 24
+        n_cells = 100
+        n_time = 24
         
-        hourly_rates = _RNG.exponential(2.0, (nTime, nCells))
+        hourly_rates = _RNG.exponential(2.0, (n_time, n_cells))
         rainnc_data = np.cumsum(hourly_rates, axis=0)
         
         ds = xr.Dataset({
@@ -94,7 +94,7 @@ class TestIntegrationWithRealData:
             )
             
             assert isinstance(result, xr.DataArray)
-            assert result.shape == (nCells,)
+            assert result.shape == (n_cells,)
             assert np.all(result.values >= 0)
     
     def test_full_workflow_multiple_accumulation_periods(self: 'TestIntegrationWithRealData') -> None:
@@ -107,12 +107,12 @@ class TestIntegrationWithRealData:
         Returns:
             None
         """
-        nCells = 50
-        nTime = 25
+        n_cells = 50
+        n_time = 25
         
-        hourly_rates = _RNG.random((nTime, nCells)) * 5
+        hourly_rates = _RNG.random((n_time, n_cells)) * 5
         rainnc_data = np.cumsum(hourly_rates, axis=0)
-        rainc_data = np.cumsum(_RNG.random((nTime, nCells)) * 2, axis=0)
+        rainc_data = np.cumsum(_RNG.random((n_time, n_cells)) * 2, axis=0)
         
         ds = xr.Dataset({
             'rainnc': (['Time', 'nCells'], rainnc_data),
@@ -144,11 +144,11 @@ class TestIntegrationWithRealData:
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
-        nCells = 200
-        nTime = 24
+        n_cells = 200
+        n_time = 24
         
-        u10_data = _RNG.standard_normal((nTime, nCells)) * 5 + 2  
-        v10_data = _RNG.standard_normal((nTime, nCells)) * 5 + 1 
+        u10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 2  
+        v10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 1 
         
         ds = xr.Dataset({
             'u10': (['Time', 'nCells'], u10_data, {'units': 'm s^{-1}'}),
@@ -182,13 +182,13 @@ class TestIntegrationWithRealData:
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         
-        nCells = 100
-        nVertLevels = 20
-        nTime = 10
+        n_cells = 100
+        n_vert_levels = 20
+        n_time = 10
         
-        u_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
-        v_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 10
-        w_data = _RNG.standard_normal((nTime, nVertLevels, nCells)) * 0.5
+        u_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
+        v_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
+        w_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 0.5
         
         ds = xr.Dataset({
             'uReconstructZonal': (['Time', 'nVertLevels', 'nCells'], u_data),

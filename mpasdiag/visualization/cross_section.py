@@ -1378,16 +1378,16 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
     def _set_pressure_ylim(self: 'MPASVerticalCrossSectionPlotter',
                            vertical_coords: np.ndarray,
                            max_height: Optional[float],
-                           P0: float,
-                           H: float = 8.4,) -> None:
+                           p0: float,
+                           scale_height: float = 8.4,) -> None:
         """
         This internal method sets the y-axis limits for pressure-based vertical cross-section plots based on the provided vertical coordinate values and an optional maximum height. If a maximum height is specified, it calculates the corresponding minimum pressure using the barometric formula and sets the y-axis limits accordingly. If no maximum height is provided, it defaults to setting the limits based on the range of the vertical coordinates. The method includes error handling to ensure that axis limits are set correctly even if certain styling features are unavailable, providing a robust setup for clear visualization of pressure levels along the cross-section. This method is essential for ensuring that the y-axis of pressure-based cross-section plots is appropriately scaled to the range of pressure levels being visualized, enhancing the readability and interpretability of the plot.
 
         Parameters:
             vertical_coords (np.ndarray): Array of vertical coordinate values representing pressure levels, used to determine appropriate y-axis limits for the pressure display.
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data.
-            P0 (float): Reference sea level pressure in Pa used for calculating the minimum pressure corresponding to the maximum height when max_height is provided.
-            H (float): Scale height in kilometers used in the barometric formula for converting height to pressure (default: 8.4 km).
+            p0 (float): Reference sea level pressure in Pa used for calculating the minimum pressure corresponding to the maximum height when max_height is provided.
+            scale_height (float): Scale height in kilometers used in the barometric formula for converting height to pressure (default: 8.4 km).
 
         Returns:
             None: Modifies self.ax y-axis limits directly without returning a value.
@@ -1395,7 +1395,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         assert self.ax is not None, "Axes must be created before setting limits"
 
         if max_height is not None:
-            min_pressure = P0 * np.exp(-max_height / H)
+            min_pressure = p0 * np.exp(-max_height / scale_height)
             valid_coords = vertical_coords[vertical_coords >= min_pressure]
 
             if len(valid_coords) > 0:
@@ -1436,11 +1436,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             self.ax.set_ylim(0, y_max)
         elif vertical_coord_type == 'pressure_hPa':
             self.ax.set_ylabel('Pressure [hPa]', fontsize=12)
-            self._set_pressure_ylim(vertical_coords, max_height, P0=1013.25)
+            self._set_pressure_ylim(vertical_coords, max_height, p0=1013.25)
             self._setup_pressure_axis(vertical_coords, use_standard_ticks=True)
         elif vertical_coord_type == 'pressure':
             self.ax.set_ylabel('Pressure [Pa]', fontsize=12)
-            self._set_pressure_ylim(vertical_coords, max_height, P0=101325.0)
+            self._set_pressure_ylim(vertical_coords, max_height, p0=101325.0)
             self._setup_pressure_axis(vertical_coords, use_standard_ticks=False)
         elif vertical_coord_type == 'height':
             self.ax.set_ylabel('Height [m]', fontsize=12)

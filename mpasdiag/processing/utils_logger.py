@@ -128,7 +128,7 @@ class MPASLogger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
-        for handler in list(self.logger.handlers):
+        for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
 
         rank_filter = MPIRankFilter()
