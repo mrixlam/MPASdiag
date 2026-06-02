@@ -37,11 +37,11 @@ def _reset_root_logger() -> Iterator[None]:
          An iterator that yields None, allowing the fixture to perform setup before the test and teardown after the test.
     """
     root = logging.getLogger(ROOT_LOGGER_NAME)
-    for h in list(root.handlers):
+    for h in root.handlers[:]:
         root.removeHandler(h)
     yield
     root = logging.getLogger(ROOT_LOGGER_NAME)
-    for h in list(root.handlers):
+    for h in root.handlers[:]:
         root.removeHandler(h)
 
 

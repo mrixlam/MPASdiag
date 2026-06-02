@@ -354,7 +354,7 @@ class TestAdditionalCoverage:
         assert fig is not None
         plt.close(fig)
     
-    def test_vertical_levels_exception_nVertLevelsP1(self: 'TestAdditionalCoverage') -> None:
+    def test_vertical_levels_exception_n_vert_levels_p1(self: 'TestAdditionalCoverage') -> None:
         """
         This test verifies that the plotter recovers when `get_vertical_levels` raises an exception and `nVertLevelsP1` is present. The test constructs a dataset with `nVertLevelsP1` and simulates a level extraction exception to ensure plotting proceeds using fallback logic.
 
@@ -515,7 +515,7 @@ class TestAdditionalCoverage:
         plt.close(fig)
     
     
-    def test_format_axes_pressure_hPa_max_height(self: 'TestAdditionalCoverage') -> None:
+    def test_format_axes_pressure_hpa_max_height(self: 'TestAdditionalCoverage') -> None:
         """
         This test verifies that axis formatting for pressure in hPa includes 'hPa' in the ylabel when max_height is specified. The test configures the axes with pressure values and a max_height, then asserts that the ylabel contains 'hPa', confirming that the plotter correctly formats the axis label based on the provided parameters.
 

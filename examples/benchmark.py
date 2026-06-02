@@ -21,6 +21,7 @@ import csv
 import time
 from pathlib import Path
 from datetime import datetime
+from typing import Callable
 
 # Load relevant MPASdiag modules
 from mpasdiag.visualization.wind import MPASWindPlotter
@@ -386,6 +387,198 @@ def print_summary(results: list[dict],
     print(f"Results saved to: {csv_path}\n")
 
 
+def _make_result(exp_name: str,
+                 category: str,
+                 elapsed: float,
+                 n_files: int,
+                 timestamp: str) -> dict:
+    """
+    This function creates a result record dictionary for a single benchmark. It takes the experiment name, benchmark category, elapsed time in seconds, number of files created, and a timestamp string as input parameters, and returns a dictionary containing these values along with the number of MPI ranks used (from the global SIZE variable). The elapsed time is rounded to 4 decimal places for consistency. This function is intended to standardize the format of the benchmark results for later aggregation and CSV writing.
+
+    Parameters:
+        exp_name: The name of the experiment this result belongs to.
+        category: The benchmark category (e.g. 'data_load_2d', 'precipitation').
+        elapsed: The elapsed time in seconds for the benchmarked operation.
+        n_files: The number of plot files created by the operation.
+        timestamp: The run timestamp string shared across all records of a run.
+
+    Returns:
+        dict: A dictionary containing the benchmark result with keys 'experiment', 'category', 'mpi_ranks', 'elapsed_s', 'n_files', and 'timestamp'.
+    """
+    return {
+        'experiment': exp_name,
+        'category': category,
+        'mpi_ranks': SIZE,
+        'elapsed_s': round(elapsed, 4),
+        'n_files': n_files,
+        'timestamp': timestamp,
+    }
+
+
+def print_banner() -> None:
+    """
+    This function prints a banner to the console at the start of the benchmark run. The banner includes a title for the benchmark, the number of MPI ranks being used, and the list of experiments that will be run. The banner is formatted with separator lines for better visibility. This function is intended to provide a clear starting point for the benchmark output and to summarise the key parameters of the run.   
+
+    Returns:
+        None
+    """
+    print("=" * 60)
+    print("  MPASdiag Batch Plotter Benchmark")
+    print(f"  MPI ranks: {SIZE}")
+    print(f"  Experiments: {list(EXPERIMENTS.keys())}")
+    print("=" * 60)
+
+
+def load_experiment_data(paths: dict) -> tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]:
+    """
+    This function loads the 2D and 3D data for a single experiment using the provided paths. It creates instances of MPAS2DProcessor and MPAS3DProcessor, loads the respective data from the specified directories, and measures the time taken for each loading operation. The function prints status messages to the console indicating which data is being loaded, and it returns the loaded processors along with the elapsed times for loading the 2D and 3D data. The loading operations are performed sequentially, and the timing is done using time.perf_counter() for high-resolution timing. 
+
+    Parameters:
+        paths: A dictionary containing the keys 'grid_file', 'diag_dir', and 'mpasout_dir' with the respective paths for the grid file, 2D diagnostic data directory, and 3D model output directory.
+
+    Returns:
+        tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]: A tuple containing the loaded MPAS2DProcessor, the loaded MPAS3DProcessor, the elapsed time in seconds for loading the 2D data, and the elapsed time in seconds for loading the 3D data.
+    """
+    if RANK == 0:
+        print(f"  Loading 2D diagnostic data from {paths['diag_dir']} ...")
+
+    t_load = time.perf_counter()
+    processor_2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+    processor_2d.load_2d_data(paths['diag_dir'])
+    load_2d_time = time.perf_counter() - t_load
+
+    if RANK == 0:
+        print(f"  Loading 3D model output from {paths['mpasout_dir']} ...")
+
+    t_load = time.perf_counter()
+    processor_3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+    processor_3d.load_3d_data(paths['mpasout_dir'])
+    load_3d_time = time.perf_counter() - t_load
+
+    return processor_2d, processor_3d, load_2d_time, load_3d_time
+
+
+def build_benchmarks(processor_2d: MPAS2DProcessor,
+                     processor_3d: MPAS3DProcessor,
+                     exp_out: str,
+                     use_parallel: bool,
+                     n_workers: int | None) -> list[tuple[str, Callable[[], tuple[float, int]]]]:
+    """
+    This function builds the list of benchmarks to run for a single experiment. It takes the loaded 2D and 3D processors, the base output directory for the experiment, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. The function returns a list of tuples, where each tuple contains a benchmark category name (e.g. 'precipitation') and a zero-argument callable that executes the corresponding benchmark function and returns a tuple of (elapsed time in seconds, number of files created). The benchmark functions are wrapped in lambda functions to defer their execution until they are called in the main experiment loop. The skew-T benchmark is set to run only on rank 0 due to its serial implementation, while the others can run in parallel across ranks if enabled.
+
+    Parameters:
+        processor_2d: The loaded 2D processor used by the precipitation, surface, and wind benchmarks.
+        processor_3d: The loaded 3D processor used by the cross-section and skew-T benchmarks.
+        exp_out: The base output directory for the experiment's plots.
+        use_parallel: Whether the batch plotting functions should run in parallel.
+        n_workers: The number of worker processes to use when parallel, or None.
+
+    Returns:
+        list[tuple[str, Callable[[], tuple[float, int]]]]: The (name, callable) pairs to execute in order.
+    """
+    workers = n_workers if n_workers is not None else 1
+    return [
+        ('precipitation', lambda: run_benchmark_precipitation(processor_2d, exp_out, use_parallel, workers)),
+        ('surface', lambda: run_benchmark_surface(processor_2d, exp_out, use_parallel, workers)),
+        ('wind', lambda: run_benchmark_wind(processor_2d, exp_out, use_parallel, workers)),
+        ('cross_section', lambda: run_benchmark_cross_section(processor_3d, exp_out, use_parallel, workers)),
+        ('skewt', lambda: run_benchmark_skewt(processor_3d, exp_out) if RANK == 0 else (0.0, 0)),
+    ]
+
+
+def run_single_benchmark(plotter_name: str,
+                         bench_fn: Callable[[], tuple[float, int]],
+                         exp_name: str,
+                         timestamp: str) -> dict | None:
+    """
+    This function runs a single benchmark and gathers the results across MPI ranks. It takes the benchmark category name, a zero-argument callable that executes the benchmark and returns (elapsed time, number of files), the experiment name, and a timestamp string. The function prints a status message indicating which benchmark is running, synchronises the ranks with a barrier, executes the benchmark function to get the timing and file count, and then gathers these results from all ranks to rank 0. On rank 0, it computes the maximum elapsed time across ranks (as the effective runtime) and the total number of files created, prints the results for this benchmark, and creates a result record dictionary using the _make_result helper function. The function returns this result record on rank 0, while other ranks return None. 
+
+    Parameters:
+        plotter_name: The benchmark category name (e.g. 'precipitation').
+        bench_fn: A zero-argument callable returning (elapsed, n_files).
+        exp_name: The name of the experiment the benchmark belongs to.
+        timestamp: The run timestamp string shared across all records of a run.
+
+    Returns:
+        dict | None: The aggregated result record on rank 0, otherwise None.
+    """
+    if RANK == 0:
+        print(f"  Benchmarking {plotter_name} ...")
+
+    if COMM is not None:
+        COMM.Barrier()
+
+    elapsed, n_files = bench_fn()
+
+    if COMM is not None:
+        timings = COMM.gather(elapsed, root=0) or [elapsed]
+        file_counts = COMM.gather(n_files, root=0) or [n_files]
+    else:
+        timings = [elapsed]
+        file_counts = [n_files]
+
+    result = None
+    
+    if RANK == 0:
+        max_time = max(timings)
+        total_files = sum(file_counts)
+        print(f"    -> {plotter_name}: {max_time:.2f}s, {total_files} files")
+        result = _make_result(exp_name, plotter_name, max_time, total_files, timestamp)
+
+    gc.collect()
+    return result
+
+
+def run_experiment(exp_name: str,
+                   paths: dict,
+                   use_parallel: bool,
+                   n_workers: int | None,
+                   timestamp: str) -> list[dict]:
+    """
+    This function runs a single experiment, which includes loading the data, running all benchmarks for that experiment, and collecting the results. It takes the experiment name, a dictionary of paths for loading the data, a boolean indicating whether to use parallel processing, the number of worker processes to use if parallel processing is enabled, and a timestamp string. The function first prints the experiment name on rank 0, creates an output directory for the experiment, and synchronises the ranks. It then loads the 2D and 3D data using the load_experiment_data helper function, which returns the loaded processors and the time taken for loading. The loading times are recorded as benchmark results. Next, it builds the list of benchmarks to run using the build_benchmarks helper function, which returns a list of (name, callable) pairs. The function then iterates over these benchmarks, running each one with run_single_benchmark to get the result record, which is collected into a list of results. Finally, it cleans up by deleting the processors and calling garbage collection before returning the list of results for this experiment.
+
+    Parameters:
+        exp_name: The name of the experiment to run.
+        paths: A mapping with the keys 'grid_file', 'diag_dir', and 'mpasout_dir'.
+        use_parallel: Whether the batch plotting functions should run in parallel.
+        n_workers: The number of worker processes to use when parallel, or None.
+        timestamp: The run timestamp string shared across all records of a run.
+
+    Returns:
+        list[dict]: The benchmark result records produced for this experiment (empty on ranks other than rank 0).
+    """
+    results: list[dict] = []
+
+    if RANK == 0:
+        print(f"\n>>> Experiment: {exp_name}")
+
+    exp_out = str(BENCHMARK_DIR / exp_name)
+
+    if RANK == 0:
+        os.makedirs(exp_out, exist_ok=True)
+
+    if COMM is not None:
+        COMM.Barrier()
+
+    processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(paths)
+
+    if RANK == 0:
+        print(f"  2D load: {load_2d_time:.2f}s | 3D load: {load_3d_time:.2f}s")
+        results.append(_make_result(exp_name, 'data_load_2d', load_2d_time, 0, timestamp))
+        results.append(_make_result(exp_name, 'data_load_3d', load_3d_time, 0, timestamp))
+
+    benchmarks = build_benchmarks(processor_2d, processor_3d, exp_out, use_parallel, n_workers)
+
+    for plotter_name, bench_fn in benchmarks:
+        result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp)
+        if result is not None:
+            results.append(result)
+
+    del processor_2d, processor_3d
+    gc.collect()
+    return results
+
+
 def main() -> None:
     """ Main function for the MPASdiag Batch Plotter Benchmark. """
     use_parallel = SIZE > 1
@@ -395,102 +588,12 @@ def main() -> None:
 
     if RANK == 0:
         BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
-        print("=" * 60)
-        print("  MPASdiag Batch Plotter Benchmark")
-        print(f"  MPI ranks: {SIZE}")
-        print(f"  Experiments: {list(EXPERIMENTS.keys())}")
-        print("=" * 60)
+        print_banner()
 
     for exp_name, paths in EXPERIMENTS.items():
-        if RANK == 0:
-            print(f"\n>>> Experiment: {exp_name}")
-
-        exp_out = str(BENCHMARK_DIR / exp_name)
-        if RANK == 0:
-            os.makedirs(exp_out, exist_ok=True)
-
-        # Synchronise so dirs exist before other ranks proceed
-        if COMM is not None:
-            COMM.Barrier()
-
-        if RANK == 0:
-            print(f"  Loading 2D diagnostic data from {paths['diag_dir']} ...")
-
-        t_load = time.perf_counter()
-        processor_2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-        processor_2d.load_2d_data(paths['diag_dir'])
-        load_2d_time = time.perf_counter() - t_load
-
-        if RANK == 0:
-            print(f"  Loading 3D model output from {paths['mpasout_dir']} ...")
-
-        t_load = time.perf_counter()
-        processor_3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-        processor_3d.load_3d_data(paths['mpasout_dir'])
-        load_3d_time = time.perf_counter() - t_load
-
-        if RANK == 0:
-            print(f"  2D load: {load_2d_time:.2f}s | 3D load: {load_3d_time:.2f}s")
-            all_results.append({
-                'experiment': exp_name,
-                'category': 'data_load_2d',
-                'mpi_ranks': SIZE,
-                'elapsed_s': round(load_2d_time, 4),
-                'n_files': 0,
-                'timestamp': timestamp,
-            })
-            all_results.append({
-                'experiment': exp_name,
-                'category': 'data_load_3d',
-                'mpi_ranks': SIZE,
-                'elapsed_s': round(load_3d_time, 4),
-                'n_files': 0,
-                'timestamp': timestamp,
-            })
-
-        benchmarks = [
-            ('precipitation', lambda p2d=processor_2d, eo=exp_out: run_benchmark_precipitation(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('surface',       lambda p2d=processor_2d, eo=exp_out: run_benchmark_surface(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('wind',          lambda p2d=processor_2d, eo=exp_out: run_benchmark_wind(p2d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('cross_section', lambda p3d=processor_3d, eo=exp_out: run_benchmark_cross_section(p3d, eo, use_parallel, n_workers=n_workers if n_workers is not None else 1)),
-            ('skewt',         lambda p3d=processor_3d, eo=exp_out: run_benchmark_skewt(p3d, eo) if RANK == 0 else (0.0, 0)),
-        ]
-
-        for plotter_name, bench_fn in benchmarks:
-            if RANK == 0:
-                print(f"  Benchmarking {plotter_name} ...")
-
-            # Synchronise ranks before each plotter benchmark
-            if COMM is not None:
-                COMM.Barrier()
-
-            elapsed, n_files = bench_fn()
-
-            # Gather timing from all ranks on rank 0
-            if COMM is not None:
-                timings = COMM.gather(elapsed, root=0) or [elapsed]
-                file_counts = COMM.gather(n_files, root=0) or [n_files]
-            else:
-                timings = [elapsed]
-                file_counts = [n_files]
-
-            if RANK == 0:
-                max_time = max(timings)
-                total_files = sum(file_counts)
-                print(f"    -> {plotter_name}: {max_time:.2f}s, {total_files} files")
-                all_results.append({
-                    'experiment': exp_name,
-                    'category': plotter_name,
-                    'mpi_ranks': SIZE,
-                    'elapsed_s': round(max_time, 4),
-                    'n_files': total_files,
-                    'timestamp': timestamp,
-                })
-
-            gc.collect()
-
-        del processor_2d, processor_3d
-        gc.collect()
+        all_results.extend(
+            run_experiment(exp_name, paths, use_parallel, n_workers, timestamp)
+        )
 
     if RANK == 0:
         csv_path = BENCHMARK_DIR / f"benchmark_results_{timestamp}.csv"

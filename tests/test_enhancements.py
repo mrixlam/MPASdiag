@@ -182,7 +182,7 @@ class TestConditionalTimeDisplay:
                 time_stamp=self.test_time
             )
         
-        title_calls = [call for call in mock_ax.set_title.call_args_list]
+        title_calls = list(mock_ax.set_title.call_args_list)
         title_text = title_calls[0][0][0]  
 
         assert len(title_calls) > 0
@@ -272,7 +272,7 @@ class TestConditionalTimeDisplay:
                 time_stamp=None
             )
             
-            title_calls = [call for call in mock_ax.set_title.call_args_list]
+            title_calls = list(mock_ax.set_title.call_args_list)
             title_text = title_calls[0][0][0]
 
             assert len(title_calls) > 0

@@ -21,7 +21,7 @@ import numpy as np
 import xarray as xr
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from typing import Generator, Union
+from typing import Union
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
@@ -57,8 +57,8 @@ class TestAdditionalEdgeCases:
     """ Additional tests targeting remaining uncovered lines. """
     
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestAdditionalEdgeCases', 
-                     mpas_3d_processor: 'MPAS3DProcessor') -> Generator[None, None, None]: # type: ignore[no-untyped-def]
+    def setup_method(self: 'TestAdditionalEdgeCases',
+                     mpas_3d_processor: 'MPAS3DProcessor') -> None:
         """
         This fixture sets up the MPAS3DProcessor and MPASVerticalCrossSectionPlotter for the edge case tests. It checks if the processor is available and skips tests if not, ensuring that the tests only run when the necessary data is accessible. The processor and plotter are assigned to instance variables for use in the test methods.
 
@@ -66,12 +66,11 @@ class TestAdditionalEdgeCases:
             mpas_3d_processor (MPAS3DProcessor): Fixture providing a processor with MPAS data.
 
         Returns:
-            Generator[None, None, None]: A generator that yields control back to the test methods after setup.
+            None
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
-        
+
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
     

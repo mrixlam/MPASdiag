@@ -66,12 +66,12 @@ class TestDataValidation:
             
             lon = ((lon + 180.0) % 360.0) - 180.0
             
-            nCells = len(lon)
-            
+            n_cells = len(lon)
+
             if 't2m' in mock_mpas_2d_data:
                 data_array = mock_mpas_2d_data['t2m'].isel(Time=0)
             else:
-                data_array = xr.DataArray(np.ones(nCells), dims=['nCells'])
+                data_array = xr.DataArray(np.ones(n_cells), dims=['nCells'])
             
             ds = xr.Dataset({
                 'lonCell': (['nCells'], lon),
@@ -96,7 +96,7 @@ class TestDataValidation:
             )
             
             assert mask.dtype == bool
-            assert len(mask) == nCells
+            assert len(mask) == n_cells
             
             expected_mask = ((lon >= test_lon_min) & (lon <= test_lon_max) & 
                            (lat >= test_lat_min) & (lat <= test_lat_max))

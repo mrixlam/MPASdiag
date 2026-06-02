@@ -257,7 +257,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 color_levels.append(clim_max)
         
         # Sort and deduplicate color levels, ensuring they are finite values for proper normalization
-        color_levels_sorted = sorted(set([v for v in color_levels if np.isfinite(v)]))
+        color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
         # Add bounds for normalization: extend beyond the last level to ensure proper coloring of values above the highest level
         last_bound = max(color_levels_sorted) + 1
@@ -370,7 +370,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Add annotation text box to the plot with styling
         self.ax.text(0.01, 0.02, annotation_text, transform=self.ax.transAxes, fontsize=9,
                     verticalalignment='bottom', horizontalalignment='left',
-                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+                    bbox={'facecolor': 'white', 'alpha': 0.7, 'edgecolor': 'none'})
     
     def create_precipitation_map(self: 'MPASPrecipitationPlotter',
                                  lon: np.ndarray,
@@ -704,7 +704,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             cmap, color_levels = self.create_precip_colormap(accum_period)
         
         # Filter and sort color levels for normalization and colorbar ticks
-        color_levels_sorted = sorted(set([v for v in color_levels if np.isfinite(v)]))
+        color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
         # Set bounds for BoundaryNorm (0 to max level + 1) to ensure proper color mapping with clipping
         last_bound = max(color_levels_sorted) + 1
@@ -841,9 +841,65 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             alpha (float): Transparency level for contours (0 to 1) to allow for better visualization of underlying map features while still showing precipitation patterns.
             lon (np.ndarray): Original longitude array for the MPAS cell centers, used for interpolation.
             lat (np.ndarray): Original latitude array for the MPAS cell centers, used for interpolation.
+            config (Optional[Any]): Optional configuration object for additional settings.
 
         Returns:
             None: This method modifies the provided axes in place by adding the contour lines or filled contours for the precipitation overlay. It does not return any value.
+        """
+        # Perform interpolation of the valid precipitation data onto a regular lat-lon grid 
+        remapped_precip = self._remap_overlay_data(
+            lon_valid, lat_valid, precip_valid,
+            lon_min, lon_max, lat_min, lat_max,
+            resolution, var_name, dataset, lon, lat, config,
+        )
+
+        # Extract grid and data for plotting
+        lon_grid = remapped_precip.lon.values
+        lat_grid = remapped_precip.lat.values
+        precip_grid = remapped_precip.values
+
+        logger.debug("Remapped to %dx%d grid", precip_grid.shape[0], precip_grid.shape[1])
+
+        # Render contours based on plot type using the gridded data
+        self._draw_overlay_contours(
+            ax, lon_grid, lat_grid, precip_grid, plot_type,
+            cmap, norm, color_levels_sorted, alpha,
+        )
+
+    def _remap_overlay_data(self: 'MPASPrecipitationPlotter',
+                            lon_valid: np.ndarray,
+                            lat_valid: np.ndarray,
+                            precip_valid: np.ndarray,
+                            lon_min: float,
+                            lon_max: float,
+                            lat_min: float,
+                            lat_max: float,
+                            resolution: float,
+                            var_name: str,
+                            dataset: Optional[xr.Dataset],
+                            lon: np.ndarray,
+                            lat: np.ndarray,
+                            config: Optional[Any]) -> xr.DataArray:
+        """
+        This method handles the remapping of the precipitation overlay data from the unstructured MPAS grid to a regular lat-lon grid suitable for contour plotting. It first determines whether to use the legacy ESMPy remapper based on the availability of boundary data and user configuration. If ESMPy is available and appropriate, it attempts to perform a conservative remap, which can provide better conservation properties for precipitation fields. If the ESMPy remap fails or is not suitable, it falls back to a KD-Tree based interpolation method, which is more robust but may not conserve quantities as well. The method ensures that a dataset with cell-center coordinates is available for remapping, either by using the provided dataset or by constructing one from the longitude and latitude arrays. The resulting remapped precipitation field is returned as an xarray DataArray on a regular lat-lon grid defined by the specified geographic extent and resolution, ready for contour plotting with cartopy.
+
+        Parameters:
+            lon_valid (np.ndarray): Valid longitude coordinates of the data points.
+            lat_valid (np.ndarray): Valid latitude coordinates of the data points.
+            precip_valid (np.ndarray): Valid precipitation values for the data points.
+            lon_min (float): Western boundary of the map extent in degrees.
+            lon_max (float): Eastern boundary of the map extent in degrees.
+            lat_min (float): Southern boundary of the map extent in degrees.
+            lat_max (float): Northern boundary of the map extent in degrees.
+            resolution (float): Grid resolution in degrees for interpolation.
+            var_name (str): Variable name used in log messages.
+            dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
+            lon (np.ndarray): Original longitude array for the MPAS cell centers.
+            lat (np.ndarray): Original latitude array for the MPAS cell centers.
+            config (Optional[Any]): Optional configuration controlling remap engine and method.
+
+        Returns:
+            xr.DataArray: The remapped precipitation field on the regular lat-lon grid.
         """
         engine = getattr(config, 'remap_engine', None)
         esmf_method = getattr(config, 'remap_method', 'conservative') if config else 'conservative'
@@ -854,100 +910,235 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             or (engine is None and ESMPY_AVAILABLE and self._has_boundary_data(self._ensure_boundary_data(dataset)))
         )
 
-        # --- config-aware dispatch (primary) ---------------------------------
+        lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
+        lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
+
         remapped_precip = None
 
         if config is not None:
-            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
-            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
-
-            if dataset is None:
-                dataset = xr.Dataset({
-                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
-                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
-                })
-
-            data_xr = xr.DataArray(precip_valid, dims=['nCells'])
-
-            remapped_precip = dispatch_remap(
-                data=data_xr,
-                dataset=dataset,
-                config=config,
-                lon_min=lon_min,
-                lon_max=lon_max,
-                lat_min=lat_min,
-                lat_max=lat_max,
-                resolution=resolution,
-                apply_mask=True,
-                lon_convention='auto',
+            remapped_precip = self._remap_overlay_via_config(
+                precip_valid, dataset, lon_arr, lat_arr,
+                lon_min, lon_max, lat_min, lat_max, resolution, config,
             )
-
-        # --- legacy ESMPy path (no config, auto-select) ---------------------
         elif use_esmf:
-            dataset = self._ensure_boundary_data(dataset)
-
-            logger.info(
-                "Interpolating %s overlay via ESMPy/%s (resolution: %.3f°)",
-                var_name, esmf_method, resolution,
+            remapped_precip = self._remap_overlay_via_esmf(
+                lon_valid, lat_valid, precip_valid, lon_arr, lat_arr,
+                lon_min, lon_max, lat_min, lat_max, resolution,
+                var_name, dataset, esmf_method,
             )
 
-            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
-            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
-
-            try:
-                full_data = self._backmap_to_full_grid(
-                    lon_valid, lat_valid, precip_valid, lon_arr, lat_arr
-                )
-                remapped_precip = self._remap_conservative(
-                    full_data, lon_arr, lat_arr, dataset,
-                    lon_min, lon_max, lat_min, lat_max, resolution,
-                    method=esmf_method,
-                )
-            except Exception as exc:
-                logger.warning(
-                    "ESMPy/%s overlay remapping failed (%s); falling back to KD-Tree.",
-                    esmf_method, exc,
-                )
-                remapped_precip = None
-
-        # --- KD-Tree fallback -----------------------------------------------
         if remapped_precip is None:
-            logger.info(
-                "Interpolating %s overlay using KD-Tree/%s (resolution: %.3f°)",
-                var_name, kdtree_method, resolution,
+            remapped_precip = self._remap_overlay_via_kdtree(
+                precip_valid, dataset, lon_arr, lat_arr,
+                lon_min, lon_max, lat_min, lat_max, resolution,
+                var_name, kdtree_method,
             )
 
-            lon_arr = lon if isinstance(lon, np.ndarray) else np.asarray(lon)
-            lat_arr = lat if isinstance(lat, np.ndarray) else np.asarray(lat)
+        return remapped_precip
 
-            if dataset is None:
-                dataset = xr.Dataset({
-                    'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
-                    'latCell': xr.DataArray(lat_arr, dims=['nCells'])
-                })
+    @staticmethod
+    def _ensure_overlay_dataset(dataset: Optional[xr.Dataset],
+                                lon_arr: np.ndarray,
+                                lat_arr: np.ndarray) -> xr.Dataset:
+        """
+        This method ensures that an xarray Dataset with the necessary longitude and latitude coordinates for the MPAS cell centers is available for remapping. If a dataset is provided, it is returned as-is. If no dataset is provided, a minimal dataset is constructed using the provided longitude and latitude arrays, with dimensions named 'nCells' to match the expected structure for remapping. This allows the remapping functions to operate with a consistent dataset structure regardless of whether the user has provided an existing dataset or not. 
 
-            data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+        Parameters:
+            dataset (Optional[xr.Dataset]): Existing dataset, or None to build one.
+            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
+            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
 
-            remapped_precip = remap_mpas_to_latlon_with_masking(
-                data=data_xr,
-                dataset=dataset,
-                lon_min=lon_min,
-                lon_max=lon_max,
-                lat_min=lat_min,
-                lat_max=lat_max,
-                resolution=resolution,
-                method=kdtree_method,
-                apply_mask=True,
-                lon_convention='auto',
+        Returns:
+            xr.Dataset: The provided dataset, or a minimal one built from the arrays.
+        """
+        if dataset is not None:
+            return dataset
+        return xr.Dataset({
+            'lonCell': xr.DataArray(lon_arr, dims=['nCells']),
+            'latCell': xr.DataArray(lat_arr, dims=['nCells'])
+        })
+
+    def _remap_overlay_via_config(self: 'MPASPrecipitationPlotter',
+                                  precip_valid: np.ndarray,
+                                  dataset: Optional[xr.Dataset],
+                                  lon_arr: np.ndarray,
+                                  lat_arr: np.ndarray,
+                                  lon_min: float,
+                                  lon_max: float,
+                                  lat_min: float,
+                                  lat_max: float,
+                                  resolution: float,
+                                  config: Any) -> xr.DataArray:
+        """
+        This method handles remapping of the overlay data using a user-specified configuration for the remap engine and method. It ensures that a dataset with cell-center coordinates is available, then delegates the remapping to the dispatch_remap function, which will select the appropriate remapping backend based on the configuration. This allows users to specify their preferred remapping approach (e.g., ESMPy, KD-Tree) through the configuration, while still ensuring that the necessary data structure is in place for the remapping to occur. The resulting remapped precipitation field is returned as an xarray DataArray on a regular lat-lon grid defined by the specified geographic extent and resolution.
+
+        Parameters:
+            precip_valid (np.ndarray): Valid precipitation values for the data points.
+            dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
+            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
+            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
+            lon_min (float): Western boundary of the map extent in degrees.
+            lon_max (float): Eastern boundary of the map extent in degrees.
+            lat_min (float): Southern boundary of the map extent in degrees.
+            lat_max (float): Northern boundary of the map extent in degrees.
+            resolution (float): Grid resolution in degrees for interpolation.
+            config (Any): Configuration controlling remap engine and method.
+
+        Returns:
+            xr.DataArray: The remapped precipitation field on the regular lat-lon grid.
+        """
+        dataset = self._ensure_overlay_dataset(dataset, lon_arr, lat_arr)
+        data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+        return dispatch_remap(
+            data=data_xr,
+            dataset=dataset,
+            config=config,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            resolution=resolution,
+            apply_mask=True,
+            lon_convention='auto',
+        )
+
+    def _remap_overlay_via_esmf(self: 'MPASPrecipitationPlotter',
+                                lon_valid: np.ndarray,
+                                lat_valid: np.ndarray,
+                                precip_valid: np.ndarray,
+                                lon_arr: np.ndarray,
+                                lat_arr: np.ndarray,
+                                lon_min: float,
+                                lon_max: float,
+                                lat_min: float,
+                                lat_max: float,
+                                resolution: float,
+                                var_name: str,
+                                dataset: Optional[xr.Dataset],
+                                esmf_method: str) -> Optional[xr.DataArray]:
+        """
+        This method attempts to remap the overlay precipitation data onto a regular lat-lon grid using the ESMPy remapper, which is designed to handle the unstructured nature of MPAS data and can apply masking to ensure that only valid data points contribute to the interpolation. It first ensures that a dataset with cell-center coordinates is available, then performs a conservative remap using the provided method. If the ESMPy remapping fails for any reason (e.g., missing boundary data, issues with the remapping process), it catches the exception, logs a warning, and returns None to indicate that the fallback KD-Tree method should be used instead. This allows for robust handling of remapping while still attempting to use the more sophisticated ESMPy approach when possible. 
+
+        Parameters:
+            lon_valid (np.ndarray): Valid longitude coordinates of the data points.
+            lat_valid (np.ndarray): Valid latitude coordinates of the data points.
+            precip_valid (np.ndarray): Valid precipitation values for the data points.
+            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
+            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
+            lon_min (float): Western boundary of the map extent in degrees.
+            lon_max (float): Eastern boundary of the map extent in degrees.
+            lat_min (float): Southern boundary of the map extent in degrees.
+            lat_max (float): Northern boundary of the map extent in degrees.
+            resolution (float): Grid resolution in degrees for interpolation.
+            var_name (str): Variable name used in log messages.
+            dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
+            esmf_method (str): The ESMPy remap method (e.g. 'conservative').
+
+        Returns:
+            Optional[xr.DataArray]: The remapped field on success, or None to fall back.
+        """
+        dataset = self._ensure_boundary_data(dataset)
+
+        logger.info(
+            "Interpolating %s overlay via ESMPy/%s (resolution: %.3f°)",
+            var_name, esmf_method, resolution,
+        )
+
+        try:
+            full_data = self._backmap_to_full_grid(
+                lon_valid, lat_valid, precip_valid, lon_arr, lat_arr
             )
+            return self._remap_conservative(
+                full_data, lon_arr, lat_arr, dataset,
+                lon_min, lon_max, lat_min, lat_max, resolution,
+                method=esmf_method,
+            )
+        except Exception as exc:
+            logger.warning(
+                "ESMPy/%s overlay remapping failed (%s); falling back to KD-Tree.",
+                esmf_method, exc,
+            )
+            return None
 
-        # Extract grid and data for plotting
-        lon_grid = remapped_precip.lon.values
-        lat_grid = remapped_precip.lat.values
-        precip_grid = remapped_precip.values
-        
-        logger.debug("Remapped to %dx%d grid", precip_grid.shape[0], precip_grid.shape[1])
-        
+    def _remap_overlay_via_kdtree(self: 'MPASPrecipitationPlotter',
+                                  precip_valid: np.ndarray,
+                                  dataset: Optional[xr.Dataset],
+                                  lon_arr: np.ndarray,
+                                  lat_arr: np.ndarray,
+                                  lon_min: float,
+                                  lon_max: float,
+                                  lat_min: float,
+                                  lat_max: float,
+                                  resolution: float,
+                                  var_name: str,
+                                  kdtree_method: str) -> xr.DataArray:
+        """
+        This method remaps the overlay precipitation data onto a regular lat-lon grid using a KD-Tree based interpolation method. It ensures that a dataset with cell-center coordinates is available, then performs the remapping using the remap_mpas_to_latlon_with_masking function, which applies masking to ensure that only valid data points contribute to the interpolation. The method logs the interpolation process and returns the remapped precipitation field as an xarray DataArray on a regular lat-lon grid defined by the specified geographic extent and resolution. This approach provides a robust fallback for remapping when ESMPy is not available or fails, allowing for effective visualization of precipitation fields derived from unstructured MPAS data. 
+
+        Parameters:
+            precip_valid (np.ndarray): Valid precipitation values for the data points.
+            dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
+            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
+            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
+            lon_min (float): Western boundary of the map extent in degrees.
+            lon_max (float): Eastern boundary of the map extent in degrees.
+            lat_min (float): Southern boundary of the map extent in degrees.
+            lat_max (float): Northern boundary of the map extent in degrees.
+            resolution (float): Grid resolution in degrees for interpolation.
+            var_name (str): Variable name used in log messages.
+            kdtree_method (str): The KD-Tree interpolation method (e.g. 'linear').
+
+        Returns:
+            xr.DataArray: The remapped precipitation field on the regular lat-lon grid.
+        """
+        logger.info(
+            "Interpolating %s overlay using KD-Tree/%s (resolution: %.3f°)",
+            var_name, kdtree_method, resolution,
+        )
+
+        dataset = self._ensure_overlay_dataset(dataset, lon_arr, lat_arr)
+        data_xr = xr.DataArray(precip_valid, dims=['nCells'])
+
+        return remap_mpas_to_latlon_with_masking(
+            data=data_xr,
+            dataset=dataset,
+            lon_min=lon_min,
+            lon_max=lon_max,
+            lat_min=lat_min,
+            lat_max=lat_max,
+            resolution=resolution,
+            method=kdtree_method,
+            apply_mask=True,
+            lon_convention='auto',
+        )
+
+    @staticmethod
+    def _draw_overlay_contours(ax: Axes,
+                               lon_grid: np.ndarray,
+                               lat_grid: np.ndarray,
+                               precip_grid: np.ndarray,
+                               plot_type: str,
+                               cmap: mcolors.Colormap,
+                               norm: BoundaryNorm,
+                               color_levels_sorted: List[float],
+                               alpha: float) -> None:
+        """
+        This method draws contour lines or filled contours for the precipitation overlay on the provided axes using the gridded longitude, latitude, and precipitation data. It checks the specified plot type to determine whether to draw contour lines (with labels) or filled contours (with color mapping). For contour lines, it uses a solid black line style and attempts to add labels to the contours for better readability, while handling potential issues with too many levels or masked data. For filled contours, it fills the areas between contour levels with colors based on the provided colormap and normalization, ensuring that the colorbar reflects the same levels for consistency. The method applies a specified transparency level (alpha) to allow for better visualization of underlying map features while still clearly showing the precipitation patterns. This approach allows for a clear and visually appealing representation of precipitation fields on the map. 
+
+        Parameters:
+            ax (Axes): Target axes for the overlay.
+            lon_grid (np.ndarray): Gridded longitude values from interpolation.
+            lat_grid (np.ndarray): Gridded latitude values from interpolation.
+            precip_grid (np.ndarray): Gridded precipitation values from interpolation.
+            plot_type (str): 'contour' for lines or 'contourf' for filled contours.
+            cmap (mcolors.Colormap): Colormap for filled contours.
+            norm (BoundaryNorm): Normalization for color mapping of filled contours.
+            color_levels_sorted (List[float]): Sorted contour levels.
+            alpha (float): Transparency level for the contours.
+
+        Returns:
+            None: Modifies the provided axes in place.
+        """
         # Special handling for contour vs contourf to ensure colorbar consistency and proper rendering
         if plot_type == 'contour':
             # Draw contour lines with labels and handle potential issues with too many levels or masked data
@@ -965,7 +1156,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 ax.clabel(contour_set, inline=True, fontsize=8, fmt='%g')
             except Exception:
                 pass
-        else:  
+        else:
             # For filled contours, we want to ensure that the colorbar reflects the same levels
             ax.contourf(
                 lon_grid, lat_grid, precip_grid,
@@ -976,7 +1167,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 transform=ccrs.PlateCarree(),
                 extend='both'
             )
-    
+
     def add_precipitation_overlay(self: 'MPASPrecipitationPlotter',
                                   ax: Axes,
                                   lon: Union[np.ndarray, xr.DataArray],
@@ -1599,7 +1790,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         cmap, color_levels = self.create_precip_colormap(accum_period)
 
         # Sort and filter color levels to ensure valid contour levels for normalization
-        color_levels_sorted = sorted(set([v for v in color_levels if np.isfinite(v)]))
+        color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
         # Add an upper bound to the color levels for normalization to ensure all data values are properly colored
         last_bound = max(color_levels_sorted) + 1

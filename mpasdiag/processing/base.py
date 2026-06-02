@@ -209,12 +209,12 @@ class MPASBaseProcessor:
             xr.Dataset: A combined xarray.Dataset containing data from all specified files, with Time coordinates assigned and sorted, and chunking applied for efficient memory usage. 
         """
         # Build kwargs for open_mfdataset
-        open_mfdataset_kwargs: Dict[str, Any] = dict(
-            combine='nested',
-            concat_dim='Time',
-            chunks=open_chunks,
-            parallel=False,
-        )
+        open_mfdataset_kwargs: Dict[str, Any] = {
+            'combine': 'nested',
+            'concat_dim': 'Time',
+            'chunks': open_chunks,
+            'parallel': False,
+        }
 
         # If a list of variables to drop is provided, include it in the kwargs
         if drop_variables:
@@ -442,28 +442,74 @@ class MPASBaseProcessor:
         open_chunks, full_chunks = self._prepare_chunking_config(chunks)
         
         # Compute list of variables to drop if a selective variable list was provided
-        drop_variables = None
+        drop_variables = self._compute_drop_variables(data_files, variables)
 
-        if variables is not None:
-            try:
-                with xr.open_dataset(data_files[0]) as probe_ds:
-                    all_data_vars = list(probe_ds.data_vars)
+        # Attempt loading with the primary strategy and conservative fallbacks
+        return self._attempt_load_with_fallbacks(
+            data_files, file_datetimes, open_chunks, full_chunks,
+            use_pure_xarray, reference_file, data_type_label, drop_variables,
+        )
 
-                variables_to_keep = set(variables)
-                drop_variables = [v for v in all_data_vars if v not in variables_to_keep]
+    def _compute_drop_variables(self: 'MPASBaseProcessor',
+                                data_files: List[str],
+                                variables: Optional[List[str]]) -> Optional[List[str]]:
+        """
+        This helper computes the list of data variables to drop at load time when a selective variable list is provided. It opens the first data file to probe for the available data variables, then compares that list to the provided `variables` list to determine which variables should be dropped to retain only the specified variables. If `variables` is None, it returns None to indicate that no variables should be dropped and all should be retained. If an error occurs while trying to open the file or determine the variables, it also returns None to avoid issues with loading. This method allows for memory optimization by excluding unnecessary variables from being loaded into memory when only a subset of variables is needed for analysis.
 
-                if self.verbose and drop_variables:
-                    logger.debug(
-                        "Selective loading: keeping %d variable(s), dropping %d from data files",
-                        len(variables_to_keep), len(drop_variables),
-                    )
-            except Exception:
-                drop_variables = None
-        
-        # Attempt primary loading strategy
+        Parameters:
+            data_files (List[str]): Discovered data files; the first is probed for its variable list.
+            variables (Optional[List[str]]): Variable names to retain, or None to keep all variables.
+
+        Returns:
+            Optional[List[str]]: The variable names to drop, or None to keep everything.
+        """
+        if variables is None:
+            return None
+
+        try:
+            with xr.open_dataset(data_files[0]) as probe_ds:
+                all_data_vars = list(probe_ds.data_vars)
+
+            variables_to_keep = set(variables)
+            drop_variables = [v for v in all_data_vars if v not in variables_to_keep]
+
+            if self.verbose and drop_variables:
+                logger.debug(
+                    "Selective loading: keeping %d variable(s), dropping %d from data files",
+                    len(variables_to_keep), len(drop_variables),
+                )
+            return drop_variables
+        except Exception:
+            return None
+
+    def _attempt_load_with_fallbacks(self: 'MPASBaseProcessor',
+                                     data_files: List[str],
+                                     file_datetimes: Any,
+                                     open_chunks: Optional[dict],
+                                     full_chunks: Optional[dict],
+                                     use_pure_xarray: bool,
+                                     reference_file: str,
+                                     data_type_label: str,
+                                     drop_variables: Optional[List[str]]) -> Tuple[Any, str]:
+        """
+        This helper method attempts to load the dataset using the primary loading strategy and falls back to alternative strategies if the primary loading fails. It first tries the primary loading strategy, which may use either pure xarray or UXarray based on the `use_pure_xarray` flag. If that fails, it logs a warning and attempts a fallback loading strategy using a more conservative chunking approach with xarray. If the fallback also fails, it logs another warning and attempts to load a single file as a final fallback. If all strategies fail, it logs an exception and exits the program. This method centralizes the logic for handling multiple loading strategies and fallbacks, providing robust error handling and clear feedback to users about the loading process and any issues encountered.
+
+        Parameters:
+            data_files (List[str]): Discovered data files to load.
+            file_datetimes (Any): Parsed datetimes used to assign Time coordinates.
+            open_chunks (Optional[dict]): Chunking config used when opening files.
+            full_chunks (Optional[dict]): Chunking config used for full rechunking.
+            use_pure_xarray (bool): Force pure xarray backend instead of UXarray.
+            reference_file (str): Optional single reference file for the final fallback.
+            data_type_label (str): Human-readable label used in log messages.
+            drop_variables (Optional[List[str]]): Variables to drop at load time, or None.
+
+        Returns:
+            Tuple[Any, str]: The loaded dataset and the backend identifier.
+        """
         try:
             return self._attempt_primary_load(
-                data_files, file_datetimes, open_chunks, full_chunks, 
+                data_files, file_datetimes, open_chunks, full_chunks,
                 use_pure_xarray, data_type_label, drop_variables=drop_variables
             )
         except Exception as e:

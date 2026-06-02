@@ -252,8 +252,6 @@ class TestEdgeCasesAndErrorHandling:
         
         self.processor = MPASBaseProcessor(self.grid_file, verbose=False)
         self.visualizer = MPASVisualizer(verbose=False)
-        # assert_expected_public_methods(self.processor, 'MPASBaseProcessor')
-        # assert_expected_public_methods(self.visualizer, 'MPASVisualizer')
             
         yield
         

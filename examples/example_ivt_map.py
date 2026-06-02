@@ -161,10 +161,10 @@ if Q is not None:
         labelcolor='black',
     )
     # Add a white box behind the label text so it remains legible over the shading
-    qk.text.set_bbox(dict(
-        facecolor='white', alpha=0.75,
-        edgecolor='gray', boxstyle='round,pad=0.3',
-    ))
+    qk.text.set_bbox({
+        'facecolor': 'white', 'alpha': 0.75,
+        'edgecolor': 'gray', 'boxstyle': 'round,pad=0.3',
+    })
 
 # Annotate the top-right corner with init time and valid time
 ax.text(
@@ -173,13 +173,13 @@ ax.text(
     transform=ax.transAxes,
     fontsize=15,
     ha='right', va='top',
-    bbox=dict(
-        boxstyle='round,pad=0.3',
-        facecolor='white',
-        alpha=0.75,
-        edgecolor='gray',
-        linewidth=0.8,
-    ),
+    bbox={
+        'boxstyle': 'round,pad=0.3',
+        'facecolor': 'white',
+        'alpha': 0.75,
+        'edgecolor': 'gray',
+        'linewidth': 0.8,
+    },
     zorder=10,
 )
 

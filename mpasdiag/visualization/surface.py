@@ -348,7 +348,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         """
         try:
             if levels is not None:
-                color_levels_sorted = sorted(set([level_value for level_value in levels if np.isfinite(level_value)]))
+                color_levels_sorted = sorted({level_value for level_value in levels if np.isfinite(level_value)})
                 if color_levels_sorted:
                     last_bound = max(color_levels_sorted) + 1
                     bounds = [min(color_levels_sorted)] + color_levels_sorted + [last_bound]
@@ -768,7 +768,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 transform=self.ax.transAxes,
                 fontsize=12, fontweight='bold',
                 verticalalignment='top', horizontalalignment='left',
-                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8)
+                bbox={'boxstyle': 'round,pad=0.3', 'facecolor': 'white', 'alpha': 0.8}
             )
         
         # Add gridlines based on the data coordinate reference system

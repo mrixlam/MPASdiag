@@ -128,7 +128,6 @@ class TestLoad2DData:
 
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not available")
-            return
 
     def test_load_data_returns_self(self: 'TestLoad2DData') -> None:
         """

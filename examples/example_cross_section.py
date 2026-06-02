@@ -100,13 +100,13 @@ ax.text(
     transform=ax.transAxes,
     fontsize=9,
     ha='right', va='top',
-    bbox=dict(
-        boxstyle='round,pad=0.3',
-        facecolor='white',
-        alpha=0.75,
-        edgecolor='gray',
-        linewidth=0.8,
-    ),
+    bbox={
+        'boxstyle': 'round,pad=0.3',
+        'facecolor': 'white',
+        'alpha': 0.75,
+        'edgecolor': 'gray',
+        'linewidth': 0.8,
+    },
     zorder=10,
 )
 

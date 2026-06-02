@@ -985,46 +985,88 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             if var_name in mpas_3d_processor.dataset.data_vars:
                 height_data = mpas_3d_processor.dataset[var_name].isel(Time=time_index, nCells=0).values
             elif hasattr(mpas_3d_processor, 'grid_file') and mpas_3d_processor.grid_file:
-                try:
-                    # Only load the needed height variable from the grid file
-                    open_kwargs: dict = {'decode_times': False}
-                    try:
-                        with xr.open_dataset(mpas_3d_processor.grid_file, decode_times=False) as probe:
-                            all_vars = list(probe.data_vars)
-                        vars_to_drop = [v for v in all_vars if v != var_name]
-                        if vars_to_drop:
-                            open_kwargs['drop_variables'] = vars_to_drop
-                    except Exception:
-                        pass
-                    with xr.open_dataset(mpas_3d_processor.grid_file, **open_kwargs) as grid_ds:
-                        if var_name in grid_ds.data_vars:
-                            height_data = grid_ds[var_name].isel(nCells=0).values
-                except Exception:
-                    pass
+                height_data = self._load_height_var_from_grid_file(
+                    mpas_3d_processor.grid_file, var_name
+                )
 
             if height_data is None:
                 return None
 
-            height_data = np.asarray(height_data, dtype=float)
-            
-            if len(height_data) == len(vertical_coords) + 1:
-                mid_heights = 0.5 * (height_data[:-1] + height_data[1:])
-                return mid_heights
-            elif len(height_data) == len(vertical_coords):
-                return height_data
-            else:
-                try:
-                    from scipy.interpolate import interp1d
-                    interp_x_known = np.linspace(0, 1, len(height_data))
-                    interp_y_known = height_data
-                    height_interp_fn = interp1d(interp_x_known, interp_y_known, bounds_error=False, fill_value=cast(Any, 'extrapolate'))
-                    interp_x_query = np.linspace(0, 1, len(vertical_coords))
-                    return height_interp_fn(interp_x_query)
-                except Exception:
-                    return None
+            return self._match_height_to_vertical_coords(height_data, vertical_coords)
         except Exception:
             return None
-    
+
+    @staticmethod
+    def _load_height_var_from_grid_file(grid_file: str,
+                                        var_name: str) -> Optional[np.ndarray]:
+        """
+        This static helper method attempts to load a height variable from the MPAS grid file. It tries to read only the specified variable to minimize memory usage, and if successful, it extracts the height values for the first cell. The method includes error handling to return None if the variable is not found or if any issues arise during file reading, allowing the calling method to proceed with alternative methods for determining height when necessary. 
+
+        Parameters:
+            grid_file (str): Path to the MPAS grid file to read the height variable from.
+            var_name (str): Name of the height variable to load (e.g., 'zgrid', 'height').
+
+        Returns:
+            Optional[np.ndarray]: The height values for the first cell, or None if the variable is absent or the read fails.
+        """
+        try:
+            # Only load the needed height variable from the grid file
+            open_kwargs: dict = {'decode_times': False}
+
+            try:
+                with xr.open_dataset(grid_file, decode_times=False) as probe:
+                    all_vars = list(probe.data_vars)
+
+                vars_to_drop = [v for v in all_vars if v != var_name]
+
+                if vars_to_drop:
+                    open_kwargs['drop_variables'] = vars_to_drop
+            except Exception:
+                pass
+
+            with xr.open_dataset(grid_file, **open_kwargs) as grid_ds:
+                if var_name in grid_ds.data_vars:
+                    return grid_ds[var_name].isel(nCells=0).values
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _match_height_to_vertical_coords(height_data: np.ndarray,
+                                         vertical_coords: np.ndarray) -> Optional[np.ndarray]:
+        """
+        This static helper method processes the raw height data to match the expected length based on the vertical coordinates. If the height data has one more level than the vertical coordinates, it computes mid-level heights by averaging adjacent levels. If the height data matches the length of vertical coordinates, it returns it directly. If neither condition is met, it attempts to interpolate the height data to match the vertical coordinates using scipy's interp1d function. The method includes error handling to return None if interpolation fails, allowing for fallback methods to determine height when necessary.
+
+        Parameters:
+            height_data (np.ndarray): Raw height values extracted from the dataset.
+            vertical_coords (np.ndarray): Vertical coordinate values whose length sets the expected output length.
+
+        Returns:
+            Optional[np.ndarray]: Height values matching the vertical coordinates, or None if interpolation fails.
+        """
+        height_data = np.asarray(height_data, dtype=float)
+
+        if len(height_data) == len(vertical_coords) + 1:
+            return 0.5 * (height_data[:-1] + height_data[1:])
+        
+        if len(height_data) == len(vertical_coords):
+            return height_data
+
+        try:
+            from scipy.interpolate import interp1d
+            interp_x_known = np.linspace(0, 1, len(height_data))
+            interp_y_known = height_data
+            
+            height_interp_fn = interp1d(interp_x_known, 
+                                        interp_y_known, 
+                                        bounds_error=False, 
+                                        fill_value=cast(Any, 'extrapolate'))
+            
+            interp_x_query = np.linspace(0, 1, len(vertical_coords))
+            return height_interp_fn(interp_x_query)
+        except Exception:
+            return None
+
     def _try_extract_height_km(self: 'MPASVerticalCrossSectionPlotter',
                                mpas_3d_processor: 'MPAS3DProcessor',
                                time_index: int,
@@ -1414,7 +1456,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         path_info = f"From ({start_point[0]:.1f}°, {start_point[1]:.1f}°) to ({end_point[0]:.1f}°, {end_point[1]:.1f}°)"
         self.ax.text(0.02, 0.98, path_info, transform=self.ax.transAxes,
                      fontsize=10, verticalalignment='top',
-                     bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+                     bbox={'boxstyle': 'round,pad=0.3', 'facecolor': 'white', 'alpha': 0.8})
     
     def _get_time_string(self: 'MPASVerticalCrossSectionPlotter', 
                          mpas_3d_processor: 'MPAS3DProcessor', 

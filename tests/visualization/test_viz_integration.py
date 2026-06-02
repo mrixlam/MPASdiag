@@ -91,7 +91,6 @@ def create_mock_save_plot() -> Any:
         """
         print("Mock save_plot called with args:", args, "and kwargs:", kwargs)
         print("This is a mock method. No file will be saved.")
-        pass
     return mock_save_plot
 
 
@@ -140,12 +139,10 @@ class TestRealDataIntegration:
         
         if not os.path.exists(data_dir):
             pytest.skip(f"MPAS data directory not found: {data_dir}")
-            return
 
         if not os.path.exists(grid_file):
             pytest.skip(f"MPAS grid file not found: {grid_file}")
-            return
-        
+
         return {'data_dir': data_dir, 'grid_file': grid_file}
     
     def test_variable_style_with_real_precip_data(self: 'TestRealDataIntegration', 

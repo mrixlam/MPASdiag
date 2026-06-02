@@ -60,7 +60,7 @@ def failing_on_first_call(self: MPASVerticalCrossSectionPlotter,
     self._failing_call_count += 1
 
     if self._failing_call_count == 1:
-        raise Exception("Test error")
+        raise RuntimeError("Test error")
 
     if hasattr(self, '_original_create_vertical_cross_section'):
         return self._original_create_vertical_cross_section(*args, **kwargs)

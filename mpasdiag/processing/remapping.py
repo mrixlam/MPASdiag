@@ -1043,15 +1043,15 @@ class MPASRemapper:
             }
             extrapolation_method = extrap_method_map.get(extrap_method, esmpy.ExtrapMethod.NONE)
 
-        regrid_kwargs: dict = dict(
-            regrid_method=regrid_method,
-            unmapped_action=esmpy.UnmappedAction.IGNORE,
-            ignore_degenerate=True,  # skip degenerate cells (e.g. MPAS pole cells)
-            extrap_method=extrapolation_method,
-            extrap_num_src_pnts=int(extrap_num_src_pnts),
-            extrap_dist_exponent=float(extrap_dist_exponent),
-            factors=True,  # required so get_weights_dict() can retrieve them
-        )
+        regrid_kwargs: dict = {
+            'regrid_method': regrid_method,
+            'unmapped_action': esmpy.UnmappedAction.IGNORE,
+            'ignore_degenerate': True,  # skip degenerate cells (e.g. MPAS pole cells)
+            'extrap_method': extrapolation_method,
+            'extrap_num_src_pnts': int(extrap_num_src_pnts),
+            'extrap_dist_exponent': float(extrap_dist_exponent),
+            'factors': True,  # required so get_weights_dict() can retrieve them
+        }
 
         if norm_type is not None:
             regrid_kwargs['norm_type'] = norm_type

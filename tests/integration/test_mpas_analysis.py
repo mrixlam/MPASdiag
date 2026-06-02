@@ -187,7 +187,7 @@ class TestVisualization:
         """
         n_points = 50
         from tests.test_data_helpers import load_mpas_coords_from_processor
-        lon, lat, u_arr, v_arr = load_mpas_coords_from_processor(n_points)
+        lon, lat, _, _ = load_mpas_coords_from_processor(n_points)
         u_wind, v_wind = mpas_wind_data
         temp_data = mpas_surface_temp_data[:n_points]
         

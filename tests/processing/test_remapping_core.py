@@ -500,7 +500,7 @@ class TestRemappingCoverageGaps:
         assert 'Remapping MPAS' in captured.out
 
 
-    def test_remap_with_masking_lonCell_radians(self: 'TestRemappingCoverageGaps') -> None:
+    def test_remap_with_masking_lon_cell_radians(self: 'TestRemappingCoverageGaps') -> None:
         """
         This test verifies that the `remap_mpas_to_latlon_with_masking` function can handle input longitude and latitude coordinates provided in radians when using 'lonCell' and 'latCell' keys in the dataset. The test creates a dataset with 'lonCell' and 'latCell' coordinates in radians, along with synthetic data values. The function should correctly interpret the radian values, perform the remapping with masking, and return a valid xarray DataArray. This ensures that users can provide coordinates in radians and use the appropriate keys in their datasets without encountering issues during remapping operations. 
 

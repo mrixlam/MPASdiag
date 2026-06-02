@@ -582,12 +582,12 @@ class MPASVisualizer:
             linestyle="none", zorder=zorder + 1, **plot_kwargs,
         )
 
-        text_kwargs: Dict[str, Any] = dict(
-            fontsize=fontsize, fontweight="bold", color=color, zorder=zorder + 2,
-            clip_on=False,
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.7,
-                      boxstyle="round,pad=0.15"),
-        )
+        text_kwargs: Dict[str, Any] = {
+            'fontsize': fontsize, 'fontweight': "bold", 'color': color, 'zorder': zorder + 2,
+            'clip_on': False,
+            'bbox': {'facecolor': "white", 'edgecolor': "none", 'alpha': 0.7,
+                     'boxstyle': "round,pad=0.15"},
+        }
 
         if isinstance(ax, GeoAxes):
             text_kwargs["transform"] = plot_kwargs["transform"]
@@ -1030,17 +1030,10 @@ class MPASVisualizer:
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing the longitude meshgrid, latitude meshgrid, and interpolated data array on the regular lat/lon grid, suitable for plotting on map projections. The longitude and latitude meshgrids correspond to the coordinates of the interpolated data points. 
         """
-        if grid_resolution is not None:
-            resolution = float(grid_resolution)
-            if resolution <= 0:
-                raise ValueError("grid_resolution must be > 0")
-        else:
-            lon_range = lon_max - lon_min
-            lat_range = lat_max - lat_min
-            resolution = max(lon_range / 100, lat_range / 100)
-            if resolution_bounds is not None:
-                resolution_min, resolution_max = resolution_bounds
-                resolution = max(resolution_min, min(resolution, resolution_max))
+        # Determine grid resolution in degrees
+        resolution = self._determine_grid_resolution(
+            grid_resolution, lon_min, lon_max, lat_min, lat_max, resolution_bounds
+        )
 
         # Determine engine and method from config, or auto-select legacy behaviour.
         engine = getattr(config, 'remap_engine', None) if config else None
@@ -1054,42 +1047,160 @@ class MPASVisualizer:
                 and self._has_boundary_data(self._ensure_boundary_data(dataset)))
         )
 
-        # --- ESMPy path ---
+        # --- ESMPy path (returns None to fall back to KDTree) ---
         if use_esmf:
-            dataset = self._ensure_boundary_data(dataset)
-            if self._has_boundary_data(dataset):
-                try:
-                    lon_full, lat_full = self._extract_full_grid(dataset)  # type: ignore[arg-type]
-                    full_data = self._backmap_to_full_grid(lon, lat, data, lon_full, lat_full)
-                    logger.info(
-                        "Remapping %s cells via ESMPy/%s (resolution %.3f°)",
-                        f"{len(lon_full):,}", esmf_method, resolution,
-                    )
-                    remap_result = self._remap_conservative(
-                        full_data, lon_full, lat_full, dataset,  # type: ignore[arg-type]
-                        lon_min, lon_max, lat_min, lat_max, resolution,
-                        comm=comm,
-                        method=esmf_method,
-                    )
-                    remapped_values = remap_result.values
-                    lon_coords = remap_result.lon.values
-                    lat_coords = remap_result.lat.values
-                    lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
-                    return lon_mesh, lat_mesh, remapped_values
-                except Exception as exc:
-                    if engine == 'esmf':
-                        raise
-                    logger.warning(
-                        "ESMPy/%s remapping failed (%s); falling back to KD-Tree.",
-                        esmf_method, exc,
-                    )
-            elif engine == 'esmf':
+            esmf_result = self._attempt_esmf_remap(
+                lon, lat, data, lon_min, lon_max, lat_min, lat_max,
+                resolution, dataset, engine, esmf_method, comm,
+            )
+            if esmf_result is not None:
+                return esmf_result
+
+        # --- KDTree path ---
+        return self._kdtree_interpolate(
+            lon, lat, data, lon_min, lon_max, lat_min, lat_max,
+            resolution, dataset, kdtree_method,
+        )
+
+    @staticmethod
+    def _determine_grid_resolution(grid_resolution: Optional[float],
+                                   lon_min: float,
+                                   lon_max: float,
+                                   lat_min: float,
+                                   lat_max: float,
+                                   resolution_bounds: Optional[Tuple[float, float]]) -> float:
+        """
+        This static method determines the appropriate grid resolution in degrees for interpolating data onto a regular lat/lon grid based on the provided geographic bounds and an optional explicit resolution. If an explicit grid_resolution is provided and is greater than zero, it is used directly. Otherwise, the method calculates a default resolution by dividing the longitude and latitude ranges by 100 to create a grid with approximately 100 points along each dimension. If resolution_bounds are provided, the calculated resolution is clamped to be within the specified minimum and maximum bounds. This approach ensures that the resulting grid is neither too coarse nor too fine for typical visualization purposes, while also allowing for user control when needed.
+
+        Parameters:
+            grid_resolution (Optional[float]): Explicit desired grid resolution in degrees, or None to auto-select from the geographic extent.
+            lon_min (float): Western longitude bound in degrees.
+            lon_max (float): Eastern longitude bound in degrees.
+            lat_min (float): Southern latitude bound in degrees.
+            lat_max (float): Northern latitude bound in degrees.
+            resolution_bounds (Optional[Tuple[float, float]]): Optional (min, max) bounds in degrees used to clamp an auto-selected resolution.
+
+        Returns:
+            float: The resolved grid resolution in degrees.
+        """
+        if grid_resolution is not None:
+            resolution = float(grid_resolution)
+            if resolution <= 0:
+                raise ValueError("grid_resolution must be > 0")
+            return resolution
+
+        lon_range = lon_max - lon_min
+        lat_range = lat_max - lat_min
+
+        resolution = max(lon_range / 100, lat_range / 100)
+
+        if resolution_bounds is not None:
+            resolution_min, resolution_max = resolution_bounds
+            resolution = max(resolution_min, min(resolution, resolution_max))
+
+        return resolution
+
+    def _attempt_esmf_remap(self: 'MPASVisualizer',
+                            lon: np.ndarray,
+                            lat: np.ndarray,
+                            data: np.ndarray,
+                            lon_min: float,
+                            lon_max: float,
+                            lat_min: float,
+                            lat_max: float,
+                            resolution: float,
+                            dataset: Optional[xr.Dataset],
+                            engine: Optional[str],
+                            esmf_method: str,
+                            comm: Optional[Any]) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """
+        This method attempts to perform conservative remapping of the input data onto a regular lat/lon grid using the ESMPy library. It first checks if the necessary boundary data is available in the dataset, and if not, it either raises an error (if ESMPy was explicitly requested) or returns None to indicate that the remapping cannot be performed with ESMPy. If boundary data is available, it extracts the full grid coordinates, back-maps the valid data points to the full grid, and then uses an MPASRemapper instance to perform the conservative remapping. The resulting remapped data is returned as a tuple of longitude meshgrid, latitude meshgrid, and remapped values. If any step in this process fails (e.g., due to missing data or issues with ESMPy), it logs a warning and returns None to allow for a fallback to KDTree interpolation.
+
+        Parameters:
+            lon (np.ndarray): 1D array of longitude coordinates for the input points.
+            lat (np.ndarray): 1D array of latitude coordinates for the input points.
+            data (np.ndarray): 1D array of data values for each (lon, lat) point.
+            lon_min (float): Western longitude bound in degrees for the output grid.
+            lon_max (float): Eastern longitude bound in degrees for the output grid.
+            lat_min (float): Southern latitude bound in degrees for the output grid.
+            lat_max (float): Northern latitude bound in degrees for the output grid.
+            resolution (float): Output grid resolution in degrees.
+            dataset (Optional[xr.Dataset]): Dataset providing the MPAS grid information.
+            engine (Optional[str]): Requested remap engine ('esmf' forces ESMPy).
+            esmf_method (str): The ESMPy remap method (e.g. 'conservative').
+            comm (Optional[Any]): Optional communicator for parallel execution.
+
+        Returns:
+            Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]: The (lon_mesh, lat_mesh, values) tuple on success, or None to fall back to KDTree.
+        """
+        dataset = self._ensure_boundary_data(dataset)
+
+        if not self._has_boundary_data(dataset):
+            if engine == 'esmf':
                 raise ValueError(
                     "remap_engine='esmf' requires boundary coordinates "
                     "('lon_b'/'lat_b') in the dataset."
                 )
+            return None
 
-        # --- KDTree path ---
+        try:
+            lon_full, lat_full = self._extract_full_grid(dataset)  # type: ignore[arg-type]
+            full_data = self._backmap_to_full_grid(lon, lat, data, lon_full, lat_full)
+
+            logger.info(
+                "Remapping %s cells via ESMPy/%s (resolution %.3f°)",
+                f"{len(lon_full):,}", esmf_method, resolution,
+            )
+
+            remap_result = self._remap_conservative(
+                full_data, lon_full, lat_full, dataset,  # type: ignore[arg-type]
+                lon_min, lon_max, lat_min, lat_max, resolution,
+                comm=comm,
+                method=esmf_method,
+            )
+
+            lon_mesh, lat_mesh = np.meshgrid(remap_result.lon.values, remap_result.lat.values)
+            return lon_mesh, lat_mesh, remap_result.values
+        except Exception as exc:
+            if engine == 'esmf':
+                raise
+
+            logger.warning(
+                "ESMPy/%s remapping failed (%s); falling back to KD-Tree.",
+                esmf_method, exc,
+            )
+
+            return None
+
+    def _kdtree_interpolate(self: 'MPASVisualizer',
+                            lon: np.ndarray,
+                            lat: np.ndarray,
+                            data: np.ndarray,
+                            lon_min: float,
+                            lon_max: float,
+                            lat_min: float,
+                            lat_max: float,
+                            resolution: float,
+                            dataset: Optional[xr.Dataset],
+                            kdtree_method: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        This method performs interpolation of scattered data points onto a regular lat/lon grid using a KDTree-based approach. It first checks if a dataset is provided, and if not, it constructs a minimal xarray Dataset from the provided longitude and latitude arrays to facilitate the use of the remap_mpas_to_latlon_with_masking function. The method then calls this function with the specified parameters to perform the interpolation, which uses a KDTree for efficient nearest-neighbor searching. The resulting interpolated data is returned as 2D arrays corresponding to the meshgrid of longitude and latitude coordinates, suitable for plotting on map projections. This method serves as a fallback when ESMPy remapping is not available or fails, providing a robust alternative for visualizing MPAS data on regular lat/lon grids.
+
+        Parameters:
+            lon (np.ndarray): 1D array of longitude coordinates for the input points.
+            lat (np.ndarray): 1D array of latitude coordinates for the input points.
+            data (np.ndarray): 1D array of data values for each (lon, lat) point.
+            lon_min (float): Western longitude bound in degrees for the output grid.
+            lon_max (float): Eastern longitude bound in degrees for the output grid.
+            lat_min (float): Southern latitude bound in degrees for the output grid.
+            lat_max (float): Northern latitude bound in degrees for the output grid.
+            resolution (float): Output grid resolution in degrees.
+            dataset (Optional[xr.Dataset]): Dataset providing the MPAS grid information, or None to build a minimal one from ``lon``/``lat``.
+            kdtree_method (str): Interpolation method for the KDTree remapper.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: The longitude meshgrid, latitude meshgrid, and interpolated data array on the regular lat/lon grid.
+        """
         logger.info("Interpolating %d points using KDTree (%s)", len(data), kdtree_method)
 
         if dataset is None:

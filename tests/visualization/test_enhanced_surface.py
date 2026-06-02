@@ -1109,7 +1109,7 @@ class TestDataTypeAgnosticFeatures:
         _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_data = 263.0 + 40.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_data, 'temperature',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='contourf',

@@ -426,7 +426,7 @@ class TestSetupOverlayColormap:
         _, _, levels = plotter._setup_overlay_colormap(
             colormap='Blues', levels=[0.5, 1.0, 5.0, 10.0], accum_period='a01h'
         )
-        assert levels == sorted(set([0.5, 1.0, 5.0, 10.0]))
+        assert levels == sorted({0.5, 1.0, 5.0, 10.0})
 
     def test_colormap_only_uses_default_levels(self: 'TestSetupOverlayColormap') -> None:
         """

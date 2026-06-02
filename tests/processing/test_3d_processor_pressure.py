@@ -363,7 +363,7 @@ class TestGetVerticalLevelsEdgeCases:
         assert len(levels) == pytest.approx(5)
         assert levels == [0, 1, 2, 3, 4]
     
-    def test_pressure_from_components_nVertLevelsP1_extension(self: 'TestGetVerticalLevelsEdgeCases') -> None:
+    def test_pressure_from_components_n_vert_levels_p1_extension(self: 'TestGetVerticalLevelsEdgeCases') -> None:
         """
         This test verifies that the `get_vertical_levels` method can successfully extract vertical levels when the dataset includes the `nVertLevelsP1` dimension, which indicates an extended vertical grid. By iterating through available 3D variables and checking for the presence of this dimension, the test ensures that the method can handle datasets with extended vertical levels and returns a list of pressure levels without errors. If the test data is not available, the test will be skipped to avoid false failures. 
 

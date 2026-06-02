@@ -584,10 +584,6 @@ def load_mpas_2d_processor(data_subdir: str = "u240k/diag",
     
     grid_file = _grid_file_path()
 
-    if grid_file is None:
-        pytest.skip("MPAS grid file not available")
-        return
-
     proc = MPAS2DProcessor(grid_file, verbose=verbose)
     proc.load_2d_data(str(data_dir))
 
@@ -618,10 +614,6 @@ def load_mpas_3d_processor(data_subdir: str = "u240k/mpasout",
         raise FileNotFoundError(f"Data directory not found: {data_dir}")
     
     grid_file = _grid_file_path()
-
-    if grid_file is None:
-        pytest.skip("MPAS grid file not available")
-        return
 
     proc = MPAS3DProcessor(grid_file, verbose=verbose)
     proc.load_3d_data(str(data_dir), use_pure_xarray=True)

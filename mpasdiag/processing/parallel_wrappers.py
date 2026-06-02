@@ -654,41 +654,73 @@ def _process_parallel_results(results: List[Any],
     Returns:
         List[str]: List of successfully created file paths aggregated from the results. 
     """
-    created_files = []
+    created_files, successful, failed, timing_stats = _aggregate_parallel_results(
+        results, time_indices
+    )
+
+    _print_parallel_results_report(
+        processing_type, var_info, successful, failed,
+        time_indices, created_files, output_dir, timing_stats, manager,
+    )
+
+    return created_files
+
+
+def _aggregate_parallel_results(results: List[Any],
+                                time_indices: List[int]) -> Tuple[List[str], int, int, Dict[str, Dict[str, float]]]:
+    """
+    This helper function aggregates the results from parallel worker functions, counting successful and failed tasks, collecting created file paths, and computing timing statistics for each processing phase. It iterates through the list of results, checking for success flags and error messages to determine the status of each task. For successful tasks, it accumulates the file paths and timing metrics; for failed tasks, it logs error messages with the corresponding time index. Finally, it computes summary statistics (min, max, mean, total) for each timing phase across all successful tasks to provide insights into performance.
+
+    Parameters:
+        results (List[Any]): Results from the parallel workers; each carries a 'success' flag and a 'result' payload with 'files', 'timings', and optional 'error'.
+        time_indices (List[int]): Time indices processed in parallel, used only to label error messages for failed tasks.
+
+    Returns:
+        Tuple[List[str], int, int, Dict[str, Dict[str, float]]]: The created file paths, the successful count, the failed count, and the timing statistics.
+    """
+    created_files: List[str] = []
     successful = 0
     failed = 0
-    
-    all_timings = {
+
+    all_timings: Dict[str, List[float]] = {
         'data_processing': [],
         'plotting': [],
         'saving': [],
         'total': []
     }
-    
+
     for result in results:
-        if result.success:
-            if 'error' in result.result:
-                failed += 1
-                logger.error(
-                    _FAILED_TIME_INDEX_MSG,
-                    time_indices[result.task_id], result.result['error'],
-                )
-                continue
-            created_files.extend(result.result['files'])
-            successful += 1
-
-            timings = result.result['timings']
-            for key in all_timings:
-                all_timings[key].append(timings[key])
-        else:
+        if not result.success:
             failed += 1
-            logger.error(
-                _FAILED_TIME_INDEX_MSG,
-                time_indices[result.task_id], result.error,
-            )
+            logger.error(_FAILED_TIME_INDEX_MSG, time_indices[result.task_id], result.error)
+            continue
+        if 'error' in result.result:
+            failed += 1
+            logger.error(_FAILED_TIME_INDEX_MSG, time_indices[result.task_id], result.result['error'])
+            continue
 
-    timing_stats = {}
+        created_files.extend(result.result['files'])
+        successful += 1
+        timings = result.result['timings']
 
+        for key in all_timings:
+            all_timings[key].append(timings[key])
+
+    return created_files, successful, failed, _compute_timing_stats(all_timings)
+
+
+def _compute_timing_stats(all_timings: Dict[str, List[float]]) -> Dict[str, Dict[str, float]]:
+    """
+    This helper function computes summary statistics (min, max, mean, total) for each timing phase based on the collected timing values from successful parallel tasks. It iterates through the timing lists for each phase, calculating the minimum, maximum, average, and total time spent in that phase across all successful tasks. The resulting statistics are organized in a dictionary keyed by phase name, which can be used for reporting and performance analysis. 
+
+    Parameters:
+        all_timings (Dict[str, List[float]]): Mapping of phase name to its list of recorded durations in seconds.
+
+    Returns:
+        Dict[str, Dict[str, float]]: Mapping of phase name to its 'min', 'max', 'mean', and 'total' statistics, for phases that recorded at least one value.
+    """
+    timing_stats: Dict[str, Dict[str, float]] = {}
+    
     for key, values in all_timings.items():
         if values:
             timing_stats[key] = {
@@ -698,6 +730,53 @@ def _process_parallel_results(results: List[Any],
                 'total': sum(values)
             }
 
+    return timing_stats
+
+
+def _print_timing_section(label: str, 
+                          stat: Dict[str, float]) -> None:
+    """
+    This helper function prints a formatted timing section to the console for a given phase of processing. It takes a label for the section (e.g., "Data Processing", "Plotting") and a dictionary of timing statistics containing 'min', 'max', and 'mean' values. The function formats these values to three decimal places and prints them in a structured way for easy reading in the overall report. 
+
+    Parameters:
+        label (str): Section label (e.g. 'Data Processing', 'Plotting').
+        stat (Dict[str, float]): Statistics dict with 'min', 'max', and 'mean' keys.
+
+    Returns:
+        None
+    """
+    print(f"  {label}:")
+    print(f"    Min:  {stat['min']:6.3f}s")
+    print(f"    Max:  {stat['max']:6.3f}s")
+    print(f"    Mean: {stat['mean']:6.3f}s")
+
+
+def _print_parallel_results_report(processing_type: str,
+                                   var_info: Optional[str],
+                                   successful: int,
+                                   failed: int,
+                                   time_indices: List[int],
+                                   created_files: List[str],
+                                   output_dir: str,
+                                   timing_stats: Dict[str, Dict[str, float]],
+                                   manager: 'MPASParallelManager') -> None:
+    """
+    This helper function prints a comprehensive report to the console summarizing the results of parallel processing operations. It includes the processing type, variable information, counts of successful and failed tasks, the number of created files and their output directory, timing breakdowns for each phase of processing, and overall parallel execution statistics such as wall time and potential speedup. The report is formatted for clarity and provides insights into both the outcomes and performance of the parallel processing workflow. 
+
+    Parameters:
+        processing_type (str): Processing type used in the report header.
+        var_info (Optional[str]): Optional variable info line for the header.
+        successful (int): Number of successfully processed time steps.
+        failed (int): Number of failed time steps.
+        time_indices (List[int]): Time indices processed, used for the totals.
+        created_files (List[str]): Successfully created file paths.
+        output_dir (str): Directory where output files were saved.
+        timing_stats (Dict[str, Dict[str, float]]): Per-phase timing statistics.
+        manager ('MPASParallelManager'): Parallel manager providing execution stats.
+
+    Returns:
+        None
+    """
     print(f"=== {processing_type} BATCH PROCESSING RESULTS ===")
 
     if var_info:
@@ -708,39 +787,31 @@ def _process_parallel_results(results: List[Any],
     print(f"  Failed: {failed}/{len(time_indices)}")
     print(f"  Created files: {len(created_files)} in {output_dir}")
 
-    if timing_stats:
-        print("Timing Breakdown (per time step):")
-        print("  Data Processing:")
-        print(f"    Min:  {timing_stats['data_processing']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['data_processing']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['data_processing']['mean']:6.3f}s")
-        print("  Plotting:")
-        print(f"    Min:  {timing_stats['plotting']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['plotting']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['plotting']['mean']:6.3f}s")
-        print("  Saving:")
-        print(f"    Min:  {timing_stats['saving']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['saving']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['saving']['mean']:6.3f}s")
-        print("  Total per step:")
-        print(f"    Min:  {timing_stats['total']['min']:6.3f}s")
-        print(f"    Max:  {timing_stats['total']['max']:6.3f}s")
-        print(f"    Mean: {timing_stats['total']['mean']:6.3f}s")
+    if not timing_stats:
+        return
 
-        stats = manager.get_statistics()
-        if stats:
-            print("Overall Parallel Execution:")
-            print(f"  Wall time: {stats.total_time:.2f}s")
-            speedup = timing_stats['total']['total'] / stats.total_time
-            print(
-                f"  Speedup potential: {timing_stats['total']['total']:.2f}s / "
-                f"{stats.total_time:.2f}s = {speedup:.2f}x"
-            )
-            print(f"  Load imbalance: {100 * stats.load_imbalance:.1f}%")
-    
-    del all_timings, timing_stats
-    
-    return created_files
+    print("Timing Breakdown (per time step):")
+    _print_timing_section("Data Processing", timing_stats['data_processing'])
+    _print_timing_section("Plotting", timing_stats['plotting'])
+    _print_timing_section("Saving", timing_stats['saving'])
+    _print_timing_section("Total per step", timing_stats['total'])
+
+    stats = manager.get_statistics()
+
+    if not stats:
+        return
+
+    print("Overall Parallel Execution:")
+    print(f"  Wall time: {stats.total_time:.2f}s")
+
+    speedup = timing_stats['total']['total'] / stats.total_time
+
+    print(
+        f"  Speedup potential: {timing_stats['total']['total']:.2f}s / "
+        f"{stats.total_time:.2f}s = {speedup:.2f}x"
+    )
+
+    print(f"  Load imbalance: {100 * stats.load_imbalance:.1f}%")
 
 
 def _prebuild_remapper_mpi(processor: 'MPAS2DProcessor',
