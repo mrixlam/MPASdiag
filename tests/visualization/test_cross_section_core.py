@@ -542,7 +542,7 @@ class TestVerticalCoordinateEdgeCases:
             }
 
             try:
-                fig, ax = plotter.create_vertical_cross_section(
+                fig, _ = plotter.create_vertical_cross_section(
                     processor, var_3d, (-100, 30), (-90, 40),
                     display_vertical='pressure'
                 )
@@ -618,7 +618,7 @@ class TestVerticalCoordinateEdgeCases:
                 'vertical_coord_type': 'pressure'
             }
             
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, var_3d, (-100, 30), (-90, 40),
                 display_vertical='pressure'
             )
@@ -655,7 +655,7 @@ class TestVerticalCoordinateEdgeCases:
                 'vertical_coord_type': 'height'
             }
             
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, var_3d, (-100, 30), (-90, 40),
                 max_height=10.0 
             )
@@ -706,7 +706,7 @@ class TestVerticalCoordinateEdgeCasesFinal:
         pressure_with_nan[10:15] = np.nan
 
         with patch.object(self.processor, 'get_vertical_levels', return_value=pressure_with_nan.tolist()):
-            fig, ax = self.plotter.create_vertical_cross_section(
+            fig, _ = self.plotter.create_vertical_cross_section(
                 self.processor,
                 var_3d,
                 (0, 0),

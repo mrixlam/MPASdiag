@@ -252,7 +252,7 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
         plot_start = time.time()
 
-        fig, ax = plotter.create_precipitation_map(
+        _, _ = plotter.create_precipitation_map(
             lon, lat, precip_data.values,
             lon_min, lon_max, lat_min, lat_max,
             title=title,
@@ -379,7 +379,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     plot_start = time.time()
     
-    fig, ax = plotter.create_surface_map(
+    _, _ = plotter.create_surface_map(
         lon=lon,
         lat=lat,
         data=var_data.values,
@@ -504,7 +504,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     plotter = MPASWindPlotter(figsize=(12, 10))    
     plot_start = time.time()
 
-    fig, ax = plotter.create_wind_plot(
+    _, _ = plotter.create_wind_plot(
         lon, lat, u_data.values, v_data.values,
         lon_min, lon_max, lat_min, lat_max,
         plot_type=plot_type,

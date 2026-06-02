@@ -177,7 +177,7 @@ class TestConvertAndClipData:
         """
         plotter = _plotter()
         da = xr.DataArray(np.ones((N_VERT, N_CELLS)), dims=['level', 'cell'])
-        result, meta = plotter._convert_and_clip_data(da, 'temperature')
+        result, _ = plotter._convert_and_clip_data(da, 'temperature')
         assert isinstance(result, np.ndarray)
 
     def test_list_input_converted_to_ndarray(self: 'TestConvertAndClipData') -> None:
@@ -191,7 +191,7 @@ class TestConvertAndClipData:
             None
         """
         plotter = _plotter()
-        result, meta = plotter._convert_and_clip_data([1.0, 2.0, 3.0], 'temperature')
+        result, _ = plotter._convert_and_clip_data([1.0, 2.0, 3.0], 'temperature')
         assert isinstance(result, np.ndarray)
 
     def test_moisture_negative_values_clipped(self: 'TestConvertAndClipData') -> None:
@@ -345,7 +345,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = xr.DataArray(np.linspace(0., 10., N_VERT), dims=['level'])
         dv = np.ones((N_VERT, N_CELLS))
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
+        out_vd, _ = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         assert isinstance(out_vd, np.ndarray)
 
     def test_list_vertical_display_converted(self: 'TestApplyMaxHeightFilter') -> None:
@@ -361,7 +361,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = list(np.linspace(0., 10., N_VERT))
         dv = np.ones((N_VERT, N_CELLS))
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
+        out_vd, _ = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         assert isinstance(out_vd, np.ndarray)
 
     def test_xarray_data_values_converted(self: 'TestApplyMaxHeightFilter') -> None:
@@ -377,7 +377,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = np.linspace(0., 10., N_VERT)
         dv = xr.DataArray(np.ones((N_VERT, N_CELLS)), dims=['level', 'cell'])
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
+        _, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         assert isinstance(out_dv, np.ndarray)
 
     def test_list_data_values_converted(self: 'TestApplyMaxHeightFilter') -> None:
@@ -393,7 +393,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = np.linspace(0., 10., N_VERT)
         dv = [list(np.ones(N_CELLS)) for _ in range(N_VERT)]
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
+        _, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         assert isinstance(out_dv, np.ndarray)
 
     def test_all_levels_above_max_shows_warning(self: 'TestApplyMaxHeightFilter', 
@@ -410,7 +410,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = np.linspace(6., 15., N_VERT)
         dv = np.ones((N_VERT, N_CELLS))
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
+        out_vd, _ = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=5.0)
         captured = capsys.readouterr()
         assert "No vertical levels are below the requested max_height" in captured.out
         assert len(out_vd) == N_VERT
@@ -428,7 +428,7 @@ class TestApplyMaxHeightFilter:
         plotter = _plotter()
         vd = np.linspace(0., 10., N_VERT)
         dv = np.ones((N_VERT, N_CELLS))
-        out_vd, out_dv = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=None)
+        out_vd, _ = plotter._apply_max_height_filter(vd, 'height_km', dv, max_height=None)
         np.testing.assert_array_equal(out_vd, vd)
 
 
@@ -463,7 +463,7 @@ class TestResolvePlotStyle:
         """
         plotter = _plotter()
         data = [[1.0, 2.0], [3.0, 4.0]]
-        cmap, levels = plotter._resolve_plot_style('temperature', data, None, None)
+        cmap, _ = plotter._resolve_plot_style('temperature', data, None, None)
         assert cmap is not None
 
     def test_both_provided_returns_early(self: 'TestResolvePlotStyle') -> None:
@@ -496,7 +496,7 @@ class TestResolvePlotStyle:
         data = np.ones((5, 5))
         with patch('mpasdiag.visualization.cross_section.MPASVisualizationStyle.get_variable_style',
                    return_value={'colormap': 'viridis', 'levels': None}):
-            cmap, levels = plotter._resolve_plot_style('some_var', data, None, None)
+            _, levels = plotter._resolve_plot_style('some_var', data, None, None)
         assert levels is not None
 
 
@@ -516,7 +516,7 @@ class TestResolveVerticalLevels:
         plotter = _plotter()
         mock_proc = _make_proc(_make_ds())
         mock_proc.get_vertical_levels.return_value = np.arange(1, N_VERT + 1, dtype=float)
-        levels, coord = plotter._resolve_vertical_levels(mock_proc, 'temperature', 'foobar', 0)
+        _, coord = plotter._resolve_vertical_levels(mock_proc, 'temperature', 'foobar', 0)
         assert coord == 'modlev'
 
     def test_height_coord_becomes_pressure(self: 'TestResolveVerticalLevels') -> None:
@@ -532,7 +532,7 @@ class TestResolveVerticalLevels:
         plotter = _plotter()
         mock_proc = _make_proc(_make_ds())
         mock_proc.get_vertical_levels.return_value = np.linspace(100000., 10000., N_VERT)
-        levels, coord = plotter._resolve_vertical_levels(mock_proc, 'temperature', 'height', 0)
+        _, coord = plotter._resolve_vertical_levels(mock_proc, 'temperature', 'height', 0)
         assert coord in ('pressure', 'modlev')
 
 
@@ -557,7 +557,7 @@ class TestExtractCrossSectionCoords:
 
         path_lons = np.array([-150., -120.])
         path_lats = np.array([60., 70.])
-        lon_coords, lat_coords = plotter._extract_cross_section_coords(
+        _, _ = plotter._extract_cross_section_coords(
             mock_proc, 'temperature', path_lons, path_lats
         )
         captured = capsys.readouterr()
@@ -601,7 +601,7 @@ class TestUnwrapDatasetVar:
             'scalar_var': (['Time', 'nCells'], np.ones((N_TIME, N_CELLS))),
         })
         mock_proc = _make_proc(ds)
-        var_da, time_dim, vert_dim = MPASVerticalCrossSectionPlotter._unwrap_dataset_var(
+        _, _, vert_dim = MPASVerticalCrossSectionPlotter._unwrap_dataset_var(
             mock_proc, 'scalar_var'
         )
         assert vert_dim is None

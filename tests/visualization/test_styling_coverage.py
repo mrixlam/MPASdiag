@@ -43,7 +43,7 @@ class TestCreatePrecipColormapException:
         """
         with patch('mpasdiag.visualization.styling.re.search',
                    side_effect=Exception("regex error")):
-            cmap, levels = MPASVisualizationStyle.create_precip_colormap("a06h")
+            _, levels = MPASVisualizationStyle.create_precip_colormap("a06h")
         assert 150 in levels
 
     def test_re_search_exception_still_returns_colormap(self: 'TestCreatePrecipColormapException') -> None:
@@ -223,7 +223,7 @@ class TestLevelsForTemperature:
         Returns:
             None
         """
-        colormap, levels = MPASVisualizationStyle._levels_for_temperature(
+        colormap, _ = MPASVisualizationStyle._levels_for_temperature(
             data_min=0.0, data_max=30.0, data_range=30.0
         )
         assert colormap == 'RdYlBu_r'
@@ -256,7 +256,7 @@ class TestLevelsForPrecipitation:
         Returns:
             None
         """
-        cmap, levels = MPASVisualizationStyle._levels_for_precipitation('precip_6h', 50.0)
+        cmap, _ = MPASVisualizationStyle._levels_for_precipitation('precip_6h', 50.0)
         assert cmap is not None
 
     def test_12h_variable_uses_a12h(self: 'TestLevelsForPrecipitation') -> None:
@@ -269,7 +269,7 @@ class TestLevelsForPrecipitation:
         Returns:
             None
         """
-        cmap, levels = MPASVisualizationStyle._levels_for_precipitation('rain_12h', 100.0)
+        cmap, _ = MPASVisualizationStyle._levels_for_precipitation('rain_12h', 100.0)
         assert cmap is not None
 
     def test_no_matching_pattern_uses_else_a24h(self: 'TestLevelsForPrecipitation') -> None:
@@ -282,7 +282,7 @@ class TestLevelsForPrecipitation:
         Returns:
             None
         """
-        cmap, levels = MPASVisualizationStyle._levels_for_precipitation('qpf_total', 50.0)
+        cmap, _ = MPASVisualizationStyle._levels_for_precipitation('qpf_total', 50.0)
         assert cmap is not None
 
     def test_03h_pattern_also_works(self: 'TestLevelsForPrecipitation') -> None:
@@ -295,7 +295,7 @@ class TestLevelsForPrecipitation:
         Returns:
             None
         """
-        cmap, levels = MPASVisualizationStyle._levels_for_precipitation('precip_03h', 30.0)
+        cmap, _ = MPASVisualizationStyle._levels_for_precipitation('precip_03h', 30.0)
         assert cmap is not None
 
 
@@ -354,7 +354,7 @@ class TestLevelsForWind:
         Returns:
             None
         """
-        colormap, levels = MPASVisualizationStyle._levels_for_wind(data_max=20.0)
+        colormap, _ = MPASVisualizationStyle._levels_for_wind(data_max=20.0)
         assert colormap == 'plasma'
 
 
@@ -530,7 +530,7 @@ class TestSetupMapProjection:
             None
         """
         import cartopy.crs as ccrs
-        proj, data_crs = MPASVisualizationStyle.setup_map_projection(
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100., -80., 30., 50., projection='LambertConformal'
         )
         assert isinstance(proj, ccrs.LambertConformal)
@@ -546,7 +546,7 @@ class TestSetupMapProjection:
             None
         """
         import cartopy.crs as ccrs
-        proj, data_crs = MPASVisualizationStyle.setup_map_projection(
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100., -80., 30., 50., projection='UnknownProjection'
         )
         assert isinstance(proj, ccrs.PlateCarree)

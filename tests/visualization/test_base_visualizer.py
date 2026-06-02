@@ -214,7 +214,7 @@ class TestDataLoadingStrategies:
                     mock_ux.side_effect = Exception("UXarray failed")
                     mock_mfd.side_effect = Exception("Multi-file xarray failed")
                     
-                    dataset, data_type = processor._load_data(
+                    dataset, _ = processor._load_data(
                         MPASOUT_DIR,
                         use_pure_xarray=False,
                         chunks={'Time': 1},
@@ -274,7 +274,7 @@ class TestEdgeCasesAndErrorHandling:
         times = []
         values = []
         
-        fig, ax = self.visualizer.create_time_series_plot(times, values)
+        fig, _ = self.visualizer.create_time_series_plot(times, values)
         assert fig is not None
     
 
@@ -289,7 +289,7 @@ class TestEdgeCasesAndErrorHandling:
             None
         """
         data = np.ones(100)        
-        fig, ax = self.visualizer.create_histogram(data)
+        fig, _ = self.visualizer.create_histogram(data)
         assert fig is not None
     
 
@@ -650,7 +650,7 @@ class TestVisualizerHelperMethods:
         """
         data = np.linspace(0, 10, 200)
         bins = np.linspace(0, 10, 6)  # numpy array → exercises tolist() branch
-        fig, ax = self.viz.create_histogram(data, bins=bins)
+        fig, _ = self.viz.create_histogram(data, bins=bins)
         assert fig is not None
 
 

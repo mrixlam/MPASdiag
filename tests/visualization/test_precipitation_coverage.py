@@ -116,7 +116,7 @@ class TestConvertPrecipitationUnits:
         da = xr.DataArray(_precip(), dims=['nCells'], attrs={'units': 'mm'})
         with patch('mpasdiag.visualization.precipitation.UnitConverter.convert_data_for_display',
                    return_value=(da, {'units': 'mm'})):
-            data, label = plotter._convert_precipitation_units(da, da, 'rainnc')
+            _, label = plotter._convert_precipitation_units(da, da, 'rainnc')
         assert label == 'mm'
 
     def test_attribute_error_returns_original_with_fallback_metadata(self: 'TestConvertPrecipitationUnits') -> None:
@@ -157,7 +157,7 @@ class TestConvertPrecipitationUnits:
 
         with patch('mpasdiag.visualization.precipitation.UnitConverter.convert_data_for_display',
                    return_value=(converted, {'units': 'mm'})):
-            data, label = plotter._convert_precipitation_units(precip, data_array, 'rainnc')
+            data, _ = plotter._convert_precipitation_units(precip, data_array, 'rainnc')
 
         np.testing.assert_array_equal(data, converted)
 
@@ -178,7 +178,7 @@ class TestConvertPrecipitationUnits:
 
         with patch('mpasdiag.visualization.precipitation.UnitConverter.convert_data_for_display',
                    return_value=(converted_list, {'units': 'mm'})):
-            data, label = plotter._convert_precipitation_units(precip, data_array, 'rainnc')
+            data, _ = plotter._convert_precipitation_units(precip, data_array, 'rainnc')
 
         assert isinstance(data, np.ndarray)
 
@@ -218,7 +218,7 @@ class TestPreparePrecipitationColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._prepare_precipitation_colormap(
+        _, _, levels = plotter._prepare_precipitation_colormap(
             colormap='Blues', levels=None, accum_period='a01h',
             clim_min=None, clim_max=None,
         )
@@ -238,7 +238,7 @@ class TestPreparePrecipitationColormap:
         plotter = MPASPrecipitationPlotter()
         custom_levels = [0.5, 1.0, 2.0, 5.0]
 
-        cmap, norm, levels = plotter._prepare_precipitation_colormap(
+        _, _, levels = plotter._prepare_precipitation_colormap(
             colormap='Blues', levels=custom_levels, accum_period='a01h',
             clim_min=None, clim_max=None,
         )
@@ -257,7 +257,7 @@ class TestPreparePrecipitationColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._prepare_precipitation_colormap(
+        _, _, levels = plotter._prepare_precipitation_colormap(
             colormap=None, levels=None, accum_period='a24h',
             clim_min=1.0, clim_max=10.0,
         )
@@ -277,7 +277,7 @@ class TestPreparePrecipitationColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._prepare_precipitation_colormap(
+        _, _, levels = plotter._prepare_precipitation_colormap(
             colormap=None, levels=None, accum_period='a01h',
             clim_min=0.01, clim_max=50.0,
         )
@@ -296,7 +296,7 @@ class TestPreparePrecipitationColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._prepare_precipitation_colormap(
+        _, _, levels = plotter._prepare_precipitation_colormap(
             colormap='Blues', levels=[0.5, 1.0, 2.0], accum_period='a01h',
             clim_min=0.0, clim_max=3.7,  # 3.7 not in [0.5,1.0,2.0] → appended
         )
@@ -401,7 +401,7 @@ class TestCreatePrecipitationMapContour:
         with patch.object(plotter, '_create_contour_plot') as mock_contour:
             with patch.object(plotter, '_add_gridlines'):
                 with patch.object(plotter, 'add_timestamp_and_branding'):
-                    fig, ax = plotter.create_precipitation_map(
+                    _, _ = plotter.create_precipitation_map(
                         lon, lat, data, LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
                         plot_type='contour',
                     )
@@ -423,7 +423,7 @@ class TestSetupOverlayColormap:
             None
         """
         plotter = MPASPrecipitationPlotter()
-        cmap, norm, levels = plotter._setup_overlay_colormap(
+        _, _, levels = plotter._setup_overlay_colormap(
             colormap='Blues', levels=[0.5, 1.0, 5.0, 10.0], accum_period='a01h'
         )
         assert levels == sorted(set([0.5, 1.0, 5.0, 10.0]))
@@ -440,7 +440,7 @@ class TestSetupOverlayColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._setup_overlay_colormap(
+        _, _, levels = plotter._setup_overlay_colormap(
             colormap='Reds', levels=None, accum_period='a01h'
         )
 
@@ -458,7 +458,7 @@ class TestSetupOverlayColormap:
         """
         plotter = MPASPrecipitationPlotter()
 
-        cmap, norm, levels = plotter._setup_overlay_colormap(
+        _, _, levels = plotter._setup_overlay_colormap(
             colormap=None, levels=None, accum_period='a01h'
         )
 
@@ -648,7 +648,7 @@ class TestSetupBatchTimeIndices:
             None
         """
         plotter = MPASPrecipitationPlotter()
-        result, hours = plotter._setup_batch_time_indices(self._make_proc(5), 'a01h', [0])
+        result, _ = plotter._setup_batch_time_indices(self._make_proc(5), 'a01h', [0])
         assert result == []
 
     def test_valid_user_indices_returned(self: 'TestSetupBatchTimeIndices') -> None:
@@ -662,7 +662,7 @@ class TestSetupBatchTimeIndices:
             None
         """
         plotter = MPASPrecipitationPlotter()
-        result, hours = plotter._setup_batch_time_indices(self._make_proc(10), 'a01h', [1, 2, 3])
+        result, _ = plotter._setup_batch_time_indices(self._make_proc(10), 'a01h', [1, 2, 3])
         assert result == [1, 2, 3]
 
     def test_default_all_valid_indices(self: 'TestSetupBatchTimeIndices') -> None:
@@ -676,7 +676,7 @@ class TestSetupBatchTimeIndices:
             None
         """
         plotter = MPASPrecipitationPlotter()
-        result, hours = plotter._setup_batch_time_indices(self._make_proc(5), 'a01h', None)
+        result, _ = plotter._setup_batch_time_indices(self._make_proc(5), 'a01h', None)
         assert result == [1, 2, 3, 4]
 
 
@@ -1276,7 +1276,7 @@ class TestCreatePrecipitationComparisonPlot:
                                '.MPASVisualizationStyle.add_colorbar',
                                return_value=mock_cbar):
                         with patch.object(plotter, 'add_timestamp_and_branding'):
-                            fig, axes = plotter.create_precipitation_comparison_plot(
+                            _, _ = plotter.create_precipitation_comparison_plot(
                                 lon, lat, data1, data2,
                                 LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
                             )
@@ -1308,7 +1308,7 @@ class TestCreatePrecipitationComparisonPlot:
                                '.MPASVisualizationStyle.add_colorbar',
                                return_value=mock_cbar):
                         with patch.object(plotter, 'add_timestamp_and_branding'):
-                            fig, axes = plotter.create_precipitation_comparison_plot(
+                            _, _ = plotter.create_precipitation_comparison_plot(
                                 lon, lat, _precip(), _precip(),
                                 LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
                             )

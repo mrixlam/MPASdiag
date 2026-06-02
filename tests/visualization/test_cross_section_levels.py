@@ -118,7 +118,7 @@ class TestVerticalLevelExtraction:
         plotter.verbose = True
         
         with patch.object(processor, 'get_vertical_levels', return_value=np.arange(10, dtype=int)):
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, 'theta', (-100, 30), (-90, 40)
             )
             plt.close(fig)
@@ -137,7 +137,7 @@ class TestVerticalLevelExtraction:
         plotter = MPASVerticalCrossSectionPlotter()
         
         with patch.object(processor, 'get_vertical_levels', side_effect=Exception("Level error")):
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, 'theta', (-100, 30), (-90, 40)
             )
             plt.close(fig)
@@ -155,7 +155,7 @@ class TestVerticalLevelExtraction:
         processor = self.processor        
         plotter = MPASVerticalCrossSectionPlotter()
         
-        fig, ax = plotter.create_vertical_cross_section(
+        fig, _ = plotter.create_vertical_cross_section(
             processor, 'theta', 
             (0, 0), (90, 80), 
             num_points=20
@@ -178,7 +178,7 @@ class TestVerticalLevelExtraction:
         if 'w' in processor.dataset.data_vars:
             plotter = MPASVerticalCrossSectionPlotter()
             
-            fig, ax = plotter.create_vertical_cross_section(
+            fig, _ = plotter.create_vertical_cross_section(
                 processor, 'w', (-100, 30), (-90, 40),
                 num_points=20
             )
@@ -249,7 +249,7 @@ class TestVerticalToHeightConversion:
         
         pressure_coords = np.array([100000, 85000, 70000, 50000])
         
-        height, coord_type = self.plotter._convert_vertical_to_height(
+        height, _ = self.plotter._convert_vertical_to_height(
             pressure_coords, 'pressure', processor, 0
         )
         
@@ -292,7 +292,7 @@ class TestVerticalToHeightConversion:
         
         model_coords = np.arange(20)
         
-        height, coord_type = self.plotter._convert_vertical_to_height(
+        height, _ = self.plotter._convert_vertical_to_height(
             model_coords, 'modlev', processor, 0
         )
         

@@ -217,7 +217,7 @@ class TestExtract2DCoordinatesForVariable:
 
         with patch('mpasdiag.processing.processors_3d.xr.open_dataset',
                    side_effect=[IOError("probe fail"), grid_with_coords]):
-            lon, lat = proc.extract_2d_coordinates_for_variable('theta')
+            lon, _ = proc.extract_2d_coordinates_for_variable('theta')
 
         assert len(lon) == 5
 
@@ -263,7 +263,7 @@ class TestExtract2DCoordinatesForVariable:
 
         with patch('mpasdiag.processing.processors_3d.xr.open_dataset',
                    return_value=grid_rad):
-            result_lon, result_lat = proc.extract_2d_coordinates_for_variable('theta')
+            _, result_lat = proc.extract_2d_coordinates_for_variable('theta')
 
         assert np.allclose(result_lat, lat_rad * 180.0 / np.pi)
 
@@ -670,7 +670,7 @@ class TestLerpVariableExceptionPath:
         captured = StringIO()
 
         with patch('sys.stdout', new=captured):
-            idx, result = proc_v._lerp_variable(
+            _, _ = proc_v._lerp_variable(
                 'theta', 0, 1, 0.5, mean_p, 60000.0,
                 mock_ds, 'Time', 0, 'nVertLevels'
             )

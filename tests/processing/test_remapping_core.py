@@ -48,7 +48,7 @@ class TestKDTreeRemapping:
         self.remap_func = remap_mpas_to_latlon        
         self.n_cells = 1000
 
-        lon, lat, u, v = load_mpas_coords_from_processor(n=self.n_cells)
+        lon, lat, u, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         self.mpas_lon = lon
         self.mpas_lat = lat
@@ -236,7 +236,7 @@ class TestRemapMpasToLatlon:
         """
         self.n_cells = 500
 
-        lon, lat, u, v = load_mpas_coords_from_processor(n=self.n_cells)
+        lon, lat, u, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         self.mpas_lon = lon
         self.mpas_lat = lat

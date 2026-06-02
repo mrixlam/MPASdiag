@@ -81,7 +81,7 @@ class TestWindDiagnosticsActual:
         """
         diag = WindDiagnostics(verbose=False)
         
-        lon, lat, u_arr, v_arr = load_mpas_coords_from_processor(n=100)
+        _, _, u_arr, v_arr = load_mpas_coords_from_processor(n=100)
         u = xr.DataArray(np.tile(u_arr, (5, 1)), dims=['time', 'cells'])
         v = xr.DataArray(np.tile(v_arr, (5, 1)), dims=['time', 'cells'])
         
@@ -299,7 +299,7 @@ class TestComputeWindShear:
         captured_output = StringIO()
 
         with patch('sys.stdout', captured_output):
-            shear_mag, shear_dir = diag.compute_wind_shear(
+            _, _ = diag.compute_wind_shear(
                 u_upper, v_upper, u_lower, v_lower
             )
         
@@ -391,7 +391,7 @@ class TestGet3DWindComponents:
         captured_output = StringIO()
 
         with patch('sys.stdout', captured_output):
-            u, v, w = diag.get_3d_wind_components(
+            u, _, _ = diag.get_3d_wind_components(
                 sample_3d_dataset,
                 u_variable='uReconstructZonal',
                 v_variable='vReconstructMeridional',
@@ -419,7 +419,7 @@ class TestGet3DWindComponents:
         
         diag = WindDiagnostics(verbose=False)
         
-        u, v, w = diag.get_3d_wind_components(
+        u, _, _ = diag.get_3d_wind_components(
             sample_3d_dataset,
             u_variable='uReconstructZonal',
             v_variable='vReconstructMeridional',
@@ -445,7 +445,7 @@ class TestGet3DWindComponents:
         
         diag = WindDiagnostics(verbose=False)
         
-        u, v, w = diag.get_3d_wind_components(
+        u, _, _ = diag.get_3d_wind_components(
             sample_3d_dataset,
             u_variable='uReconstructZonal',
             v_variable='vReconstructMeridional',
@@ -473,7 +473,7 @@ class TestGet3DWindComponents:
         
         captured_output = StringIO()
         with patch('sys.stdout', captured_output):
-            u, v, w = diag.get_3d_wind_components(
+            _, _, w = diag.get_3d_wind_components(
                 sample_3d_dataset,
                 u_variable='uReconstructZonal',
                 v_variable='vReconstructMeridional',
@@ -503,7 +503,7 @@ class TestGet3DWindComponents:
         
         captured_output = StringIO()
         with patch('sys.stdout', captured_output):
-            u, v, w = diag.get_3d_wind_components(
+            _, _, _ = diag.get_3d_wind_components(
                 sample_3d_dataset,
                 u_variable='uReconstructZonal',
                 v_variable='vReconstructMeridional',
@@ -600,7 +600,7 @@ class TestGet2DWindComponents:
         captured_output = StringIO()
 
         with patch('sys.stdout', captured_output):
-            u, v = diag.get_2d_wind_components(
+            _, _ = diag.get_2d_wind_components(
                 ds, u_variable='u10', v_variable='v10', time_index=0
             )
         

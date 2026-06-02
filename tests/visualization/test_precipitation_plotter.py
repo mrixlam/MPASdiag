@@ -82,7 +82,7 @@ class TestUnitConversion:
             attrs={'units': 'mm', 'long_name': 'Precipitation'}
         )
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
             -180, 180, -90, 90,
             data_array=data_array
@@ -104,7 +104,7 @@ class TestUnitConversion:
         mock_data_array = Mock()
         mock_data_array.attrs = {}
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
             -180, 180, -90, 90,
             data_array=mock_data_array
@@ -123,7 +123,7 @@ class TestUnitConversion:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
             -180, 180, -90, 90
         )
@@ -163,7 +163,7 @@ class TestPlotExtent:
         lat = np.linspace(-90, 90, 200)
         precip = _RNG.random(200) * 20
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             lon, lat, precip,
             -180, 180, -90, 90  
         )
@@ -185,7 +185,7 @@ class TestPlotExtent:
         lat = np.linspace(30, 40, 50)
         precip = _RNG.random(50) * 20
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             lon, lat, precip,
             -100, -90, 30, 40  
         )
@@ -417,7 +417,7 @@ class TestComparisonPlot:
         Returns:
             None
         """
-        fig, axes = self.plotter.create_precipitation_comparison_plot(
+        fig, _ = self.plotter.create_precipitation_comparison_plot(
             self.lon, self.lat,
             self.precip1, self.precip2,
             -180, 180, -90, 90,
@@ -473,7 +473,7 @@ class TestSavePlot:
         lat = lat_full[:50]
         precip = mpas_precip_data[:50]
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             lon, lat, precip,
             -180, 180, -90, 90
         )
@@ -526,7 +526,7 @@ class TestTimestampHandling:
         """
         time_end = datetime(2025, 1, 15, 12, 0)
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
             -180, 180, -90, 90,
             time_end=time_end,
@@ -549,7 +549,7 @@ class TestTimestampHandling:
         time_end = datetime(2025, 1, 15, 12, 0)
         time_start = datetime(2025, 1, 15, 6, 0)
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, self.precip,
             -180, 180, -90, 90,
             time_end=time_end,
@@ -596,7 +596,7 @@ class TestEdgeCases:
         """
         nan_data = np.full(50, np.nan)
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             self.lon, self.lat, nan_data,
             -180, 180, -90, 90,
             title="Empty Precipitation Data"
@@ -620,7 +620,7 @@ class TestEdgeCases:
         extreme_lon = np.linspace(-110, -100, 6)
         extreme_lat = np.linspace(35, 45, 6)
         
-        fig, ax = self.plotter.create_precipitation_map(
+        fig, _ = self.plotter.create_precipitation_map(
             extreme_lon, extreme_lat, extreme_data,
             -110, -100, 35, 45,
             title="Extreme Precipitation Values"
@@ -664,7 +664,7 @@ class TestPrepareOverlayData:
         with patch('sys.stdout', captured):
             result = self.plotter._prepare_overlay_data(lon, lat, data, 'test_var', None, 'scatter')
 
-        lon_v, lat_v, prec_v, *_ = result
+        _, _, prec_v, *_ = result
 
         assert np.all(prec_v >= 0)
         assert 'negative' in captured.getvalue().lower() or np.sum(data < 0) == 0
@@ -687,7 +687,7 @@ class TestPrepareOverlayData:
         with patch('sys.stdout', captured):
             result = self.plotter._prepare_overlay_data(lon, lat, data, 'precipitation', 'mm', 'scatter')
 
-        lon_v, lat_v, prec_v, *_ = result
+        lon_v, _, _, *_ = result
         assert len(lon_v) > 0
 
     def test_overlay_data_high_mean_warning(self: 'TestPrepareOverlayData') -> None:
@@ -968,7 +968,7 @@ class TestPrecipitationOverlayEdgeCases:
             lon, lat, data, 'rainnc', None, 'scatter'
         )
 
-        lon_valid, lat_valid, precip_valid, *bounds = result
+        _, _, precip_valid, *_ = result
 
         if len(precip_valid) > 0:
             assert np.all(precip_valid >= 0)
@@ -993,7 +993,7 @@ class TestPrecipitationOverlayEdgeCases:
             lon, lat, data, 'rainnc', 'kg m-2', 'scatter'
         )
 
-        lon_valid, lat_valid, precip_valid, *bounds = result
+        _, _, precip_valid, *_ = result
 
         assert len(precip_valid) > 0
 
@@ -1015,7 +1015,7 @@ class TestPrecipitationOverlayEdgeCases:
             lon, lat, data, 'rainnc', None, 'scatter'
         )
 
-        lon_valid, lat_valid, precip_valid, *bounds = result
+        _, _, precip_valid, *_ = result
         
         assert len(precip_valid) > 0
 
@@ -1066,7 +1066,7 @@ class TestPrecipitationPlotterHelpers:
         """
         data = np.array([0.5, 1.0, 1.5])
         da = xr.DataArray(data, attrs={'units': 'mm', 'long_name': 'Rain'})
-        out, unit = self.plotter._convert_precipitation_units(data, da, 'rainnc')
+        out, _ = self.plotter._convert_precipitation_units(data, da, 'rainnc')
         assert isinstance(out, np.ndarray)
 
     def test_convert_precip_units_negative_clipped(self: 'TestPrecipitationPlotterHelpers') -> None:

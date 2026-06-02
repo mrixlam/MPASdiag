@@ -87,7 +87,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
         
         chunks_2d = {'Time': 1, 'nCells': 100000}
         
-        dataset, data_type = self._load_data(
+        dataset, _ = self._load_data(
             data_dir, 
             use_pure_xarray, 
             reference_file,

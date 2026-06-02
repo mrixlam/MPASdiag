@@ -134,7 +134,7 @@ class TestConvertDataForDisplayPressureBranch:
 
         with patch("mpasdiag.visualization.MPASFileMetadata") as mock_cls:
             mock_cls.get_2d_variable_metadata.return_value = mock_metadata
-            converted, meta = UnitConverter.convert_data_for_display(da, "pressure", da)
+            _, meta = UnitConverter.convert_data_for_display(da, "pressure", da)
 
         assert meta["units"] == HPA
         assert meta["original_units"] == PA
@@ -168,7 +168,7 @@ class TestConvertDataForDisplayValueErrorFallback:
                 "convert_units",
                 side_effect=ValueError("unsupported conversion"),
             ):
-                converted, meta = UnitConverter.convert_data_for_display(da, "t2m", da)
+                _, meta = UnitConverter.convert_data_for_display(da, "t2m", da)
 
         assert meta["units"] == KELVIN
         assert meta["original_units"] == KELVIN

@@ -768,7 +768,7 @@ class TestColdPoolStrength:
         """
         theta_rho = xr.DataArray(np.array([298.0, 300.0]), dims=['x'])
         env = xr.DataArray(np.array([299.0, 299.0]), dims=['x'])
-        c, b = diag_silent.compute_cold_pool_strength(
+        c, _ = diag_silent.compute_cold_pool_strength(
             theta_rho, theta_rho_env=env,
         )
         assert c.values[0] > 0.0

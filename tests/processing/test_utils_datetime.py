@@ -217,7 +217,7 @@ class TestValidateTimeParameters:
         Returns:
             None
         """
-        dim, idx, size = MPASDateTimeUtils.validate_time_parameters(time_dataset, 99, verbose=False)
+        _, idx, size = MPASDateTimeUtils.validate_time_parameters(time_dataset, 99, verbose=False)
         assert idx == size - 1
 
     def test_out_of_range_index_clamped_verbose(self: 'TestValidateTimeParameters', 
@@ -233,7 +233,7 @@ class TestValidateTimeParameters:
         """
         captured = StringIO()
         with patch("sys.stdout", new=captured):
-            dim, idx, size = MPASDateTimeUtils.validate_time_parameters(time_dataset, 99, verbose=True)
+            _, idx, size = MPASDateTimeUtils.validate_time_parameters(time_dataset, 99, verbose=True)
         assert idx == size - 1
         assert "exceeds" in captured.getvalue()
 
@@ -248,7 +248,7 @@ class TestValidateTimeParameters:
         Returns:
             None
         """
-        dim, idx, size = MPASDateTimeUtils.validate_time_parameters(lowercase_time_dataset, 0)
+        dim, _, size = MPASDateTimeUtils.validate_time_parameters(lowercase_time_dataset, 0)
         assert dim == "time"
         assert size == 3
 

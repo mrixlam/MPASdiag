@@ -196,7 +196,7 @@ class TestPrepareWindData2D:
         lat = np.linspace(30., 50., 10).reshape(2, 5)
         u = np.ones((2, 5))
         v = np.ones((2, 5))
-        lon_out, lat_out, u_out, v_out = plotter._prepare_wind_data(lon, lat, u, v, subsample=2)
+        lon_out, _, u_out, _ = plotter._prepare_wind_data(lon, lat, u, v, subsample=2)
         assert lon_out.shape == (1, 3)
         assert u_out.shape == (1, 3)
 
@@ -215,7 +215,7 @@ class TestPrepareWindData2D:
         lat = np.linspace(30., 50., 6).reshape(2, 3)
         u = np.ones((2, 3))
         v = np.ones((2, 3))
-        lon_out, lat_out, u_out, v_out = plotter._prepare_wind_data(lon, lat, u, v, subsample=1)
+        lon_out, _, _, _ = plotter._prepare_wind_data(lon, lat, u, v, subsample=1)
         assert lon_out.shape == (2, 3)
 
 
@@ -410,7 +410,7 @@ class TestCreateWindPlotNoValidData:
 
         with patch.object(plotter, '_setup_wind_plot_figure', return_value=(mock_fig, mock_ax)):
             with patch.object(plotter, '_handle_streamline_regridding', return_value=None):
-                fig, ax = plotter.create_wind_plot(lon, lat, u, v, -100., -80., 30., 50.)
+                _, _ = plotter.create_wind_plot(lon, lat, u, v, -100., -80., 30., 50.)
 
         assert "No valid wind data found" in capsys.readouterr().out
 
@@ -538,7 +538,7 @@ class TestConvertWindUnits:
         """
         u = np.full(N_CELLS, 150.0)
         v = np.ones(N_CELLS)
-        u_ret, v_ret = plotter._convert_wind_units(u, v, None)
+        u_ret, _ = plotter._convert_wind_units(u, v, None)
         out = capsys.readouterr().out
         assert "Wind data may not be in m/s" in out
         np.testing.assert_array_equal(u_ret, u)
@@ -558,7 +558,7 @@ class TestConvertWindUnits:
         """
         u = np.full(N_CELLS, 10.0)
         v = np.ones(N_CELLS)
-        u_ret, v_ret = plotter._convert_wind_units(u, v, None)
+        u_ret, _ = plotter._convert_wind_units(u, v, None)
         assert capsys.readouterr().out == ""
         np.testing.assert_array_equal(u_ret, u)
 
@@ -598,7 +598,7 @@ class TestConvertWindUnits:
         converted_v = np.array([0.0])
         with patch('mpasdiag.visualization.wind.UnitConverter.convert_units',
                    side_effect=[converted_u, converted_v]):
-            u_ret, v_ret = plotter._convert_wind_units(u, v, 'knots')
+            u_ret, _ = plotter._convert_wind_units(u, v, 'knots')
         out = capsys.readouterr().out
         assert "Converted overlay wind from knots to m/s" in out
         np.testing.assert_array_equal(u_ret, converted_u)
@@ -888,7 +888,7 @@ class TestExtract2DFrom3DWind:
         """
         u = _RNG.random((N_CELLS, 4))
         v = _RNG.random((N_CELLS, 4))
-        u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_index=0)
+        u2d, _ = plotter.extract_2d_from_3d_wind(u, v, level_index=0)
         np.testing.assert_array_equal(u2d, u[:, 0])
 
     def test_level_value_with_pressure_levels_finds_nearest(self: 'TestExtract2DFrom3DWind', 
@@ -925,7 +925,7 @@ class TestExtract2DFrom3DWind:
         u = _RNG.random((N_CELLS, 5))
         v = _RNG.random((N_CELLS, 5))
         pressure_levels = np.array([1000., 850., 700., 500., 300.])
-        u2d, v2d = plotter.extract_2d_from_3d_wind(
+        u2d, _ = plotter.extract_2d_from_3d_wind(
             u, v, level_value=650., pressure_levels=pressure_levels
         )
         np.testing.assert_array_equal(u2d, u[:, 2])  # |700-650|=50 < |500-650|=150 → index 2
@@ -943,7 +943,7 @@ class TestExtract2DFrom3DWind:
         """
         u = _RNG.random((N_CELLS, 5))
         v = _RNG.random((N_CELLS, 5))
-        u2d, v2d = plotter.extract_2d_from_3d_wind(u, v, level_value=850.)
+        u2d, _ = plotter.extract_2d_from_3d_wind(u, v, level_value=850.)
         np.testing.assert_array_equal(u2d, u[:, -1])
 
     def test_default_returns_top_level(self: 'TestExtract2DFrom3DWind', 

@@ -323,7 +323,7 @@ class TestAttemptFallbackLoad:
 
         with patch.object(proc, '_load_multifile_dataset', return_value=ds):
             with patch.object(proc, '_apply_chunking', return_value=ds):
-                result_ds, result_type = proc._attempt_fallback_load(
+                _, result_type = proc._attempt_fallback_load(
                     [str(tmp_path / 'f1.nc'), str(tmp_path / 'f2.nc')],
                     times,
                     {'Time': 1},
@@ -606,7 +606,7 @@ class TestAttemptSingleFileLoad:
         mock_ux_ds = MagicMock()
 
         with patch.object(proc, '_load_single_file_uxarray', return_value=mock_ux_ds):
-            ds, dtype = proc._attempt_single_file_load(str(tmp_path / 'f.nc'))
+            _, dtype = proc._attempt_single_file_load(str(tmp_path / 'f.nc'))
 
         assert dtype == 'uxarray'
         assert proc.dataset is mock_ux_ds
@@ -629,7 +629,7 @@ class TestAttemptSingleFileLoad:
                           side_effect=Exception('ux fail')):
             with patch.object(proc, '_load_single_file_xarray',
                                return_value=mock_xr_ds):
-                ds, dtype = proc._attempt_single_file_load(str(tmp_path / 'f.nc'))
+                _, dtype = proc._attempt_single_file_load(str(tmp_path / 'f.nc'))
 
         assert dtype == 'xarray'
         assert proc.dataset is mock_xr_ds

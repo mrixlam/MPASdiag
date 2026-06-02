@@ -281,7 +281,7 @@ class TestComputeIVTComponentsVerbose:
         captured = StringIO()
 
         with patch("sys.stdout", new=captured):
-            ivt_u, ivt_v = diag.compute_ivt_components(
+            _, _ = diag.compute_ivt_components(
                 specific_humidity, u_component, v_component, pressure
             )
 

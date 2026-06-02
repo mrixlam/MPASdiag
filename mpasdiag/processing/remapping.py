@@ -752,7 +752,7 @@ class MPASRemapper:
         tree = KDTree(source_points)
 
         target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
-        distances, indices = tree.query(target_points)
+        _, indices = tree.query(target_points)
 
         data_2d = data_values[indices].reshape(lon_2d.shape)
 
@@ -1302,7 +1302,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
         tree = KDTree(source_points)
         
         target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
-        distances, indices = tree.query(target_points)
+        _, indices = tree.query(target_points)
         
         data_2d = data_values[indices].reshape(lon_2d.shape)
     

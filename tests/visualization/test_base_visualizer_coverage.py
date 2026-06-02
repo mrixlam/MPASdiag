@@ -159,7 +159,7 @@ class TestCreateTimeSeriesPlot:
         values = [1.0, 2.0, 3.0, 4.0]
         with patch('mpasdiag.visualization.base_visualizer.pd.to_datetime',
                    side_effect=ValueError("cannot parse")):
-            fig, ax = v.create_time_series_plot(times, values, title="Test")
+            fig, _ = v.create_time_series_plot(times, values, title="Test")
         assert fig is not None
         plt.close(fig)
 
@@ -175,7 +175,7 @@ class TestCreateTimeSeriesPlot:
         """
         v = _viz()
         times = [datetime(2024, 1, 1, i) for i in range(3)]
-        fig, ax = v.create_time_series_plot(times, [1., 2., 3.])
+        fig, _ = v.create_time_series_plot(times, [1., 2., 3.])
         assert fig is not None
         plt.close(fig)
 
@@ -223,7 +223,7 @@ class TestCreateHistogram:
                 return original_isinstance(obj, cls)
 
             mock_isinstance.side_effect = patched_isinstance
-            fig, ax = v.create_histogram(data, bins=bad_bins)
+            fig, _ = v.create_histogram(data, bins=bad_bins)
         plt.close(fig)
 
     def test_numpy_bins_array_works_normally(self: 'TestCreateHistogram') -> None:
@@ -239,7 +239,7 @@ class TestCreateHistogram:
         v = _viz()
         data = np.random.default_rng(1).normal(5, 2, 200)
         bins = np.linspace(0., 12., 10)
-        fig, ax = v.create_histogram(data, bins=bins, log_scale=True)
+        fig, _ = v.create_histogram(data, bins=bins, log_scale=True)
         assert fig is not None
         plt.close(fig)
 
@@ -429,7 +429,7 @@ class TestExtractFullGrid:
             'longitude': (['nCells'], np.linspace(-100., -90., N_CELLS)),
             'latitude': (['nCells'], np.linspace(35., 45., N_CELLS)),
         })
-        lon, lat = MPASVisualizer._extract_full_grid(ds)
+        lon, _ = MPASVisualizer._extract_full_grid(ds)
         assert lon.shape == (N_CELLS,)
 
     def test_lon_lat_short_keys(self: 'TestExtractFullGrid') -> None:
@@ -446,7 +446,7 @@ class TestExtractFullGrid:
             'lon': (['nCells'], np.linspace(-100., -90., N_CELLS)),
             'lat': (['nCells'], np.linspace(35., 45., N_CELLS)),
         })
-        lon, lat = MPASVisualizer._extract_full_grid(ds)
+        lon, _ = MPASVisualizer._extract_full_grid(ds)
         assert len(lon) == N_CELLS
 
     def test_missing_lon_raises_keyerror(self: 'TestExtractFullGrid') -> None:
@@ -640,7 +640,7 @@ class TestRemapConservative:
         mock_remapper = MagicMock()
         lon_g = np.linspace(-100., -90., 5)
         lat_g = np.linspace(35., 45., 5)
-        lon_mesh, lat_mesh = np.meshgrid(lon_g, lat_g)
+        _, _ = np.meshgrid(lon_g, lat_g)
         fake_result = xr.DataArray(
             np.ones((5, 5)),
             coords={'lon': lon_g, 'lat': lat_g},
@@ -720,7 +720,7 @@ class TestInterpolateToGridESMPy:
                                           return_value=np.ones(N_CELLS)):
                             with patch.object(v, '_remap_conservative',
                                               return_value=remap_result):
-                                lon_m, lat_m, data_i = v._interpolate_to_grid(
+                                lon_m, lat_m, _ = v._interpolate_to_grid(
                                     lon, lat, data,
                                     -100., -90., 35., 45.,
                                     grid_resolution=1.0,
@@ -765,7 +765,7 @@ class TestInterpolateToGridESMPy:
                                 with patch('mpasdiag.visualization.base_visualizer'
                                            '.remap_mpas_to_latlon_with_masking',
                                            return_value=fallback_result):
-                                    lon_m, lat_m, data_i = v._interpolate_to_grid(
+                                    lon_m, _, _ = v._interpolate_to_grid(
                                         lon, lat, data,
                                         -100., -90., 35., 45.,
                                         grid_resolution=1.0,
@@ -1145,7 +1145,7 @@ class TestCreateWindPlot:
         vw = np.ones(n_pts) * 3.
 
         try:
-            fig, ax = v.create_wind_plot(
+            fig, _ = v.create_wind_plot(
                 lon, lat, u, vw,
                 lon_min=-100., lon_max=-99., lat_min=39., lat_max=40.,
                 plot_type='barbs',
@@ -1199,7 +1199,7 @@ class TestInterpolateToGridEdgeCases:
         )
         with patch('mpasdiag.visualization.base_visualizer.remap_mpas_to_latlon_with_masking',
                    return_value=fake_result):
-            lon_m, lat_m, data_i = v._interpolate_to_grid(
+            lon_m, _, _ = v._interpolate_to_grid(
                 lon, lat, data, -100., -90., 35., 45.,
                 grid_resolution=2.0,
                 dataset=None,

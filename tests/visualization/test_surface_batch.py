@@ -290,7 +290,7 @@ class TestConvenienceFunction:
         data = mpas_surface_temp_data[:50]
         extent = (float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max()))
         
-        fig, ax = create_surface_plot(
+        fig, _ = create_surface_plot(
             lon, lat, data, 't2m', extent,
             colormap='coolwarm',
             projection='Mercator'

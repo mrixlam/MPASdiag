@@ -176,7 +176,7 @@ class TestResolveLevelIndex:
         proc.dataset = ds
 
         # _resolve_float_level → _resolve_float_level → _interpolate_at_pressure
-        idx, early = proc._resolve_level_index("theta", 85000.0, "Time", 0)
+        idx, _ = proc._resolve_level_index("theta", 85000.0, "Time", 0)
         # Should have executed without error
         assert isinstance(idx, int) or idx == -1
 

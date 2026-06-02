@@ -484,7 +484,7 @@ class TestGet2DWindComponentsUXarray:
         captured = StringIO()
 
         with patch("sys.stdout", new=captured):
-            u, v = diag.get_2d_wind_components(
+            u, _ = diag.get_2d_wind_components(
                 ds_2d, "u10", "v10", time_index=0, data_type="uxarray"
             )
 

@@ -381,7 +381,7 @@ class TestFilterValidDataDask:
         plotter = MPASSurfacePlotter()
         with patch('mpasdiag.visualization.surface.np.isfinite',
                    side_effect=_fake_isfinite):
-            lon_v, lat_v, data_v = plotter._filter_valid_data(
+            lon_v, _, _ = plotter._filter_valid_data(
                 lon, lat, data, 'scatter',
                 -100.0, -80.0, 30.0, 50.0,
                 't2m', {'units': 'K'},
@@ -419,7 +419,7 @@ class TestFilterValidDataDask:
         plotter = MPASSurfacePlotter()
         with patch('mpasdiag.visualization.surface.np.isfinite',
                    side_effect=_fake_isfinite):
-            lon_v, lat_v, data_v = plotter._filter_valid_data(
+            _, _, data_v = plotter._filter_valid_data(
                 lon, lat, data, 'contourf',
                 -100.0, -80.0, 30.0, 50.0,
                 't2m', {'units': 'K'},
@@ -617,7 +617,7 @@ class TestPrepareOverlayData:
         lat = np.linspace(35.0, 45.0, N_CELLS)
         surface_config = {'original_units': 'Pa', 'var_name': 'mslp'}
 
-        lon_v, lat_v, data_v = plotter._prepare_overlay_data(
+        lon_v, _, data_v = plotter._prepare_overlay_data(
             overlay, lon, lat, 'mslp', surface_config
         )
         assert len(lon_v) == N_CELLS
@@ -639,7 +639,7 @@ class TestPrepareOverlayData:
         lat = np.linspace(35.0, 45.0, N_CELLS)
         surface_config = {}
 
-        lon_v, lat_v, data_v = plotter._prepare_overlay_data(
+        lon_v, _, _ = plotter._prepare_overlay_data(
             overlay, lon, lat, 'unknown_var', surface_config
         )
         assert len(lon_v) == N_CELLS
@@ -759,7 +759,7 @@ class TestInterpolateOverlayWithConfig:
 
         with patch('mpasdiag.visualization.surface.dispatch_remap',
                    return_value=mock_remapped) as mock_dispatch:
-            lon_mesh, lat_mesh, data_interp = plotter._interpolate_overlay(
+            lon_mesh, _, data_interp = plotter._interpolate_overlay(
                 data_valid, dataset, -95.0, -85.0, 35.0, 45.0, 0.5,
                 't2m', config={'method': 'nearest'}
             )
@@ -918,7 +918,7 @@ class TestCreateSimpleScatterPlot:
         with patch('mpasdiag.visualization.surface.MPASVisualizationStyle.add_colorbar',
                    return_value=mock_cbar):
             with patch.object(plotter, 'add_timestamp_and_branding'):
-                fig, ax = plotter.create_simple_scatter_plot(
+                fig, _ = plotter.create_simple_scatter_plot(
                     np.linspace(-95.0, -85.0, N_CELLS),
                     np.linspace(35.0, 45.0, N_CELLS),
                     np.ones(N_CELLS) * 280.0,
@@ -953,7 +953,7 @@ class TestPlot3dVariableSlice:
         mock_ax = MagicMock()
         with patch.object(plotter, 'create_surface_map',
                           return_value=(mock_fig, mock_ax)) as mock_create:
-            fig, ax = plotter.plot_3d_variable_slice(da, lon, lat, level=2, var_name='qv')
+            _, _ = plotter.plot_3d_variable_slice(da, lon, lat, level=2, var_name='qv')
         mock_create.assert_called_once()
         _, kwargs = mock_create.call_args
         assert kwargs.get('lon_min') == pytest.approx(-180.0)

@@ -301,7 +301,7 @@ class TestRealDataIntegration:
         
         cache1.load_coordinates_from_dataset(processor.dataset)
         
-        lon, lat = cache2.get_coordinates()
+        lon, _ = cache2.get_coordinates()
         assert len(lon) > 0
         
         clear_global_cache()

@@ -390,7 +390,7 @@ class TestScatterPlotMethod:
         Returns:
             None
         """
-        lon_full, lat_full, u_full, v_full = load_mpas_coords_from_processor(n=1000)
+        lon_full, lat_full, u_full, _ = load_mpas_coords_from_processor(n=1000)
         
         lon = lon_full[:1000]
         lat = lat_full[:1000]
@@ -419,7 +419,7 @@ class TestScatterPlotMethod:
         Returns:
             None
         """
-        lon_full, lat_full, u_full, v_full = load_mpas_coords_from_processor(n=500)
+        lon_full, lat_full, u_full, _ = load_mpas_coords_from_processor(n=500)
         
         lon = lon_full[:500]
         lat = lat_full[:500]

@@ -59,7 +59,7 @@ class TestEnhancedSurfacePlotting:
         from tests.test_data_helpers import load_mpas_coords_from_processor
 
         self.n_cells = 100
-        lon, lat, u, v = load_mpas_coords_from_processor(n=self.n_cells)
+        lon, lat, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         self.lon = lon
         self.lat = lat
         
@@ -95,7 +95,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_base = 220.0 + 80.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         data_3d = np.tile(temp_base.reshape((self.n_cells, 1, 1)), (1, self.n_levels, 1))
         result = self.visualizer.extract_2d_from_3d(data_3d, level_index=5)
@@ -113,7 +113,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_base = self.temp_data[:self.n_cells]
         data_3d = np.tile(temp_base.reshape((self.n_cells, 1)), (1, self.n_levels))
         
@@ -139,7 +139,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_base = 220.0 + 80.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         data_3d = np.tile(temp_base.reshape((self.n_cells, 1, 1)), (1, self.n_levels, 1))
         
@@ -161,7 +161,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         
         fig, ax = self.visualizer.create_surface_map(
@@ -184,7 +184,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_base = self.temp_data[:self.n_cells]
         temp_3d = np.tile(temp_base.reshape((self.n_cells,1,1)), (1,self.n_levels,1))
         
@@ -208,7 +208,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_levels = np.tile(self.temp_data[:self.n_cells].reshape((self.n_cells,1)), (1,self.n_levels))
         
         fig, ax = self.visualizer.create_surface_map(
@@ -231,7 +231,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         u_wind_2d = self.u[:self.n_cells]
         v_wind_2d = self.v[:self.n_cells]
@@ -264,7 +264,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         u_wind_3d = np.tile(self.u[:self.n_cells].reshape((self.n_cells,1)), (1,self.n_levels))
         v_wind_3d = np.tile(self.v[:self.n_cells].reshape((self.n_cells,1)), (1,self.n_levels))
@@ -298,7 +298,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         u_wind = self.u[:self.n_cells]
         v_wind = self.v[:self.n_cells]
@@ -312,7 +312,7 @@ class TestEnhancedSurfacePlotting:
             'scale': 200
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_2d, 't2m',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             wind_overlay=wind_config,
@@ -331,7 +331,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_3d = np.tile(self.temp_data[:self.n_cells].reshape((self.n_cells,1)), (1,self.n_levels))
 
         temp_xr = xr.DataArray(
@@ -374,11 +374,11 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         
         for plot_type in ['scatter', 'contour', 'both']:
-            fig, ax = self.visualizer.create_surface_map(
+            fig, _ = self.visualizer.create_surface_map(
                 self.lon, self.lat, temp_2d, 't2m',
                 self.lon_min, self.lon_max, self.lat_min, self.lat_max,
                 plot_type=plot_type
@@ -404,7 +404,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         
         wind_config = {
@@ -432,7 +432,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         base = self.temp_data[:self.n_cells]
         data_4d = np.tile(base.reshape((self.n_cells,1,1,1)), (1,10,5,3))
@@ -455,7 +455,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells + 10)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells + 10)
         temp_wrong_length = 250.0 + 60.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         
         with pytest.raises(ValueError) as context:
@@ -478,7 +478,7 @@ class TestEnhancedSurfacePlotting:
         """
         n_large = 3000
 
-        lon_full, lat_full, u_full, v_full = load_mpas_coords_from_processor(n=n_large)
+        lon_full, lat_full, _, _ = load_mpas_coords_from_processor(n=n_large)
 
         lon_large = lon_full
         lat_large = lat_full
@@ -498,7 +498,7 @@ class TestEnhancedSurfacePlotting:
             'plot_type': 'barbs'
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             lon_large, lat_large, temp_large, 't2m',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             wind_overlay=wind_config,
@@ -520,7 +520,7 @@ class TestEnhancedSurfacePlotting:
         lon_out_of_bounds = np.linspace(0.0, 9.0, self.n_cells)
         lat_out_of_bounds = np.linspace(0.0, 9.0, self.n_cells)
 
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         
         with pytest.raises(ValueError) as context:
@@ -541,7 +541,7 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         test_time = datetime(2024, 9, 17, 13, 0)
         
@@ -566,11 +566,11 @@ class TestEnhancedSurfacePlotting:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         custom_levels = [250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0]
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_2d, 't2m',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             colormap='coolwarm',
@@ -631,10 +631,10 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         data_np = self.temp_data[:self.n_cells]
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, data_np, 't2m',
             *self.bounds
         )
@@ -651,7 +651,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         data_xr = xr.DataArray(
             self.temp_data[:self.n_cells],
@@ -659,7 +659,7 @@ class TestDataTypeAgnosticFeatures:
             attrs={'units': 'K', 'long_name': 'Temperature'}
         )
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, data_xr, 'temperature', 
             *self.bounds
         )
@@ -676,7 +676,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         temp_xr = xr.DataArray(
             self.temp_data[:self.n_cells],
@@ -693,7 +693,7 @@ class TestDataTypeAgnosticFeatures:
             'subsample': 2
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_xr, 'temperature',
             *self.bounds,
             wind_overlay=wind_config
@@ -711,7 +711,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
 
         geop_2d = 1200.0 + 200.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -746,7 +746,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
 
         pressure_2d = 1000.0 + 20.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -760,7 +760,7 @@ class TestDataTypeAgnosticFeatures:
             'levels': [1000, 1005, 1010, 1015, 1020]
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_2d, 'temperature',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='scatter',
@@ -780,7 +780,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
 
         geop_base = 1200.0 + 200.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -796,7 +796,7 @@ class TestDataTypeAgnosticFeatures:
             'levels': [1200, 1250, 1300, 1350, 1400]
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_2d, 'temperature',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='contourf',
@@ -816,7 +816,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         temp_850 = 263.0 + 30.0 * (self.temp_data[:self.n_cells] / (np.max(self.temp_data[:self.n_cells]) + 1e-12))
         geop_850 = 1200.0 + 400.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -863,7 +863,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
         
         surface_config = {
@@ -891,7 +891,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[:self.n_cells]
 
         pressure_2d = 1000.0 + 20.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -916,7 +916,7 @@ class TestDataTypeAgnosticFeatures:
             'levels': [1000, 1005, 1010, 1015, 1020]
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_2d, 'temperature',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='contourf',
@@ -937,7 +937,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_k = 263.0 + 40.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
 
         colormap, levels = self.visualizer.get_variable_specific_settings('temperature', temp_k)
@@ -965,7 +965,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         precip_data = 25.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         
         colormap, levels = self.visualizer.get_variable_specific_settings('precipitation_01h', precip_data)
@@ -994,7 +994,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         pressure_pa = 99000.0 + 4000.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
 
         colormap, levels = self.visualizer.get_variable_specific_settings('sea_level_pressure', pressure_pa)
@@ -1021,7 +1021,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
         wind_data = 20.0 * (np.hypot(u_arr, v_arr) / (np.hypot(u_arr, v_arr).max() + 1e-12))
         colormap, levels = self.visualizer.get_variable_specific_settings('wind_speed', wind_data)
         
@@ -1041,7 +1041,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         geop_data = 1200.0 + 400.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
         colormap, levels = self.visualizer.get_variable_specific_settings('geopotential_height', geop_data)
@@ -1058,11 +1058,11 @@ class TestDataTypeAgnosticFeatures:
 
         Parameters:
             None
-
+    
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         rh_data = 0.3 + 0.7 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
 
         colormap, levels = self.visualizer.get_variable_specific_settings('relative_humidity', rh_data)
@@ -1083,7 +1083,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         diverging_data = (u_arr - u_arr.mean()) / (u_arr.max() - u_arr.min() + 1e-12) * 100.0
         colormap, levels = self.visualizer.get_variable_specific_settings('unknown_var', diverging_data)
         
@@ -1106,7 +1106,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, u_arr, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_data = 263.0 + 40.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         
         fig, ax = self.visualizer.create_surface_map(
@@ -1118,7 +1118,7 @@ class TestDataTypeAgnosticFeatures:
         
         assert isinstance(fig, Figure)
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_data, 'temperature',
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='contourf',
@@ -1139,7 +1139,7 @@ class TestDataTypeAgnosticFeatures:
         Returns:
             None
         """
-        lon_arr, lat_arr, u_arr, v_arr = load_mpas_coords_from_processor(n=self.n_cells)
+        _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
 
         temp_data = 263.0 + 40.0 * (self.temp_data[:self.n_cells] / (np.max(self.temp_data[:self.n_cells]) + 1e-12))
         geop_data = 1200.0 + 400.0 * (self.precip_data[:self.n_cells] / (np.max(self.precip_data[:self.n_cells]) + 1e-12))
@@ -1152,7 +1152,7 @@ class TestDataTypeAgnosticFeatures:
             'linewidth': 2.0
         }
         
-        fig, ax = self.visualizer.create_surface_map(
+        fig, _ = self.visualizer.create_surface_map(
             self.lon, self.lat, temp_data, 'temperature',  
             self.lon_min, self.lon_max, self.lat_min, self.lat_max,
             plot_type='contourf',

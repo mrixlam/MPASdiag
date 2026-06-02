@@ -551,7 +551,7 @@ class TestExtract2DCoordinatesForVariable:
             'latCell': xr.DataArray(lat_rad),
         })
 
-        result_lon, result_lat = mock_proc.extract_2d_coordinates_for_variable('temperature')
+        _, result_lat = mock_proc.extract_2d_coordinates_for_variable('temperature')
         assert np.allclose(result_lat, lat_rad * 180.0 / np.pi)
 
     def test_vertex_dimension_selects_vertex_coord_names(self: 'TestExtract2DCoordinatesForVariable', 
@@ -575,7 +575,7 @@ class TestExtract2DCoordinatesForVariable:
             'latVertex': xr.DataArray(lat),
         })
 
-        result_lon, result_lat = mock_proc.extract_2d_coordinates_for_variable('vorticity')
+        result_lon, _ = mock_proc.extract_2d_coordinates_for_variable('vorticity')
         assert len(result_lon) == n
 
     def test_verbose_prints_extracted_coord_message(self: 'TestExtract2DCoordinatesForVariable', 
@@ -624,7 +624,7 @@ class TestExtract2DCoordinatesForVariable:
 
         da = xr.DataArray(np.ones(n), dims=['nVertices'])
 
-        result_lon, result_lat = mock_proc.extract_2d_coordinates_for_variable(
+        result_lon, _ = mock_proc.extract_2d_coordinates_for_variable(
             'nonexistent_var', data_array=da
         )
 

@@ -890,7 +890,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         ])
         
         tree = KDTree(grid_points)
-        distances, indices = tree.query(path_points)
+        _, indices = tree.query(path_points)
         
         return grid_data_valid[indices]
 

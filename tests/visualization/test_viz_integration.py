@@ -249,7 +249,7 @@ class TestMPASVisualizer:
         
         n_points = 100
         lon, lat = mpas_coordinates[0][:n_points], mpas_coordinates[1][:n_points]
-        u, v = mpas_wind_data
+        u, _ = mpas_wind_data
         data = (u - u.min()) / (u.max() - u.min() + 1e-12) * 50
         
         fig, ax = surface_plotter.create_simple_scatter_plot(
@@ -365,7 +365,7 @@ class TestMPASVisualizer:
             return
         
         lon, lat = mpas_coordinates
-        u, v = mpas_wind_data
+        u, _ = mpas_wind_data
         lon = lon[:3]
         lat = lat[:3]
         data = u[:3]
@@ -401,7 +401,7 @@ class TestMPASVisualizer:
             return
         
         lon, lat = mpas_coordinates
-        u, v = mpas_wind_data
+        u, _ = mpas_wind_data
         lon = lon[:3]
         lat = lat[:3]
         data = u[:3]
@@ -867,7 +867,7 @@ class TestVisualizationIntegration:
             lat_subset = lat[:100]
             data_subset = data[:100]
             
-            fig, ax = plotter.create_surface_map(
+            _, _ = plotter.create_surface_map(
                 lon_subset, lat_subset, data_subset,
                 var_name='wind_speed',
                 lon_min=-180, lon_max=180,

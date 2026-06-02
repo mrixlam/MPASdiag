@@ -89,7 +89,7 @@ def simple_mpas_data() -> dict:
         dict: A dictionary containing longitude, latitude, and data arrays.
     """
     n_cells = 100
-    lon_deg, lat_deg, u, v = load_mpas_coords_from_processor(n_cells)
+    lon_deg, lat_deg, u, _ = load_mpas_coords_from_processor(n_cells)
     lon = np.radians(lon_deg)
     lat = np.radians(lat_deg)
     data = (u - u.min()) / (u.max() - u.min() + 1e-12)

@@ -852,7 +852,7 @@ class WindDiagnostics:
             raise ValueError(f"Wind variables {missing_vars} not found in dataset. Available variables: {available_vars[:20]}...")
         
         # Validate time parameters and determine the time dimension name
-        time_dim, validated_time_index, time_size = MPASDateTimeUtils.validate_time_parameters(dataset, time_index, self.verbose)
+        time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(dataset, time_index, self.verbose)
         
         try:
             if data_type == 'uxarray':

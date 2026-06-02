@@ -60,7 +60,7 @@ class TestEdgeCasesAndErrorHandling:
         Returns:
             None
         """
-        lon, lat, u, v = load_mpas_coords_from_processor(n=200)
+        lon, lat, u, _ = load_mpas_coords_from_processor(n=200)
         umin = u.min()
         umax = u.max()
         data = 10.0 + 20.0 * (u - umin) / (umax - umin + 1e-12)

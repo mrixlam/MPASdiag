@@ -145,7 +145,7 @@ class TestFilterBySpatialExtent:
         """
         n = len(degree_dataset["lonCell"])
         data = xr.DataArray(np.ones(n), dims=["nCells"])
-        result_data, mask = MPASGeographicUtils.filter_by_spatial_extent(
+        result_data, _ = MPASGeographicUtils.filter_by_spatial_extent(
             data, degree_dataset, lon_min=-110.0, lon_max=-90.0,
             lat_min=30.0, lat_max=50.0,
         )

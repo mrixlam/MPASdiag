@@ -74,7 +74,7 @@ class TestInterpolationWithRealData:
         Returns:
             None
         """
-        fig, ax = self.plotter.create_vertical_cross_section(
+        fig, _ = self.plotter.create_vertical_cross_section(
             self.processor,
             'theta',
             (-10, 30),

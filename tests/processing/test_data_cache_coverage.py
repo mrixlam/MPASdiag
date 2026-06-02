@@ -234,7 +234,7 @@ class TestLoadCoordinatesDimBranches:
 
         cache = MPASDataCache()
         cache.load_coordinates_from_dataset(ds, "scalar_var")
-        lon, lat = cache.get_coordinates("scalar_var")
+        lon, _ = cache.get_coordinates("scalar_var")
         assert lon.shape == (N_CELLS,)
 
     def test_nvertices_lon_lat_in_degrees_after_load(self: 'TestLoadCoordinatesDimBranches') -> None:
@@ -250,7 +250,7 @@ class TestLoadCoordinatesDimBranches:
         ds = _make_vertex_ds()
         cache = MPASDataCache()
         cache.load_coordinates_from_dataset(ds, "vorticity")
-        lon, lat = cache.get_coordinates("vorticity")
+        lon, _ = cache.get_coordinates("vorticity")
         assert np.all(lon >= -180) and np.all(lon <= 180)
 
 

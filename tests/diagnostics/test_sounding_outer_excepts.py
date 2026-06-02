@@ -139,7 +139,7 @@ class TestLoadGridCoordinatesDropVariables:
         proc.grid_file = path
         diag = SoundingDiagnostics(verbose=False)
 
-        lon, lat = diag._load_grid_coordinates(proc)
+        lon, _ = diag._load_grid_coordinates(proc)
         assert lon.shape == (N_CELLS,)
 
 

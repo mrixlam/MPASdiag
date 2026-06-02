@@ -108,7 +108,7 @@ class TestCreateSkewTDiagram:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, ax = plotter.create_skewt_diagram(p, t, td, u, v)
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -126,7 +126,7 @@ class TestCreateSkewTDiagram:
             None
         """
         p, t, td, _, _ = sample_profile
-        fig, ax = plotter.create_skewt_diagram(p, t, td, None, None)
+        fig, _ = plotter.create_skewt_diagram(p, t, td, None, None)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -144,7 +144,7 @@ class TestCreateSkewTDiagram:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, title='Test Sounding')
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -165,7 +165,7 @@ class TestCreateSkewTDiagram:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices) # type: ignore
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -187,7 +187,7 @@ class TestCreateSkewTDiagram:
         """
         p, t, td, u, v = sample_profile
 
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices, show_parcel=True) # type: ignore
 
         assert isinstance(fig, matplotlib.figure.Figure)
@@ -215,7 +215,7 @@ class TestSavePlot:
         p, t, td, u, v = sample_profile
         save_path = str(tmp_path / 'skewt')
 
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, save_path=save_path)
 
         assert os.path.isfile(save_path + '.png')
@@ -241,7 +241,7 @@ class TestSavePlot:
         p, t, td, u, v = sample_profile
         save_path = str(tmp_path / 'skewt')
 
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, save_path=save_path)
 
         assert os.path.isfile(save_path + '.pdf')
@@ -266,7 +266,7 @@ class TestEdgeCases:
         p = np.array([1000, 500, 200])
         t = np.array([25, -10, -50])
         td = np.array([20, -15, -55])
-        fig, ax = plotter.create_skewt_diagram(p, t, td, None, None)
+        fig, _ = plotter.create_skewt_diagram(p, t, td, None, None)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -285,7 +285,7 @@ class TestEdgeCases:
         """
         p, t, td, u, v = sample_profile
         td[5:10] = np.nan
-        fig, ax = plotter.create_skewt_diagram(p, t, td, u, v)
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -307,7 +307,7 @@ class TestEdgeCases:
         indices = {'cape': None, 'cin': None, 'lcl_pressure': None,
                    'lcl_temperature': None, 'lfc_pressure': None, 'el_pressure': None}
 
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=indices) # type: ignore
 
         assert isinstance(fig, matplotlib.figure.Figure)
@@ -333,7 +333,7 @@ class TestIndicesTable:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices)  # type: ignore
         # Figure should have more than 1 axes (main plot + table)
         assert len(fig.get_axes()) >= 2
@@ -355,7 +355,7 @@ class TestIndicesTable:
         p, t, td, u, v = sample_profile
         sparse = {'cape': 500.0, 'cin': None, 'lcl_pressure': 920.0,
                   'sbcape': None, 'k_index': 28.0}
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sparse)  # type: ignore
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -376,7 +376,7 @@ class TestIndicesTable:
         p, t, td, u, v = sample_profile
         indices = dict.fromkeys(('cape', 'cin', 'lcl_pressure', 'sbcape', 'k_index', 'bulk_shear_0_6km'))
 
-        fig, ax = plotter.create_skewt_diagram(
+        fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=indices)  # type: ignore
 
         assert isinstance(fig, matplotlib.figure.Figure)

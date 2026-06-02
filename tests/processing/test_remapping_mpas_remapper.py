@@ -46,7 +46,7 @@ class TestMPASRemapper:
         """
         self.temp_dir = Path(tempfile.mkdtemp())
         self.n_cells = 300
-        lon, lat, u, v = load_mpas_coords_from_processor(n=self.n_cells)
+        lon, lat, u, _ = load_mpas_coords_from_processor(n=self.n_cells)
         self.mpas_lon = np.mod(lon, 360.0)
         self.mpas_lat = lat
         self.mpas_data = 20 + 10 * (u - u.min()) / (u.max() - u.min() + 1e-12)
@@ -173,7 +173,7 @@ class TestMPASRemapper:
             attrs={'units': 'K', 'long_name': 'Temperature'}
         )
         
-        structured_data, structured_grid = MPASRemapper.unstructured_to_structured_grid(
+        structured_data, _ = MPASRemapper.unstructured_to_structured_grid(
             data=data_array,
             lon=self.mpas_lon,
             lat=self.mpas_lat,
@@ -744,7 +744,7 @@ class TestMPASRemapperCoveragePaths:
         weights_path = temp_dir / "roundtrip.nc"
         assert weights_path.exists()
 
-        weight_matrix, tgt_shape, cell_of_element = MPASRemapper._load_weights_netcdf(
+        weight_matrix, tgt_shape, _ = MPASRemapper._load_weights_netcdf(
             weights_path
         )
         assert weight_matrix is not None
@@ -766,7 +766,7 @@ class TestMPASRemapperCoveragePaths:
         """
         remapper = self._build_nearest_remapper(unstructured_source, temp_dir, reuse=False)
         remapper.build_regridder(filename="coe_test.nc")
-        weight_matrix, tgt_shape, coe = MPASRemapper._load_weights_netcdf(
+        _, _, coe = MPASRemapper._load_weights_netcdf(
             temp_dir / "coe_test.nc"
         )
         assert coe is None

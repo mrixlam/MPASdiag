@@ -91,7 +91,7 @@ class TestDataValidation:
             test_lat_min = lat_min + lat_margin
             test_lat_max = lat_max - lat_margin
             
-            filtered_data, mask = processor.filter_by_spatial_extent(
+            _, mask = processor.filter_by_spatial_extent(
                 data_array, test_lon_min, test_lon_max, test_lat_min, test_lat_max
             )
             
