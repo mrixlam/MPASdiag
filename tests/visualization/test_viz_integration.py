@@ -34,6 +34,7 @@ from mpasdiag.visualization.styling import MPASVisualizationStyle
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.visualization.surface import SurfaceMapStyle
+from mpasdiag.visualization.wind import WindPlotStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -716,14 +717,13 @@ class TestVisualizationIntegration:
         v_subset = v[:n_points]
         
         fig, ax = plotter.create_wind_plot(
-            lon_subset, lat_subset, u_subset, v_subset,
-            lon_min=-180, lon_max=180,
-            lat_min=-90, lat_max=90,
-            wind_level="10m",
-            title="MPAS Wind Field",
-            plot_type='barbs',  
-            projection='PlateCarree'
-        )
+                      lon_subset,
+                      lat_subset,
+                      u_subset,
+                      v_subset,
+                      GeographicBounds(-180, 180, -90, 90),
+                      style=WindPlotStyle(subsample=1, wind_level="10m", plot_type='barbs', title="MPAS Wind Field", projection='PlateCarree'),
+                  )
         
         assert fig is not None
         assert ax is not None

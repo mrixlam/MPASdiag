@@ -31,6 +31,7 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_parser import ArgumentParser
 from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.wind import WindPlotStyle
 
 
 class TestDataProcessing:
@@ -263,14 +264,14 @@ class TestVisualization:
             mock_subplots.return_value = (mock_fig, mock_ax)
             
             fig, ax = wind_plotter.create_wind_plot(
-                sample_data['lon'].reshape(10, 5), 
-                sample_data['lat'].reshape(10, 5),
-                sample_data['u_data'].reshape(10, 5), 
-                sample_data['v_data'].reshape(10, 5),
-                90, 115, -15, 20,
-                level_info="surface",
-                plot_type="barbs"
-            )
+                          sample_data['lon'].reshape(10, 5),
+                          sample_data['lat'].reshape(10, 5),
+                          sample_data['u_data'].reshape(10, 5),
+                          sample_data['v_data'].reshape(10, 5),
+                          GeographicBounds(90, 115, -15, 20),
+                          style=WindPlotStyle(subsample=1, plot_type="barbs"),
+                          level_info="surface",
+                      )
             
             assert fig is not None
             assert ax is not None

@@ -404,6 +404,47 @@ class MPASVisualizer:
         """
         return MPAS3DProcessor.extract_2d_from_3d(data_3d, level_index, level_value, level_dim, method)
 
+    @staticmethod
+    def _subsample_wind_vectors(lon_filtered: np.ndarray,
+                                lat_filtered: np.ndarray,
+                                u_filtered: np.ndarray,
+                                v_filtered: np.ndarray,
+                                subsample: int,
+                                bounds: GeographicBounds) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        This helper method thins out the filtered wind vectors so dense datasets do not become overcrowded when plotted. When the requested subsample factor is non-positive, it is auto-selected from the point density within the map extent: denser fields use a larger stride while sparse fields are left unthinned. The longitude, latitude, and u/v component arrays are then sliced with the resulting stride, or returned unchanged when no thinning is needed.
+
+        Parameters:
+            lon_filtered (np.ndarray): Longitude coordinates of the valid wind points in degrees.
+            lat_filtered (np.ndarray): Latitude coordinates of the valid wind points in degrees.
+            u_filtered (np.ndarray): u-component wind values for the valid wind points.
+            v_filtered (np.ndarray): v-component wind values for the valid wind points.
+            subsample (int): Requested subsample stride; values <= 0 trigger density-based auto-selection.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) in degrees, used to compute point density for auto-subsampling.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: The (lon, lat, u, v) arrays after subsampling, sliced by the resolved stride or passed through unchanged.
+        """
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if subsample <= 0:
+            map_area = (lon_max - lon_min) * (lat_max - lat_min)
+            point_density = len(lon_filtered) / map_area
+
+            if point_density > 20:
+                subsample = max(2, int(np.sqrt(point_density / 10)))
+            else:
+                subsample = 1
+
+            logger.debug("Auto-subsampling: using every %d point(s)", subsample)
+
+        if subsample > 1:
+            subsample_indices = np.arange(0, len(lon_filtered), subsample)
+            return (lon_filtered[subsample_indices], lat_filtered[subsample_indices],
+                    u_filtered[subsample_indices], v_filtered[subsample_indices])
+
+        return lon_filtered, lat_filtered, u_filtered, v_filtered
+
     def create_wind_plot(self: 'MPASVisualizer',
                          lon: np.ndarray,
                          lat: np.ndarray,
@@ -488,26 +529,9 @@ class MPASVisualizer:
             self._create_wind_background(lon_filtered, lat_filtered, wind_speed_filtered, 
                                        bg_colormap, data_crs)
 
-        if subsample <= 0:
-            map_area = (lon_max - lon_min) * (lat_max - lat_min)
-            point_density = len(lon_filtered) / map_area
-            
-            if point_density > 20:
-                subsample = max(2, int(np.sqrt(point_density / 10)))
-            else:
-                subsample = 1
-            
-            logger.debug("Auto-subsampling: using every %d point(s)", subsample)
-
-        if subsample > 1:
-            subsample_indices = np.arange(0, len(lon_filtered), subsample)
-            lon_plot = lon_filtered[subsample_indices]
-            lat_plot = lat_filtered[subsample_indices]
-            u_plot = u_filtered[subsample_indices]
-            v_plot = v_filtered[subsample_indices]
-        else:
-            lon_plot, lat_plot = lon_filtered, lat_filtered
-            u_plot, v_plot = u_filtered, v_filtered
+        lon_plot, lat_plot, u_plot, v_plot = self._subsample_wind_vectors(
+            lon_filtered, lat_filtered, u_filtered, v_filtered, subsample, bounds,
+        )
 
         if plot_type.lower() == 'barbs':
             self.ax.barbs(lon_plot, lat_plot, u_plot, v_plot,

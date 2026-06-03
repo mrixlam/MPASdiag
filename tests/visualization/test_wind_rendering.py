@@ -25,6 +25,8 @@ from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag.visualization.wind import MPASWindPlotter
 from tests.visualization.wind_test_helpers import require_wind_fixtures
 from tests.test_data_helpers import fake_render_factory
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.wind import WindPlotStyle
 
 
 class TestRegridWindComponents:
@@ -246,11 +248,13 @@ class TestCreateWindPlot:
         
         # Create the wind plot with basic parameters
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            plot_type='barbs'
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(subsample=1, plot_type='barbs'),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -299,12 +303,13 @@ class TestCreateWindPlot:
         
         # Create the wind plot with automatic subsampling
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            plot_type='barbs',
-            subsample=-1  # Auto-calculate
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(plot_type='barbs', subsample=-1),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -353,11 +358,13 @@ class TestCreateWindPlot:
 
         # Create the wind plot with global extents        
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=-180, lon_max=180,
-            lat_min=-90, lat_max=90,
-            plot_type='arrows'
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(-180, 180, -90, 90),
+                      style=WindPlotStyle(subsample=1, plot_type='arrows'),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -418,11 +425,13 @@ class TestCreateWindPlot:
 
         # Create the wind plot with the custom title
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            title=custom_title
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(subsample=1, title=custom_title),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -474,11 +483,13 @@ class TestCreateWindPlot:
 
         # Create the wind plot with the timestamp
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            time_stamp=timestamp
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(subsample=1, time_stamp=timestamp),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -530,11 +541,13 @@ class TestCreateWindPlot:
 
         # Create the wind plot with the level information        
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            level_info=level_info
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      level_info=level_info,
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -593,12 +606,14 @@ class TestCreateWindPlot:
         
         # Create the wind plot with regridding enabled (grid_resolution specified)
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            grid_resolution=1.0,
-            regrid_method='linear'
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      grid_resolution=1.0,
+                      regrid_method='linear',
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -651,11 +666,13 @@ class TestCreateWindPlot:
         
         # Create the wind plot with streamlines and no explicit grid_resolution to trigger auto-regridding
         fig, ax = plotter.create_wind_plot(
-            lon, lat, u, v,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            plot_type='streamlines'  # Should auto-enable regridding
-        )
+                      lon,
+                      lat,
+                      u,
+                      v,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(subsample=1, plot_type='streamlines'),
+                  )
         
         # Confirm that the returned figure object is not None
         assert fig is not None
@@ -708,11 +725,13 @@ class TestCreateWindPlot:
         
         # Create the wind plot with 2D gridded data; the plotting machinery should accept gridded inputs without issues
         fig, ax = plotter.create_wind_plot(
-            lon_2d, lat_2d, u_2d, v_2d,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
-            plot_type='arrows'
-        )
+                      lon_2d,
+                      lat_2d,
+                      u_2d,
+                      v_2d,
+                      GeographicBounds(0, 50, 0, 25),
+                      style=WindPlotStyle(subsample=1, plot_type='arrows'),
+                  )
         
         # Even with 2D gridded data, a figure and axes should be returned, confirming that the plotting machinery accepts gridded inputs without issues
         assert fig is not None 

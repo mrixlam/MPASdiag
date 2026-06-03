@@ -1589,7 +1589,7 @@ def create_surface_plot(lon: np.ndarray,
 
     # Partition any extra keyword arguments into SurfaceMapStyle fields and pass-through arguments
     style_field_names = set(SurfaceMapStyle.__dataclass_fields__)
-    style_kwargs = {k: kwargs.pop(k) for k in list(kwargs) if k in style_field_names}
+    style_kwargs = {k: kwargs.pop(k) for k in style_field_names & kwargs.keys()}
     style = SurfaceMapStyle(title=title, plot_type=plot_type, colormap=colormap, **style_kwargs)
 
     # Delegate the creation of the surface map to the plotter's create_surface_map method, passing all relevant parameters

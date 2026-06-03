@@ -14,7 +14,8 @@ Version: 1.0.0
 # Load relevant MPASdiag modules
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.visualization.wind import MPASWindPlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
@@ -71,9 +72,13 @@ cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' 
 # Generate wind plot over CONUS with vectors represented as barbs
 fig, ax = wind_plotter.create_wind_plot(
     lon=lon, lat=lat, u_data=u_data.values, v_data=v_data.values,
-    lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max, subsample=-1,
-    plot_type='barbs', grid_resolution=0.1, regrid_method='linear',
-    title=f'MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}',
+    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=WindPlotStyle(
+        subsample=-1,
+        plot_type='barbs',
+        title=f'MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}',
+    ),
+    grid_resolution=0.1, regrid_method='linear',
     config=cfg,
 )
 

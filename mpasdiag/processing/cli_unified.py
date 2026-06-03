@@ -44,7 +44,7 @@ try:
     from ..visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
     from ..visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
     from ..visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
-    from ..visualization.wind import MPASWindPlotter
+    from ..visualization.wind import MPASWindPlotter, WindPlotStyle
     from ..diagnostics.precipitation import PrecipitationDiagnostics
     from ..diagnostics.sounding import SoundingDiagnostics
     from ..visualization.skewt import MPASSkewTPlotter
@@ -53,7 +53,7 @@ except ImportError:
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
         from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
         from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
-        from mpasdiag.visualization.wind import MPASWindPlotter
+        from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
         from mpasdiag.visualization.skewt import MPASSkewTPlotter
@@ -61,7 +61,7 @@ except ImportError:
         from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
         from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
         from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
-        from mpasdiag.visualization.wind import MPASWindPlotter
+        from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
         from mpasdiag.visualization.skewt import MPASSkewTPlotter
@@ -1501,14 +1501,16 @@ class MPASUnifiedCLI:
 
         plotter.create_wind_plot(
             lon, lat, u_data.values, v_data.values,
-            config.lon_min, config.lon_max,
-            config.lat_min, config.lat_max,
-            wind_level=config.wind_level,
-            plot_type=config.wind_plot_type,
-            title=config.title,
-            subsample=config.subsample_factor,
-            scale=config.wind_scale,
-            show_background=config.show_background,
+            GeographicBounds(config.lon_min, config.lon_max,
+                             config.lat_min, config.lat_max),
+            style=WindPlotStyle(
+                wind_level=config.wind_level,
+                plot_type=config.wind_plot_type,
+                title=config.title,
+                subsample=config.subsample_factor,
+                scale=config.wind_scale,
+                show_background=config.show_background,
+            ),
             grid_resolution=getattr(config, 'grid_resolution', None),
             regrid_method=getattr(config, 'regrid_method', 'linear'),
             dataset=processor.dataset,

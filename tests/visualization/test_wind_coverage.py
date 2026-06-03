@@ -380,8 +380,12 @@ class TestCreateWindPlotNoValidData:
         with patch.object(plotter, '_setup_wind_plot_figure', return_value=(mock_fig, mock_ax)):
             with patch.object(plotter, '_handle_streamline_regridding', return_value=None):
                 fig, ax = plotter.create_wind_plot(
-                    lon, lat, u_nan, v_nan, -100., -80., 30., 50.
-                )
+                              lon,
+                              lat,
+                              u_nan,
+                              v_nan,
+                              GeographicBounds(-100., -80., 30., 50.),
+                          )
 
         out = capsys.readouterr().out
         assert "No valid wind data found" in out
@@ -411,7 +415,13 @@ class TestCreateWindPlotNoValidData:
 
         with patch.object(plotter, '_setup_wind_plot_figure', return_value=(mock_fig, mock_ax)):
             with patch.object(plotter, '_handle_streamline_regridding', return_value=None):
-                _, _ = plotter.create_wind_plot(lon, lat, u, v, -100., -80., 30., 50.)
+                _, _ = plotter.create_wind_plot(
+                           lon,
+                           lat,
+                           u,
+                           v,
+                           GeographicBounds(-100., -80., 30., 50.),
+                       )
 
         assert "No valid wind data found" in capsys.readouterr().out
 

@@ -28,7 +28,7 @@ from typing import Optional, Dict, Any, Tuple, Union, List
 from mpasdiag.processing.utils_unit import UnitConverter
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.visualization.base_visualizer import MPASVisualizer, WindPlotStyle
 from mpasdiag.visualization.styling import MPASVisualizationStyle
 from mpasdiag.processing.utils_logger import get_logger
 
@@ -550,19 +550,8 @@ class MPASWindPlotter(MPASVisualizer):
                          lat: Union[np.ndarray, xr.DataArray],
                          u_data: Union[np.ndarray, xr.DataArray],
                          v_data: Union[np.ndarray, xr.DataArray],
-                         lon_min: float,
-                         lon_max: float,
-                         lat_min: float,
-                         lat_max: float,
-                         wind_level: str = "surface",
-                         plot_type: str = 'barbs',
-                         subsample: int = 1,
-                         scale: Optional[float] = None,
-                         show_background: bool = False,
-                         bg_colormap: str = "viridis",
-                         title: Optional[str] = None,
-                         time_stamp: Optional[datetime] = None,
-                         projection: str = 'PlateCarree',
+                         bounds: GeographicBounds,
+                         style: Optional[WindPlotStyle] = None,
                          level_info: Optional[str] = None,
                          grid_resolution: Optional[float] = None,
                          regrid_method: str = 'linear',
@@ -576,24 +565,25 @@ class MPASWindPlotter(MPASVisualizer):
             lat (Union[np.ndarray, xr.DataArray]): Latitude coordinate array for vector positions in degrees north.
             u_data (Union[np.ndarray, xr.DataArray]): U-component wind data array in m/s.
             v_data (Union[np.ndarray, xr.DataArray]): V-component wind data array in m/s.
-            lon_min (float): Minimum longitude boundary for the map extent in degrees east.
-            lon_max (float): Maximum longitude boundary for the map extent in degrees east.
-            lat_min (float): Minimum latitude boundary for the map extent in degrees north.
-            lat_max (float): Maximum latitude boundary for the map extent in degrees north.
-            wind_level (str): String indicating the vertical level of the wind data (e.g., "surface", "850 hPa") for title annotation (default: "surface").
-            plot_type (str): Type of wind vector plot ('barbs', 'arrows', or 'streamlines') to determine rendering method (default: 'barbs').
-            subsample (int): Subsampling factor to reduce the number of plotted vectors for performance optimization; if set to -1, it will be automatically calculated based on the number of valid points and map extent (default: 1).
-            scale (Optional[float]): Scale factor for arrow length when plot_type is 'arrows' (default: None, uses automatic scaling).
-            show_background (bool): Whether to show a background colormap based on wind speed when plot_type is 'streamlines' (default: False).
-            bg_colormap (str): Colormap to use for background shading when show_background is True and plot_type is 'streamlines' (default: "viridis").
-            title (Optional[str]): Custom title string for the plot; if None, a title will be generated based on wind speed statistics and level information (default: None).
-            time_stamp (Optional[datetime]): Datetime object representing the timestamp of the wind data to include in the title for temporal context (default: None).
-            projection (str): Name of the Cartopy projection to use for the GeoAxes (e.g., 'PlateCarree', 'Mercator', 'LambertConformal') (default: 'PlateCarree').
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
+            style (Optional[WindPlotStyle]): Styling settings (wind_level, plot_type, subsample, scale, show_background, bg_colormap, title, time_stamp, projection). If None, defaults are used (with subsample=1).
             level_info (Optional[str]): String containing level information to include in the title for context about the vertical level of the wind data being visualized (default: None).
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib Figure and GeoAxes instances containing the wind plot for further customization or saving.
         """
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if style is None:
+            style = WindPlotStyle(subsample=1)
+            
+        plot_type = style.plot_type
+        subsample = style.subsample
+        scale = style.scale
+        title = style.title
+        time_stamp = style.time_stamp
+        projection = style.projection
+
         # Setup figure and axes with projection
         self.fig, self.ax = self._setup_wind_plot_figure(projection)
         
@@ -1024,12 +1014,14 @@ class MPASWindPlotter(MPASVisualizer):
             # Create the wind plot for the current time index using the extracted data and specified parameters
             _, _ = self.create_wind_plot(
                 lon, lat, u_data.values, v_data.values,
-                lon_min, lon_max, lat_min, lat_max,
-                plot_type=plot_type,
-                subsample=subsample,
-                scale=scale,
-                show_background=show_background,
-                time_stamp=None,
+                GeographicBounds(lon_min, lon_max, lat_min, lat_max),
+                style=WindPlotStyle(
+                    plot_type=plot_type,
+                    subsample=subsample,
+                    scale=scale,
+                    show_background=show_background,
+                    time_stamp=None,
+                ),
                 grid_resolution=grid_resolution,
                 regrid_method=regrid_method,
                 dataset=dataset,

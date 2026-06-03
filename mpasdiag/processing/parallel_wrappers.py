@@ -42,13 +42,13 @@ except ImportError:
 try:
     from ..visualization.precipitation import MPASPrecipitationPlotter
     from ..visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
-    from ..visualization.wind import MPASWindPlotter
+    from ..visualization.wind import MPASWindPlotter, WindPlotStyle
     from ..visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
     from ..diagnostics.precipitation import PrecipitationDiagnostics
 except ImportError:
     from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
     from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
-    from mpasdiag.visualization.wind import MPASWindPlotter
+    from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
     from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
@@ -543,12 +543,14 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
     _, _ = plotter.create_wind_plot(
         lon, lat, u_data.values, v_data.values,
-        lon_min, lon_max, lat_min, lat_max,
-        plot_type=plot_type,
-        subsample=subsample,
-        scale=scale,
-        show_background=show_background,
-        time_stamp=None,
+        GeographicBounds(lon_min, lon_max, lat_min, lat_max),
+        style=WindPlotStyle(
+            plot_type=plot_type,
+            subsample=subsample,
+            scale=scale,
+            show_background=show_background,
+            time_stamp=None,
+        ),
         grid_resolution=grid_resolution,
         regrid_method=regrid_method,
         dataset=processor.dataset,
@@ -899,6 +901,88 @@ class ParallelPrecipitationProcessor:
     """ This class provides static methods for parallel processing of precipitation diagnostics and visualizations using MPI-based distributed processing. """
     
     @staticmethod
+    def _build_precipitation_worker_kwargs(processor: 'MPAS2DProcessor',
+                                           is_mpi_mode: bool,
+                                           output_dir: str,
+                                           bounds: GeographicBounds,
+                                           var_name: str,
+                                           accum_period: str,
+                                           plot_type: str,
+                                           grid_resolution: Optional[float],
+                                           formats: List[str],
+                                           style: Optional[PrecipitationMapStyle] = None,
+                                           remap_config: Optional[RemapConfig] = None) -> Dict[str, Any]:
+        """
+        This helper method constructs the keyword arguments dictionary passed to the precipitation worker function based on whether MPI mode is being used. It assembles the parameters shared by both execution modes, then adds the mode-specific entries: in MPI mode it supplies the grid file, data directory, and required variable list (raising an informative error if the processor lacks a 'data_dir' attribute), while in multiprocessing mode it creates a shared data cache and pre-loads coordinates into it for faster access by worker processes.
+
+        Parameters:
+            processor (MPAS2DProcessor): The processor instance containing the dataset and grid information.
+            is_mpi_mode (bool): Flag indicating whether MPI mode is being used for parallel execution.
+            output_dir (str): Directory path where output files will be saved.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
+            var_name (str): Name of the precipitation variable to process (e.g., 'rainnc').
+            accum_period (str): Accumulation period string (e.g., 'a01h' for 1 hour).
+            plot_type (str): Type of plot to create ('scatter', 'contourf', etc.).
+            grid_resolution (Optional[float]): Desired grid resolution for plotting, if regridding is needed.
+            formats (List[str]): List of output formats to save (e.g., ['png', 'pdf']).
+            style (Optional[PrecipitationMapStyle]): Appearance and file-naming settings (file_prefix, custom_title_template, colormap, levels). If None, defaults are used.
+            remap_config (Optional[RemapConfig]): Remapping settings (remap_engine, remap_method, weights_dir). If None, defaults are used.
+
+        Returns:
+            Dict[str, Any]: Dictionary of keyword arguments to be passed to the precipitation worker function, containing either 'grid_file'/'data_dir'/'variables' for MPI mode, or 'processor'/'cache' for multiprocessing mode, along with all necessary parameters for plotting.
+        """
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if style is None:
+            style = PrecipitationMapStyle()
+
+        if remap_config is None:
+            remap_config = RemapConfig()
+
+        shared_kwargs = {
+            'output_dir': output_dir,
+            'lon_min': lon_min, 'lon_max': lon_max,
+            'lat_min': lat_min, 'lat_max': lat_max,
+            'var_name': var_name,
+            'accum_period': accum_period,
+            'plot_type': plot_type,
+            'grid_resolution': grid_resolution,
+            'file_prefix': style.file_prefix,
+            'formats': formats,
+            'custom_title_template': style.custom_title_template,
+            'colormap': style.colormap,
+            'levels': style.levels,
+            'remap_engine': remap_config.remap_engine,
+            'remap_method': remap_config.remap_method,
+            'weights_dir': remap_config.weights_dir,
+        }
+
+        if is_mpi_mode:
+            if not hasattr(processor, 'data_dir'):
+                raise AttributeError(
+                    "MPI mode requires processor to have 'data_dir' attribute. "
+                    "Please update mpasdiag/processing/processors_2d.py to store data_dir in load_2d_data() method, "
+                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+                )
+            return {
+                **shared_kwargs,
+                'grid_file': processor.grid_file,
+                'data_dir': processor.data_dir,
+                'variables': PRECIP_REQUIRED_VARS.get(var_name, [var_name]),
+            }
+
+        cache = MPASDataCache(max_variables=5)
+        logger.info(PRELOAD_COORDS_MSG)
+
+        try:
+            cache.load_coordinates_from_dataset(processor.dataset, var_name)
+            logger.debug(_COORD_CACHE_MSG, var_name)
+        except Exception as e:
+            logger.warning(_COORD_PRELOAD_MSG, e)
+            logger.warning(COORDS_FALLBACK_MSG)
+        return {**shared_kwargs, 'processor': processor, 'cache': cache}
+
+    @staticmethod
     def create_batch_precipitation_maps_parallel(processor: 'MPAS2DProcessor',
                                                  output_dir: str,
                                                  bounds: GeographicBounds,
@@ -938,111 +1022,45 @@ class ParallelPrecipitationProcessor:
         if style is None:
             style = PrecipitationMapStyle()
 
-        file_prefix = style.file_prefix
-        custom_title_template = style.custom_title_template
-        colormap = style.colormap
-        levels = style.levels
-
         if remap_config is None:
             remap_config = RemapConfig()
-
-        remap_engine = remap_config.remap_engine
-        remap_method = remap_config.remap_method
-        weights_dir = remap_config.weights_dir
 
         accum_hours = int(accum_period[1:3])
         hours_per_file = 1
         min_time_idx = accum_hours // hours_per_file
-        
+
         time_dim = 'Time' if 'Time' in processor.dataset.sizes else 'time'
         total_times = processor.dataset.sizes[time_dim]
-        
+
         if time_indices is None:
             time_indices = list(range(min_time_idx, total_times))
         else:
             time_indices = [idx for idx in time_indices if idx >= min_time_idx]
-        
+
         if not time_indices:
             logger.warning(
                 "No valid time indices for accumulation period %s", accum_period,
             )
             return []
-        
+
         manager = MPASParallelManager(
             load_balance_strategy=load_balance_strategy,
             verbose=True,
             n_workers=n_processes
         )
 
-        manager.set_error_policy('collect')        
+        manager.set_error_policy('collect')
         is_mpi_mode = manager.backend == 'mpi'
-        
-        if is_mpi_mode:
-            if not hasattr(processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_2d.py to store data_dir in load_2d_data() method, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
-            
-            worker_kwargs = {
-                'grid_file': processor.grid_file,
-                'data_dir': processor.data_dir,
-                'output_dir': output_dir,
-                'lon_min': lon_min,
-                'lon_max': lon_max,
-                'lat_min': lat_min,
-                'lat_max': lat_max,
-                'var_name': var_name,
-                'variables': PRECIP_REQUIRED_VARS.get(var_name, [var_name]),
-                'accum_period': accum_period,
-                'plot_type': plot_type,
-                'grid_resolution': grid_resolution,
-                'file_prefix': file_prefix,
-                'formats': formats,
-                'custom_title_template': custom_title_template,
-                'colormap': colormap,
-                'levels': levels,
-                'remap_engine': remap_engine,
-                'remap_method': remap_method,
-                'weights_dir': weights_dir,
-            }
-        else:
-            cache = MPASDataCache(max_variables=5)
 
-            logger.info(PRELOAD_COORDS_MSG)
-            try:
-                cache.load_coordinates_from_dataset(processor.dataset, var_name)
-                logger.debug(_COORD_CACHE_MSG, var_name)
-            except Exception as e:
-                logger.warning(_COORD_PRELOAD_MSG, e)
-                logger.warning(COORDS_FALLBACK_MSG)
+        worker_kwargs = ParallelPrecipitationProcessor._build_precipitation_worker_kwargs(
+            processor, is_mpi_mode, output_dir, bounds, var_name,
+            accum_period, plot_type, grid_resolution, formats,
+            style=style, remap_config=remap_config,
+        )
 
-            worker_kwargs = {
-                'processor': processor,
-                'cache': cache,
-                'output_dir': output_dir,
-                'lon_min': lon_min,
-                'lon_max': lon_max,
-                'lat_min': lat_min,
-                'lat_max': lat_max,
-                'var_name': var_name,
-                'accum_period': accum_period,
-                'plot_type': plot_type,
-                'grid_resolution': grid_resolution,
-                'file_prefix': file_prefix,
-                'formats': formats,
-                'custom_title_template': custom_title_template,
-                'colormap': colormap,
-                'levels': levels,
-                'remap_engine': remap_engine,
-                'remap_method': remap_method,
-                'weights_dir': weights_dir,
-            }
-
-        if weights_dir is not None and grid_resolution is not None:
+        if remap_config.weights_dir is not None and grid_resolution is not None:
             _prebuild_remapper_mpi(
-                processor, weights_dir,
+                processor, remap_config.weights_dir,
                 lon_min, lon_max, lat_min, lat_max,
                 grid_resolution, manager.comm,
             )
