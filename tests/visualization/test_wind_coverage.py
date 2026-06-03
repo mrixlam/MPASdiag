@@ -21,6 +21,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.visualization.wind import MPASWindPlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 
 N_CELLS = 10
@@ -738,7 +739,8 @@ class TestCreateBatchWindPlots:
         proc = MagicMock()
         proc.dataset = None
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(proc, str(tmp_path), -100., -80., 30., 50.)
+            plotter.create_batch_wind_plots(
+                proc, str(tmp_path), GeographicBounds(-100., -80., 30., 50.))
 
     def test_no_dataset_attr_raises_value_error(self: 'TestCreateBatchWindPlots',
                                                  plotter: MPASWindPlotter,
@@ -759,7 +761,8 @@ class TestCreateBatchWindPlots:
 
         proc = _ProcWithoutDataset()
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(proc, str(tmp_path), -100., -80., 30., 50.)
+            plotter.create_batch_wind_plots(
+                proc, str(tmp_path), GeographicBounds(-100., -80., 30., 50.))
 
     def test_time_info_exception_falls_back_to_time_idx(self: 'TestCreateBatchWindPlots', 
                                                         plotter: MPASWindPlotter, 
@@ -795,7 +798,8 @@ class TestCreateBatchWindPlots:
                         with patch.object(plotter, 'save_plot'):
                             with patch.object(plotter, 'close_plot'):
                                 result = plotter.create_batch_wind_plots(
-                                    proc, str(tmp_path), -100., -80., 30., 50.
+                                    proc, str(tmp_path),
+                                    GeographicBounds(-100., -80., 30., 50.)
                                 )
 
         assert len(result) == 1
@@ -835,7 +839,8 @@ class TestCreateBatchWindPlots:
                         with patch.object(plotter, 'save_plot'):
                             with patch.object(plotter, 'close_plot'):
                                 result = plotter.create_batch_wind_plots(
-                                    proc, str(tmp_path), -100., -80., 30., 50.
+                                    proc, str(tmp_path),
+                                    GeographicBounds(-100., -80., 30., 50.)
                                 )
 
         output_path = result[0]

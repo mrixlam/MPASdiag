@@ -28,6 +28,7 @@ from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.visualization.skewt import MPASSkewTPlotter
 from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
@@ -38,6 +39,8 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelSurfaceProcessor,
     ParallelWindProcessor,
     ParallelCrossSectionProcessor,
+    SurfaceBatchStyle,
+    WindBatchStyle,
 )
 
 
@@ -118,8 +121,8 @@ def run_benchmark_precipitation(processor_2d: MPAS2DProcessor,
     if use_parallel:
         created = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='total',
             accum_period='a01h',
             plot_type='scatter',
@@ -130,8 +133,8 @@ def run_benchmark_precipitation(processor_2d: MPAS2DProcessor,
         plotter = MPASPrecipitationPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_precipitation_maps(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='total',
             accum_period='a01h',
             grid_resolution=WIND_CONFIG['grid_resolution'],
@@ -164,19 +167,19 @@ def run_benchmark_surface(processor_2d: MPAS2DProcessor,
     if use_parallel:
         created = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='t2m',
-            plot_type='scatter',
             grid_resolution=WIND_CONFIG['grid_resolution'],
             n_processes=n_workers,
+            style=SurfaceBatchStyle(plot_type='scatter'),
         ) or []
     else:
         plotter = MPASSurfacePlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_surface_maps(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='t2m',
             plot_type='scatter',
             grid_resolution=WIND_CONFIG['grid_resolution'],
@@ -209,21 +212,23 @@ def run_benchmark_wind(processor_2d: MPAS2DProcessor,
     if use_parallel:
         created = ParallelWindProcessor.create_batch_wind_plots_parallel(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             u_variable=cfg['u_variable'],
             v_variable=cfg['v_variable'],
-            plot_type=cfg['plot_type'],
-            subsample=cfg['subsample'],
-            grid_resolution=cfg['grid_resolution'],
             n_processes=n_workers,
+            style=WindBatchStyle(
+                plot_type=cfg['plot_type'],
+                subsample=cfg['subsample'],
+                grid_resolution=cfg['grid_resolution'],
+            ),
         ) or []
     else:
         plotter = MPASWindPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_wind_plots(
             processor_2d, plot_dir,
-            SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-            SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max'],
+            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             u_variable=cfg['u_variable'],
             v_variable=cfg['v_variable'],
             plot_type=cfg['plot_type'],

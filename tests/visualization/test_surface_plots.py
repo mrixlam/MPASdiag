@@ -23,6 +23,8 @@ from matplotlib.figure import Figure
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -80,11 +82,14 @@ class TestPlotTypes:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contour', 
-            config=config,
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contour'),
+                     config=config,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -100,10 +105,13 @@ class TestPlotTypes:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -119,10 +127,13 @@ class TestPlotTypes:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='both'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='both'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -142,11 +153,13 @@ class TestPlotTypes:
         assert len(levels) > 0, "Levels list should not be empty"
 
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            levels=levels
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', levels=levels),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -164,13 +177,13 @@ class TestPlotTypes:
         levels = [float(x) for x in [0, 10, 20, 30]]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            levels=levels,
-            clim_min=260,  
-            clim_max=290
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', levels=levels, clim_min=260, clim_max=290),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -188,13 +201,13 @@ class TestPlotTypes:
         levels = [float(x) for x in [0, 10, 20, 30]]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            levels=levels,
-            clim_min=260,  
-            clim_max=295
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', levels=levels, clim_min=260, clim_max=295),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -212,13 +225,13 @@ class TestPlotTypes:
         levels = [float(x) for x in [260, 270, 280, 290]]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            levels=levels,
-            clim_min=260,
-            clim_max=295  
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', levels=levels, clim_min=260, clim_max=295),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -268,11 +281,13 @@ class TestColormapHandling:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            colormap='coolwarm',
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', colormap='coolwarm'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -288,11 +303,13 @@ class TestColormapHandling:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            colormap='invalid_cmap',
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', colormap='invalid_cmap'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -309,10 +326,13 @@ class TestColormapHandling:
         """
         with patch('matplotlib.pyplot.get_cmap', return_value=None):
             fig, _ = self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                plot_type='scatter'
-            )
+                         self.lon,
+                         self.lat,
+                         self.data,
+                         't2m',
+                         GeographicBounds(*self.extent_bounds),
+                         style=SurfaceMapStyle(plot_type='scatter'),
+                     )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -328,12 +348,13 @@ class TestColormapHandling:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            clim_min=0.2,
-            clim_max=0.8,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', clim_min=0.2, clim_max=0.8),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -354,11 +375,13 @@ class TestColormapHandling:
         levels = [0.1, 0.3, 0.5, 0.7, 0.9]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data, 't2m',
-            *self.extent_bounds,
-            levels=levels,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', levels=levels),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -401,10 +424,13 @@ class TestScatterPlotMethod:
         extent = (float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max()))
         
         fig, _ = self.plotter.create_surface_map(
-            lon, lat, data, 't2m',
-            *extent,
-            plot_type='scatter'
-        )
+                     lon,
+                     lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*extent),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -430,10 +456,13 @@ class TestScatterPlotMethod:
         extent = (float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max()))
         
         fig, _ = self.plotter.create_surface_map(
-            lon, lat, data, 't2m',
-            *extent,
-            plot_type='scatter'
-        )
+                     lon,
+                     lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*extent),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -483,10 +512,13 @@ class TestColorbarMethod:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            lon, lat, data, 't2m',
-            *extent_bounds,
-            plot_type='scatter'
-        )
+                     lon,
+                     lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -507,10 +539,13 @@ class TestColorbarMethod:
             data = _RNG.random(50) * 300
             
             fig, _ = self.plotter.create_surface_map(
-                lon, lat, data, 't2m',
-                *self.extent_bounds,
-                plot_type='scatter'
-            )
+                         lon,
+                         lat,
+                         data,
+                         't2m',
+                         GeographicBounds(*self.extent_bounds),
+                         style=SurfaceMapStyle(plot_type='scatter'),
+                     )
             
             assert isinstance(fig, Figure)
             plt.close(fig)
@@ -562,11 +597,13 @@ class TestContourPlotting:
         levels = [float(x) for x in [250, 270, 290]]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contour',
-            levels=levels
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contour', levels=levels),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -582,10 +619,13 @@ class TestContourPlotting:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contour'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contour'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -602,11 +642,13 @@ class TestContourPlotting:
         """
         with patch('matplotlib.axes.Axes.clabel', side_effect=Exception("Labeling failed")):
             fig, _ = self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                plot_type='contour',
-                levels=[250, 270, 290]
-            )
+                         self.lon,
+                         self.lat,
+                         self.data,
+                         't2m',
+                         GeographicBounds(*self.extent_bounds),
+                         style=SurfaceMapStyle(plot_type='contour', levels=[250, 270, 290]),
+                     )
             
             assert isinstance(fig, Figure)
         
@@ -625,11 +667,13 @@ class TestContourPlotting:
         levels = [float(x) for x in [250, 270, 290]]
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            levels=levels
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', levels=levels),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -645,10 +689,13 @@ class TestContourPlotting:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)

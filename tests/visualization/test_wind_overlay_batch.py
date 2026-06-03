@@ -24,6 +24,7 @@ matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
 from mpasdiag.visualization.wind import MPASWindPlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
 from tests.test_data_helpers import fake_render_factory
 
 
@@ -662,8 +663,7 @@ class TestCreateBatchWindPlots:
         created_files = plotter.create_batch_wind_plots(
             processor=mock_processor,
             output_dir=temp_dir,
-            lon_min=0, lon_max=50,
-            lat_min=0, lat_max=25,
+            bounds=GeographicBounds(0, 50, 0, 25),
             u_variable='u10',
             v_variable='v10'
         )

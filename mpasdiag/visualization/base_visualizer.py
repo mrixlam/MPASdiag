@@ -19,6 +19,7 @@ import pandas as pd
 import xarray as xr
 import cartopy.crs as ccrs
 from datetime import datetime
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import cartopy.feature as cfeature
 import matplotlib.colors as mcolors
@@ -39,9 +40,40 @@ from ..processing.remapping import (
 )
 
 from .styling import MPASVisualizationStyle
+from ..processing.utils_geog import GeographicBounds
 from ..processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class WindPlotStyle:
+    """ Optional styling settings for a base wind vector plot, grouping the wind level label, plot type, subsampling factor, arrow scale, speed-background toggle and colormap, title, timestamp, and projection into a single value object. """
+    wind_level: str = "surface"
+    plot_type: str = "barbs"
+    subsample: int = 0
+    scale: Optional[float] = None
+    show_background: bool = False
+    bg_colormap: str = "viridis"
+    title: Optional[str] = None
+    time_stamp: Optional[datetime] = None
+    projection: str = 'PlateCarree'
+
+
+@dataclass
+class TransectLineStyle:
+    """ Optional styling settings for a transect line, grouping the line color/style/width, start and end marker shapes and size, label visibility, label offsets, font size, and draw order into a single value object. """
+    color: str = "red"
+    linestyle: str = "-"
+    linewidth: float = 2.0
+    marker: str = "o"
+    end_marker: str = "s"
+    marker_size: float = 5.0
+    show_labels: bool = True
+    xoffset: float = 1.0
+    yoffset: float = 1.0
+    fontsize: int = 8
+    zorder: int = 5
 
 plt.rcParams.update({"font.family": "serif", "mathtext.fontset": "cm", "text.usetex": False})
 
@@ -372,24 +404,13 @@ class MPASVisualizer:
         """
         return MPAS3DProcessor.extract_2d_from_3d(data_3d, level_index, level_value, level_dim, method)
 
-    def create_wind_plot(self: 'MPASVisualizer', 
-                         lon: np.ndarray, 
-                         lat: np.ndarray, 
-                         u_data: np.ndarray, 
+    def create_wind_plot(self: 'MPASVisualizer',
+                         lon: np.ndarray,
+                         lat: np.ndarray,
+                         u_data: np.ndarray,
                          v_data: np.ndarray,
-                         lon_min: float, 
-                         lon_max: float,
-                         lat_min: float, 
-                         lat_max: float,
-                         wind_level: str = "surface",
-                         plot_type: str = "barbs",
-                         subsample: int = 0,
-                         scale: Optional[float] = None,
-                         show_background: bool = False,
-                         bg_colormap: str = "viridis",
-                         title: Optional[str] = None,
-                         time_stamp: Optional[datetime] = None,
-                         projection: str = 'PlateCarree') -> Tuple[Figure, Axes]:
+                         bounds: GeographicBounds,
+                         style: Optional[WindPlotStyle] = None) -> Tuple[Figure, Axes]:
         """
         This method creates a wind vector plot using either barbs or arrows to represent the u and v wind components at specified longitude and latitude coordinates. It sets up a cartopy map projection based on the provided geographic extent, adds geographic features for context, and formats the axes with appropriate labels and grid lines. The method calculates wind speed from the u and v components to optionally create a filled contour background for enhanced visualization of wind patterns. It also includes functionality for subsampling vectors to prevent overcrowding in dense datasets, and allows for customization of plot titles and styling. After creating the plot, it calls add_timestamp_and_branding() to include metadata about when the plot was generated and its association with MPASdiag. The resulting figure and axes are returned for further customization or saving by the caller. 
 
@@ -398,23 +419,27 @@ class MPASVisualizer:
             lat (np.ndarray): 1D array of latitude coordinates for the wind data points in degrees.
             u_data (np.ndarray): 2D array of u-component wind data corresponding to the lon and lat coordinates, typically in m/s.
             v_data (np.ndarray): 2D array of v-component wind data corresponding to the lon and lat coordinates, typically in m/s.
-            lon_min (float): Western longitude bound in degrees for map extent.
-            lon_max (float): Eastern longitude bound in degrees for map extent.
-            lat_min (float): Southern latitude bound in degrees for map extent.
-            lat_max (float): Northern latitude bound in degrees for map extent.
-            wind_level (str): Description of the vertical level of the wind data for labeling purposes (e.g., "surface", "850 hPa") (default: "surface").
-            plot_type (str): Type of wind vector plot to create, options are 'barbs' or 'arrows' (default: "barbs").
-            subsample (int): Subsampling factor for plotting vectors to reduce clutter, where 0 means automatic subsampling based on density (default: 0).
-            scale (Optional[float]): Scaling factor for arrow lengths if plot_type is 'arrows', where None means automatic scaling based on data range (default: None).
-            show_background (bool): Whether to create a filled contour background showing wind speed magnitude for enhanced visualization context (default: False).
-            bg_colormap (str): Colormap name to use for the wind speed background if show_background is True (default: "viridis").
-            title (Optional[str]): Custom title for the plot; if None, a default title will be generated based on the wind level and time stamp (default: None).
-            time_stamp (Optional[datetime]): Optional datetime object representing the time of the wind data, used for labeling if provided (default: None).
-            projection (str): Name of the cartopy projection to use for the map axes, e.g., 'PlateCarree', 'Mercator', etc. (default: 'PlateCarree').
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
+            style (Optional[WindPlotStyle]): Styling settings (wind_level, plot_type, subsample, scale, show_background, bg_colormap, title, time_stamp, projection). If None, defaults are used.
 
         Returns:
-            Tuple[Figure, Axes]: A tuple containing the matplotlib Figure and Axes objects for the created wind vector plot, ready for display or saving. 
+            Tuple[Figure, Axes]: A tuple containing the matplotlib Figure and Axes objects for the created wind vector plot, ready for display or saving.
         """
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if style is None:
+            style = WindPlotStyle()
+
+        wind_level = style.wind_level
+        plot_type = style.plot_type
+        subsample = style.subsample
+        scale = style.scale
+        show_background = style.show_background
+        bg_colormap = style.bg_colormap
+        title = style.title
+        time_stamp = style.time_stamp
+        projection = style.projection
+
         map_proj, data_crs = self.setup_map_projection(lon_min, lon_max, lat_min, lat_max, projection)
         
         self.fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
@@ -515,17 +540,7 @@ class MPASVisualizer:
                            data_crs: Optional[ccrs.CRS] = None,
                            start_label: Optional[str] = None,
                            end_label: Optional[str] = None,
-                           color: str = "red",
-                           linestyle: str = "-",
-                           linewidth: float = 2.0,
-                           marker: str = "o",
-                           end_marker: str = "s",
-                           marker_size: float = 5.0,
-                           show_labels: bool = True,
-                           xoffset: float = 1.0,
-                           yoffset: float = 1.0,
-                           fontsize: int = 8,
-                           zorder: int = 5) -> Dict[str, Any]:
+                           style: Optional[TransectLineStyle] = None) -> Dict[str, Any]:
         """
         This method draws a single transect line on the given axes between specified start and end points, with optional markers and labels. It supports both GeoAxes (for map panels) and plain Axes, automatically applying coordinate transformations if a data CRS is provided. The method allows for customization of line style, color, marker types, label visibility, and positioning to ensure that the transect is clearly visible and informative on the plot. The resulting line, markers, and label text objects are returned in a structured dictionary for easy access and further manipulation if needed. This functionality is essential for visualizing cross-sections or specific paths of interest in MPAS visualizations, such as flight tracks, ocean transects, or atmospheric profiles. 
 
@@ -536,17 +551,7 @@ class MPASVisualizer:
             data_crs (Optional[ccrs.CRS]): Coordinate reference system for the input coordinates, used for accurate plotting on map projections. Defaults to PlateCarree if not provided and ax is a GeoAxes.
             start_label (Optional[str]): Optional label for the start point of the transect (default: None).
             end_label (Optional[str]): Optional label for the end point of the transect (default: None).
-            color (str): Line and marker color for the transect (default: "red").
-            linestyle (str): Line style for the transect (default: "-").
-            linewidth (float): Line width in points for the transect (default: 2.0).
-            marker (str): Matplotlib marker code for the start point of the transect (default: "o").
-            end_marker (str): Matplotlib marker code for the end point of the transect (default: "s").
-            marker_size (float): Size of the markers in points for both start and end points (default: 5.0).
-            show_labels (bool): Whether to display labels for the start and end points of the transect (default: True).
-            xoffset (float): Horizontal offset in degrees to apply to labels to prevent overlap with markers (default: 1.0).
-            yoffset (float): Vertical offset in degrees to apply to labels to prevent overlap with markers (default: 1.0).
-            fontsize (int): Font size for the labels in points (default: 8).
-            zorder (int): Z-order for layering the transect line and markers on the plot, higher values are drawn on top of lower values (default: 5). 
+            style (Optional[TransectLineStyle]): Styling settings (color, linestyle, linewidth, marker, end_marker, marker_size, show_labels, xoffset, yoffset, fontsize, zorder). If None, defaults are used.
 
         Returns: 
             Dict[str, Any]: A dictionary containing the matplotlib artist objects for the transect line, start marker, end marker, and optional label text objects, structured as follows:
@@ -558,6 +563,21 @@ class MPASVisualizer:
                     "end_label_text": Text object for the end label (or None if show_labels is False or end_label is None)
                 }
         """
+        if style is None:
+            style = TransectLineStyle()
+
+        color = style.color
+        linestyle = style.linestyle
+        linewidth = style.linewidth
+        marker = style.marker
+        end_marker = style.end_marker
+        marker_size = style.marker_size
+        show_labels = style.show_labels
+        xoffset = style.xoffset
+        yoffset = style.yoffset
+        fontsize = style.fontsize
+        zorder = style.zorder
+
         slon, slat = start
         elon, elat = end
 
@@ -614,17 +634,7 @@ class MPASVisualizer:
                             ax: Axes,
                             transects: Dict[str, Dict[str, Any]],
                             data_crs: Optional[ccrs.CRS] = None,
-                            color: str = "red",
-                            linestyle: str = "-",
-                            linewidth: float = 2.0,
-                            marker: str = "o",
-                            end_marker: str = "s",
-                            marker_size: float = 5.0,
-                            show_labels: bool = True,
-                            xoffset: float = 1.0,
-                            yoffset: float = 1.0,
-                            fontsize: int = 8,
-                            zorder: int = 5) -> Dict[str, Dict[str, Any]]:
+                            style: Optional[TransectLineStyle] = None) -> Dict[str, Dict[str, Any]]:
         """
         This method draws multiple transect lines on the given axes based on a dictionary of specifications for each transect. Each entry in the *transects* dictionary should contain the start and end coordinates, optional labels, and any style overrides for that specific transect. The method iterates through the provided transects, calling draw_transect_line() for each one with the appropriate parameters, and collects the resulting artist objects in a structured dictionary for easy access. This allows users to define multiple cross-section lines on a map or plot with varying styles and labels in a single method call, enhancing the efficiency of creating complex visualizations. 
 
@@ -644,22 +654,28 @@ class MPASVisualizer:
             ax (Axes): Target axes to draw the transect lines on.
             transects (Dict[str, Dict[str, Any]]): Dictionary where each key is a label for the transect and each value is a dictionary containing specifications for that transect, including 'start', 'end', optional 'start_label', 'end_label', and style overrides like 'color', 'linestyle', etc.
             data_crs (Optional[ccrs.CRS]): Coordinate reference system for the input coordinates, used for accurate plotting on map projections. Defaults to PlateCarree if not provided and ax is a GeoAxes.
-            color (str): Default line and marker color for transects (default "red"), can be overridden in individual transect specs.
-            linestyle (str): Default line style for transects (default "-"), can be overridden in individual transect specs.
-            linewidth (float): Default line width in points for transects (default 2.0), can be overridden in individual transect specs.
-            marker (str): Default matplotlib marker code for the start point of transects (default "o"), can be overridden in individual transect specs.
-            end_marker (str): Default matplotlib marker code for the end point of transects (default "s"), can be overridden in individual transect specs.
-            marker_size (float): Default marker size in points for transect markers (default 5.0), can be overridden in individual transect specs.
-            show_labels (bool): Whether to show labels for all transects by default (default True), can be overridden in individual transect specs.
-            xoffset (float): Default horizontal label offset in degrees for all transects (default 1.0), can be overridden in individual transect specs.
-            yoffset (float): Default vertical label offset in degrees for all transects (default 1.0), can be overridden in individual transect specs.
-            fontsize (int): Default font size in points for all labels (default 8), can be overridden in individual transect specs.
-            zorder (int): Drawing order for all elements of the transects; higher values appear on top (default 5), can be overridden in individual transect specs.
+            style (Optional[TransectLineStyle]): Default styling (color, linestyle, linewidth, marker, end_marker, marker_size, show_labels, xoffset, yoffset, fontsize, zorder) applied to every transect; each field can be overridden per-transect in the spec dict. If None, defaults are used.
 
         Returns: 
             Dict[str, Dict[str, Any]]: A dictionary where each key corresponds to a transect label from the input *transects* dictionary, and each value is a dictionary containing the matplotlib artist objects created for that transect, including 'line', 'start_marker', 'end_marker', 'start_label_text', and 'end_label_text'. This allows for easy access to the individual components of each transect for further customization or manipulation after they have been drawn.
         """
+        if style is None:
+            style = TransectLineStyle()
+
+        color = style.color
+        linestyle = style.linestyle
+        linewidth = style.linewidth
+        marker = style.marker
+        end_marker = style.end_marker
+        marker_size = style.marker_size
+        show_labels = style.show_labels
+        xoffset = style.xoffset
+        yoffset = style.yoffset
+        fontsize = style.fontsize
+        zorder = style.zorder
+
         result: Dict[str, Dict[str, Any]] = {}
+
         for key, spec in transects.items():
             result[key] = self.draw_transect_line(
                 ax,
@@ -668,17 +684,19 @@ class MPASVisualizer:
                 data_crs=data_crs,
                 start_label=spec.get("start_label"),
                 end_label=spec.get("end_label"),
-                color=spec.get("color", color),
-                linestyle=spec.get("linestyle", linestyle),
-                linewidth=spec.get("linewidth", linewidth),
-                marker=spec.get("marker", marker),
-                end_marker=spec.get("end_marker", end_marker),
-                marker_size=spec.get("marker_size", marker_size),
-                show_labels=spec.get("show_labels", show_labels),
-                xoffset=spec.get("xoffset", xoffset),
-                yoffset=spec.get("yoffset", yoffset),
-                fontsize=spec.get("fontsize", fontsize),
-                zorder=zorder,
+                style=TransectLineStyle(
+                    color=spec.get("color", color),
+                    linestyle=spec.get("linestyle", linestyle),
+                    linewidth=spec.get("linewidth", linewidth),
+                    marker=spec.get("marker", marker),
+                    end_marker=spec.get("end_marker", end_marker),
+                    marker_size=spec.get("marker_size", marker_size),
+                    show_labels=spec.get("show_labels", show_labels),
+                    xoffset=spec.get("xoffset", xoffset),
+                    yoffset=spec.get("yoffset", yoffset),
+                    fontsize=spec.get("fontsize", fontsize),
+                    zorder=zorder,
+                ),
             )
         return result
 
@@ -1311,10 +1329,7 @@ class MPASVisualizer:
                              lon: np.ndarray,
                              lat: np.ndarray,
                              data: np.ndarray,
-                             lon_min: float,
-                             lon_max: float,
-                             lat_min: float,
-                             lat_max: float,
+                             bounds: GeographicBounds,
                              cmap_obj: Union[str, mcolors.Colormap],
                              norm: Optional[mcolors.Normalize],
                              levels: Optional[List[float]],
@@ -1329,10 +1344,7 @@ class MPASVisualizer:
             lon (np.ndarray): 1D array of longitude coordinates for the input data points in degrees.
             lat (np.ndarray): 1D array of latitude coordinates for the input data points in degrees.
             data (np.ndarray): 1D array of data values corresponding to each (lon, lat) point, typically representing a variable of interest (e.g., temperature, pressure).
-            lon_min (float): Western longitude bound in degrees for the interpolation grid extent.
-            lon_max (float): Eastern longitude bound in degrees for the interpolation grid extent.
-            lat_min (float): Southern latitude bound in degrees for the interpolation grid extent.
-            lat_max (float): Northern latitude bound in degrees for the interpolation grid extent.
+            bounds (GeographicBounds): Interpolation grid extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             cmap_obj (Union[str, mcolors.Colormap]): Colormap instance or name to use for coloring the contour lines based on their values.
             norm (Optional[mcolors.Normalize]): Optional normalization instance to control the mapping of data values to colors for the contour lines, allowing for custom scaling if desired.
             levels (Optional[List[float]]): Optional list of specific contour levels to draw, which can help highlight particular values of interest in the data. If None, matplotlib will automatically determine contour levels based on the data range (default: None).
@@ -1345,6 +1357,8 @@ class MPASVisualizer:
         """
         assert self.ax is not None, "Axes must be created before contour plot"
         assert self.fig is not None, "Figure must be created before contour plot"
+
+        lon_min, lon_max, lat_min, lat_max = bounds
 
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,
@@ -1377,10 +1391,7 @@ class MPASVisualizer:
                               lon: np.ndarray,
                               lat: np.ndarray,
                               data: np.ndarray,
-                              lon_min: float,
-                              lon_max: float,
-                              lat_min: float,
-                              lat_max: float,
+                              bounds: GeographicBounds,
                               cmap_obj: Union[str, mcolors.Colormap],
                               norm: Optional[mcolors.Normalize],
                               levels: Optional[List[float]],
@@ -1397,10 +1408,7 @@ class MPASVisualizer:
             lon (np.ndarray): 1D array of longitude coordinates for the input data points in degrees.
             lat (np.ndarray): 1D array of latitude coordinates for the input data points in degrees.
             data (np.ndarray): 1D array of data values corresponding to each (lon, lat) point, typically representing a variable of interest (e.g., temperature, precipitation).
-            lon_min (float): Western longitude bound in degrees for the interpolation grid extent.
-            lon_max (float): Eastern longitude bound in degrees for the interpolation grid extent.
-            lat_min (float): Southern latitude bound in degrees for the interpolation grid extent.
-            lat_max (float): Northern latitude bound in degrees for the interpolation grid extent.
+            bounds (GeographicBounds): Interpolation grid extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             cmap_obj (Union[str, mcolors.Colormap]): Colormap instance or name to use for coloring the filled contours based on their values.
             norm (Optional[mcolors.Normalize]): Optional normalization instance to control the mapping of data values to colors for the filled contours, allowing for custom scaling if desired.
             levels (Optional[List[float]]): Optional list of specific contour levels to draw, which can help highlight particular values of interest in the data. If None, matplotlib will automatically determine contour levels based on the data range (default: None).
@@ -1415,6 +1423,8 @@ class MPASVisualizer:
         """
         assert self.ax is not None, "Axes must be created before contourf plot"
         assert self.fig is not None, "Figure must be created before contourf plot"
+
+        lon_min, lon_max, lat_min, lat_max = bounds
 
         lon_mesh, lat_mesh, data_interp = self._interpolate_to_grid(
             lon, lat, data, lon_min, lon_max, lat_min, lat_max,

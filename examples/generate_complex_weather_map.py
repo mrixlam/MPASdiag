@@ -18,7 +18,8 @@ import os
 from mpasdiag.processing import MPAS2DProcessor
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag/'
@@ -93,13 +94,12 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=shum,
     var_name=shum_var,
-    lon_min=cfg.lon_min,
-    lon_max=cfg.lon_max,
-    lat_min=cfg.lat_min,
-    lat_max=cfg.lat_max,
-    plot_type='contourf',
-    grid_resolution=0.1,
-    title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}',
+    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=SurfaceMapStyle(
+        plot_type='contourf',
+        grid_resolution=0.1,
+        title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}',
+    ),
     config=cfg
 )
 

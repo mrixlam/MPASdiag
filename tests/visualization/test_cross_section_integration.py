@@ -20,7 +20,7 @@ matplotlib.use('Agg')
 from typing import Generator
 import matplotlib.pyplot as plt
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
@@ -109,12 +109,13 @@ class TestRealDataIntegration:
         
         for plot_type in ['contourf', 'contour', 'pcolormesh']:
             fig, _ = self.plotter.create_vertical_cross_section(
-                processor, 'theta',
-                start_point=(-105, 35),
-                end_point=(-95, 45),
-                num_points=20,
-                plot_type=plot_type
-            )
+                         processor,
+                         'theta',
+                         start_point=(-105, 35),
+                         end_point=(-95, 45),
+                         num_points=20,
+                         style=CrossSectionStyle(plot_type=plot_type),
+                     )
             plt.close(fig)
     
     def test_all_vertical_coords_with_real_data(self: 'TestRealDataIntegration') -> None:

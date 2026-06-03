@@ -31,7 +31,9 @@ matplotlib.use('Agg')
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.visualization.styling import MPASVisualizationStyle
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -487,11 +489,13 @@ class TestPrecipitationMapping:
         """
         try:
             fig, ax = visualizer.create_precipitation_map(
-                precip_data['lon'], precip_data['lat'], precip_data['precip'],
-                -180.0, 180.0, -90.0, 90.0,
-                title="Test Precipitation Map",
-                accum_period="a01h"
-            )
+                          precip_data['lon'],
+                          precip_data['lat'],
+                          precip_data['precip'],
+                          GeographicBounds(-180.0, 180.0, -90.0, 90.0),
+                          accum_period="a01h",
+                          style=PrecipitationRenderStyle(title="Test Precipitation Map"),
+                      )
             
             assert fig is not None
             assert ax is not None
@@ -521,10 +525,12 @@ class TestPrecipitationMapping:
         
         try:
             fig, ax = visualizer.create_precipitation_map(
-                precip_data['lon'], precip_data['lat'], invalid_data,
-                -180.0, 180.0, -90.0, 90.0,
-                title="Test Invalid Data Map"
-            )
+                          precip_data['lon'],
+                          precip_data['lat'],
+                          invalid_data,
+                          GeographicBounds(-180.0, 180.0, -90.0, 90.0),
+                          style=PrecipitationRenderStyle(title="Test Invalid Data Map"),
+                      )
             
             assert fig is not None
             assert ax is not None
@@ -551,12 +557,12 @@ class TestPrecipitationMapping:
         
         try:
             fig, ax = visualizer.create_precipitation_map(
-                precip_data['lon'], precip_data['lat'], precip_data['precip'],
-                -180.0, 180.0, -90.0, 90.0,
-                title="Custom Colormap Test",
-                colormap="plasma",
-                levels=custom_levels
-            )
+                          precip_data['lon'],
+                          precip_data['lat'],
+                          precip_data['precip'],
+                          GeographicBounds(-180.0, 180.0, -90.0, 90.0),
+                          style=PrecipitationRenderStyle(title="Custom Colormap Test", colormap="plasma", levels=custom_levels),
+                      )
             
             assert fig is not None
             assert ax is not None
@@ -614,7 +620,7 @@ class TestBatchProcessing:
         try:
             created_files = precip_plotter.create_batch_precipitation_maps(
                 mpas_2d_processor_diag, temp_dir,
-                -180.0, 180.0, -90.0, 90.0,
+                GeographicBounds(-180.0, 180.0, -90.0, 90.0),
                 var_name='rainnc',
                 accum_period='a01h',
                 formats=['png']
@@ -659,14 +665,13 @@ class TestVisualizationIntegration:
         data = _RNG.uniform(990, 1020, 500)  
         
         fig, ax = plotter.create_surface_map(
-            lon_subset, lat_subset, data,
-            var_name='mslp',
-            lon_min=lon_subset.min(), lon_max=lon_subset.max(),
-            lat_min=lat_subset.min(), lat_max=lat_subset.max(),
-            title="MPAS Surface Pressure",
-            plot_type='scatter',
-            projection='PlateCarree'
-        )
+                      lon_subset,
+                      lat_subset,
+                      data,
+                      'mslp',
+                      GeographicBounds(lon_subset.min(), lon_subset.max(), lat_subset.min(), lat_subset.max()),
+                      style=SurfaceMapStyle(title="MPAS Surface Pressure", plot_type='scatter', projection='PlateCarree'),
+                  )
         
         assert fig is not None
         assert ax is not None
@@ -767,14 +772,13 @@ class TestVisualizationIntegration:
         precip = mpas_precip_data[:n_points]
         
         fig, ax = plotter.create_precipitation_map(
-            lon_subset, lat_subset, precip,
-            var_name='precip_24h',
-            lon_min=-180, lon_max=180,
-            lat_min=-90, lat_max=90,
-            title="MPAS 24h Precipitation",
-            plot_type='scatter',
-            projection='PlateCarree'
-        )
+                      lon_subset,
+                      lat_subset,
+                      precip,
+                      GeographicBounds(-180, 180, -90, 90),
+                      var_name='precip_24h',
+                      style=PrecipitationRenderStyle(title="MPAS 24h Precipitation", plot_type='scatter', projection='PlateCarree'),
+                  )
 
         assert fig is not None
         assert ax is not None
@@ -865,14 +869,13 @@ class TestVisualizationIntegration:
             data_subset = data[:100]
             
             _, _ = plotter.create_surface_map(
-                lon_subset, lat_subset, data_subset,
-                var_name='wind_speed',
-                lon_min=-180, lon_max=180,
-                lat_min=-90, lat_max=90,
-                title=f"Wind Speed - Time {t}",
-                plot_type='scatter',
-                projection='PlateCarree'
-            )
+                       lon_subset,
+                       lat_subset,
+                       data_subset,
+                       'wind_speed',
+                       GeographicBounds(-180, 180, -90, 90),
+                       style=SurfaceMapStyle(title=f"Wind Speed - Time {t}", plot_type='scatter', projection='PlateCarree'),
+                   )
             
             output_file = tmp_path / f"batch_plot_t{t:03d}"
             plotter.save_plot(str(output_file), formats=['png'])
@@ -926,15 +929,13 @@ class TestVisualizationIntegration:
         }
         
         fig, ax = plotter.create_surface_map(
-            lon_subset, lat_subset, pressure,
-            var_name='mslp',
-            lon_min=-180, lon_max=180,
-            lat_min=-90, lat_max=90,
-            title="Multi-Variable Overlay: Pressure + Wind",
-            plot_type='scatter',
-            projection='PlateCarree',
-            wind_overlay=wind_overlay
-        )
+                      lon_subset,
+                      lat_subset,
+                      pressure,
+                      'mslp',
+                      GeographicBounds(-180, 180, -90, 90),
+                      style=SurfaceMapStyle(title="Multi-Variable Overlay: Pressure + Wind", plot_type='scatter', projection='PlateCarree', wind_overlay=wind_overlay),
+                  )
         
         assert fig is not None
         assert ax is not None

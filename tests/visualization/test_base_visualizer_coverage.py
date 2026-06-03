@@ -24,7 +24,8 @@ from typing import Tuple
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.visualization.base_visualizer import MPASVisualizer, WindPlotStyle
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 warnings.filterwarnings('ignore')
 
@@ -850,8 +851,10 @@ class TestCreateContourPlot:
                                return_value=(lon_mesh, lat_mesh, data_2d)):
                 with patch.object(v.ax, 'contour', return_value=mock_contour):
                     v._create_contour_plot(
-                        lon, lat, data,
-                        -100., -90., 35., 45.,
+                        lon,
+                        lat,
+                        data,
+                        GeographicBounds(-100., -90., 35., 45.),
                         cmap_obj='viridis',
                         norm=None,
                         levels=None,
@@ -883,8 +886,10 @@ class TestCreateContourPlot:
                                return_value=(lon_mesh, lat_mesh, data_2d)):
                 with patch.object(v.ax, 'contour', return_value=mock_contour):
                     v._create_contour_plot(
-                        lon, lat, data,
-                        -100., -90., 35., 45.,
+                        lon,
+                        lat,
+                        data,
+                        GeographicBounds(-100., -90., 35., 45.),
                         cmap_obj='viridis',
                         norm=None,
                         levels=[0.5, 1.0, 1.5],
@@ -917,8 +922,10 @@ class TestCreateContourPlot:
                                   side_effect=RuntimeError("contour failed")):
                     with pytest.raises(RuntimeError, match="Contour plotting failed"):
                         v._create_contour_plot(
-                            lon, lat, data,
-                            -100., -90., 35., 45.,
+                            lon,
+                            lat,
+                            data,
+                            GeographicBounds(-100., -90., 35., 45.),
                             cmap_obj='viridis',
                             norm=None,
                             levels=None,
@@ -969,8 +976,10 @@ class TestCreateContourfPlot:
                                return_value=(lon_mesh, lat_mesh, data_2d)):
                 with patch.object(v.ax, 'contourf', return_value=mock_cf):
                     v._create_contourf_plot(
-                        lon, lat, data,
-                        -100., -90., 35., 45.,
+                        lon,
+                        lat,
+                        data,
+                        GeographicBounds(-100., -90., 35., 45.),
                         cmap_obj='viridis',
                         norm=None,
                         levels=None,
@@ -1005,8 +1014,10 @@ class TestCreateContourfPlot:
                                '.MPASVisualizationStyle.add_colorbar',
                                side_effect=RuntimeError("colorbar failed")):
                         v._create_contourf_plot(
-                            lon, lat, data,
-                            -100., -90., 35., 45.,
+                            lon,
+                            lat,
+                            data,
+                            GeographicBounds(-100., -90., 35., 45.),
                             cmap_obj='viridis',
                             norm=None,
                             levels=[0.5, 1.0, 1.5],
@@ -1043,8 +1054,10 @@ class TestCreateContourfPlot:
                                '.MPASVisualizationStyle.add_colorbar',
                                return_value=mock_cb):
                         v._create_contourf_plot(
-                            lon, lat, data,
-                            -100., -90., 35., 45.,
+                            lon,
+                            lat,
+                            data,
+                            GeographicBounds(-100., -90., 35., 45.),
                             cmap_obj='viridis',
                             norm=None,
                             levels=[0.5, 1.0, 1.5],
@@ -1102,9 +1115,12 @@ class TestCreateWindPlot:
 
         with pytest.raises(ValueError, match="No valid wind data"):
             v.create_wind_plot(
-                lon, lat, u, vw,
-                lon_min=-100., lon_max=-90., lat_min=35., lat_max=45.,
-                plot_type='barbs',
+                lon,
+                lat,
+                u,
+                vw,
+                GeographicBounds(-100., -90., 35., 45.),
+                style=WindPlotStyle(plot_type='barbs'),
             )
 
     def test_invalid_plot_type_raises(self: 'TestCreateWindPlot') -> None:
@@ -1122,9 +1138,12 @@ class TestCreateWindPlot:
 
         with pytest.raises(ValueError, match="plot_type must be"):
             v.create_wind_plot(
-                lon, lat, u, vw,
-                lon_min=-100., lon_max=-90., lat_min=35., lat_max=45.,
-                plot_type='invalid_type',
+                lon,
+                lat,
+                u,
+                vw,
+                GeographicBounds(-100., -90., 35., 45.),
+                style=WindPlotStyle(plot_type='invalid_type'),
             )
 
     def test_auto_subsampling_dense_data(self: 'TestCreateWindPlot') -> None:
@@ -1146,11 +1165,13 @@ class TestCreateWindPlot:
 
         try:
             fig, _ = v.create_wind_plot(
-                lon, lat, u, vw,
-                lon_min=-100., lon_max=-99., lat_min=39., lat_max=40.,
-                plot_type='barbs',
-                subsample=0,
-            )
+                         lon,
+                         lat,
+                         u,
+                         vw,
+                         GeographicBounds(-100., -99., 39., 40.),
+                         style=WindPlotStyle(plot_type='barbs', subsample=0),
+                     )
             plt.close(fig)
         except Exception:
             pass

@@ -30,8 +30,9 @@ from cartopy.mpl.geoaxes import GeoAxes
 from unittest.mock import patch
 
 from mpasdiag.processing.base import MPASBaseProcessor
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.visualization.base_visualizer import MPASVisualizer, WindPlotStyle, TransectLineStyle
 from tests.test_data_helpers import load_mpas_coords_from_processor, assert_expected_public_methods
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 warnings.filterwarnings('ignore')
 
@@ -456,10 +457,13 @@ class TestWindVisualization:
         yield
         
         fig, ax = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            plot_type='barbs'
-        )
+                      self.lon,
+                      self.lat,
+                      self.u,
+                      self.v,
+                      GeographicBounds(-120, -80, 30, 50),
+                      style=WindPlotStyle(plot_type='barbs'),
+                  )
         
         assert fig is not None
         assert isinstance(ax, GeoAxes)
@@ -475,10 +479,13 @@ class TestWindVisualization:
             None
         """
         fig, ax = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            plot_type='arrows'
-        )
+                      self.lon,
+                      self.lat,
+                      self.u,
+                      self.v,
+                      GeographicBounds(-120, -80, 30, 50),
+                      style=WindPlotStyle(plot_type='arrows'),
+                  )
         
         assert fig is not None
         assert isinstance(ax, GeoAxes)
@@ -494,11 +501,13 @@ class TestWindVisualization:
             None
         """
         fig, _ = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            show_background=True,
-            bg_colormap='plasma'
-        )
+                     self.lon,
+                     self.lat,
+                     self.u,
+                     self.v,
+                     GeographicBounds(-120, -80, 30, 50),
+                     style=WindPlotStyle(show_background=True, bg_colormap='plasma'),
+                 )
         
         assert fig is not None
     
@@ -515,10 +524,13 @@ class TestWindVisualization:
         lon, lat, u, v = load_mpas_coords_from_processor(n=1000)
         
         fig, _ = self.visualizer.create_wind_plot(
-            lon, lat, u, v,
-            -120, -80, 30, 50,
-            subsample=0  
-        )
+                     lon,
+                     lat,
+                     u,
+                     v,
+                     GeographicBounds(-120, -80, 30, 50),
+                     style=WindPlotStyle(subsample=0),
+                 )
         
         assert fig is not None
     
@@ -533,10 +545,13 @@ class TestWindVisualization:
             None
         """
         fig, _ = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            subsample=5
-        )
+                     self.lon,
+                     self.lat,
+                     self.u,
+                     self.v,
+                     GeographicBounds(-120, -80, 30, 50),
+                     style=WindPlotStyle(subsample=5),
+                 )
         
         assert fig is not None
     
@@ -553,10 +568,13 @@ class TestWindVisualization:
         time_stamp = datetime(2024, 1, 15, 12, 0)
         
         _, ax = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            time_stamp=time_stamp
-        )
+                    self.lon,
+                    self.lat,
+                    self.u,
+                    self.v,
+                    GeographicBounds(-120, -80, 30, 50),
+                    style=WindPlotStyle(time_stamp=time_stamp),
+                )
         
         title = ax.get_title()
         assert '2024-01-15' in title
@@ -573,10 +591,13 @@ class TestWindVisualization:
             None
         """
         _, ax = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            title="Custom Wind Title"
-        )
+                    self.lon,
+                    self.lat,
+                    self.u,
+                    self.v,
+                    GeographicBounds(-120, -80, 30, 50),
+                    style=WindPlotStyle(title="Custom Wind Title"),
+                )
         
         assert ax.get_title() == "Custom Wind Title"
     
@@ -591,11 +612,13 @@ class TestWindVisualization:
             None
         """
         fig, _ = self.visualizer.create_wind_plot(
-            self.lon, self.lat, self.u, self.v,
-            -120, -80, 30, 50,
-            plot_type='arrows',
-            scale=50.0
-        )
+                     self.lon,
+                     self.lat,
+                     self.u,
+                     self.v,
+                     GeographicBounds(-120, -80, 30, 50),
+                     style=WindPlotStyle(plot_type='arrows', scale=50.0),
+                 )
         
         assert fig is not None
     
@@ -735,9 +758,13 @@ class TestTransectOverlay:
         """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
-            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
-            show_labels=False, start_label="A", end_label="B",
-        )
+                      ax,
+                      start=(-110.0, 30.0),
+                      end=(-80.0, 50.0),
+                      start_label="A",
+                      end_label="B",
+                      style=TransectLineStyle(show_labels=False),
+                  )
         assert artists["start_label_text"] is None
         assert artists["end_label_text"] is None
         plt.close(fig)
@@ -754,9 +781,11 @@ class TestTransectOverlay:
         """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
-            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
-            show_labels=True,
-        )
+                      ax,
+                      start=(-110.0, 30.0),
+                      end=(-80.0, 50.0),
+                      style=TransectLineStyle(show_labels=True),
+                  )
         assert artists["start_label_text"] is None
         assert artists["end_label_text"] is None
         plt.close(fig)
@@ -773,9 +802,11 @@ class TestTransectOverlay:
         """
         fig, ax = self._geo_axes()
         artists = self.viz.draw_transect_line(
-            ax, start=(-110.0, 30.0), end=(-80.0, 50.0),
-            linewidth=3.5,
-        )
+                      ax,
+                      start=(-110.0, 30.0),
+                      end=(-80.0, 50.0),
+                      style=TransectLineStyle(linewidth=3.5),
+                  )
         assert artists["line"][0].get_linewidth() == pytest.approx(3.5)
         plt.close(fig)
 
@@ -791,11 +822,17 @@ class TestTransectOverlay:
         """
         fig, ax = self._geo_axes()
         solid = self.viz.draw_transect_line(
-            ax, start=(-110.0, 30.0), end=(-80.0, 50.0), linestyle="-",
-        )
+                    ax,
+                    start=(-110.0, 30.0),
+                    end=(-80.0, 50.0),
+                    style=TransectLineStyle(linestyle="-"),
+                )
         dashed = self.viz.draw_transect_line(
-            ax, start=(-110.0, 30.0), end=(-80.0, 50.0), linestyle="--",
-        )
+                     ax,
+                     start=(-110.0, 30.0),
+                     end=(-80.0, 50.0),
+                     style=TransectLineStyle(linestyle="--"),
+                 )
         assert solid["line"][0].get_linestyle() != dashed["line"][0].get_linestyle()
         plt.close(fig)
 
@@ -878,7 +915,7 @@ class TestTransectOverlay:
             "A-B": {"start": (-110.0, 30.0), "end": (-80.0, 50.0), "color": "royalblue"},
             "C-D": {"start": (-100.0, 25.0), "end": (-70.0, 45.0)},
         }
-        result = self.viz.draw_transect_lines(ax, transects, color="red")
+        result = self.viz.draw_transect_lines(ax, transects, style=TransectLineStyle(color="red"))
         line_ab = result["A-B"]["line"][0]
         line_cd = result["C-D"]["line"][0]
         assert np.allclose(to_rgba(line_ab.get_color()), to_rgba("royalblue"), atol=1e-3)
@@ -900,7 +937,7 @@ class TestTransectOverlay:
             "thick": {"start": (-110.0, 30.0), "end": (-80.0, 50.0), "linewidth": 4.0},
             "thin":  {"start": (-100.0, 25.0), "end": (-70.0, 45.0)},
         }
-        result = self.viz.draw_transect_lines(ax, transects, linewidth=1.0)
+        result = self.viz.draw_transect_lines(ax, transects, style=TransectLineStyle(linewidth=1.0))
         assert result["thick"]["line"][0].get_linewidth() == pytest.approx(4.0)
         assert result["thin"]["line"][0].get_linewidth() == pytest.approx(1.0)
         plt.close(fig)
@@ -961,7 +998,7 @@ class TestTransectOverlay:
             "C-D": {"start": (-100.0, 25.0), "end": (-70.0, 45.0),
                     "start_label": "C", "end_label": "D", "show_labels": True},
         }
-        result = self.viz.draw_transect_lines(ax, transects, show_labels=False)
+        result = self.viz.draw_transect_lines(ax, transects, style=TransectLineStyle(show_labels=False))
         assert result["A-B"]["start_label_text"] is None
         assert result["A-B"]["end_label_text"] is None
         assert result["C-D"]["start_label_text"] is not None

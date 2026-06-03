@@ -31,7 +31,8 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from unittest.mock import Mock, MagicMock, patch
 
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -83,10 +84,12 @@ class TestUnitConversion:
         )
         
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -180, 180, -90, 90,
-            data_array=data_array
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                     data_array=data_array,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -105,10 +108,12 @@ class TestUnitConversion:
         mock_data_array.attrs = {}
         
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -180, 180, -90, 90,
-            data_array=mock_data_array
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                     data_array=mock_data_array,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -124,9 +129,11 @@ class TestUnitConversion:
             None
         """
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -180, 180, -90, 90
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -164,9 +171,11 @@ class TestPlotExtent:
         precip = _RNG.random(200) * 20
         
         fig, _ = self.plotter.create_precipitation_map(
-            lon, lat, precip,
-            -180, 180, -90, 90  
-        )
+                     lon,
+                     lat,
+                     precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -186,9 +195,11 @@ class TestPlotExtent:
         precip = _RNG.random(50) * 20
         
         fig, _ = self.plotter.create_precipitation_map(
-            lon, lat, precip,
-            -100, -90, 30, 40  
-        )
+                     lon,
+                     lat,
+                     precip,
+                     GeographicBounds(-100, -90, 30, 40),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -237,11 +248,13 @@ class TestContourfPlotting:
         }
 
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -100, -90, 30, 40,
-            plot_type='contourf', 
-            config=config
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-100, -90, 30, 40),
+                     config=config,
+                     style=PrecipitationRenderStyle(plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -262,11 +275,13 @@ class TestContourfPlotting:
         }
 
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -100, -90, 30, 40,
-            plot_type='contourf',
-            config=config
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-100, -90, 30, 40),
+                     config=config,
+                     style=PrecipitationRenderStyle(plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -287,12 +302,13 @@ class TestContourfPlotting:
         }
 
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -100, -90, 30, 40,
-            plot_type='contourf',
-            grid_resolution=0.5, 
-            config=config,
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-100, -90, 30, 40),
+                     config=config,
+                     style=PrecipitationRenderStyle(plot_type='contourf', grid_resolution=0.5),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -348,7 +364,7 @@ class TestBatchProcessing:
         
         files = self.plotter.create_batch_precipitation_maps(
             mock_processor, self.temp_dir,
-            -100, -90, 30, 40,
+            GeographicBounds(-100, -90, 30, 40),
             accum_period='a01h',
             time_indices=[2, 3]
         )
@@ -474,9 +490,11 @@ class TestSavePlot:
         precip = mpas_precip_data[:50]
         
         fig, _ = self.plotter.create_precipitation_map(
-            lon, lat, precip,
-            -180, 180, -90, 90
-        )
+                     lon,
+                     lat,
+                     precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                 )
         
         subdir = os.path.join(self.temp_dir, 'subdir', 'subsubdir')
         output_path = os.path.join(subdir, 'test_plot')
@@ -527,11 +545,13 @@ class TestTimestampHandling:
         time_end = datetime(2025, 1, 15, 12, 0)
         
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -180, 180, -90, 90,
-            time_end=time_end,
-            accum_period='a03h'
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                     accum_period='a03h',
+                     time_end=time_end,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -550,11 +570,13 @@ class TestTimestampHandling:
         time_start = datetime(2025, 1, 15, 6, 0)
         
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, self.precip,
-            -180, 180, -90, 90,
-            time_end=time_end,
-            time_start=time_start
-        )
+                     self.lon,
+                     self.lat,
+                     self.precip,
+                     GeographicBounds(-180, 180, -90, 90),
+                     time_end=time_end,
+                     time_start=time_start,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -597,10 +619,12 @@ class TestEdgeCases:
         nan_data = np.full(50, np.nan)
         
         fig, _ = self.plotter.create_precipitation_map(
-            self.lon, self.lat, nan_data,
-            -180, 180, -90, 90,
-            title="Empty Precipitation Data"
-        )
+                     self.lon,
+                     self.lat,
+                     nan_data,
+                     GeographicBounds(-180, 180, -90, 90),
+                     style=PrecipitationRenderStyle(title="Empty Precipitation Data"),
+                 )
 
         assert isinstance(fig, Figure)
 
@@ -621,10 +645,12 @@ class TestEdgeCases:
         extreme_lat = np.linspace(35, 45, 6)
         
         fig, _ = self.plotter.create_precipitation_map(
-            extreme_lon, extreme_lat, extreme_data,
-            -110, -100, 35, 45,
-            title="Extreme Precipitation Values"
-        )
+                     extreme_lon,
+                     extreme_lat,
+                     extreme_data,
+                     GeographicBounds(-110, -100, 35, 45),
+                     style=PrecipitationRenderStyle(title="Extreme Precipitation Values"),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -789,8 +815,14 @@ class TestContourPlotCreation:
             _RNG.uniform(0, 10, (10, 10))
         )):
             self.plotter._create_contourf_plot(
-                lon, lat, data, -110, -100, 35, 45,
-                cmap, norm, levels, data_crs
+                lon,
+                lat,
+                data,
+                GeographicBounds(-110, -100, 35, 45),
+                cmap,
+                norm,
+                levels,
+                data_crs,
             )
 
 

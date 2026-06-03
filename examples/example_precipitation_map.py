@@ -15,7 +15,8 @@ Version: 1.0.0
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
@@ -75,9 +76,16 @@ cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' 
 
 # Create precipitation map for 1-hour accumulation over CONUS with filled contour plot
 fig, ax = plotter.create_precipitation_map(
-  lon, lat, precip.values, cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
-  plot_type='contourf', title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}',
-  accum_period='a01h', data_array=precip, grid_resolution=1.0, dataset=processor.dataset, config=cfg)
+              lon,
+              lat,
+              precip.values,
+              GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+              accum_period='a01h',
+              data_array=precip,
+              dataset=processor.dataset,
+              config=cfg,
+              style=PrecipitationRenderStyle(title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}', plot_type='contourf', grid_resolution=1.0),
+          )
 
 # Overlay cross-section transect lines
 plotter.draw_transect_lines(ax, TRANSECTS)

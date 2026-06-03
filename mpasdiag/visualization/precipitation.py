@@ -32,7 +32,9 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 # Import relevant MPASdiag modules for visualization and processing
 from .base_visualizer import MPASVisualizer
 from .styling import MPASVisualizationStyle
+from dataclasses import dataclass
 from ..processing.utils_unit import UnitConverter
+from ..processing.utils_geog import GeographicBounds
 from ..processing.utils_logger import get_logger
 from ..diagnostics.precipitation import PrecipitationDiagnostics
 
@@ -44,6 +46,37 @@ from ..processing.remapping import (
 )
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class PrecipitationMapStyle:
+    """ Optional appearance and file-naming settings for batch precipitation maps, grouping the output filename prefix, custom title template, colormap, and contour levels into a single value object. """
+    file_prefix: str = 'mpas_precipitation_map'
+    custom_title_template: Optional[str] = None
+    colormap: Optional[str] = None
+    levels: Optional[List[float]] = None
+
+
+@dataclass
+class PrecipitationRenderStyle:
+    """ Optional rendering and appearance settings for a single precipitation map, grouping the title, plot type, colormap, contour levels, color limits, projection, and grid resolution into a single value object. """
+    title: str = "MPAS Precipitation"
+    plot_type: str = 'scatter'
+    colormap: Optional[str] = None
+    levels: Optional[List[float]] = None
+    clim_min: Optional[float] = None
+    clim_max: Optional[float] = None
+    projection: str = 'PlateCarree'
+    grid_resolution: Optional[float] = None
+
+
+@dataclass
+class OverlayColorSpec:
+    """ Colormap, normalization, sorted contour levels, and transparency used to render an interpolated precipitation overlay. """
+    cmap: mcolors.Colormap
+    norm: BoundaryNorm
+    color_levels_sorted: List[float]
+    alpha: float
 
 # Filter warnings from cartopy and shapely to avoid cluttering output with non-critical warnings during map rendering
 warnings.filterwarnings('ignore', category=UserWarning, module='cartopy')
@@ -376,23 +409,13 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                  lon: np.ndarray,
                                  lat: np.ndarray,
                                  precip_data: np.ndarray,
-                                 lon_min: float,
-                                 lon_max: float,
-                                 lat_min: float,
-                                 lat_max: float,
-                                 title: str = "MPAS Precipitation",
+                                 bounds: GeographicBounds,
                                  accum_period: str = "a01h",
-                                 plot_type: str = 'scatter',
-                                 colormap: Optional[str] = None,
-                                 levels: Optional[List[float]] = None,
-                                 clim_min: Optional[float] = None,
-                                 clim_max: Optional[float] = None,
-                                 projection: str = 'PlateCarree',
+                                 style: Optional[PrecipitationRenderStyle] = None,
                                  time_end: Optional[datetime] = None,
                                  time_start: Optional[datetime] = None,
                                  data_array: Optional[xr.DataArray] = None,
                                  var_name: str = 'precipitation',
-                                 grid_resolution: Optional[float] = None,
                                  dataset: Optional[xr.Dataset] = None,
                                  config: Optional[Any] = None) -> Tuple[Figure, Axes]:
         """
@@ -402,28 +425,34 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lon (np.ndarray): 1D array of longitude coordinates in degrees for MPAS cell centers.
             lat (np.ndarray): 1D array of latitude coordinates in degrees for MPAS cell centers.
             precip_data (np.ndarray): Precipitation values corresponding to the lon/lat points (in model or display units).
-            lon_min (float): Western boundary of the map extent in degrees.
-            lon_max (float): Eastern boundary of the map extent in degrees.
-            lat_min (float): Southern boundary of the map extent in degrees.
-            lat_max (float): Northern boundary of the map extent in degrees.
-            title (str): Title for the plot.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h') used for colormap selection and annotation.
-            plot_type (str): Rendering mode: 'scatter', 'contour', or 'contourf'.
-            colormap (Optional[str]): Optional matplotlib colormap name to use for precipitation plotting. If None, a default colormap based on the accumulation period will be used.
-            levels (Optional[List[float]]): Optional list of contour levels to use for coloring and colorbar ticks. If None, default levels based on the accumulation period will be used.
-            clim_min (Optional[float]): Optional minimum color limit to clip contour levels for coloring and colorbar ticks.
-            clim_max (Optional[float]): Optional maximum color limit to clip contour levels for coloring and colorbar ticks.
-            projection (str): Cartopy projection identifier (e.g., 'PlateCarree', 'Mercator') to use for the map.
+            style (Optional[PrecipitationRenderStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution). If None, defaults are used.
             time_end (Optional[datetime]): Optional end datetime for the accumulation period. If provided, it will be used to derive the start time based on the accumulation period if the start time is not explicitly provided.
             time_start (Optional[datetime]): Optional start datetime for the accumulation period. If not provided but time_end is given, it will be derived from time_end and accum_period.
             data_array (Optional[xr.DataArray]): Optional xarray DataArray containing metadata attributes for unit conversion. If None, no conversion is attempted and original data is used.
             var_name (str): Variable name used for metadata lookup and unit conversion logic.
-            grid_resolution (Optional[float]): Optional grid resolution in degrees for contour/contourf interpolation. If None, a default resolution will be determined based on the data density and geographic extent.
             dataset (Optional[xr.Dataset]): Optional xarray Dataset containing the original MPAS data, which may be needed for interpolation and remapping in contour/contourf plots.
 
         Returns:
             Tuple[Figure, Axes]: A tuple containing the created matplotlib Figure and Axes objects for the precipitation map. The figure and axes are also stored as instance attributes for further manipulation or saving.
         """
+        # Unpack the geographic extent
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        # Default style to PrecipitationRenderStyle if not specified
+        if style is None:
+            style = PrecipitationRenderStyle()
+            
+        title = style.title
+        plot_type = style.plot_type
+        colormap = style.colormap
+        levels = style.levels
+        clim_min = style.clim_min
+        clim_max = style.clim_max
+        projection = style.projection
+        grid_resolution = style.grid_resolution
+
         # Validate plot type parameter to ensure it is one of the accepted values for rendering methods
         if plot_type not in ['scatter', 'contour', 'contourf']:
             raise ValueError(f"plot_type must be 'scatter', 'contour', or 'contourf', got '{plot_type}'")
@@ -475,7 +504,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 # Contour requires interpolation to a regular grid, which is handled in the helper method using MPASRemapper
                 self._create_contour_plot(
                     lon_valid, lat_valid, precip_valid,
-                    lon_min, lon_max, lat_min, lat_max,
+                    GeographicBounds(lon_min, lon_max, lat_min, lat_max),
                     cmap, norm, color_levels_sorted, data_crs,
                     grid_resolution, dataset, config=config,
                 )
@@ -483,7 +512,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 # Contourf requires interpolation to a regular grid, which is handled in the helper method using MPASRemapper
                 self._create_contourf_plot(
                     lon_valid, lat_valid, precip_valid,
-                    lon_min, lon_max, lat_min, lat_max,
+                    GeographicBounds(lon_min, lon_max, lat_min, lat_max),
                     cmap, norm, color_levels_sorted, data_crs,
                     grid_resolution, dataset,
                     colorbar_label=f'Precipitation [{unit_label}]',
@@ -804,18 +833,12 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                      lon_valid: np.ndarray,
                                      lat_valid: np.ndarray,
                                      precip_valid: np.ndarray,
-                                     lon_min: float,
-                                     lon_max: float,
-                                     lat_min: float,
-                                     lat_max: float,
+                                     bounds: GeographicBounds,
                                      plot_type: str,
                                      resolution: float,
                                      var_name: str,
                                      dataset: Optional[xr.Dataset],
-                                     cmap: mcolors.Colormap,
-                                     norm: BoundaryNorm,
-                                     color_levels_sorted: List[float],
-                                     alpha: float,
+                                     color_spec: OverlayColorSpec,
                                      lon: np.ndarray,
                                      lat: np.ndarray,
                                      config: Optional[Any] = None) -> None:
@@ -827,18 +850,12 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lon_valid (np.ndarray): Valid longitude coordinates for plotting.
             lat_valid (np.ndarray): Valid latitude coordinates for plotting.
             precip_valid (np.ndarray): Valid precipitation values for plotting.
-            lon_min (float): Western boundary of the map extent in degrees.
-            lon_max (float): Eastern boundary of the map extent in degrees.
-            lat_min (float): Southern boundary of the map extent in degrees.
-            lat_max (float): Northern boundary of the map extent in degrees.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             plot_type (str): Rendering mode: 'contour' for lines or 'contourf' for filled contours.
             resolution (float): Grid resolution in degrees for interpolation.
             var_name (str): Variable name for labeling and unit conversion logic.
             dataset (Optional[xr.Dataset]): Optional xarray Dataset containing the original MPAS data, which may be needed for interpolation and remapping. If None, interpolation will be attempted with available data arrays.
-            cmap (mcolors.Colormap): Colormap for precipitation values.
-            norm (BoundaryNorm): Normalization for color mapping of precipitation values.
-            color_levels_sorted (List[float]): Sorted list of contour levels for consistent coloring and colorbar ticks.
-            alpha (float): Transparency level for contours (0 to 1) to allow for better visualization of underlying map features while still showing precipitation patterns.
+            color_spec (OverlayColorSpec): Colormap, normalization, sorted contour levels, and transparency (alpha) used to render the overlay.
             lon (np.ndarray): Original longitude array for the MPAS cell centers, used for interpolation.
             lat (np.ndarray): Original latitude array for the MPAS cell centers, used for interpolation.
             config (Optional[Any]): Optional configuration object for additional settings.
@@ -846,7 +863,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Returns:
             None: This method modifies the provided axes in place by adding the contour lines or filled contours for the precipitation overlay. It does not return any value.
         """
-        # Perform interpolation of the valid precipitation data onto a regular lat-lon grid 
+        # Unpack the geographic extent and color specification
+        lon_min, lon_max, lat_min, lat_max = bounds
+        cmap = color_spec.cmap
+        norm = color_spec.norm
+        color_levels_sorted = color_spec.color_levels_sorted
+        alpha = color_spec.alpha
+
+        # Perform interpolation of the valid precipitation data onto a regular lat-lon grid
         remapped_precip = self._remap_overlay_data(
             lon_valid, lat_valid, precip_valid,
             lon_min, lon_max, lat_min, lat_max,
@@ -1271,9 +1295,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             # Render with interpolation using MPASRemapper for smooth contours
             self._render_overlay_interpolated(
                 ax, lon_valid, lat_valid, precip_valid,
-                lon_min, lon_max, lat_min, lat_max,
+                GeographicBounds(lon_min, lon_max, lat_min, lat_max),
                 plot_type, resolution, var_name, dataset,
-                cmap, norm, color_levels_sorted, alpha,
+                OverlayColorSpec(cmap, norm, color_levels_sorted, alpha),
                 lon_orig, lat_orig,
                 config=config,
             )
@@ -1370,19 +1394,13 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                                   time_idx: int,
                                   lon: np.ndarray,
                                   lat: np.ndarray,
-                                  lon_min: float,
-                                  lon_max: float,
-                                  lat_min: float,
-                                  lat_max: float,
+                                  bounds: GeographicBounds,
                                   var_name: str,
                                   accum_period: str,
                                   plot_type: str,
                                   grid_resolution: Optional[float],
-                                  colormap: Optional[str],
-                                  levels: Optional[List[float]],
-                                  custom_title_template: Optional[str],
+                                  style: PrecipitationMapStyle,
                                   output_dir: str,
-                                  file_prefix: str,
                                   formats: List[str],
                                   config: Optional[Any] = None) -> List[str]:
         """
@@ -1393,25 +1411,26 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             time_idx (int): Time index for which to process the precipitation plot.
             lon (np.ndarray): Longitude coordinates for the plot.
             lat (np.ndarray): Latitude coordinates for the plot.
-            lon_min (float): Western boundary of the map extent in degrees.
-            lon_max (float): Eastern boundary of the map extent in degrees.
-            lat_min (float): Southern boundary of the map extent in degrees.
-            lat_max (float): Northern boundary of the map extent in degrees.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             var_name (str): Precipitation variable name in the dataset (e.g., 'rainnc', 'rainc').
             accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h').
             plot_type (str): Rendering method for the overlay ('scatter', 'contour', 'contourf').
             grid_resolution (Optional[float]): Grid resolution in degrees for interpolation if needed. If None, it will be determined adaptively based on map extent and data density.
-            colormap (Optional[str]): Custom colormap name for precipitation values. If None, a default colormap based on the accumulation period will be used.
-            levels (Optional[List[float]]): Custom contour levels for precipitation values. If None, default levels based on the accumulation period will be used.
-            custom_title_template (Optional[str]): Custom title template with placeholders for variable name, time string, accumulation period, and plot type. If None, a default title format will be used.
+            style (PrecipitationMapStyle): Appearance and file-naming settings (file_prefix, custom_title_template, colormap, levels).
             output_dir (str): Directory path for saving the output plot files.
-            file_prefix (str): Prefix string for the output filenames to ensure consistent naming conventions.
             formats (List[str]): List of file format extensions for saving the plot (e.g., ['png', 'pdf']).
             config (Optional[Any]): Configuration object containing additional parameters for the plot. If None, default settings will be used.
             
         Returns:
             List[str]: A list of absolute file paths for all successfully created output files for this time step, with standardized naming conventions that encode the variable type, accumulation type, valid time, and plot type for easy identification. If an error occurs during processing, an empty list will be returned and the error will be logged.
         """
+        # Unpack the geographic extent and styling options
+        lon_min, lon_max, lat_min, lat_max = bounds
+        colormap = style.colormap
+        levels = style.levels
+        custom_title_template = style.custom_title_template
+        file_prefix = style.file_prefix
+
         # Extract precipitation data for this time step using PrecipitationDiagnostics
         if hasattr(processor.dataset, 'Time') and len(processor.dataset.Time) > time_idx:
             # Convert time coordinate to datetime for title formatting
@@ -1445,20 +1464,18 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         
         # Create precipitation map for this time step
         _, _ = self.create_precipitation_map(
-            lon, lat, precip_data.values,
-            lon_min, lon_max, lat_min, lat_max,
-            title=title,
-            accum_period=accum_period,
-            plot_type=plot_type,
-            grid_resolution=grid_resolution,
-            time_end=time_end,
-            colormap=colormap,
-            levels=levels,
-            data_array=precip_data,
-            var_name=var_name,
-            dataset=processor.dataset,
-            config=config,
-        )
+                   lon,
+                   lat,
+                   precip_data.values,
+                   GeographicBounds(lon_min, lon_max, lat_min, lat_max),
+                   accum_period=accum_period,
+                   time_end=time_end,
+                   data_array=precip_data,
+                   var_name=var_name,
+                   dataset=processor.dataset,
+                   config=config,
+                   style=PrecipitationRenderStyle(title=title, plot_type=plot_type, colormap=colormap, levels=levels, grid_resolution=grid_resolution),
+               )
         
         # Construct output file path with standardized naming convention
         output_path = os.path.join(
@@ -1478,46 +1495,37 @@ class MPASPrecipitationPlotter(MPASVisualizer):
     def create_batch_precipitation_maps(self: 'MPASPrecipitationPlotter',
                                         processor: Any,
                                         output_dir: str,
-                                        lon_min: float,
-                                        lon_max: float,
-                                        lat_min: float,
-                                        lat_max: float,
+                                        bounds: GeographicBounds,
                                         var_name: str = 'rainnc',
                                         accum_period: str = 'a01h',
                                         plot_type: str = 'scatter',
                                         grid_resolution: Optional[float] = None,
-                                        file_prefix: str = 'mpas_precipitation_map',
                                         formats: List[str] = ['png'],
-                                        custom_title_template: Optional[str] = None,
-                                        colormap: Optional[str] = None,
-                                        levels: Optional[List[float]] = None,
                                         time_indices: Optional[List[int]] = None,
-                                        config: Optional[Any] = None) -> List[str]:
+                                        config: Optional[Any] = None,
+                                        style: Optional[PrecipitationMapStyle] = None) -> List[str]:
         """
         This method orchestrates the batch processing of precipitation maps for multiple time steps in a dataset using the provided MPAS2DProcessor instance. It first validates the processor input to ensure that it is not None and that it contains a loaded dataset. It then extracts the longitude and latitude coordinates from the processor using a dedicated method that handles different processor implementations. The method sets up the time indices for batch processing based on the specified accumulation period and any user-specified time indices, ensuring that there are enough time steps in the dataset to support the accumulation period. If there are not enough time steps, it logs a warning and returns an empty list of created files. If valid time indices are available, it iterates through each time index, calling a helper method to process each time step individually. This helper method extracts the precipitation data for the specific time step, generates a title, creates the precipitation map, and saves it to files with standardized naming conventions. The main method collects all created file paths and returns them as a list at the end of the batch processing. This approach allows for efficient generation of multiple precipitation maps while providing robust error handling and informative logging throughout the process. 
 
         Parameters:
             processor: MPAS2DProcessor instance with loaded dataset.
             output_dir (str): Directory path for saving the output plot files.
-            lon_min (float): Western boundary of the map extent in degrees.
-            lon_max (float): Eastern boundary of the map extent in degrees.
-            lat_min (float): Southern boundary of the map extent in degrees.
-            lat_max (float): Northern boundary of the map extent in degrees.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             var_name (str): Precipitation variable name in the dataset (e.g., 'rainnc', 'rainc').
             accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h').
             plot_type (str): Rendering method for the overlay ('scatter', 'contour', 'contourf').
             grid_resolution (Optional[float]): Grid resolution in degrees for interpolation if needed. If None, it will be determined adaptively based on map extent and data density.
-            file_prefix (str): Prefix string for the output filenames to ensure consistent naming conventions.
             formats (List[str]): List of file format extensions for saving the plot (e.g., ['png', 'pdf']).
-            custom_title_template (Optional[str]): Custom title template with placeholders for variable name, time string, accumulation period, and plot type. If None, a default title format will be used.
-            colormap (Optional[str]): Custom colormap name for precipitation values. If None, a default colormap based on the accumulation period will be used.
-            levels (Optional[List[float]]): Custom contour levels for precipitation values. If None, default levels based on the accumulation period will be used.
-            time_indices (Optional[List[int]]): User-specified list of time indices to process. If None, all valid time indices starting from the minimum required index for the accumulation period will be used. 
+            time_indices (Optional[List[int]]): User-specified list of time indices to process. If None, all valid time indices starting from the minimum required index for the accumulation period will be used.
             config (Optional[Any]): Configuration object containing additional parameters for the plot. If None, default settings will be used.
+            style (Optional[PrecipitationMapStyle]): Appearance and file-naming settings (file_prefix, custom_title_template, colormap, levels). If None, defaults are used.
 
         Returns:
             List[str]: A list of absolute file paths for all successfully created output files across all processed time steps, with standardized naming conventions that encode the variable type, accumulation type, valid time, and plot type for easy identification. If no valid time indices are available for processing, an empty list will be returned and a warning will be logged. 
         """
+        if style is None:
+            style = PrecipitationMapStyle()
+
         # Validate processor input
         if processor is None:
             raise ValueError("Processor cannot be None")
@@ -1556,11 +1564,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 # Process single time step and collect created file paths
                 files = self._process_single_time_step(
                     processor, time_idx, lon, lat,
-                    lon_min, lon_max, lat_min, lat_max,
-                    var_name, accum_period, plot_type,
-                    grid_resolution, colormap, levels,
-                    custom_title_template, output_dir,
-                    file_prefix, formats,
+                    bounds, var_name, accum_period, plot_type,
+                    grid_resolution, style, output_dir, formats,
                     config=config,
                 )
 

@@ -33,6 +33,7 @@ from mpasdiag.processing.parallel_wrappers import (
 )
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from tests.test_data_helpers import assert_expected_public_methods
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
@@ -452,12 +453,14 @@ class TestParallelProcessorBatchMethods:
             processor.dataset.sizes = {'Time': 5}
 
             result = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-                processor=processor,
-                output_dir=str(tmp_path),
-                lon_min=-120, lon_max=-80, lat_min=30, lat_max=50,
-                var_name='rainnc', accum_period='a01h',
-                time_indices=[1, 2], n_processes=2
-            )
+                         processor=processor,
+                         output_dir=str(tmp_path),
+                         var_name='rainnc',
+                         accum_period='a01h',
+                         time_indices=[1, 2],
+                         n_processes=2,
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert result is None
             mock_mgr.parallel_map.assert_called_once()
         finally:

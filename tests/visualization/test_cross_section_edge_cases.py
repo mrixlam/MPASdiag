@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 from typing import Generator, Union
 from unittest.mock import Mock, patch
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -258,14 +258,13 @@ class TestAdditionalCoverage:
         mock_processor = self._create_basic_processor()
         
         fig, _ = self.plotter.create_vertical_cross_section(
-            mpas_3d_processor=mock_processor,
-            var_name="theta",
-            start_point=(-100, 30),
-            end_point=(-90, 40),
-            plot_type='contour',
-            levels=np.linspace(250, 300, 11),
-            num_points=20
-        )
+                     mpas_3d_processor=mock_processor,
+                     var_name="theta",
+                     start_point=(-100, 30),
+                     end_point=(-90, 40),
+                     num_points=20,
+                     style=CrossSectionStyle(levels=np.linspace(250, 300, 11), plot_type='contour'),
+                 )
         
         assert fig is not None
         plt.close(fig)
@@ -283,13 +282,13 @@ class TestAdditionalCoverage:
         mock_processor = self._create_basic_processor()
         
         fig, _ = self.plotter.create_vertical_cross_section(
-            mpas_3d_processor=mock_processor,
-            var_name="theta",
-            start_point=(-100, 30),
-            end_point=(-90, 40),
-            plot_type='pcolormesh',
-            num_points=20
-        )
+                     mpas_3d_processor=mock_processor,
+                     var_name="theta",
+                     start_point=(-100, 30),
+                     end_point=(-90, 40),
+                     num_points=20,
+                     style=CrossSectionStyle(plot_type='pcolormesh'),
+                 )
         
         assert fig is not None
         plt.close(fig)

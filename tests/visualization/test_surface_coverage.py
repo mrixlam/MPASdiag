@@ -25,6 +25,7 @@ from unittest.mock import MagicMock, Mock, patch
 import matplotlib.pyplot as plt
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 
 N_CELLS = 8
@@ -836,7 +837,7 @@ class TestCreateBatchSurfaceMaps:
         plotter = MPASSurfacePlotter()
         with pytest.raises(ValueError, match="No data loaded in processor"):
             plotter.create_batch_surface_maps(
-                proc, str(tmp_path), -100.0, -80.0, 30.0, 50.0
+                proc, str(tmp_path), GeographicBounds(-100.0, -80.0, 30.0, 50.0)
             )
 
     def test_progress_printed_at_step_10(self: 'TestCreateBatchSurfaceMaps',
@@ -873,7 +874,8 @@ class TestCreateBatchSurfaceMaps:
             with patch.object(plotter, 'save_plot'):
                 with patch.object(plotter, 'close_plot'):
                     result = plotter.create_batch_surface_maps(
-                        proc, str(tmp_path), -100.0, -80.0, 30.0, 50.0, var_name='t2m'
+                        proc, str(tmp_path),
+                        GeographicBounds(-100.0, -80.0, 30.0, 50.0), var_name='t2m'
                     )
         captured = capsys.readouterr()
         assert "Completed 10/11" in captured.out
@@ -956,8 +958,8 @@ class TestPlot3dVariableSlice:
             _, _ = plotter.plot_3d_variable_slice(da, lon, lat, level=2, var_name='qv')
         mock_create.assert_called_once()
         _, kwargs = mock_create.call_args
-        assert kwargs.get('lon_min') == pytest.approx(-180.0)
-        assert kwargs.get('lat_max') == pytest.approx(90.0)
+        assert kwargs['bounds'].lon_min == pytest.approx(-180.0)
+        assert kwargs['bounds'].lat_max == pytest.approx(90.0)
 
     def test_custom_title_is_forwarded(self: 'TestPlot3dVariableSlice') -> None:
         """
@@ -983,7 +985,7 @@ class TestPlot3dVariableSlice:
                 da, lon, lat, level=0, var_name='qv', title='My Custom Title'
             )
         _, kwargs = mock_create.call_args
-        assert kwargs.get('title') == 'My Custom Title'
+        assert kwargs['style'].title == 'My Custom Title'
 
     def test_default_title_uses_metadata(self: 'TestPlot3dVariableSlice') -> None:
         """
@@ -1009,8 +1011,8 @@ class TestPlot3dVariableSlice:
                 da, lon, lat, level=1, var_name='qv'
             )
         _, kwargs = mock_create.call_args
-        assert kwargs.get('title') is not None
-        assert 'Level 1' in kwargs['title'] or 'level' in kwargs['title'].lower()
+        assert kwargs['style'].title is not None
+        assert 'Level 1' in kwargs['style'].title or 'level' in kwargs['style'].title.lower()
 
 
 if __name__ == '__main__':

@@ -256,9 +256,9 @@ class TestPrecipitationWorkerCustomTitle:
         try:
             result = _precipitation_worker((1, kwargs))            
             call_args = mock_plotter.create_precipitation_map.call_args
-            assert 'title' in call_args[1]
-            assert 'Custom Precip' in call_args[1]['title']
-            assert result['time_str'] in call_args[1]['title']
+            assert 'style' in call_args[1]
+            assert 'Custom Precip' in call_args[1]['style'].title
+            assert result['time_str'] in call_args[1]['style'].title
         finally:
             _pw.MPASPrecipitationPlotter, _pw.PrecipitationDiagnostics = orig_plotter, orig_diag
 

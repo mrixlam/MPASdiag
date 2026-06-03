@@ -14,7 +14,8 @@ Version: 1.0.0
 # Load relevant MPASdiag modules 
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
@@ -72,8 +73,10 @@ cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' 
 
 # Create scatter plot of 2-meter temperature
 fig, ax = plotter.create_surface_map(
-  lon=lon, lat=lat, data=surface_var.values, var_name='t2m', lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max,
-  plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}', data_array=surface_var, config=cfg)
+  lon=lon, lat=lat, data=surface_var.values, var_name='t2m',
+  bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+  style=SurfaceMapStyle(plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}'),
+  data_array=surface_var, config=cfg)
 
 # Overlay cross-section transect lines
 plotter.draw_transect_lines(ax, TRANSECTS)

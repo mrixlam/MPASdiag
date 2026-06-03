@@ -20,7 +20,7 @@ from unittest.mock import patch
 import matplotlib.pyplot as plt
 
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
 
 from tests.visualization.cross_section_test_helpers import (
     GRID_FILE, 
@@ -78,9 +78,12 @@ class TestPlotTypeAndLabelingErrors:
         
         with pytest.raises(ValueError) as cm:
             _, _ = self.plotter.create_vertical_cross_section(
-                processor, 'theta', (-100, 30), (-90, 40),
-                plot_type='invalid_type'
-            )
+                       processor,
+                       'theta',
+                       (-100, 30),
+                       (-90, 40),
+                       style=CrossSectionStyle(plot_type='invalid_type'),
+                   )
         
         assert "Unknown plot_type" in str(cm.value)
     
@@ -100,9 +103,12 @@ class TestPlotTypeAndLabelingErrors:
         with patch('mpasdiag.visualization.cross_section.MPASFileMetadata') as mock_meta:
             mock_meta.get_variable_metadata.side_effect = Exception("Metadata error")
             fig, _ = plotter.create_vertical_cross_section(
-                processor, 'theta', (-100, 30), (-90, 40),
-                plot_type='contourf'
-            )
+                         processor,
+                         'theta',
+                         (-100, 30),
+                         (-90, 40),
+                         style=CrossSectionStyle(plot_type='contourf'),
+                     )
             plt.close(fig)
     
     def test_title_exception_handling(self: 'TestPlotTypeAndLabelingErrors') -> None:
@@ -162,15 +168,15 @@ class TestPlottingConfigurations:
             None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            (0, 30),
-            (20, 50),
-            vertical_coord='pressure',
-            colormap='coolwarm',
-            num_points=30,
-            time_index=0
-        )
+                     self.processor,
+                     'theta',
+                     (0, 30),
+                     (20, 50),
+                     vertical_coord='pressure',
+                     num_points=30,
+                     time_index=0,
+                     style=CrossSectionStyle(colormap='coolwarm'),
+                 )
         
         assert fig is not None
         plt.close(fig)
@@ -186,15 +192,15 @@ class TestPlottingConfigurations:
             None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            (5, 35),
-            (15, 45),
-            vertical_coord='pressure',
-            plot_type='pcolormesh',
-            num_points=25,
-            time_index=0
-        )
+                     self.processor,
+                     'theta',
+                     (5, 35),
+                     (15, 45),
+                     vertical_coord='pressure',
+                     num_points=25,
+                     time_index=0,
+                     style=CrossSectionStyle(plot_type='pcolormesh'),
+                 )
         
         assert fig is not None
         plt.close(fig)

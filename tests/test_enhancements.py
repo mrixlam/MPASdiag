@@ -33,6 +33,8 @@ else:
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from tests.test_data_helpers import load_mpas_coords_from_processor
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 
 class TestRefactoredFunctions:
@@ -175,12 +177,14 @@ class TestConditionalTimeDisplay:
             mock_fig.add_subplot.return_value = mock_ax
             
             _, _ = self.surface_plotter.create_surface_map(
-                lon=self.lon, lat=self.lat, data=self.data,
-                var_name='t2m',
-                lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
-                title=None,
-                time_stamp=self.test_time
-            )
+                       self.lon,
+                       self.lat,
+                       self.data,
+                       't2m',
+                       GeographicBounds(91.0, 113.0, -10.0, 12.0),
+                       style=SurfaceMapStyle(title=None),
+                       time_stamp=self.test_time,
+                   )
         
         title_calls = list(mock_ax.set_title.call_args_list)
         title_text = title_calls[0][0][0]  
@@ -209,12 +213,14 @@ class TestConditionalTimeDisplay:
             mock_fig.add_subplot.return_value = mock_ax
             
             _, _ = self.surface_plotter.create_surface_map(
-                lon=self.lon, lat=self.lat, data=self.data,
-                var_name='t2m',
-                lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
-                title="Custom Temperature Analysis",
-                time_stamp=self.test_time
-            )
+                       self.lon,
+                       self.lat,
+                       self.data,
+                       't2m',
+                       GeographicBounds(91.0, 113.0, -10.0, 12.0),
+                       style=SurfaceMapStyle(title="Custom Temperature Analysis"),
+                       time_stamp=self.test_time,
+                   )
         
         corner_text_calls = [call for call in text_calls 
                            if len(call[0]) >= 3 and 'Valid: 20240917T03' in str(call[0])]
@@ -237,12 +243,14 @@ class TestConditionalTimeDisplay:
             mock_fig.add_subplot.return_value = mock_ax
             
             _, _ = self.surface_plotter.create_surface_map(
-            lon=self.lon, lat=self.lat, data=self.data,
-            var_name='t2m',
-            lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
-            title="Temperature Analysis - Valid: 20240917T03",
-            time_stamp=self.test_time
-        )
+                       self.lon,
+                       self.lat,
+                       self.data,
+                       't2m',
+                       GeographicBounds(91.0, 113.0, -10.0, 12.0),
+                       style=SurfaceMapStyle(title="Temperature Analysis - Valid: 20240917T03"),
+                       time_stamp=self.test_time,
+                   )
         
         corner_text_calls = [call for call in text_calls 
                            if len(call[0]) >= 3 and 'Valid: 20240917T03' in str(call[0])]
@@ -265,12 +273,14 @@ class TestConditionalTimeDisplay:
             mock_fig.add_subplot.return_value = mock_ax
             
             _, _ = self.surface_plotter.create_surface_map(
-                lon=self.lon, lat=self.lat, data=self.data,
-                var_name='t2m',
-                lon_min=91.0, lon_max=113.0, lat_min=-10.0, lat_max=12.0,
-                title=None,
-                time_stamp=None
-            )
+                       self.lon,
+                       self.lat,
+                       self.data,
+                       't2m',
+                       GeographicBounds(91.0, 113.0, -10.0, 12.0),
+                       style=SurfaceMapStyle(title=None),
+                       time_stamp=None,
+                   )
             
             title_calls = list(mock_ax.set_title.call_args_list)
             title_text = title_calls[0][0][0]

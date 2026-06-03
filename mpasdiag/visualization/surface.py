@@ -18,6 +18,7 @@ import pandas as pd
 import xarray as xr
 import cartopy.crs as ccrs
 from datetime import datetime
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 import cartopy.feature as cfeature
@@ -30,6 +31,7 @@ from typing import Tuple, Optional, List, Union, Any, cast, Dict
 # Import MPASdiag modules for configuration, data processing, remapping, and visualization
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_unit import UnitConverter
+from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking, dispatch_remap
@@ -37,6 +39,21 @@ from .styling import MPASVisualizationStyle
 from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class SurfaceMapStyle:
+    """ Optional rendering and appearance settings for a surface map, grouping the title, plot type, colormap, contour levels, color limits, projection, grid resolution, and wind/surface overlay configurations into a single value object. """
+    title: Optional[str] = None
+    plot_type: str = 'scatter'
+    colormap: Optional[str] = None
+    levels: Optional[List[float]] = None
+    clim_min: Optional[float] = None
+    clim_max: Optional[float] = None
+    projection: str = 'PlateCarree'
+    grid_resolution: Optional[float] = None
+    wind_overlay: Optional[dict] = None
+    surface_overlay: Optional[dict] = None
 
 
 class MPASSurfacePlotter(MPASVisualizer):
@@ -481,10 +498,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                      lon_valid: np.ndarray,
                      lat_valid: np.ndarray,
                      data_valid: np.ndarray,
-                     filter_lon_min: float,
-                     filter_lon_max: float,
-                     filter_lat_min: float,
-                     filter_lat_max: float,
+                     bounds: GeographicBounds,
                      cmap_obj: mcolors.Colormap,
                      norm: Optional[mcolors.Normalize],
                      levels: Optional[List[float]],
@@ -500,10 +514,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             lon_valid (np.ndarray): Array of valid longitude values for plotting.
             lat_valid (np.ndarray): Array of valid latitude values for plotting.
             data_valid (np.ndarray): Array of valid data values for plotting.
-            filter_lon_min (float): Minimum longitude for the plotting extent.
-            filter_lon_max (float): Maximum longitude for the plotting extent.
-            filter_lat_min (float): Minimum latitude for the plotting extent.
-            filter_lat_max (float): Maximum latitude for the plotting extent.
+            bounds (GeographicBounds): Plotting extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             cmap_obj (mcolors.Colormap): Colormap object to use for plotting.
             norm (Optional[mcolors.Normalize]): Optional normalization instance for colormap scaling.
             levels (Optional[List[float]]): Optional list of contour levels for contour plotting.
@@ -515,6 +526,9 @@ class MPASSurfacePlotter(MPASVisualizer):
         Returns:
             None: This function renders the plot directly onto the GeoAxes instance and does not return any value.
         """
+        # Unpack the geographic extent so the downstream rendering logic remains unchanged.
+        filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max = bounds
+
         if plot_type == 'scatter':
             # For scatter plots, we call the helper that creates a scatter plot directly from the valid longitude, latitude, and data points 
             self._create_scatter_plot(lon_valid, lat_valid, data_valid, cmap_obj, norm, data_crs)
@@ -522,7 +536,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             # For contour plots, we call the helper that creates contour lines by interpolating the valid data points onto a regular lat-lon grid
             self._create_contour_plot(
                 lon_valid, lat_valid, data_valid,
-                filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
+                GeographicBounds(filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max),
                 cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
                 config=config,
             )
@@ -530,7 +544,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             # For filled contour plots, we call the helper that creates filled contours by interpolating the valid data points onto a regular lat-lon grid
             self._create_contourf_plot(
                 lon_valid, lat_valid, data_valid,
-                filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
+                GeographicBounds(filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max),
                 cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
                 config=config,
             )
@@ -538,7 +552,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             # For the 'both' option, we first create contour lines and then overlay a scatter plot of the valid points to show the original data locations on top of the contours
             self._create_contour_plot(
                 lon_valid, lat_valid, data_valid,
-                filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
+                GeographicBounds(filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max),
                 cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
                 config=config,
             )
@@ -644,22 +658,10 @@ class MPASSurfacePlotter(MPASVisualizer):
                            lat: np.ndarray,
                            data: Union[np.ndarray, xr.DataArray],
                            var_name: str,
-                           lon_min: float,
-                           lon_max: float,
-                           lat_min: float,
-                           lat_max: float,
-                           title: Optional[str] = None,
-                           plot_type: str = 'scatter',
-                           colormap: Optional[str] = None,
-                           levels: Optional[List[float]] = None,
-                           clim_min: Optional[float] = None,
-                           clim_max: Optional[float] = None,
-                           projection: str = 'PlateCarree',
+                           bounds: GeographicBounds,
+                           style: Optional[SurfaceMapStyle] = None,
                            time_stamp: Optional[datetime] = None,
                            data_array: Optional[xr.DataArray] = None,
-                           grid_resolution: Optional[float] = None,
-                           wind_overlay: Optional[dict] = None,
-                           surface_overlay: Optional[dict] = None,
                            level_index: Optional[int] = None,
                            level_value: Optional[float] = None,
                            dataset: Optional[xr.Dataset] = None,
@@ -672,30 +674,34 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat (np.ndarray): Array of latitude values corresponding to the data points.
             data (Union[np.ndarray, xr.DataArray]): Array of data values to be plotted, which can be a numpy array or an xarray DataArray.
             var_name (str): Variable name used for labeling and metadata extraction.
-            lon_min (float): Minimum longitude for the map extent.
-            lon_max (float): Maximum longitude for the map extent.
-            lat_min (float): Minimum latitude for the map extent.
-            lat_max (float): Maximum latitude for the map extent.
-            title (Optional[str]): Optional custom title for the plot. If not provided, a default title will be generated based on variable metadata.
-            plot_type (str): Type of plot to create ('scatter', 'contour', 'contourf', or 'both').
-            colormap (Optional[str]): Optional colormap name or identifier to use for plotting. If not provided, a default colormap will be used.
-            levels (Optional[List[float]]): Optional list of contour levels to use for contour plotting. If not provided, levels will be determined automatically.
-            clim_min (Optional[float]): Optional minimum color limit for normalization. If not provided, it will be determined from the data.
-            clim_max (Optional[float]): Optional maximum color limit for normalization. If not provided, it will be determined from the data.
-            projection (str): Map projection type to use for the plot (e.g., 'PlateCarree', 'Mercator', etc.).
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
+            style (Optional[SurfaceMapStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution, wind_overlay, surface_overlay). If None, defaults are used.
             time_stamp (Optional[datetime]): Optional timestamp to include in the title or annotations.
             data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the data, used for metadata extraction and unit conversion.
-            grid_resolution (Optional[float]): Optional grid resolution for contour interpolation if needed.
-            wind_overlay (Optional[dict]): Optional configuration for adding a wind overlay to the map.
-            surface_overlay (Optional[dict]): Optional configuration for adding an additional surface overlay to the map.
             level_index (Optional[int]): Optional index for selecting a vertical level from a multi-dimensional data array.
             level_value (Optional[float]): Optional value for selecting a vertical level from a multi-dimensional data array based on coordinate values.
-            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for remapping or interpolation of data for plotting.            
+            dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for remapping or interpolation of data for plotting.
 
         Returns:
             Tuple[Figure, Axes]: The figure and axes objects containing the rendered surface map for further manipulation or saving by the caller.
         """
-        # Validate that the requested plot_type is one of the supported options and raise a ValueError if not 
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if style is None:
+            style = SurfaceMapStyle()
+
+        title = style.title
+        plot_type = style.plot_type
+        colormap = style.colormap
+        levels = style.levels
+        clim_min = style.clim_min
+        clim_max = style.clim_max
+        projection = style.projection
+        grid_resolution = style.grid_resolution
+        wind_overlay = style.wind_overlay
+        surface_overlay = style.surface_overlay
+
+        # Validate that the requested plot_type is one of the supported options and raise a ValueError if not
         if plot_type not in ['scatter', 'contour', 'both', 'contourf']:
             raise ValueError(f"plot_type must be 'scatter', 'contour', 'contourf', or 'both', got '{plot_type}'")
         
@@ -751,7 +757,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Render the plot using the appropriate helper function based on the selected plot_type, passing in the filtered valid points, colormap, normalization, and other necessary parameters for plotting.
         self._render_plot(
             plot_type, lon_valid, lat_valid, data_valid,
-            filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max,
+            GeographicBounds(filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max),
             cmap_obj, norm, levels, data_crs, grid_resolution, dataset,
             config=config,
         )
@@ -1316,10 +1322,7 @@ class MPASSurfacePlotter(MPASVisualizer):
     def create_batch_surface_maps(self: 'MPASSurfacePlotter',
                                   processor: Any,
                                   output_dir: str,
-                                  lon_min: float,
-                                  lon_max: float,
-                                  lat_min: float,
-                                  lat_max: float,
+                                  bounds: GeographicBounds,
                                   var_name: str = 't2m',
                                   plot_type: str = 'scatter',
                                   file_prefix: str = 'mpas_surface',
@@ -1334,10 +1337,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         Parameters:
             processor (Any): The MPAS data processor instance that has a loaded dataset from which to extract variable data for plotting.
             output_dir (str): The directory where the generated surface map files will be saved.
-            lon_min (float): Minimum longitude for the surface map extent.
-            lon_max (float): Maximum longitude for the surface map extent.
-            lat_min (float): Minimum latitude for the surface map extent.
-            lat_max (float): Maximum latitude for the surface map extent.
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
             var_name (str): Name of the 2D surface variable to plot (e.g., 't2m').
             plot_type (str): Type of plot to create for the surface map, either 'scatter', 'contour', or 'contourf'.
             file_prefix (str): Prefix to use for the output file names of the generated surface maps.
@@ -1349,6 +1349,9 @@ class MPASSurfacePlotter(MPASVisualizer):
         Returns:
             List[str]: A list of file paths for all created surface map files across all requested formats.
         """
+        # Unpack the geographic extent 
+        lon_min, lon_max, lat_min, lat_max = bounds
+
         # Validate that the processor has a loaded dataset before attempting to create surface maps, and raise a ValueError if no dataset is available
         if processor.dataset is None:
             raise ValueError("No data loaded in processor")
@@ -1381,14 +1384,16 @@ class MPASSurfacePlotter(MPASVisualizer):
                 # Create the surface map for the current time step using the extracted data and coordinates, and the specified plotting parameters 
                 _, _ = self.create_surface_map(
                     lon, lat, var_data.values, var_name,
-                    lon_min, lon_max, lat_min, lat_max,
-                    title=title,
-                    plot_type=plot_type,
+                    GeographicBounds(lon_min, lon_max, lat_min, lat_max),
+                    style=SurfaceMapStyle(
+                        title=title,
+                        plot_type=plot_type,
+                        grid_resolution=grid_resolution,
+                        clim_min=clim_min,
+                        clim_max=clim_max,
+                    ),
                     time_stamp=time_end,
                     data_array=var_data,
-                    grid_resolution=grid_resolution,
-                    clim_min=clim_min,
-                    clim_max=clim_max,
                     dataset=processor.dataset,
                     config=config,
                 )
@@ -1540,14 +1545,13 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat=lat.flatten() if hasattr(lat, 'flatten') else lat,
             data=slice_2d.values.flatten(),
             var_name=var_name,
-            lon_min=-180.0,
-            lon_max=180.0,
-            lat_min=-90.0,
-            lat_max=90.0,
-            title=title if title is not None else default_title,
-            plot_type='contourf',
-            colormap=colormap,
-            levels=levels,
+            bounds=GeographicBounds(-180.0, 180.0, -90.0, 90.0),
+            style=SurfaceMapStyle(
+                title=title if title is not None else default_title,
+                plot_type='contourf',
+                colormap=colormap,
+                levels=levels,
+            ),
             level_index=level_idx,
         )
 
@@ -1582,11 +1586,16 @@ def create_surface_plot(lon: np.ndarray,
 
     # Unpack the extent tuple into individual longitude and latitude bounds for use in the surface map creation
     lon_min, lon_max, lat_min, lat_max = extent
-    
-    # Delegate the creation of the surface map to the plotter's create_surface_map method, passing all relevant parameters 
+
+    # Partition any extra keyword arguments into SurfaceMapStyle fields and pass-through arguments
+    style_field_names = set(SurfaceMapStyle.__dataclass_fields__)
+    style_kwargs = {k: kwargs.pop(k) for k in list(kwargs) if k in style_field_names}
+    style = SurfaceMapStyle(title=title, plot_type=plot_type, colormap=colormap, **style_kwargs)
+
+    # Delegate the creation of the surface map to the plotter's create_surface_map method, passing all relevant parameters
     return plotter.create_surface_map(
         lon, lat, data, var_name,
-        lon_min, lon_max, lat_min, lat_max,
-        title=title, plot_type=plot_type, colormap=colormap,
+        GeographicBounds(lon_min, lon_max, lat_min, lat_max),
+        style=style,
         **kwargs
     )

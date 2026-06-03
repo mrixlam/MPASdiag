@@ -24,6 +24,8 @@ from matplotlib.figure import Figure
 from typing import Tuple
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -75,11 +77,14 @@ class TestDataExtraction:
         data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data_3d, 't2m',
-            *self.extent_bounds,
-            level_index=3,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data_3d,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     level_index=3,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -97,11 +102,14 @@ class TestDataExtraction:
         data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data_3d, 't2m',
-            *self.extent_bounds,
-            level_value=850,  
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data_3d,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     level_value=850,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -119,10 +127,13 @@ class TestDataExtraction:
         data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data_3d, 't2m',
-            *self.extent_bounds,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data_3d,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -140,11 +151,14 @@ class TestDataExtraction:
         data_2d = np.tile(self.temp_data, (10, 1)).T 
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data_2d, 't2m',
-            *self.extent_bounds,
-            level_index=5,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data_2d,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     level_index=5,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -166,11 +180,14 @@ class TestDataExtraction:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data, 't2m',
-            *self.extent_bounds,
-            data_array=data,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     data_array=data,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -194,11 +211,14 @@ class TestDataExtraction:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data, 't2m',
-            *self.extent_bounds,
-            data_array=data_array,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     data_array=data_array,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -254,11 +274,14 @@ class TestUnitConversion:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data, 't2m',
-            *self.extent_bounds,
-            data_array=data,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     data_array=data,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -280,11 +303,14 @@ class TestUnitConversion:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, data, 't2m',
-            *self.extent_bounds,
-            data_array=data,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     data_array=data,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -323,9 +349,12 @@ class TestDataValidation:
         
         with pytest.raises(ValueError) as ctx:
             self.plotter.create_surface_map(
-                lon, lat, data, 't2m',
-                *self.extent_bounds,
-                plot_type='scatter'
+                lon,
+                lat,
+                data,
+                't2m',
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type='scatter'),
             )
         assert 'No valid data points' in str(ctx.value)
     
@@ -345,9 +374,12 @@ class TestDataValidation:
         
         with pytest.raises(ValueError) as ctx:
             self.plotter.create_surface_map(
-                lon, lat, data, 't2m',
-                *self.extent_bounds,
-                plot_type='scatter'
+                lon,
+                lat,
+                data,
+                't2m',
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type='scatter'),
             )
         assert 'No valid data points' in str(ctx.value)
 

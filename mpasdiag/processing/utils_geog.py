@@ -14,7 +14,15 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import Tuple
+from typing import NamedTuple, Tuple
+
+
+class GeographicBounds(NamedTuple):
+    """ Geographic map extent expressed as minimum/maximum longitude and latitude in degrees. """
+    lon_min: float
+    lon_max: float
+    lat_min: float
+    lat_max: float
 
 
 class MPASGeographicUtils:

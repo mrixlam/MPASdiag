@@ -26,6 +26,7 @@ from typing import Optional, Dict, Any, Tuple, Union, List
 
 # Import MPASdiag modules for configuration, data processing, remapping, and visualization
 from mpasdiag.processing.utils_unit import UnitConverter
+from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
 from mpasdiag.visualization.styling import MPASVisualizationStyle
@@ -960,10 +961,7 @@ class MPASWindPlotter(MPASVisualizer):
     def create_batch_wind_plots(self: 'MPASWindPlotter',
                                 processor: Any,
                                 output_dir: str,
-                                lon_min: float,
-                                lon_max: float,
-                                lat_min: float,
-                                lat_max: float,
+                                bounds: GeographicBounds,
                                 u_variable: str = 'u',
                                 v_variable: str = 'v',
                                 plot_type: str = 'barbs',
@@ -980,11 +978,8 @@ class MPASWindPlotter(MPASVisualizer):
         Parameters:
             processor (Any): An instance of the MPASDataProcessor class that has loaded the dataset containing the U and V component variables for plotting.
             output_dir (str): Directory path where the generated wind plot files will be saved.
-            lon_min (float): Minimum longitude boundary for the map extent in degrees east.
-            lon_max (float): Maximum longitude boundary for the map extent in degrees east.
-            lat_min (float): Minimum latitude boundary for the map extent in degrees north.
-            lat_max (float): Maximum latitude boundary for the map extent in degrees north.
-            u_variable (str): Name of the U-component variable in the dataset to be used for plotting (default: 'u').   
+            bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
+            u_variable (str): Name of the U-component variable in the dataset to be used for plotting (default: 'u').
             v_variable (str): Name of the V-component variable in the dataset to be used for plotting (default: 'v').
             plot_type (str): Type of wind vector plot ('barbs', 'arrows', or 'streamlines') to determine rendering method (default: 'barbs').
             formats (Optional[List[str]]): List of file formats (e.g., ['png', 'pdf']) to save the plots in; if None, defaults to ['png'] (default: None).
@@ -998,7 +993,10 @@ class MPASWindPlotter(MPASVisualizer):
         Returns:
             List[str]: A list of base file paths (without format extensions) for all successfully created wind plot files corresponding to each time step, which can be used for reference or further processing.
         """
-        # Set default formats to ['png'] if not provided to ensure that there is at least one output format for saving the plots.
+        # Unpack the geographic extent
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        # Set default formats to ['png'] 
         if formats is None:
             formats = ['png']
 

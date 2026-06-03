@@ -29,6 +29,8 @@ from typing import Generator, Iterator
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from tests.test_data_helpers import load_mpas_coords_from_processor
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 package_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(package_dir))
@@ -165,10 +167,13 @@ class TestEnhancedSurfacePlotting:
         temp_2d = self.temp_data[:self.n_cells]
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            title='Test 2D Temperature'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_2d,
+                      't2m',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test 2D Temperature'),
+                  )
         
         assert isinstance(fig, Figure)
         assert fig.axes[0] == ax
@@ -189,11 +194,14 @@ class TestEnhancedSurfacePlotting:
         temp_3d = np.tile(temp_base.reshape((self.n_cells,1,1)), (1,self.n_levels,1))
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_3d, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            level_index=5,
-            title='Test 3D Temperature at Level 5'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_3d,
+                      'temperature',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test 3D Temperature at Level 5'),
+                      level_index=5,
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Test 3D Temperature at Level 5' in ax.get_title()
@@ -212,11 +220,14 @@ class TestEnhancedSurfacePlotting:
         temp_levels = np.tile(self.temp_data[:self.n_cells].reshape((self.n_cells,1)), (1,self.n_levels))
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_levels, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            level_index=2, 
-            title='Test Multi-Level Temperature'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_levels,
+                      'temperature',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test Multi-Level Temperature'),
+                      level_index=2,
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Test Multi-Level Temperature' in ax.get_title()
@@ -245,11 +256,13 @@ class TestEnhancedSurfacePlotting:
         }
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            wind_overlay=wind_config,
-            title='Test Temperature with 2D Wind Overlay'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_2d,
+                      't2m',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test Temperature with 2D Wind Overlay', wind_overlay=wind_config),
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Test Temperature with 2D Wind Overlay' in ax.get_title()
@@ -279,11 +292,13 @@ class TestEnhancedSurfacePlotting:
         }
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            wind_overlay=wind_config,
-            title='Test Temperature with 3D Wind Overlay'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_2d,
+                      't2m',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test Temperature with 3D Wind Overlay', wind_overlay=wind_config),
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Test Temperature with 3D Wind Overlay' in ax.get_title()
@@ -313,11 +328,13 @@ class TestEnhancedSurfacePlotting:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            wind_overlay=wind_config,
-            title='Test Temperature with Wind Arrows'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_2d,
+                     't2m',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Test Temperature with Wind Arrows', wind_overlay=wind_config),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -353,13 +370,14 @@ class TestEnhancedSurfacePlotting:
         }
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_xr, 'temperature_850hpa', 
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            level_value=850,
-            wind_overlay=wind_config,
-            plot_type='both', 
-            title='850hPa Weather Analysis'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_xr,
+                      'temperature_850hpa',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='850hPa Weather Analysis', plot_type='both', wind_overlay=wind_config),
+                      level_value=850,
+                  )
         
         assert isinstance(fig, Figure)
         assert '850hPa Weather Analysis' in ax.get_title()
@@ -379,17 +397,23 @@ class TestEnhancedSurfacePlotting:
         
         for plot_type in ['scatter', 'contour', 'both']:
             fig, _ = self.visualizer.create_surface_map(
-                self.lon, self.lat, temp_2d, 't2m',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-                plot_type=plot_type
-            )
+                         self.lon,
+                         self.lat,
+                         temp_2d,
+                         't2m',
+                         GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                         style=SurfaceMapStyle(plot_type=plot_type),
+                     )
             assert isinstance(fig, Figure)
             
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon, self.lat, temp_2d, 't2m',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-                plot_type='invalid'
+                self.lon,
+                self.lat,
+                temp_2d,
+                't2m',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                style=SurfaceMapStyle(plot_type='invalid'),
             )
 
         assert "plot_type must be 'scatter', 'contour', 'contourf', or 'both'" in str(context.value)
@@ -415,9 +439,12 @@ class TestEnhancedSurfacePlotting:
         
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon, self.lat, temp_2d, 't2m',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-                wind_overlay=wind_config
+                self.lon,
+                self.lat,
+                temp_2d,
+                't2m',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                style=SurfaceMapStyle(wind_overlay=wind_config),
             )
 
         assert "plot_type must be 'barbs', 'arrows', or 'streamlines'" in str(context.value)
@@ -439,8 +466,11 @@ class TestEnhancedSurfacePlotting:
         
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon, self.lat, data_4d, 'temperature',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max
+                self.lon,
+                self.lat,
+                data_4d,
+                'temperature',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
             )
 
         assert "only 1D, 2D and 3D data are supported" in str(context.value)
@@ -460,8 +490,11 @@ class TestEnhancedSurfacePlotting:
         
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon, self.lat, temp_wrong_length, 'temperature',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max
+                self.lon,
+                self.lat,
+                temp_wrong_length,
+                'temperature',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
             )
 
         assert "must match coordinate arrays length" in str(context.value)
@@ -499,11 +532,13 @@ class TestEnhancedSurfacePlotting:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            lon_large, lat_large, temp_large, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            wind_overlay=wind_config,
-            title='Test Auto-Subsampling'
-        )
+                     lon_large,
+                     lat_large,
+                     temp_large,
+                     't2m',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Test Auto-Subsampling', wind_overlay=wind_config),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -525,8 +560,11 @@ class TestEnhancedSurfacePlotting:
         
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                lon_out_of_bounds, lat_out_of_bounds, temp_2d, 't2m',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max
+                lon_out_of_bounds,
+                lat_out_of_bounds,
+                temp_2d,
+                't2m',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
             )
 
         assert "No valid data points found within the specified map extent" in str(context.value)
@@ -546,11 +584,14 @@ class TestEnhancedSurfacePlotting:
         test_time = datetime(2024, 9, 17, 13, 0)
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            time_stamp=test_time,
-            title='Test with Timestamp'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_2d,
+                      't2m',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test with Timestamp'),
+                      time_stamp=test_time,
+                  )
         
         assert isinstance(fig, Figure)
         title_text = ax.get_title()
@@ -571,12 +612,13 @@ class TestEnhancedSurfacePlotting:
         custom_levels = [250.0, 260.0, 270.0, 280.0, 290.0, 300.0, 310.0]
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 't2m',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            colormap='coolwarm',
-            levels=custom_levels,
-            plot_type='contour'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_2d,
+                     't2m',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(plot_type='contour', colormap='coolwarm', levels=custom_levels),
+                 )
         
         assert isinstance(fig, Figure)
 
@@ -635,9 +677,12 @@ class TestDataTypeAgnosticFeatures:
         data_np = self.temp_data[:self.n_cells]
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, data_np, 't2m',
-            *self.bounds
-        )
+                     self.lon,
+                     self.lat,
+                     data_np,
+                     't2m',
+                     GeographicBounds(*self.bounds),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -660,9 +705,12 @@ class TestDataTypeAgnosticFeatures:
         )
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, data_xr, 'temperature', 
-            *self.bounds
-        )
+                     self.lon,
+                     self.lat,
+                     data_xr,
+                     'temperature',
+                     GeographicBounds(*self.bounds),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -694,10 +742,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_xr, 'temperature',
-            *self.bounds,
-            wind_overlay=wind_config
-        )
+                     self.lon,
+                     self.lat,
+                     temp_xr,
+                     'temperature',
+                     GeographicBounds(*self.bounds),
+                     style=SurfaceMapStyle(wind_overlay=wind_config),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -726,12 +777,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            surface_overlay=surface_config,
-            title='Test Temperature + Geopotential Height Overlay'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_2d,
+                      'temperature',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Test Temperature + Geopotential Height Overlay', plot_type='contourf', surface_overlay=surface_config),
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Test Temperature + Geopotential Height Overlay' in ax.get_title()
@@ -761,12 +813,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='scatter',
-            surface_overlay=surface_config,
-            title='Test Temperature + Pressure Overlay'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_2d,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Test Temperature + Pressure Overlay', plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -797,12 +850,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            surface_overlay=surface_config,
-            title='Test Temperature + 3D Geopotential Overlay'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_2d,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Test Temperature + 3D Geopotential Overlay', plot_type='contourf', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -842,13 +896,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, ax = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_850, 'temperature_850hpa',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            wind_overlay=wind_config,
-            surface_overlay=surface_config,
-            title='Complete 850hPa Analysis'
-        )
+                      self.lon,
+                      self.lat,
+                      temp_850,
+                      'temperature_850hpa',
+                      GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                      style=SurfaceMapStyle(title='Complete 850hPa Analysis', plot_type='contourf', wind_overlay=wind_config, surface_overlay=surface_config),
+                  )
         
         assert isinstance(fig, Figure)
         assert 'Complete 850hPa Analysis' in ax.get_title()
@@ -874,9 +928,12 @@ class TestDataTypeAgnosticFeatures:
         
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon, self.lat, temp_2d, 'temperature',
-                self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-                surface_overlay=surface_config
+                self.lon,
+                self.lat,
+                temp_2d,
+                'temperature',
+                GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                style=SurfaceMapStyle(surface_overlay=surface_config),
             )
             
         assert "Unsupported surface overlay plot_type: invalid_type" in str(context.value)
@@ -917,13 +974,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_2d, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            wind_overlay=wind_config,
-            surface_overlay=surface_config,
-            title='Test Multiple Overlays Interaction'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_2d,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Test Multiple Overlays Interaction', plot_type='contourf', wind_overlay=wind_config, surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
 
@@ -1110,22 +1167,24 @@ class TestDataTypeAgnosticFeatures:
         temp_data = 263.0 + 40.0 * ((u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12))
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_data, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            title='Temperature with Auto Settings'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_data,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Temperature with Auto Settings', plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_data, 'temperature',
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            colormap='plasma', 
-            levels=[270, 280, 290, 300],  
-            title='Temperature with Manual Override'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_data,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Temperature with Manual Override', plot_type='contourf', colormap='plasma', levels=[270, 280, 290, 300]),
+                 )
         
         assert isinstance(fig, Figure)
         
@@ -1153,12 +1212,13 @@ class TestDataTypeAgnosticFeatures:
         }
         
         fig, _ = self.visualizer.create_surface_map(
-            self.lon, self.lat, temp_data, 'temperature',  
-            self.lon_min, self.lon_max, self.lat_min, self.lat_max,
-            plot_type='contourf',
-            surface_overlay=surface_config,
-            title='Auto Settings: Temperature + Geopotential'
-        )
+                     self.lon,
+                     self.lat,
+                     temp_data,
+                     'temperature',
+                     GeographicBounds(self.lon_min, self.lon_max, self.lat_min, self.lat_max),
+                     style=SurfaceMapStyle(title='Auto Settings: Temperature + Geopotential', plot_type='contourf', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
 

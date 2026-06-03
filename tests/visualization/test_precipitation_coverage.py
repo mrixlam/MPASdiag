@@ -22,7 +22,8 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle, OverlayColorSpec, PrecipitationMapStyle
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 
 N_CELLS = 20
@@ -360,9 +361,11 @@ class TestCreatePrecipitationMapValidation:
         plotter = MPASPrecipitationPlotter()
         with pytest.raises(ValueError, match="plot_type must be"):
             plotter.create_precipitation_map(
-                _lon(), _lat(), _precip(),
-                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                plot_type='heatmap',
+                _lon(),
+                _lat(),
+                _precip(),
+                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                style=PrecipitationRenderStyle(plot_type='heatmap'),
             )
 
     def test_invalid_extent_raises(self: 'TestCreatePrecipitationMapValidation') -> None:
@@ -378,8 +381,10 @@ class TestCreatePrecipitationMapValidation:
         plotter = MPASPrecipitationPlotter()
         with pytest.raises(ValueError, match="Invalid plot extent"):
             plotter.create_precipitation_map(
-                _lon(), _lat(), _precip(),
-                LON_MAX, LON_MIN, LAT_MIN, LAT_MAX,  # lon flipped
+                _lon(),
+                _lat(),
+                _precip(),
+                GeographicBounds(LON_MAX, LON_MIN, LAT_MIN, LAT_MAX),
             )
 
 
@@ -402,9 +407,12 @@ class TestCreatePrecipitationMapContour:
             with patch.object(plotter, '_add_gridlines'):
                 with patch.object(plotter, 'add_timestamp_and_branding'):
                     _, _ = plotter.create_precipitation_map(
-                        lon, lat, data, LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                        plot_type='contour',
-                    )
+                               lon,
+                               lat,
+                               data,
+                               GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                               style=PrecipitationRenderStyle(plot_type='contour'),
+                           )
         assert mock_contour.call_count == 1
         plt.close('all')
 
@@ -723,9 +731,11 @@ class TestProcessSingleTimeStep:
                     with patch.object(plotter, 'close_plot'):
                         files = plotter._process_single_time_step(
                             proc, 1, _lon(), _lat(),
-                            LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                            'rainnc', 'a01h', 'scatter', None, None, None,
-                            None, str(tmp_path), 'test', ['png'],
+                            GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                            'rainnc', 'a01h', 'scatter', None,
+                            PrecipitationMapStyle(colormap=None, levels=None,
+                                                  custom_title_template=None, file_prefix='test'),
+                            str(tmp_path), ['png'],
                         )
 
         assert any('t001' in f for f in files)
@@ -758,7 +768,8 @@ class TestProcessSingleTimeStep:
             Returns:
                 tuple: A tuple of two MagicMock objects to mimic the expected return type of create_precipitation_map. 
             """
-            captured_title['title'] = kwargs.get('title', args[7] if len(args) > 7 else '')
+            style = kwargs.get('style')
+            captured_title['title'] = style.title if style is not None else ''
             return MagicMock(), MagicMock()
 
         with patch('mpasdiag.visualization.precipitation.PrecipitationDiagnostics') as mock_cls:
@@ -769,10 +780,12 @@ class TestProcessSingleTimeStep:
                     with patch.object(plotter, 'close_plot'):
                         plotter._process_single_time_step(
                             proc, 1, _lon(), _lat(),
-                            LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                            'rainnc', 'a01h', 'scatter', None, None, None,
-                            '{var_name}_{time_str}_{accum_period}',
-                            str(tmp_path), 'test', ['png'],
+                            GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                            'rainnc', 'a01h', 'scatter', None,
+                            PrecipitationMapStyle(colormap=None, levels=None,
+                                                  custom_title_template='{var_name}_{time_str}_{accum_period}',
+                                                  file_prefix='test'),
+                            str(tmp_path), ['png'],
                         )
         assert 'RAINNC' in captured_title.get('title', '')
 
@@ -793,7 +806,8 @@ class TestCreateBatchPrecipitationMaps:
         """
         plotter = MPASPrecipitationPlotter()
         with pytest.raises(ValueError, match="Processor cannot be None"):
-            plotter.create_batch_precipitation_maps(None, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+            plotter.create_batch_precipitation_maps(
+                None, str(tmp_path), GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX))
 
     def test_dataset_none_raises(self: 'TestCreateBatchPrecipitationMaps', 
                                  tmp_path: 'Path') -> None:
@@ -810,7 +824,8 @@ class TestCreateBatchPrecipitationMaps:
         proc = MagicMock()
         proc.dataset = None
         with pytest.raises(ValueError, match="No data loaded"):
-            plotter.create_batch_precipitation_maps(proc, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+            plotter.create_batch_precipitation_maps(
+                proc, str(tmp_path), GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX))
 
     def test_empty_time_indices_returns_empty_list(self: 'TestCreateBatchPrecipitationMaps', 
                                                    tmp_path: 'Path') -> None:
@@ -829,7 +844,7 @@ class TestCreateBatchPrecipitationMaps:
         proc.extract_2d_coordinates_for_variable.return_value = (_lon(), _lat())
 
         result = plotter.create_batch_precipitation_maps(
-            proc, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
+            proc, str(tmp_path), GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
             accum_period='a24h',
         )
         assert result == []
@@ -854,7 +869,7 @@ class TestCreateBatchPrecipitationMaps:
 
         with patch.object(plotter, '_process_single_time_step', return_value=['file.png']):
             result = plotter.create_batch_precipitation_maps(
-                proc, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
+                proc, str(tmp_path), GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
                 accum_period='a01h',
             )
 
@@ -883,7 +898,7 @@ class TestCreateBatchPrecipitationMaps:
         with patch.object(plotter, '_process_single_time_step',
                           side_effect=RuntimeError("plot failed")):
             result = plotter.create_batch_precipitation_maps(
-                proc, str(tmp_path), LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
+                proc, str(tmp_path), GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
                 accum_period='a01h',
             )
 
@@ -932,11 +947,19 @@ class TestRenderOverlayInterpolated:
 
         with patch('mpasdiag.visualization.precipitation.dispatch_remap', return_value=remapped):
             plotter._render_overlay_interpolated(
-                mock_ax, lon, lat, _precip(),
-                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                'contourf', 0.5, 'precipitation', None,
-                plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7,
-                lon, lat, config=mock_config,
+                mock_ax,
+                lon,
+                lat,
+                _precip(),
+                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                'contourf',
+                0.5,
+                'precipitation',
+                None,
+                OverlayColorSpec(plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7),
+                lon,
+                lat,
+                config=mock_config,
             )
 
         mock_ax.contourf.assert_called_once()
@@ -963,11 +986,19 @@ class TestRenderOverlayInterpolated:
         with patch('mpasdiag.visualization.precipitation.dispatch_remap',
                    return_value=remapped) as mock_dispatch:
             plotter._render_overlay_interpolated(
-                mock_ax, lon, lat, _precip(),
-                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                'contourf', 0.5, 'precipitation', None,  
-                plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7,
-                lon, lat, config=mock_config,
+                mock_ax,
+                lon,
+                lat,
+                _precip(),
+                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                'contourf',
+                0.5,
+                'precipitation',
+                None,
+                OverlayColorSpec(plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7),
+                lon,
+                lat,
+                config=mock_config,
             )
 
         assert mock_dispatch.called
@@ -996,11 +1027,19 @@ class TestRenderOverlayInterpolated:
                                    '.remap_mpas_to_latlon_with_masking',
                                    return_value=remapped):
                             plotter._render_overlay_interpolated(
-                                mock_ax, lon, lat, _precip(),
-                                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                                'contourf', 0.5, 'precipitation', None,
-                                plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7,
-                                lon, lat, config=None,
+                                mock_ax,
+                                lon,
+                                lat,
+                                _precip(),
+                                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                                'contourf',
+                                0.5,
+                                'precipitation',
+                                None,
+                                OverlayColorSpec(plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7),
+                                lon,
+                                lat,
+                                config=None,
                             )
 
         mock_ax.contourf.assert_called_once()
@@ -1023,11 +1062,19 @@ class TestRenderOverlayInterpolated:
         with patch('mpasdiag.visualization.precipitation.remap_mpas_to_latlon_with_masking',
                    return_value=remapped):
             plotter._render_overlay_interpolated(
-                mock_ax, lon, lat, _precip(),
-                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                'contour', 0.5, 'precipitation', None,
-                plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7,
-                lon, lat, config=None,
+                mock_ax,
+                lon,
+                lat,
+                _precip(),
+                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                'contour',
+                0.5,
+                'precipitation',
+                None,
+                OverlayColorSpec(plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7),
+                lon,
+                lat,
+                config=None,
             )
 
         mock_ax.contour.assert_called_once()
@@ -1052,11 +1099,19 @@ class TestRenderOverlayInterpolated:
         with patch('mpasdiag.visualization.precipitation.remap_mpas_to_latlon_with_masking',
                    return_value=remapped):
             plotter._render_overlay_interpolated(
-                mock_ax, lon, lat, _precip(),
-                LON_MIN, LON_MAX, LAT_MIN, LAT_MAX,
-                'contour', 0.5, 'precipitation', None,
-                plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7,
-                lon, lat, config=None,
+                mock_ax,
+                lon,
+                lat,
+                _precip(),
+                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
+                'contour',
+                0.5,
+                'precipitation',
+                None,
+                OverlayColorSpec(plt.get_cmap('Blues'), MagicMock(), [1., 2., 5.], 0.7),
+                lon,
+                lat,
+                config=None,
             )
 
 

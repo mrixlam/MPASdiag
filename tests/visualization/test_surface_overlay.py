@@ -22,6 +22,8 @@ from matplotlib.figure import Figure
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -86,11 +88,13 @@ class TestWindOverlay:
             mock_wind.return_value = mock_wind_instance
             
             fig, _ = self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                wind_overlay=wind_config,
-                plot_type='scatter'
-            )
+                         self.lon,
+                         self.lat,
+                         self.data,
+                         't2m',
+                         GeographicBounds(*self.extent_bounds),
+                         style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
+                     )
             
             mock_wind_instance.add_wind_overlay.assert_called_once()
         
@@ -115,10 +119,12 @@ class TestWindOverlay:
             
             with pytest.raises(ValueError):
                 self.plotter.create_surface_map(
-                    self.lon, self.lat, self.data, 't2m',
-                    *self.extent_bounds,
-                    wind_overlay=wind_config,
-                    plot_type='scatter'
+                    self.lon,
+                    self.lat,
+                    self.data,
+                    't2m',
+                    GeographicBounds(*self.extent_bounds),
+                    style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
                 )
     
     def test_wind_overlay_other_exception(self: 'TestWindOverlay') -> None:
@@ -139,11 +145,13 @@ class TestWindOverlay:
             mock_wind_instance.add_wind_overlay.side_effect = RuntimeError("Wind overlay failed")
             
             fig, _ = self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                wind_overlay=wind_config,
-                plot_type='scatter'
-            )
+                         self.lon,
+                         self.lat,
+                         self.data,
+                         't2m',
+                         GeographicBounds(*self.extent_bounds),
+                         style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
+                     )
             
             assert isinstance(fig, Figure)
         
@@ -201,11 +209,13 @@ class TestSurfaceOverlay:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -227,10 +237,12 @@ class TestSurfaceOverlay:
         
         with pytest.raises(ValueError):
             self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                surface_overlay=surface_config,
-                plot_type='scatter'
+                self.lon,
+                self.lat,
+                self.data,
+                't2m',
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
             )
     
     def test_surface_overlay_other_exception(self: 'TestSurfaceOverlay') -> None:
@@ -246,11 +258,13 @@ class TestSurfaceOverlay:
         surface_config = {'data': None}
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -305,10 +319,12 @@ class TestSurfaceOverlayMethod:
         
         with pytest.raises(ValueError) as exc_info:
             self.plotter.create_surface_map(
-                self.lon, self.lat, self.temp_data, 't2m',
-                *self.extent_bounds,
-                surface_overlay=surface_config,
-                plot_type='scatter'
+                self.lon,
+                self.lat,
+                self.temp_data,
+                't2m',
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
             )
         assert 'Unsupported surface overlay plot_type' in str(exc_info.value)
     
@@ -331,11 +347,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -358,11 +376,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -385,11 +405,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -414,11 +436,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -440,11 +464,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -467,11 +493,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -492,11 +520,13 @@ class TestSurfaceOverlayMethod:
         }
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.temp_data, 't2m',
-            *self.extent_bounds,
-            surface_overlay=surface_config,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.temp_data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -546,11 +576,13 @@ class TestInterpolation:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            grid_resolution=0.5
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', grid_resolution=0.5),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -567,10 +599,12 @@ class TestInterpolation:
         """
         with pytest.raises((ValueError, Exception)):
             self.plotter.create_surface_map(
-                self.lon, self.lat, self.data, 't2m',
-                *self.extent_bounds,
-                plot_type='contourf',
-                grid_resolution=-0.5
+                self.lon,
+                self.lat,
+                self.data,
+                't2m',
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type='contourf', grid_resolution=-0.5),
             )
     
     def test_interpolation_with_fixed_resolution(self: 'TestInterpolation') -> None:
@@ -584,11 +618,13 @@ class TestInterpolation:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            plot_type='contourf',
-            grid_resolution=50
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf', grid_resolution=50),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -613,10 +649,13 @@ class TestInterpolation:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            lon, lat, data, 't2m',
-            *extent_bounds,
-            plot_type='contourf'
-        )
+                     lon,
+                     lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*extent_bounds),
+                     style=SurfaceMapStyle(plot_type='contourf'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)

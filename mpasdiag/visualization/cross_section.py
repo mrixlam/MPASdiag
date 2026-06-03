@@ -20,8 +20,9 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+from scipy.spatial import KDTree
+from dataclasses import dataclass
 from math import radians, degrees, sin, cos, atan2, sqrt, asin
-from scipy.spatial import KDTree 
 from typing import Tuple, Optional, List, Dict, Any, Union, cast
 
 from .base_visualizer import MPASVisualizer
@@ -32,6 +33,16 @@ from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class CrossSectionStyle:
+    """ Optional appearance and file-naming settings for batch cross-section plots, grouping contour levels, colormap, colorbar extend direction, plot type, and output filename prefix into a single value object. """
+    levels: Optional[np.ndarray] = None
+    colormap: Optional[Union[str, mcolors.Colormap]] = None
+    extend: str = 'both'
+    plot_type: str = 'contourf'
+    file_prefix: str = 'mpas_cross_section'
 
 
 class MPASVerticalCrossSectionPlotter(MPASVisualizer):
@@ -387,14 +398,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                       time_index: int = 0, 
                                       vertical_coord: str = 'pressure', 
                                       display_vertical: Optional[str] = None, 
-                                      num_points: int = 100, 
-                                      levels: Optional[np.ndarray] = None, 
-                                      colormap: Optional[Union[str, mcolors.Colormap]] = None, 
-                                      extend: str = 'both', 
-                                      plot_type: str = 'contourf', 
-                                      save_path: Optional[str] = None, 
-                                      title: Optional[str] = None, 
-                                      max_height: Optional[float] = None, 
+                                      num_points: int = 100,
+                                      save_path: Optional[str] = None,
+                                      title: Optional[str] = None,
+                                      max_height: Optional[float] = None,
+                                      style: Optional[CrossSectionStyle] = None,
                                       **kwargs: Any) -> Tuple[Figure, Axes]:
         """
         This method creates a vertical cross-section plot for a specified 3D atmospheric variable along a user-defined transect between two geographic points. It first validates the input processor and variable, then generates the cross-section data by interpolating the 3D variable along the great-circle path defined by the start and end points. The method handles unit conversions, applies variable-specific styling, and renders the plot using the specified plot type (filled contour, contour, or pcolormesh). It formats the axes based on the vertical coordinate system, adds titles and colorbars, and includes options for saving the figure. The method returns the matplotlib figure and axes objects containing the generated cross-section plot for further customization or display. 
@@ -408,18 +416,23 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev') for data extraction (default: 'pressure').
             display_vertical (Optional[str]): Desired vertical coordinate type for display ('pressure', 'height', 'modlev'); if None, uses vertical_coord type (default: None).
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting (default: 100).
-            levels (Optional[np.ndarray]): Array of contour levels to use for plotting; if None, levels are automatically determined based on data range and variable type (default: None).
-            colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for plotting; if None, a default colormap is selected based on variable type and styling rules (default: None).
-            extend (str): Contour extend option for out-of-range values ('neither', 'both', 'min', 'max') when using filled contours (default: 'both').
-            plot_type (str): Type of plot to create ('contourf', 'contour', 'pcolormesh') with different rendering styles for the cross-section visualization (default: 'contourf').
             save_path (Optional[str]): File path to save the generated figure; if None, the figure is not saved to disk (default: None).
             title (Optional[str]): Title for the plot; if None, a default title is generated based on variable name and time information (default: None).
             max_height (Optional[float]): Maximum height in kilometers to display on the vertical axis; if None, full height range is shown based on data and vertical coordinate system (default: None).
-            **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization. 
+            style (Optional[CrossSectionStyle]): Appearance settings (levels, colormap, extend, plot_type). If None, defaults are used.
+            **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization.
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib figure and axes objects containing the generated vertical cross-section plot. 
         """
+        if style is None:
+            style = CrossSectionStyle()
+
+        levels = style.levels
+        colormap = style.colormap
+        extend = style.extend
+        plot_type = style.plot_type
+
         self._validate_cross_section_inputs(mpas_3d_processor, var_name)
 
         logger.info("Creating vertical cross-section for %s", var_name)
@@ -1513,13 +1526,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                  total_times: int,
                                  vertical_coord: str,
                                  num_points: int,
-                                 levels: Optional[np.ndarray],
-                                 colormap: Optional[Union[str, mcolors.Colormap]],
-                                 extend: str,
-                                 plot_type: str,
                                  max_height: Optional[float],
-                                 file_prefix: str,
-                                 formats: List[str],) -> List[str]:
+                                 formats: List[str],
+                                 style: CrossSectionStyle,) -> List[str]:
         """
         This helper method processes a single time step for creating a vertical cross-section plot in the batch processing workflow. It retrieves a formatted time string for the current time index, constructs a descriptive title for the plot, and calls the create_vertical_cross_section method with the appropriate parameters. After creating the plot, it constructs the output file path based on the variable name, vertical coordinate type, and time information, saves the plot in the specified formats, and returns a list of created file paths. This method encapsulates the logic for handling each time step in the batch process, including error handling and progress updates. 
 
@@ -1533,13 +1542,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             total_times (int): Total number of time steps to process, used for progress updates.
             vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev').
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting.
-            levels (Optional[np.ndarray]): Optional array of contour levels; if None, levels are determined automatically.
-            colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for filled contour plots; can be a string name or a Matplotlib colormap object.
-            extend (str): Direction to extend the colormap for out-of-range values ('neither', 'both', 'min', 'max').
-            plot_type (str): Type of plot to create ('contourf' or 'contour_lines').
             max_height (Optional[float]): Maximum height to display in the plot; if None, the full range is used.
-            file_prefix (str): Prefix for the output file names.
             formats (List[str]): List of file formats to save the plot (e.g., ['png', 'pdf']).
+            style (CrossSectionStyle): Appearance and file-naming settings (levels, colormap, extend, plot_type, file_prefix).
 
         Returns:
             List[str]: A list of file paths for the created cross-section plot in the specified formats.
@@ -1557,19 +1562,16 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             time_index=time_idx,
             vertical_coord=vertical_coord,
             num_points=num_points,
-            levels=levels,
-            colormap=colormap,
-            extend=extend,
-            plot_type=plot_type,
             max_height=max_height,
             title=title,
+            style=style,
         )
 
         height_suffix = f"_maxh_{int(max_height)}km" if max_height else ""
 
         output_path = os.path.join(
             output_dir,
-            f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{time_str}{height_suffix}",
+            f"{style.file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{time_str}{height_suffix}",
         )
 
         self.save_plot(output_path, formats=formats)
@@ -1583,21 +1585,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         return [f"{output_path}.{fmt}" for fmt in formats]
 
-    def create_batch_cross_section_plots(self: 'MPASVerticalCrossSectionPlotter', 
-                                         mpas_3d_processor: 'MPAS3DProcessor', 
-                                         output_dir: str, 
-                                         var_name: str, 
-                                         start_point: Tuple[float, float], 
-                                         end_point: Tuple[float, float], 
-                                         vertical_coord: str = 'pressure', 
-                                         num_points: int = 100, 
-                                         levels: Optional[np.ndarray] = None, 
-                                         colormap: Optional[Union[str, mcolors.Colormap]] = None, 
-                                         extend: str = 'both', 
-                                         plot_type: str = 'contourf', 
-                                         max_height: Optional[float] = None, 
-                                         file_prefix: str = 'mpas_cross_section', 
-                                         formats: List[str] = ['png']) -> List[str]:
+    def create_batch_cross_section_plots(self: 'MPASVerticalCrossSectionPlotter',
+                                         mpas_3d_processor: 'MPAS3DProcessor',
+                                         output_dir: str,
+                                         var_name: str,
+                                         start_point: Tuple[float, float],
+                                         end_point: Tuple[float, float],
+                                         vertical_coord: str = 'pressure',
+                                         num_points: int = 100,
+                                         max_height: Optional[float] = None,
+                                         formats: List[str] = ['png'],
+                                         style: Optional[CrossSectionStyle] = None) -> List[str]:
         """
         This method creates vertical cross-section plots for a specified 3D atmospheric variable across all available time steps in the MPAS dataset. It generates a plot for each time step, saving them to the specified output directory with filenames that include the variable name, vertical coordinate type, and valid time information. The method handles various vertical coordinate systems (pressure, height, model levels) and allows for customization of contour levels, colormap, plot type, and maximum height. It includes error handling to ensure that issues with data loading or variable availability are reported clearly, and it provides progress updates during batch processing. The resulting list of created file paths is returned upon completion. 
 
@@ -1609,17 +1607,16 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees.
             vertical_coord (str): Type of vertical coordinate to use ('pressure', 'height', 'modlev').
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting.
-            levels (Optional[np.ndarray]): Optional array of contour levels; if None, levels are determined automatically.
-            colormap (Optional[Union[str, mcolors.Colormap]]): Colormap to use for filled contour plots; can be a string name or a Matplotlib colormap object.
-            extend (str): Direction to extend the colormap for out-of-range values ('neither', 'both', 'min', 'max').
-            plot_type (str): Type of plot to create ('contourf' or 'contour_lines').
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data.
-            file_prefix (str): Prefix for the output filenames; additional information will be appended to this prefix.
-            formats (List[str]): List of file formats to save the plots in (e.g., ['png', 'pdf']). 
+            formats (List[str]): List of file formats to save the plots in (e.g., ['png', 'pdf']).
+            style (Optional[CrossSectionStyle]): Appearance and file-naming settings (levels, colormap, extend, plot_type, file_prefix). If None, defaults are used.
 
         Returns:
-            List[str]: A list of file paths for the created cross-section plots in the specified formats.  
+            List[str]: A list of file paths for the created cross-section plots in the specified formats.
         """
+        if style is None:
+            style = CrossSectionStyle()
+
         if not isinstance(mpas_3d_processor, MPAS3DProcessor):
             raise ValueError("mpas_3d_processor must be an instance of MPAS3DProcessor")
 
@@ -1654,8 +1651,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 step_files = self._process_batch_time_step(
                     mpas_3d_processor, output_dir, var_name,
                     start_point, end_point, time_idx, total_times,
-                    vertical_coord, num_points, levels, colormap,
-                    extend, plot_type, max_height, file_prefix, formats,
+                    vertical_coord, num_points, max_height, formats, style,
                 )
                 created_files.extend(step_files)
             except Exception as e:

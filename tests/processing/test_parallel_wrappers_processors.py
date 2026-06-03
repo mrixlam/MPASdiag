@@ -29,9 +29,12 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
     ParallelWindProcessor,
-    ParallelCrossSectionProcessor
+    ParallelCrossSectionProcessor,
+    RemapConfig,
+    WindBatchStyle,
 )
 from tests.test_data_helpers import assert_expected_public_methods
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
 GRID_FILE = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
@@ -290,12 +293,11 @@ class TestParallelPrecipitationProcessor:
 
         try:
             result = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                time_indices=[2, 3]
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         time_indices=[2, 3],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             
             assert result is not None
             mock_manager.parallel_map.assert_called_once()
@@ -380,13 +382,12 @@ class TestParallelSurfaceProcessor:
 
         try:
             result = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                var_name='t2m',
-                time_indices=[0, 1]
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         var_name='t2m',
+                         time_indices=[0, 1],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             
             assert result is not None
         finally:
@@ -468,14 +469,13 @@ class TestParallelWindProcessor:
 
         try:
             result = ParallelWindProcessor.create_batch_wind_plots_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                u_variable='u10',
-                v_variable='v10',
-                time_indices=[0, 1]
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         u_variable='u10',
+                         v_variable='v10',
+                         time_indices=[0, 1],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             
             assert result is not None
         finally:
@@ -620,12 +620,11 @@ class TestEdgeCases:
 
         try:
             result = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-                processor=mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                time_indices=[2]
-            )
+                         processor=mock_processor,
+                         output_dir=self.temp_dir,
+                         time_indices=[2],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             
             assert result is not None or result is None  
         finally:
@@ -682,13 +681,12 @@ class TestParallelPrecipitationProcessorEdgeCases:
             None
         """
         result = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-            processor=self.mock_processor,
-            output_dir=self.temp_dir,
-            lon_min=-120, lon_max=-80,
-            lat_min=30, lat_max=50,
-            accum_period='a06h',
-            time_indices=[0, 1, 2],
-        )
+                     processor=self.mock_processor,
+                     output_dir=self.temp_dir,
+                     accum_period='a06h',
+                     time_indices=[0, 1, 2],
+                     bounds=GeographicBounds(-120, -80, 30, 50),
+                 )
         assert result == []
 
     def test_mpi_mode_without_data_dir_raises_attribute_error(self: 'TestParallelPrecipitationProcessorEdgeCases',) -> None:
@@ -719,9 +717,8 @@ class TestParallelPrecipitationProcessorEdgeCases:
                 ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
                     processor=processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
                     time_indices=[2, 3],
+                    bounds=GeographicBounds(-120, -80, 30, 50),
                 )
         finally:
             _pw.MPASParallelManager = orig_mgr
@@ -755,11 +752,10 @@ class TestParallelPrecipitationProcessorEdgeCases:
                 ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
                     processor=self.mock_processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
                     time_indices=[2, 3],
-                    weights_dir=self.temp_dir,
                     grid_resolution=0.5,
+                    bounds=GeographicBounds(-120, -80, 30, 50),
+                    remap_config=RemapConfig(weights_dir=self.temp_dir),
                 )
                 mock_pre.assert_called_once()
         finally:
@@ -791,13 +787,12 @@ class TestParallelPrecipitationProcessorEdgeCases:
 
         try:
             result = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                accum_period='a01h',
-                time_indices=None,
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         accum_period='a01h',
+                         time_indices=None,
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert isinstance(result, list)
             mock_manager.parallel_map.assert_called_once()
         finally:
@@ -866,9 +861,8 @@ class TestParallelSurfaceProcessorEdgeCases:
                 ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
                     processor=processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
                     time_indices=[0, 1],
+                    bounds=GeographicBounds(-120, -80, 30, 50),
                 )
         finally:
             _pw.MPASParallelManager = orig_mgr
@@ -906,9 +900,8 @@ class TestParallelSurfaceProcessorEdgeCases:
                 ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
                     processor=self.mock_processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
                     time_indices=[0, 1],
+                    bounds=GeographicBounds(-120, -80, 30, 50),
                 )
             assert "Could not pre-load coordinates" in f.getvalue()
         finally:
@@ -938,12 +931,11 @@ class TestParallelSurfaceProcessorEdgeCases:
 
         try:
             result = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                time_indices=[0, 1],
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         time_indices=[0, 1],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert result is None
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
@@ -973,12 +965,11 @@ class TestParallelSurfaceProcessorEdgeCases:
 
         try:
             result = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                time_indices=None,
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         time_indices=None,
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert isinstance(result, list)
             mock_manager.parallel_map.assert_called_once()
         finally:
@@ -1010,12 +1001,11 @@ class TestParallelSurfaceProcessorEdgeCases:
 
         try:
             result = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                time_indices=[0, 1],
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         time_indices=[0, 1],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert isinstance(result, list)
             mock_manager.parallel_map.assert_called_once()
         finally:
@@ -1074,13 +1064,11 @@ class TestParallelWindProcessorEdgeCases:
                 processor=processor,
                 is_mpi_mode=True,
                 output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                u_variable='u10', v_variable='v10',
-                plot_type='barbs', subsample=1,
-                scale=None, show_background=False,
-                grid_resolution=None, regrid_method='linear',
+                u_variable='u10',
+                v_variable='v10',
                 formats=['png'],
+                bounds=GeographicBounds(-120, -80, 30, 50),
+                style=WindBatchStyle(plot_type='barbs', subsample=1, scale=None, show_background=False, grid_resolution=None, regrid_method='linear'),
             )
 
     def test_cache_preload_exception_shows_warning(self: 'TestParallelWindProcessorEdgeCases',) -> None:
@@ -1116,10 +1104,10 @@ class TestParallelWindProcessorEdgeCases:
                 ParallelWindProcessor.create_batch_wind_plots_parallel(
                     processor=self.mock_processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
-                    u_variable='u10', v_variable='v10',
+                    u_variable='u10',
+                    v_variable='v10',
                     time_indices=[0, 1],
+                    bounds=GeographicBounds(-120, -80, 30, 50),
                 )
             assert "Could not pre-load coordinates" in f.getvalue()
         finally:
@@ -1156,12 +1144,11 @@ class TestParallelWindProcessorEdgeCases:
                 ParallelWindProcessor.create_batch_wind_plots_parallel(
                     processor=self.mock_processor,
                     output_dir=self.temp_dir,
-                    lon_min=-120, lon_max=-80,
-                    lat_min=30, lat_max=50,
-                    u_variable='u10', v_variable='v10',
-                    show_background=True,
-                    grid_resolution=0.5,
+                    u_variable='u10',
+                    v_variable='v10',
                     time_indices=[0, 1],
+                    bounds=GeographicBounds(-120, -80, 30, 50),
+                    style=WindBatchStyle(show_background=True, grid_resolution=0.5),
                 )
             output = f.getvalue()
             assert "Background wind speed field: enabled" in output
@@ -1193,13 +1180,13 @@ class TestParallelWindProcessorEdgeCases:
 
         try:
             result = ParallelWindProcessor.create_batch_wind_plots_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                u_variable='u10', v_variable='v10',
-                time_indices=[0, 1],
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         u_variable='u10',
+                         v_variable='v10',
+                         time_indices=[0, 1],
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert result is None
         finally:
             _pw.MPASParallelManager, _pw.MPASDataCache = orig_mgr, orig_cache
@@ -1229,13 +1216,13 @@ class TestParallelWindProcessorEdgeCases:
 
         try:
             result = ParallelWindProcessor.create_batch_wind_plots_parallel(
-                processor=self.mock_processor,
-                output_dir=self.temp_dir,
-                lon_min=-120, lon_max=-80,
-                lat_min=30, lat_max=50,
-                u_variable='u10', v_variable='v10',
-                time_indices=None,
-            )
+                         processor=self.mock_processor,
+                         output_dir=self.temp_dir,
+                         u_variable='u10',
+                         v_variable='v10',
+                         time_indices=None,
+                         bounds=GeographicBounds(-120, -80, 30, 50),
+                     )
             assert isinstance(result, list)
             mock_manager.parallel_map.assert_called_once()
         finally:
@@ -1255,17 +1242,15 @@ class TestParallelWindProcessorEdgeCases:
         self.mock_processor.data_dir = '/fake/data'
 
         result = ParallelWindProcessor._build_wind_worker_kwargs(
-            processor=self.mock_processor,
-            is_mpi_mode=True,
-            output_dir=self.temp_dir,
-            lon_min=-120, lon_max=-80,
-            lat_min=30, lat_max=50,
-            u_variable='u10', v_variable='v10',
-            plot_type='barbs', subsample=1,
-            scale=None, show_background=False,
-            grid_resolution=None, regrid_method='linear',
-            formats=['png'],
-        )
+                     processor=self.mock_processor,
+                     is_mpi_mode=True,
+                     output_dir=self.temp_dir,
+                     u_variable='u10',
+                     v_variable='v10',
+                     formats=['png'],
+                     bounds=GeographicBounds(-120, -80, 30, 50),
+                     style=WindBatchStyle(plot_type='barbs', subsample=1, scale=None, show_background=False, grid_resolution=None, regrid_method='linear'),
+                 )
         assert 'grid_file' in result
         assert 'data_dir' in result
         assert result['grid_file'] == '/fake/grid.nc'

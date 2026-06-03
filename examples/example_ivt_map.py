@@ -19,7 +19,8 @@ import numpy as np
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
 from mpasdiag.visualization.wind import MPASWindPlotter
 
 # Specify the path to sample data and grid file
@@ -114,14 +115,13 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=ivt_mag,
     var_name='ivt',
-    lon_min=cfg.lon_min,
-    lon_max=cfg.lon_max,
-    lat_min=cfg.lat_min,
-    lat_max=cfg.lat_max,
-    plot_type='contourf',
-    grid_resolution=0.1,
-    levels=custom_levels,
-    title=f'Vertically Integrated Water Vapor Transport (IVT) | Valid Time: {valtime_str}',
+    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=SurfaceMapStyle(
+        plot_type='contourf',
+        grid_resolution=0.1,
+        levels=custom_levels,
+        title=f'Vertically Integrated Water Vapor Transport (IVT) | Valid Time: {valtime_str}',
+    ),
     config=cfg,
 )
 

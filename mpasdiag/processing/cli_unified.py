@@ -30,33 +30,37 @@ from .parallel_wrappers import (
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
     ParallelWindProcessor,
-    ParallelCrossSectionProcessor
+    ParallelCrossSectionProcessor,
+    RemapConfig,
+    SurfaceBatchStyle,
+    WindBatchStyle,
 )
 
 from .constants import DIAG_GLOB, MPASOUT_GLOB, PERFORMANCE_MONITOR_MSG
 from .utils_datetime import MPASDateTimeUtils
+from .utils_geog import GeographicBounds
 
 try:
-    from ..visualization.precipitation import MPASPrecipitationPlotter
-    from ..visualization.surface import MPASSurfacePlotter
-    from ..visualization.cross_section import MPASVerticalCrossSectionPlotter
+    from ..visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+    from ..visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
+    from ..visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
     from ..visualization.wind import MPASWindPlotter
     from ..diagnostics.precipitation import PrecipitationDiagnostics
     from ..diagnostics.sounding import SoundingDiagnostics
     from ..visualization.skewt import MPASSkewTPlotter
 except ImportError:
     try:
-        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-        from mpasdiag.visualization.surface import MPASSurfacePlotter
-        from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+        from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
+        from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
         from mpasdiag.visualization.wind import MPASWindPlotter
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
         from mpasdiag.visualization.skewt import MPASSkewTPlotter
     except ImportError:
-        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-        from mpasdiag.visualization.surface import MPASSurfacePlotter
-        from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
+        from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
+        from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
         from mpasdiag.visualization.wind import MPASWindPlotter
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
         from mpasdiag.diagnostics.sounding import SoundingDiagnostics
@@ -1173,22 +1177,24 @@ class MPASUnifiedCLI:
                 self.logger.info("Using parallel processing for batch precipitation analysis")
             created_files = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 var_name=config.variable,
                 accum_period=config.accumulation_period,
                 plot_type=getattr(config, 'plot_type', 'scatter'),
                 grid_resolution=getattr(config, 'grid_resolution', None),
                 formats=config.output_formats or ['png'],
                 n_processes=config.workers,
-                remap_engine=config.remap_engine,
-                remap_method=config.remap_method,
+                remap_config=RemapConfig(
+                    remap_engine=config.remap_engine,
+                    remap_method=config.remap_method,
+                ),
             )
         else:
             created_files = plotter.create_batch_precipitation_maps(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 var_name=config.variable,
                 accum_period=config.accumulation_period,
                 plot_type=getattr(config, 'plot_type', 'scatter'),
@@ -1229,15 +1235,14 @@ class MPASUnifiedCLI:
         time_str = MPASDateTimeUtils.get_time_info(dataset, config.time_index, verbose=False)
 
         plotter.create_precipitation_map(
-            lon, lat, precip_data.values,
-            config.lon_min, config.lon_max,
-            config.lat_min, config.lat_max,
-            title=config.title or f"MPAS Precipitation | Variable: {config.variable} | Valid: {time_str}",
+            lon,
+            lat,
+            precip_data.values,
+            GeographicBounds(config.lon_min, config.lon_max, config.lat_min, config.lat_max),
             accum_period=config.accumulation_period,
-            plot_type=getattr(config, 'plot_type', 'scatter'),
-            grid_resolution=getattr(config, 'grid_resolution', None),
             dataset=dataset,
             config=config,
+            style=PrecipitationRenderStyle(title=config.title or f"MPAS Precipitation | Variable: {config.variable} | Valid: {time_str}", plot_type=getattr(config, 'plot_type', 'scatter'), grid_resolution=getattr(config, 'grid_resolution', None)),
         )
 
         plot_type = getattr(config, 'plot_type', 'scatter')
@@ -1306,21 +1311,23 @@ class MPASUnifiedCLI:
                 self.logger.info("Using parallel processing for batch surface analysis")
             created_files = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 var_name=config.variable,
-                plot_type=config.plot_type,
                 formats=config.output_formats or ['png'],
                 grid_resolution=getattr(config, 'grid_resolution', None),
                 n_processes=config.workers,
-                remap_engine=config.remap_engine,
-                remap_method=config.remap_method,
+                style=SurfaceBatchStyle(plot_type=config.plot_type),
+                remap_config=RemapConfig(
+                    remap_engine=config.remap_engine,
+                    remap_method=config.remap_method,
+                ),
             )
         else:
             created_files = plotter.create_batch_surface_maps(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 var_name=config.variable,
                 plot_type=config.plot_type,
                 formats=config.output_formats or ['png'],
@@ -1356,13 +1363,15 @@ class MPASUnifiedCLI:
         plotter.create_surface_map(
             lon, lat, var_data.values,
             config.variable,
-            config.lon_min, config.lon_max,
-            config.lat_min, config.lat_max,
-            title=config.title or f"MPAS Surface | Variable: {config.variable} | Valid: {time_str}",
-            plot_type=config.plot_type,
-            colormap=config.colormap if config.colormap != 'default' else None,
-            clim_min=config.clim_min,
-            clim_max=config.clim_max,
+            GeographicBounds(config.lon_min, config.lon_max,
+                             config.lat_min, config.lat_max),
+            style=SurfaceMapStyle(
+                title=config.title or f"MPAS Surface | Variable: {config.variable} | Valid: {time_str}",
+                plot_type=config.plot_type,
+                colormap=config.colormap if config.colormap != 'default' else None,
+                clim_min=config.clim_min,
+                clim_max=config.clim_max,
+            ),
             data_array=var_data,
             dataset=processor.dataset,
             config=config,
@@ -1432,26 +1441,30 @@ class MPASUnifiedCLI:
                 self.logger.info("Using parallel processing for batch wind analysis")
             created_files = ParallelWindProcessor.create_batch_wind_plots_parallel(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 u_variable=config.u_variable,
                 v_variable=config.v_variable,
-                plot_type=config.wind_plot_type,
                 formats=config.output_formats or ['png'],
-                subsample=config.subsample_factor,
-                scale=config.wind_scale,
-                show_background=config.show_background,
-                grid_resolution=getattr(config, 'grid_resolution', None),
-                regrid_method=getattr(config, 'regrid_method', 'linear'),
                 n_processes=config.workers,
-                remap_engine=config.remap_engine,
-                remap_method=config.remap_method,
+                style=WindBatchStyle(
+                    plot_type=config.wind_plot_type,
+                    subsample=config.subsample_factor,
+                    scale=config.wind_scale,
+                    show_background=config.show_background,
+                    grid_resolution=getattr(config, 'grid_resolution', None),
+                    regrid_method=getattr(config, 'regrid_method', 'linear'),
+                ),
+                remap_config=RemapConfig(
+                    remap_engine=config.remap_engine,
+                    remap_method=config.remap_method,
+                ),
             )
         else:
             created_files = plotter.create_batch_wind_plots(
                 processor, config.output_dir,
-                config.lon_min, config.lon_max,
-                config.lat_min, config.lat_max,
+                GeographicBounds(config.lon_min, config.lon_max,
+                                 config.lat_min, config.lat_max),
                 u_variable=config.u_variable,
                 v_variable=config.v_variable,
                 plot_type=config.wind_plot_type,
@@ -1641,12 +1654,12 @@ class MPASUnifiedCLI:
         time_str = MPASDateTimeUtils.get_time_info(processor.dataset, config.time_index, verbose=False)
         
         _, _ = plotter.create_vertical_cross_section(
-            mpas_3d_processor=processor,
-            time_index=config.time_index,
-            title=config.title or f"MPAS Vertical Cross-Section | Variable: {config.variable} | Valid: {time_str}",
-            colormap=config.colormap if config.colormap != 'default' else None,
-            **params
-        )
+                   mpas_3d_processor=processor,
+                   time_index=config.time_index,
+                   title=config.title or f"MPAS Vertical Cross-Section | Variable: {config.variable} | Valid: {time_str}",
+                   style=CrossSectionStyle(colormap=config.colormap if config.colormap != 'default' else None),
+                   **params,
+               )
         
         output_path = config.output or os.path.join(
             config.output_dir,

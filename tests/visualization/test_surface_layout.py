@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -66,10 +68,13 @@ class TestGlobalExtent:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            -180, 180, -90, 90,  
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(-180, 180, -90, 90),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -94,10 +99,13 @@ class TestGlobalExtent:
         )
         
         fig, _ = self.plotter.create_surface_map(
-            lon, lat, data, 't2m',
-            *extent_bounds,
-            plot_type='scatter'
-        )
+                     lon,
+                     lat,
+                     data,
+                     't2m',
+                     GeographicBounds(*extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -150,11 +158,14 @@ class TestTitleAndTimestamp:
         time_stamp = datetime(2025, 1, 15, 12, 0)
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            time_stamp=time_stamp,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(plot_type='scatter'),
+                     time_stamp=time_stamp,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -174,12 +185,14 @@ class TestTitleAndTimestamp:
         title = "Custom Title | Valid Time: 2025011512"
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            title=title,
-            time_stamp=time_stamp,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(title=title, plot_type='scatter'),
+                     time_stamp=time_stamp,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -199,12 +212,14 @@ class TestTitleAndTimestamp:
         title = "Custom Title Without Timestamp"
         
         fig, _ = self.plotter.create_surface_map(
-            self.lon, self.lat, self.data, 't2m',
-            *self.extent_bounds,
-            title=title,
-            time_stamp=time_stamp,
-            plot_type='scatter'
-        )
+                     self.lon,
+                     self.lat,
+                     self.data,
+                     't2m',
+                     GeographicBounds(*self.extent_bounds),
+                     style=SurfaceMapStyle(title=title, plot_type='scatter'),
+                     time_stamp=time_stamp,
+                 )
         
         assert isinstance(fig, Figure)
         plt.close(fig)

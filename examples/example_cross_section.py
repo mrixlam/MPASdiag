@@ -18,7 +18,7 @@ import numpy as np
 # Load relevant MPASdiag modules
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
 
 # Specify the path to sample 3D output data and grid file
 dataDir  = '../data/u240k/mpasout'
@@ -74,24 +74,19 @@ custom_levels = np.arange(15, 100, 10)
 
 # Generate vertical cross-section from the surface to 10 km
 fig, ax = plotter.create_vertical_cross_section(
-    mpas_3d_processor=processor,
-    var_name=var_name,
-    start_point=start_point,
-    end_point=end_point,
-    time_index=tindex,
-    vertical_coord='pressure',
-    display_vertical='height',
-    max_height=10.0,
-    num_points=500,
-    plot_type='contourf',
-    extend='both',
-    levels=custom_levels,
-    colormap='YlGnBu',
-    title=(
-        f'Potential Temperature (\u03b8) | Vertical Cross-Section '
-        f'(Surface \u2013 10 km) | {valtime_disp}'
-    ),
-)
+              mpas_3d_processor=processor,
+              var_name=var_name,
+              start_point=start_point,
+              end_point=end_point,
+              time_index=tindex,
+              vertical_coord='pressure',
+              display_vertical='height',
+              max_height=10.0,
+              num_points=500,
+              title=f'Potential Temperature (\u03b8) | Vertical Cross-Section '
+        f'(Surface \u2013 10 km) | {valtime_disp}',
+              style=CrossSectionStyle(levels=custom_levels, colormap='YlGnBu', extend='both', plot_type='contourf'),
+          )
 
 # Annotate the top-right corner with init time and valid time
 ax.text(

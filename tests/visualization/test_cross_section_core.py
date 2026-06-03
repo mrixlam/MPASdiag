@@ -25,7 +25,7 @@ from unittest.mock import patch
 from typing import Generator, Union
 
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -125,15 +125,15 @@ class TestCreateVerticalCrossSectionComplete:
             None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            start_point=(-110, 35),
-            end_point=(-90, 45),
-            time_index=0,
-            vertical_coord='pressure',
-            num_points=50,
-            plot_type='contourf'
-        )
+                      self.processor,
+                      'theta',
+                      start_point=(-110, 35),
+                      end_point=(-90, 45),
+                      time_index=0,
+                      vertical_coord='pressure',
+                      num_points=50,
+                      style=CrossSectionStyle(plot_type='contourf'),
+                  )
         
         assert fig is not None
         assert ax is not None
@@ -151,12 +151,12 @@ class TestCreateVerticalCrossSectionComplete:
             None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            start_point=(-110, 35),
-            end_point=(-90, 45),
-            plot_type='contour'
-        )
+                      self.processor,
+                      'theta',
+                      start_point=(-110, 35),
+                      end_point=(-90, 45),
+                      style=CrossSectionStyle(plot_type='contour'),
+                  )
         
         assert fig is not None
         assert ax is not None
@@ -172,12 +172,12 @@ class TestCreateVerticalCrossSectionComplete:
             None
         """
         fig, ax = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            start_point=(-110, 35),
-            end_point=(-90, 45),
-            plot_type='pcolormesh'
-        )
+                      self.processor,
+                      'theta',
+                      start_point=(-110, 35),
+                      end_point=(-90, 45),
+                      style=CrossSectionStyle(plot_type='pcolormesh'),
+                  )
         
         assert fig is not None
         assert ax is not None
@@ -319,12 +319,12 @@ class TestCreateVerticalCrossSectionComplete:
             None
         """
         fig, _ = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            start_point=(-110, 35),
-            end_point=(-90, 45),
-            colormap='RdBu_r'
-        )
+                     self.processor,
+                     'theta',
+                     start_point=(-110, 35),
+                     end_point=(-90, 45),
+                     style=CrossSectionStyle(colormap='RdBu_r'),
+                 )
         
         assert fig is not None
     
@@ -341,12 +341,12 @@ class TestCreateVerticalCrossSectionComplete:
         levels = np.linspace(240, 300, 13)
         
         fig, _ = self.plotter.create_vertical_cross_section(
-            self.processor,
-            'theta',
-            start_point=(-110, 35),
-            end_point=(-90, 45),
-            levels=levels
-        )
+                     self.processor,
+                     'theta',
+                     start_point=(-110, 35),
+                     end_point=(-90, 45),
+                     style=CrossSectionStyle(levels=levels),
+                 )
         
         assert fig is not None
     
@@ -410,7 +410,7 @@ class TestCreateVerticalCrossSectionComplete:
                 'theta',
                 start_point=(-110, 35),
                 end_point=(-90, 45),
-                plot_type='invalid_type'
+                style=CrossSectionStyle(plot_type='invalid_type'),
             )
         assert "Unknown plot_type" in str(ctx.value)
 

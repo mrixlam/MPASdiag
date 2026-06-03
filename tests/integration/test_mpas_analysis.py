@@ -26,10 +26,11 @@ except ImportError:
 
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
 from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
 from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_parser import ArgumentParser
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 
 class TestDataProcessing:
@@ -228,10 +229,12 @@ class TestVisualization:
             
             precip_plotter = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
             fig, ax = precip_plotter.create_precipitation_map(
-                sample_data['lon'], sample_data['lat'], sample_data['data'],
-                90, 115, -15, 20,
-                title="Test Precipitation Map"
-            )
+                          sample_data['lon'],
+                          sample_data['lat'],
+                          sample_data['data'],
+                          GeographicBounds(90, 115, -15, 20),
+                          style=PrecipitationRenderStyle(title="Test Precipitation Map"),
+                      )
             
             assert fig is not None
             assert ax is not None

@@ -16,7 +16,8 @@ import os
 # Load relevant MPASdiag modules 
 from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
 from mpasdiag.visualization.wind import MPASWindPlotter
 
 # Specify the path to sample data and grid file
@@ -89,13 +90,12 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=temp,
     var_name=t_var,
-    lon_min=cfg.lon_min,
-    lon_max=cfg.lon_max,
-    lat_min=cfg.lat_min,
-    lat_max=cfg.lat_max,
-    plot_type='contourf',
-    grid_resolution=0.1,
-    title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}',
+    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=SurfaceMapStyle(
+        plot_type='contourf',
+        grid_resolution=0.1,
+        title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}',
+    ),
     config=cfg,
 )
 

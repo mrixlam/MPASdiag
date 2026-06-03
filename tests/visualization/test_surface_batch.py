@@ -30,6 +30,7 @@ from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 
 from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_plot
+from mpasdiag.processing.utils_geog import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -88,7 +89,7 @@ class TestBatchProcessing:
         
         files = self.plotter.create_batch_surface_maps(
             mock_processor, self.temp_dir,
-            *self.extent_bounds,
+            GeographicBounds(*self.extent_bounds),
             var_name='t2m',
             plot_type='scatter'
         )
@@ -123,7 +124,7 @@ class TestBatchProcessing:
         
         files = self.plotter.create_batch_surface_maps(
             mock_processor, self.temp_dir,
-            *self.extent_bounds,
+            GeographicBounds(*self.extent_bounds),
             var_name='t2m'
         )
         
@@ -160,7 +161,7 @@ class TestBatchProcessing:
         
         files = self.plotter.create_batch_surface_maps(
             mock_processor, self.temp_dir,
-            *self.extent_bounds,
+            GeographicBounds(*self.extent_bounds),
             var_name='t2m'
         )
         
