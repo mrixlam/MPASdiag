@@ -27,6 +27,7 @@ from .utils_logger import get_logger
 logger = get_logger(__name__)
 
 _FORKSERVER_PRELOAD = ['mpasdiag.processing.parallel_wrappers']
+_COMM_NOT_INITIALIZED_MSG = "MPI communicator must be initialized"
 
 try:
     from mpi4py import MPI
@@ -506,7 +507,7 @@ class MPASParallelManager:
         Returns:
             Optional[List[TaskResult]]: A list of TaskResult objects containing the outcome of each task execution, returned only on the master process (rank 0). Other ranks receive None. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. 
         """
-        assert self.comm is not None, "MPI communicator must be initialized"
+        assert self.comm is not None, _COMM_NOT_INITIALIZED_MSG
         assert self.distributor is not None, "Task distributor must be initialized"
         assert self.collector is not None, "Result collector must be initialized"
 
@@ -585,7 +586,7 @@ class MPASParallelManager:
         Returns:
             List[TaskResult]: Results ordered by task index.
         """
-        assert self.comm is not None, "MPI communicator must be initialized"
+        assert self.comm is not None, _COMM_NOT_INITIALIZED_MSG
         collected: Dict[int, TaskResult] = {}
         next_task = 0
         active_workers = self.size - 1
@@ -627,7 +628,7 @@ class MPASParallelManager:
         Returns:
             None
         """
-        assert self.comm is not None, "MPI communicator must be initialized"
+        assert self.comm is not None, _COMM_NOT_INITIALIZED_MSG
         status = MPI.Status()
         previous: Optional[Tuple[int, TaskResult]] = None
 

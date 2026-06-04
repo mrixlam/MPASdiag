@@ -18,7 +18,7 @@ import pandas as pd
 import xarray as xr
 from pathlib import Path
 from contextlib import redirect_stdout
-from typing import Dict
+from typing import Dict, Optional
 from unittest.mock import Mock, MagicMock, patch
 
 from mpasdiag.processing.parallel import ParallelStats, TaskResult
@@ -717,15 +717,15 @@ class TestSkewTBatchProcessor:
     """ Tests for ParallelSkewTProcessor.create_batch_skewt_plots_parallel across multiprocessing and MPI modes. """
 
     @staticmethod
-    def _mock_processor(grid_file: str = '/fake/grid.nc',
-                        data_dir: str = '/fake/data',
+    def _mock_processor(grid_file: Optional[str] = '/fake/grid.nc',
+                        data_dir: Optional[str] = '/fake/data',
                         n_times: int = 2) -> MagicMock:
         """ 
         This helper method creates a mock MPAS3DProcessor with specified grid_file, data_dir, and number of time steps. The dataset is mocked to have a 'Time' dimension with the given size. This allows tests to simulate different processor configurations and dataset sizes without relying on actual files or data. 
 
         Parameters:
-            grid_file (str): Path to the grid file for the processor.
-            data_dir (str): Path to the data directory for the processor.
+            grid_file (Optional[str]): Path to the grid file, or None to simulate an in-memory processor.
+            data_dir (Optional[str]): Path to the data directory, or None to simulate an in-memory processor.
             n_times (int): Number of time steps in the mocked dataset.
 
         Returns:
