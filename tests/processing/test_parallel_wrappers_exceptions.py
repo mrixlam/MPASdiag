@@ -587,6 +587,7 @@ class TestProcessParallelResultsFailures:
         mock_stats.total_tasks = 3
         mock_stats.completed_tasks = 2
         mock_stats.failed_tasks = 1
+        mock_stats.wall_time = 4.0  
         mock_stats.total_time = 7.1  
         mock_stats.load_imbalance = 0.05  
         mock_manager.get_statistics.return_value = mock_stats

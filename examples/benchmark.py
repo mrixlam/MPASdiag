@@ -6,7 +6,17 @@ MPASdiag Benchmark: Batch Plotter Runtime with MPI Support
 This script benchmarks the runtime of MPASdiag's batch plotting functions for various plot types (precipitation, surface, wind, cross-section, skew-T) across different MPAS model resolutions. It supports both serial and parallel execution using MPI (via mpi4py). The results are saved to a CSV file and printed in a summary table.  
 
 Usage: 
-    python benchmark.py
+    # Serial baseline (single process):
+    python benchmark.py --serial
+
+    # Shared-memory parallel (multiprocessing Pool) -- default without mpiexec:
+    python benchmark.py --workers 8
+
+    # Distributed parallel (MPI) -- fastest; one rank per process:
+    mpiexec -n 8 python benchmark.py
+
+    # Restrict to a subset of experiments (any launch mode):
+    python benchmark.py --experiments u240k u120k
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -19,8 +29,10 @@ import gc
 import os
 import csv
 import time
+import argparse
 from pathlib import Path
 from datetime import datetime
+from multiprocessing import cpu_count
 from typing import Callable
 
 # Load relevant MPASdiag modules
@@ -39,6 +51,7 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelSurfaceProcessor,
     ParallelWindProcessor,
     ParallelCrossSectionProcessor,
+    ParallelSkewTProcessor,
     SurfaceBatchStyle,
     WindBatchStyle,
 )
@@ -53,6 +66,9 @@ except ImportError:
     COMM = None
     RANK = 0
     SIZE = 1
+
+BACKEND = 'serial'
+PARALLEL_WIDTH = 1
 
 EXPERIMENTS = {
     'u240k': {
@@ -285,66 +301,78 @@ def run_benchmark_cross_section(processor_3d: MPAS3DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_skewt(processor_3d: MPAS3DProcessor, 
-                        out_dir: str) -> tuple[float, int]:
+def run_benchmark_skewt(processor_3d: MPAS3DProcessor,
+                        out_dir: str,
+                        use_parallel: bool,
+                        n_workers: int) -> tuple[float, int]:
     """
-    This function benchmarks the batch skew-T plot creation. It creates a directory for skew-T plots, runs the batch plotting function (serial only), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data and the output directory path. The skew-T plotting function is currently implemented in serial due to the complexity of the plotting logic and the need to compute thermodynamic indices for each profile, which may not be easily parallelizable without significant refactoring. The function extracts sounding profiles at specified locations and time indices, computes thermodynamic indices, and generates skew-T diagrams for each profile, saving them to the output directory. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory. 
+    This function benchmarks the batch skew-T plot creation. It creates a directory for skew-T plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. In parallel mode it distributes the per-timestep sounding extraction, thermodynamic index computation, and plotting across MPI ranks or worker processes via ParallelSkewTProcessor; in serial mode it iterates over timesteps in a single process.
 
     Parameters:
         processor_3d: An instance of MPAS3DProcessor with loaded 3D diagnostic data.
         out_dir: The base output directory where the 'skewt' subdirectory will be created for storing the generated plots.
+        use_parallel: A boolean flag indicating whether to use parallel processing for generating the plots.
+        n_workers: The number of worker processes to use if parallel processing is enabled. This should typically be set to the number of available CPU cores or the number of MPI ranks.
 
     Returns:
-        tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory. 
+        tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
     cfg = SKEWT_CONFIG
     plot_dir = os.path.join(out_dir, 'skewt')
     os.makedirs(plot_dir, exist_ok=True)
 
-    diag = SoundingDiagnostics(verbose=False)
-    plotter = MPASSkewTPlotter(figsize=(9, 12), dpi=100, verbose=False)
-
-    time_dim = 'Time' if 'Time' in processor_3d.dataset.dims else 'time'
-    n_times = processor_3d.dataset.sizes.get(time_dim, 1)
-
-    created_files = []
     t0 = time.perf_counter()
-    for t_idx in range(n_times):
-        profile = diag.extract_sounding_profile(
-            processor_3d, cfg['lon'], cfg['lat'], time_index=t_idx,
-        )
-        indices = diag.compute_thermodynamic_indices(
-            profile['pressure'], profile['temperature'], profile['dewpoint'],
-            u_wind_kt=profile.get('u_wind'),
-            v_wind_kt=profile.get('v_wind'),
-            height_m=profile.get('height'),
-        )
+    if use_parallel:
+        created = ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+            processor_3d, plot_dir,
+            lon=cfg['lon'],
+            lat=cfg['lat'],
+            n_processes=n_workers,
+        ) or []
+    else:
+        diag = SoundingDiagnostics(verbose=False)
+        plotter = MPASSkewTPlotter(figsize=(9, 12), dpi=100, verbose=False)
 
-        stn_lon = profile['station_lon']
-        stn_lat = profile['station_lat']
-        lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
-        lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
+        time_dim = 'Time' if 'Time' in processor_3d.dataset.dims else 'time'
+        n_times = processor_3d.dataset.sizes.get(time_dim, 1)
 
-        save_path = os.path.join(
-            plot_dir,
-            f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_t{t_idx:03d}",
-        )
-        plotter.create_skewt_diagram(
-            pressure=profile['pressure'],
-            temperature=profile['temperature'],
-            dewpoint=profile['dewpoint'],
-            u_wind=profile['u_wind'],
-            v_wind=profile['v_wind'],
-            title=f"Skew-T | {lon_tag}, {lat_tag} | Time idx {t_idx}",
-            indices=indices,
-            show_parcel=False,
-            save_path=save_path,
-        )
-        plotter.close_plot()
-        created_files.append(save_path)
+        created = []
+        for t_idx in range(n_times):
+            profile = diag.extract_sounding_profile(
+                processor_3d, cfg['lon'], cfg['lat'], time_index=t_idx,
+            )
+            indices = diag.compute_thermodynamic_indices(
+                profile['pressure'], profile['temperature'], profile['dewpoint'],
+                u_wind_kt=profile.get('u_wind'),
+                v_wind_kt=profile.get('v_wind'),
+                height_m=profile.get('height'),
+            )
+
+            stn_lon = profile['station_lon']
+            stn_lat = profile['station_lat']
+            lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
+            lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
+
+            save_path = os.path.join(
+                plot_dir,
+                f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_t{t_idx:03d}",
+            )
+            plotter.create_skewt_diagram(
+                pressure=profile['pressure'],
+                temperature=profile['temperature'],
+                dewpoint=profile['dewpoint'],
+                u_wind=profile['u_wind'],
+                v_wind=profile['v_wind'],
+                title=f"Skew-T | {lon_tag}, {lat_tag} | Time idx {t_idx}",
+                indices=indices,
+                show_parcel=False,
+                save_path=save_path,
+            )
+            plotter.close_plot()
+            created.append(save_path)
 
     elapsed = time.perf_counter() - t0
-    return elapsed, len(created_files)
+    return elapsed, len(created)
 
 
 def write_csv(results: list[dict], 
@@ -359,7 +387,7 @@ def write_csv(results: list[dict],
     Returns:
         None
     """
-    fieldnames = ['experiment', 'category', 'mpi_ranks', 'elapsed_s', 'n_files', 'timestamp']
+    fieldnames = ['experiment', 'category', 'mpi_ranks', 'backend', 'workers', 'elapsed_s', 'n_files', 'timestamp']
     with open(csv_path, 'w', newline='') as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
@@ -378,14 +406,14 @@ def print_summary(results: list[dict],
     Returns:
         None
     """
-    hdr = f"{'Experiment':<12} {'Category':<20} {'Ranks':>5} {'Time (s)':>10} {'Files':>6}"
+    hdr = f"{'Experiment':<12} {'Category':<20} {'Backend':>16} {'Width':>6} {'Time (s)':>10} {'Files':>6}"
     sep = '-' * len(hdr)
     print(f"\n{sep}\n  Benchmark Summary\n{sep}")
     print(hdr)
     print(sep)
     for r in results:
         print(
-            f"{r['experiment']:<12} {r['category']:<20} {r['mpi_ranks']:>5} "
+            f"{r['experiment']:<12} {r['category']:<20} {r['backend']:>16} {r['workers']:>6} "
             f"{r['elapsed_s']:>10.2f} {r['n_files']:>6}"
         )
     print(sep)
@@ -414,23 +442,31 @@ def _make_result(exp_name: str,
         'experiment': exp_name,
         'category': category,
         'mpi_ranks': SIZE,
+        'backend': BACKEND,
+        'workers': PARALLEL_WIDTH,
         'elapsed_s': round(elapsed, 4),
         'n_files': n_files,
         'timestamp': timestamp,
     }
 
 
-def print_banner() -> None:
+def print_banner(mode_label: str,
+                 experiment_names: list[str]) -> None:
     """
-    This function prints a banner to the console at the start of the benchmark run. The banner includes a title for the benchmark, the number of MPI ranks being used, and the list of experiments that will be run. The banner is formatted with separator lines for better visibility. This function is intended to provide a clear starting point for the benchmark output and to summarise the key parameters of the run.   
+    This function prints a banner to the console at the start of the benchmark run. The banner includes a title for the benchmark, the resolved execution mode (serial, multiprocessing, or MPI) together with the parallel width, the number of MPI ranks in the job, and the list of experiments that will be run. The banner is formatted with separator lines for better visibility. This function is intended to provide a clear starting point for the benchmark output and to summarise the key parameters of the run.
+
+    Parameters:
+        mode_label: Human-readable description of the resolved execution backend and width.
+        experiment_names: Names of the experiments selected for this run.
 
     Returns:
         None
     """
     print("=" * 60)
     print("  MPASdiag Batch Plotter Benchmark")
-    print(f"  MPI ranks: {SIZE}")
-    print(f"  Experiments: {list(EXPERIMENTS.keys())}")
+    print(f"  Execution mode: {mode_label}")
+    print(f"  MPI ranks in job: {SIZE}")
+    print(f"  Experiments: {experiment_names}")
     print("=" * 60)
 
 
@@ -469,7 +505,7 @@ def build_benchmarks(processor_2d: MPAS2DProcessor,
                      use_parallel: bool,
                      n_workers: int | None) -> list[tuple[str, Callable[[], tuple[float, int]]]]:
     """
-    This function builds the list of benchmarks to run for a single experiment. It takes the loaded 2D and 3D processors, the base output directory for the experiment, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. The function returns a list of tuples, where each tuple contains a benchmark category name (e.g. 'precipitation') and a zero-argument callable that executes the corresponding benchmark function and returns a tuple of (elapsed time in seconds, number of files created). The benchmark functions are wrapped in lambda functions to defer their execution until they are called in the main experiment loop. The skew-T benchmark is set to run only on rank 0 due to its serial implementation, while the others can run in parallel across ranks if enabled.
+    This function builds the list of benchmarks to run for a single experiment. It takes the loaded 2D and 3D processors, the base output directory for the experiment, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. The function returns a list of tuples, where each tuple contains a benchmark category name (e.g. 'precipitation') and a zero-argument callable that executes the corresponding benchmark function and returns a tuple of (elapsed time in seconds, number of files created). The benchmark functions are wrapped in lambda functions to defer their execution until they are called in the main experiment loop. All five benchmark categories, including skew-T, run in parallel across ranks (MPI) or worker processes (multiprocessing) when parallel processing is enabled.
 
     Parameters:
         processor_2d: The loaded 2D processor used by the precipitation, surface, and wind benchmarks.
@@ -487,7 +523,7 @@ def build_benchmarks(processor_2d: MPAS2DProcessor,
         ('surface', lambda: run_benchmark_surface(processor_2d, exp_out, use_parallel, workers)),
         ('wind', lambda: run_benchmark_wind(processor_2d, exp_out, use_parallel, workers)),
         ('cross_section', lambda: run_benchmark_cross_section(processor_3d, exp_out, use_parallel, workers)),
-        ('skewt', lambda: run_benchmark_skewt(processor_3d, exp_out) if RANK == 0 else (0.0, 0)),
+        ('skewt', lambda: run_benchmark_skewt(processor_3d, exp_out, use_parallel, workers)),
     ]
 
 
@@ -584,18 +620,108 @@ def run_experiment(exp_name: str,
     return results
 
 
+def parse_args() -> argparse.Namespace:
+    """
+    This function parses the command-line options that control the execution backend and the scope of the benchmark run. It exposes a worker count for the shared-memory multiprocessing backend, a flag to force a single-process serial baseline, and an experiment filter to restrict the run to a subset of the configured resolutions. Unknown arguments are tolerated so the script stays robust when launched under an MPI process manager that may append its own options.
+
+    Parameters:
+        None
+
+    Returns:
+        argparse.Namespace: Parsed arguments exposing 'workers', 'serial', and 'experiments'.
+    """
+    parser = argparse.ArgumentParser(
+        description="MPASdiag batch-plotter benchmark (serial / multiprocessing / MPI).",
+    )
+    parser.add_argument(
+        '--workers', type=int, default=None,
+        help="Worker processes for the multiprocessing backend when NOT launched via "
+             "mpiexec (default: CPU count - 1). Ignored under MPI.",
+    )
+    parser.add_argument(
+        '--serial', action='store_true',
+        help="Force a single-process serial run (parallelism disabled).",
+    )
+    parser.add_argument(
+        '--experiments', nargs='+', metavar='NAME', default=None,
+        choices=list(EXPERIMENTS.keys()),
+        help="Subset of experiments to run (default: all).",
+    )
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def resolve_execution_mode(size: int,
+                           serial: bool,
+                           workers: int | None) -> tuple[bool, int | None, str, int]:
+    """
+    This function decides the execution backend from the launch context and the command-line flags. The benchmark can run three ways: distributed MPI (selected when the script is launched with an MPI process manager so that the world size exceeds one), shared-memory multiprocessing (a Pool of worker processes when run as plain Python), or a single-process serial baseline. MPI takes precedence because it is chosen by the launcher rather than by a flag, followed by an explicit serial request, and finally the multiprocessing default sized to the available CPUs.
+
+    Parameters:
+        size: MPI world size (1 when not launched via mpiexec/mpirun).
+        serial: Whether the user forced a serial run with --serial.
+        workers: Requested multiprocessing worker count, or None for the default.
+
+    Returns:
+        tuple[bool, int | None, str, int]: (use_parallel, n_workers, backend, parallel_width).
+    """
+    if size > 1:
+        return True, size, 'mpi', size
+    
+    if serial:
+        return False, None, 'serial', 1
+    
+    resolved = workers if workers is not None else max(1, cpu_count() - 1)
+
+    if resolved <= 1:
+        return False, None, 'serial', 1
+    
+    return True, resolved, 'multiprocessing', resolved
+
+
+def select_experiments(names: list[str] | None) -> dict:
+    """
+    This function returns the subset of EXPERIMENTS requested on the command line, preserving the original configuration mapping when no filter is supplied. It allows quick, targeted benchmark runs against a single resolution without editing the module-level EXPERIMENTS dictionary.
+
+    Parameters:
+        names: Experiment names to keep, or None/empty to keep them all.
+
+    Returns:
+        dict: Mapping of the selected experiment names to their path configurations.
+    """
+    if not names:
+        return EXPERIMENTS
+    return {name: EXPERIMENTS[name] for name in names}
+
+
 def main() -> None:
     """ Main function for the MPASdiag Batch Plotter Benchmark. """
-    use_parallel = SIZE > 1
-    n_workers = SIZE if use_parallel else None
+    global BACKEND, PARALLEL_WIDTH
+
+    args = parse_args()
+    use_parallel, n_workers, BACKEND, PARALLEL_WIDTH = resolve_execution_mode(
+        SIZE, args.serial, args.workers,
+    )
+    experiments = select_experiments(args.experiments)
+
+    mode_label = {
+        'mpi': f"MPI ({SIZE} ranks)",
+        'multiprocessing': f"multiprocessing ({PARALLEL_WIDTH} workers)",
+        'serial': "serial (1 process)",
+    }[BACKEND]
+
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     all_results = []
 
     if RANK == 0:
         BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
-        print_banner()
+        print_banner(mode_label, list(experiments.keys()))
+        if BACKEND == 'multiprocessing':
+            print("  Note: the multiprocessing backend reloads data per worker "
+                  "(esp. on macOS spawn).")
+            print("        For the fastest run use: mpiexec -n N python benchmark.py\n")
 
-    for exp_name, paths in EXPERIMENTS.items():
+    for exp_name, paths in experiments.items():
         all_results.extend(
             run_experiment(exp_name, paths, use_parallel, n_workers, timestamp)
         )

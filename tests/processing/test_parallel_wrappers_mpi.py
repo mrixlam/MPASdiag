@@ -27,9 +27,13 @@ from mpasdiag.processing.parallel_wrappers import (
     _surface_worker,
     _wind_worker,
     _cross_section_worker,
+    _skewt_worker,
+    _seed_worker_processor_cache,
     _process_parallel_results,
     ParallelPrecipitationProcessor,
-    ParallelCrossSectionProcessor
+    ParallelWindProcessor,
+    ParallelCrossSectionProcessor,
+    ParallelSkewTProcessor,
 )
 from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from tests.test_data_helpers import assert_expected_public_methods
@@ -347,6 +351,60 @@ class TestMPIModeBranches:
         assert isinstance(result, dict)
         assert 'files' in result
 
+    def test_skewt_worker_mpi_mode_branch(self: 'TestMPIModeBranches',
+                                          tmp_path: Path) -> None:
+        """
+        This test verifies that the `_skewt_worker` function correctly executes the MPI mode branch when `grid_file` and `data_dir` are provided. It mocks the processor to return a dataset with a `theta` variable and configures the diagnostic and plotter mocks to simulate the extraction of a sounding profile, computation of thermodynamic indices, and creation of a skew-T diagram. The test asserts that the worker function completes without crashing and returns a result containing a 'files' key, confirming that the MPI mode branch is functioning correctly in the skew-T worker workflow.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        mock_proc = MagicMock()
+
+        mock_proc.dataset = xr.Dataset({
+            'theta': (['Time', 'nVertLevels', 'nCells'], np.zeros((2, 5, 10))),
+            'Time': (['Time'], pd.date_range('2025-01-01', periods=2, freq='h').values),
+        })
+
+        mock_proc.load_3d_data.return_value = mock_proc
+
+        kwargs = {
+            'grid_file': '/fake/grid.nc', 'data_dir': '/fake/data',
+            'output_dir': str(tmp_path), 'lon': 103.2, 'lat': 3.8,
+            'file_prefix': 'mpas_skewt', 'formats': ['png'], 'show_parcel': False,
+        }
+
+        profile = {
+            'pressure': np.array([1000.0, 900.0, 800.0]),
+            'temperature': np.array([25.0, 20.0, 15.0]),
+            'dewpoint': np.array([20.0, 15.0, 10.0]),
+            'u_wind': np.array([5.0, 6.0, 7.0]),
+            'v_wind': np.array([1.0, 2.0, 3.0]),
+            'height': np.array([0.0, 1000.0, 2000.0]),
+            'station_lon': 103.2, 'station_lat': 3.8,
+        }
+
+        with patch('mpasdiag.processing.processors_3d.MPAS3DProcessor') as mock_cls, \
+             patch('mpasdiag.processing.parallel_wrappers.SoundingDiagnostics') as mock_diag_cls, \
+             patch('mpasdiag.processing.parallel_wrappers.MPASSkewTPlotter') as mock_plotter_cls:
+            mock_cls.return_value = mock_proc
+            mock_diag = MagicMock()
+            mock_diag.extract_sounding_profile.return_value = profile
+            mock_diag.compute_thermodynamic_indices.return_value = {'cape': 1000.0}
+            mock_diag_cls.return_value = mock_diag
+            mock_plotter = MagicMock()
+            mock_plotter.create_skewt_diagram.return_value = (MagicMock(), MagicMock())
+            mock_plotter_cls.return_value = mock_plotter
+            result = _skewt_worker((0, kwargs))
+
+        assert isinstance(result, dict)
+        assert 'files' in result
+        assert len(result['files']) == 1
+        assert result['files'][0].endswith('.png')
+
 
 class TestParallelProcessorBatchMethods:
     """ Tests for Parallel*Processor batch methods targeting MPI mode branches. """
@@ -653,6 +711,359 @@ class TestAutoBatchProcessor:
         with patch.dict(sys.modules, {'mpi4py': mock_mpi4py, 'mpi4py.MPI': mock_mpi4py.MPI}):
             result = auto_batch_processor(None)
         assert result is True
+
+
+class TestSkewTBatchProcessor:
+    """ Tests for ParallelSkewTProcessor.create_batch_skewt_plots_parallel across multiprocessing and MPI modes. """
+
+    @staticmethod
+    def _mock_processor(grid_file: str = '/fake/grid.nc',
+                        data_dir: str = '/fake/data',
+                        n_times: int = 2) -> MagicMock:
+        """ 
+        This helper method creates a mock MPAS3DProcessor with specified grid_file, data_dir, and number of time steps. The dataset is mocked to have a 'Time' dimension with the given size. This allows tests to simulate different processor configurations and dataset sizes without relying on actual files or data. 
+
+        Parameters:
+            grid_file (str): Path to the grid file for the processor.
+            data_dir (str): Path to the data directory for the processor.
+            n_times (int): Number of time steps in the mocked dataset.
+
+        Returns:
+            MagicMock: A mock MPAS3DProcessor with the specified attributes.
+        """
+        processor = MagicMock(spec=MPAS3DProcessor)
+        processor.grid_file = grid_file
+        processor.data_dir = data_dir
+        processor.dataset = MagicMock()
+        processor.dataset.sizes = {'Time': n_times}
+        return processor
+
+    def test_skewt_processor_result_aggregation(self: 'TestSkewTBatchProcessor',
+                                                tmp_path: Path) -> None:
+        """
+        This test verifies that the Skew-T batch processor aggregates worker results and returns the created files on the master process in multiprocessing mode. It mocks the parallel manager to return one successful and one failed task result, leaves formats and time indices at their defaults, and asserts that only the successful file is returned and the printed report reflects one success out of two. This exercises the default-argument handling, the grid-reload kwargs branch, and the master result-aggregation path of the method.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        assert_expected_public_methods(orig_mgr, 'MPASParallelManager')
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'multiprocessing'
+        mock_mgr.is_master = True
+        mock_mgr.get_statistics.return_value = None
+
+        results = [
+            TaskResult(task_id=0, success=True, result={
+                'files': ['skewt_0.png'],
+                'timings': {'data_processing': 0.1, 'plotting': 0.2, 'saving': 0.05, 'total': 0.35},
+            }),
+            TaskResult(task_id=1, success=False, error='boom'),
+        ]
+
+        mock_mgr.parallel_map.return_value = results
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+
+        try:
+            processor = self._mock_processor()
+            captured = io.StringIO()
+
+            with redirect_stdout(captured):
+                files = ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+                    processor, str(tmp_path), lon=103.2, lat=3.8, n_processes=2,
+                )
+
+            assert files == ['skewt_0.png']
+            assert 'Successful: 1/2' in captured.getvalue()
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+    def test_skewt_processor_in_memory_branch(self: 'TestSkewTBatchProcessor',
+                                              tmp_path: Path) -> None:
+        """
+        This test verifies that the Skew-T batch processor falls back to passing the live processor object when it lacks the string grid_file/data_dir paths needed for reloading. It runs in multiprocessing mode so the missing paths do not raise, mocks parallel_map to return None, and asserts the method returns None while still dispatching the work, exercising the in-memory worker-kwargs branch and the no-results return path.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'multiprocessing'
+        mock_mgr.is_master = True
+        mock_mgr.parallel_map.return_value = None
+        
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+
+        try:
+            processor = self._mock_processor(grid_file=None, data_dir=None)
+            result = ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+                processor, str(tmp_path), lon=1.0, lat=2.0, time_indices=[0], n_processes=2,
+            )
+            assert result is None
+            mock_mgr.parallel_map.assert_called_once()
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+    def test_skewt_processor_mpi_raises_without_data_dir(self: 'TestSkewTBatchProcessor',
+                                                         tmp_path: Path) -> None:
+        """
+        This test verifies that the Skew-T batch processor raises an informative AttributeError in MPI mode when the processor cannot be reloaded from disk (no string data_dir), because each MPI rank must be able to reconstruct the data independently.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'mpi'
+        mock_mgr.is_master = True
+
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+
+        try:
+            processor = self._mock_processor(grid_file=None, data_dir=None)
+            with pytest.raises(AttributeError, match="MPI mode requires"):
+                ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+                    processor, str(tmp_path), lon=1.0, lat=2.0, time_indices=[0],
+                )
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+    def test_skewt_processor_mpi_seed_and_evict(self: 'TestSkewTBatchProcessor',
+                                                tmp_path: Path) -> None:
+        """
+        This test verifies that in MPI mode the Skew-T batch processor seeds the rank processor cache with the already-loaded processor before dispatching and evicts that entry afterwards, leaving the cache in its prior state. parallel_map is mocked to return None so the no-master-results return path is also exercised.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'mpi'
+        mock_mgr.is_master = True
+        mock_mgr.parallel_map.return_value = None
+
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+        _pw._rank_processor_cache.clear()
+
+        try:
+            processor = self._mock_processor()
+            result = ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+                processor, str(tmp_path), lon=103.2, lat=3.8, time_indices=[0, 1],
+            )
+            assert result is None
+            mock_mgr.parallel_map.assert_called_once()
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+        assert _pw._rank_processor_cache == {}
+
+
+class TestSeedAndInMemoryBranches:
+    """ Tests for the worker-cache seeding guards and the in-memory (non grid-reload) cross-section worker branch. """
+
+    def test_seed_worker_cache_non_string_paths(self: 'TestSeedAndInMemoryBranches') -> None:
+        """
+        This test verifies that the `_seed_worker_processor_cache` function returns `None` and does not attempt to seed the cache when either `grid_file` or `data_dir` is not a string path, which are required for reloading the processor on worker ranks in MPI mode. This guards against invalid cache seeding attempts when the processor object lacks the necessary attributes for disk-based reloading.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        processor = MagicMock()
+        assert _seed_worker_processor_cache('2d', {'grid_file': None, 'data_dir': '/d'}, processor) is None
+        assert _seed_worker_processor_cache('2d', {'data_dir': '/d'}, processor) is None
+
+    def test_seed_worker_cache_missing_dataset(self: 'TestSeedAndInMemoryBranches') -> None:
+        """
+        This test verifies that _seed_worker_processor_cache declines to seed (returns None) when the processor lacks a dataset attribute, which is required for seeding the cache. This guards against attempting to seed with an invalid processor object. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        processor = MagicMock()
+        processor.dataset = None
+        result = _seed_worker_processor_cache('2d', {'grid_file': '/g', 'data_dir': '/d'}, processor)
+        assert result is None
+
+    def test_cross_section_worker_in_memory_processor(self: 'TestSeedAndInMemoryBranches',
+                                                      tmp_path: Path) -> None:
+        """
+        This test verifies that the cross-section worker uses a processor passed directly in kwargs (the in-memory branch) when no grid_file/data_dir are supplied, rather than reloading from disk. It mocks the plotter and asserts the worker returns a result dictionary with a 'files' key.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        mock_proc = MagicMock()
+
+        mock_proc.dataset = xr.Dataset({
+            'theta': (['Time', 'nVertLevels', 'nCells'], np.zeros((2, 5, 10))),
+            'Time': (['Time'], pd.date_range('2025-01-01', periods=2, freq='h').values),
+        })
+
+        kwargs = {
+            'processor': mock_proc, 'output_dir': str(tmp_path),
+            'start_lat': 30, 'start_lon': -110, 'end_lat': 40, 'end_lon': -100,
+            'var_name': 'theta', 'file_prefix': 'cross', 'formats': ['png'],
+            'colormap': None, 'levels': None, 'vertical_coord': 'pressure', 'num_points': 50,
+        }
+
+        with patch('mpasdiag.processing.parallel_wrappers.MPASVerticalCrossSectionPlotter') as mock_cls:
+            mock_plotter = MagicMock()
+            mock_plotter.create_vertical_cross_section.return_value = (MagicMock(), MagicMock())
+            mock_cls.return_value = mock_plotter
+            result = _cross_section_worker((0, kwargs))
+
+        assert isinstance(result, dict)
+        assert 'files' in result
+
+
+class TestProcessorBranchCoverage:
+    """ Targeted MPI-mode tests covering default-style construction and seed/evict in the wind and cross-section batch processors. """
+
+    def test_wind_processor_mpi_default_style_and_evict(self: 'TestProcessorBranchCoverage',
+                                                        tmp_path: Path) -> None:
+        """
+        This test verifies that the ParallelWindProcessor correctly seeds the worker cache with the provided processor in MPI mode, dispatches the work, and then evicts the cache entry afterwards. It mocks the parallel manager to simulate MPI mode and asserts that the worker function is called and the cache is cleared after execution, confirming that the seeding and eviction logic for MPI mode is functioning as intended in the wind processor workflow. 
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'mpi'
+        mock_mgr.is_master = True
+        mock_mgr.parallel_map.return_value = None
+
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+        _pw._rank_processor_cache.clear()
+
+        try:
+            processor = MagicMock()
+            processor.grid_file = '/fake/grid.nc'
+            processor.data_dir = '/fake/data'
+            processor.dataset = MagicMock()
+            processor.dataset.sizes = {'Time': 3}
+
+            result = ParallelWindProcessor.create_batch_wind_plots_parallel(
+                processor, str(tmp_path), GeographicBounds(-120, -80, 30, 50),
+                u_variable='u10', v_variable='v10', time_indices=[0, 1], n_processes=2,
+            )
+
+            assert result is None
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+        assert _pw._rank_processor_cache == {}
+
+    def test_cross_section_processor_mpi_seed_evict(self: 'TestProcessorBranchCoverage',
+                                                    tmp_path: Path) -> None:
+        """
+        This test verifies that the cross-section batch processor seeds the rank processor cache with the provided processor when grid_file/data_dir are present, and evicts that cache entry after dispatch, in MPI mode. parallel_map is mocked to return None so no real plotting occurs, and the test asserts that the method returns None and leaves the cache empty.
+
+        Parameters:
+            tmp_path (Path): Temporary directory for output files.
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.parallel_wrappers as _pw
+        orig_mgr = _pw.MPASParallelManager
+
+        mock_mgr = MagicMock()
+        mock_mgr.backend = 'mpi'
+        mock_mgr.is_master = True
+        mock_mgr.parallel_map.return_value = None
+
+        _pw.MPASParallelManager = lambda *a, **kw: mock_mgr
+        _pw._rank_processor_cache.clear()
+
+        try:
+            processor = MagicMock(spec=MPAS3DProcessor)
+            processor.grid_file = '/fake/grid.nc'
+            processor.data_dir = '/fake/data'
+            processor.dataset = MagicMock()
+            processor.dataset.sizes = {'Time': 3}
+
+            result = ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
+                processor, var_name='theta', start_point=(-110, 30), end_point=(-100, 40),
+                output_dir=str(tmp_path), time_indices=[0, 1], n_processes=2,
+            )
+            
+            assert result is None
+        finally:
+            _pw.MPASParallelManager = orig_mgr
+
+        assert _pw._rank_processor_cache == {}
+
+    def test_build_precipitation_worker_kwargs_defaults(self: 'TestProcessorBranchCoverage') -> None:
+        """
+        This test verifies that _build_precipitation_worker_kwargs constructs default PrecipitationMapStyle and RemapConfig objects when none are supplied, exercising the default-argument branches of the helper, and returns grid-reload kwargs for a disk-backed processor.
+
+        Returns:
+            None
+        """
+        processor = MagicMock()
+        processor.grid_file = '/fake/grid.nc'
+        processor.data_dir = '/fake/data'
+
+        kwargs = ParallelPrecipitationProcessor._build_precipitation_worker_kwargs(
+            processor, True, '/out', GeographicBounds(-120, -80, 30, 50),
+            'rainnc', 'a01h', 'scatter', None, ['png'], style=None, remap_config=None,
+        )
+
+        assert 'grid_file' in kwargs
+
+    def test_build_wind_worker_kwargs_defaults(self: 'TestProcessorBranchCoverage') -> None:
+        """
+        This test verifies that _build_wind_worker_kwargs constructs a default WindBatchStyle and RemapConfig when none are supplied, exercising the default-argument branches of the helper, and returns grid-reload kwargs for a disk-backed processor.
+
+        Returns:
+            None
+        """
+        processor = MagicMock()
+        processor.grid_file = '/fake/grid.nc'
+        processor.data_dir = '/fake/data'
+
+        kwargs = ParallelWindProcessor._build_wind_worker_kwargs(
+            processor, True, '/out', GeographicBounds(-120, -80, 30, 50),
+            'u10', 'v10', ['png'], style=None, remap_config=None,
+        )
+
+        assert 'grid_file' in kwargs
 
 
 if __name__ == "__main__":

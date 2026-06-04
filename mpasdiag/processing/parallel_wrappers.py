@@ -44,13 +44,17 @@ try:
     from ..visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
     from ..visualization.wind import MPASWindPlotter, WindPlotStyle
     from ..visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
+    from ..visualization.skewt import MPASSkewTPlotter
     from ..diagnostics.precipitation import PrecipitationDiagnostics
+    from ..diagnostics.sounding import SoundingDiagnostics
 except ImportError:
     from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
     from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
     from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
     from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
+    from mpasdiag.visualization.skewt import MPASSkewTPlotter
     from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+    from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.processing.constants import PRECIP_REQUIRED_VARS, CROSS_SECTION_AUX_VARS, COORDS_FALLBACK_MSG, PRELOAD_COORDS_MSG
@@ -104,6 +108,25 @@ _COORD_PRELOAD_MSG = "Could not pre-load coordinates into cache: %s"
 _OUTDIR_MSG = "Output directory: %s"
 
 _rank_processor_cache: Dict[str, Any] = {}
+
+_GC_INTERVAL = 20
+_gc_task_counter = 0
+
+
+def _maybe_collect_garbage() -> None:
+    """
+    This helper runs a full garbage collection only periodically (every _GC_INTERVAL tasks) rather than after every single task. A per-task gc.collect() must walk the entire heap, which in the parallel workers holds the cached full dataset plus accumulated cartopy/matplotlib state, costing on the order of 0.1 seconds per task -- roughly a third of warm task time -- and that cost never amortizes across a long batch. Python's automatic generational collector still runs continuously to reclaim the bulk of per-task garbage; this periodic full sweep simply bounds any cyclic growth at a small fraction of the previous cost.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
+    global _gc_task_counter
+    _gc_task_counter += 1
+    if _gc_task_counter % _GC_INTERVAL == 0:
+        gc.collect()
 
 
 def _get_or_create_2d_processor(kwargs: Dict[str, Any]) -> Any:
@@ -168,6 +191,57 @@ def _setup_processor_and_cache(kwargs: Dict[str, Any]) -> Tuple[Any, Optional[MP
         processor = _get_or_create_2d_processor(kwargs)
         return processor, None
     return kwargs['processor'], kwargs.get('cache', None)
+
+
+def _processor_supports_reload(processor: Any) -> bool:
+    """
+    This helper reports whether a processor can be reconstructed from disk inside a worker, which is true when it exposes string 'grid_file' and 'data_dir' paths (set by load_2d_data/load_3d_data). When True, the parallel batch methods hand those lightweight paths to workers instead of the live processor, so each worker (multiprocessing) or rank (MPI) loads ONLY the variables it needs and does so once -- caching the result in the module-level processor cache -- rather than having the full in-memory dataset pickled to it for every single task. In-memory processors built without loading from disk return False and fall back to passing the processor object directly, preserving backward compatibility.
+
+    Parameters:
+        processor (Any): The 2D or 3D processor instance to inspect.
+
+    Returns:
+        bool: True if both 'grid_file' and 'data_dir' are string paths on the processor.
+    """
+    return (isinstance(getattr(processor, 'grid_file', None), str)
+            and isinstance(getattr(processor, 'data_dir', None), str))
+
+
+def _seed_worker_processor_cache(kind: str,
+                                 worker_kwargs: Dict[str, Any],
+                                 processor: Any) -> Optional[str]:
+    """
+    This helper lets an MPI rank hand its already-loaded processor to the in-process batch worker instead of having the worker reload the grid and data from disk a second time. Because each MPI rank runs its worker inside the same process, the live processor is stored in the module-level worker cache under the exact key that _get_or_create_2d_processor / _get_or_create_3d_processor would compute for the given worker kwargs, so the worker's lookup becomes a cache hit that returns the existing processor with no extra read. To stay strictly as safe as a fresh reload, it only seeds when the processor's dataset actually exposes every requested variable; otherwise it returns None and the worker reloads exactly as before. It returns the seeded cache key so the caller can evict the entry once the batch finishes (keeping processors from accumulating across experiments and ranks), or None when seeding does not apply -- including the in-memory multiprocessing fallback, whose separate worker processes cannot see this cache anyway.
+
+    Parameters:
+        kind (str): Cache namespace matching the worker loader, '2d' or '3d'.
+        worker_kwargs (Dict[str, Any]): The kwargs handed to the worker, providing 'grid_file', 'data_dir', and optional 'variables'.
+        processor (Any): The already-loaded processor whose dataset should be reused in-process.
+
+    Returns:
+        Optional[str]: The seeded cache key for later eviction, or None if seeding does not apply.
+    """
+    grid_file = worker_kwargs.get('grid_file')
+    data_dir = worker_kwargs.get('data_dir')
+
+    if not isinstance(grid_file, str) or not isinstance(data_dir, str):
+        return None
+
+    variables = worker_kwargs.get('variables')
+    dataset = getattr(processor, 'dataset', None)
+
+    if dataset is None:
+        return None
+
+    try:
+        for variable in (variables or []):
+            _ = dataset[variable]
+    except Exception:
+        return None
+
+    cache_key = f"{kind}|{grid_file}|{data_dir}|{tuple(sorted(variables)) if variables else None}"
+    _rank_processor_cache[cache_key] = processor
+    return cache_key
 
 
 def _extract_precip_coordinates(processor: Any, 
@@ -333,7 +407,7 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
             result['cache_info'] = cache.get_cache_info()
 
         del precip_data, lon, lat, plotter
-        gc.collect()
+        _maybe_collect_garbage()
 
         return result
 
@@ -464,7 +538,7 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         result['cache_info'] = cache.get_cache_info()
     
     del var_data, lon, lat, plotter
-    gc.collect()
+    _maybe_collect_garbage()
     
     return result
 
@@ -583,7 +657,7 @@ def _wind_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
         result['cache_info'] = cache.get_cache_info()
     
     del u_data, v_data, lon, lat, plotter
-    gc.collect()
+    _maybe_collect_garbage()
     
     return result
 
@@ -660,7 +734,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     
     plotter.close_plot()
     del plotter
-    gc.collect()
+    _maybe_collect_garbage()
     
     timings['saving'] = time.time() - save_start
     timings['total'] = time.time() - start_time
@@ -672,7 +746,95 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _process_parallel_results(results: List[Any], 
+def _skewt_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    This worker function executes Skew-T sounding diagnostics and plotting for a single timestep, serving as a picklable entry point for parallel generation of Skew-T diagrams across many timesteps. It obtains a 3D processor (reusing the rank's already-loaded processor in MPI mode, or reloading from grid_file/data_dir in multiprocessing mode), extracts the vertical sounding profile at the configured station location, computes thermodynamic and severe-weather indices, renders the Skew-T diagram, and writes the requested output formats. It records per-phase timing for data processing, plotting, and saving so the aggregate report matches the other parallel plot types.
+
+    Parameters:
+        args (Tuple[int, Dict[str, Any]]): Two-element tuple of (time_idx, kwargs) where time_idx is the timestep index and kwargs supplies either a loaded 'processor' or 'grid_file'/'data_dir', the station 'lon'/'lat', 'output_dir', 'file_prefix', 'formats', and the 'show_parcel' flag.
+
+    Returns:
+        Dict[str, Any]: Result dictionary with 'files' (list of str paths), 'timings' (dict with phase durations), 'time_str' (str), and 'cache_hits' (dict).
+    """
+    time_idx, kwargs = args
+
+    if 'grid_file' in kwargs and 'data_dir' in kwargs:
+        processor_3d = _get_or_create_3d_processor(kwargs)
+    else:
+        processor_3d = kwargs['processor']
+
+    output_dir = kwargs['output_dir']
+    lon = kwargs['lon']
+    lat = kwargs['lat']
+    file_prefix = kwargs.get('file_prefix', 'mpas_skewt')
+    formats = kwargs.get('formats', ['png'])
+    show_parcel = kwargs.get('show_parcel', False)
+
+    start_time = time.time()
+    timings = {}
+
+    data_start = time.time()
+
+    diag = SoundingDiagnostics(verbose=False)
+    profile = diag.extract_sounding_profile(processor_3d, lon, lat, time_index=time_idx)
+    
+    indices = diag.compute_thermodynamic_indices(
+        profile['pressure'], profile['temperature'], profile['dewpoint'],
+        u_wind_kt=profile.get('u_wind'),
+        v_wind_kt=profile.get('v_wind'),
+        height_m=profile.get('height'),
+    )
+
+    time_str, _ = _get_time_str(processor_3d.dataset, time_idx)
+
+    timings['data_processing'] = time.time() - data_start
+
+    stn_lon = profile['station_lon']
+    stn_lat = profile['station_lat']
+    lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
+    lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
+
+    output_path = os.path.join(
+        output_dir,
+        f"{file_prefix}_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}",
+    )
+
+    plotter = MPASSkewTPlotter(figsize=(9, 12), verbose=False)
+
+    plot_start = time.time()
+    plotter.create_skewt_diagram(
+        pressure=profile['pressure'],
+        temperature=profile['temperature'],
+        dewpoint=profile['dewpoint'],
+        u_wind=profile.get('u_wind'),
+        v_wind=profile.get('v_wind'),
+        title=f"MPAS Skew-T | {lon_tag}, {lat_tag} | Valid Time: {time_str}",
+        indices=indices,
+        show_parcel=show_parcel,
+        save_path=None,
+    )
+    timings['plotting'] = time.time() - plot_start
+
+    save_start = time.time()
+    plotter.save_plot(output_path, formats=formats)
+    plotter.close_plot()
+    output_files = [f"{output_path}.{fmt}" for fmt in formats]
+    timings['saving'] = time.time() - save_start
+
+    timings['total'] = time.time() - start_time
+
+    del plotter
+    _maybe_collect_garbage()
+
+    return {
+        'files': output_files,
+        'timings': timings,
+        'time_str': time_str,
+        'cache_hits': {},
+    }
+
+
+def _process_parallel_results(results: List[Any],
                               time_indices: List[int], 
                               output_dir: str, 
                               manager: 'MPASParallelManager', 
@@ -839,17 +1001,14 @@ def _print_parallel_results_report(processing_type: str,
     if not stats:
         return
 
+    wall = stats.wall_time if stats.wall_time > 0 else stats.total_time
+    speedup = stats.total_time / wall if wall > 0 else 1.0
+
     print("Overall Parallel Execution:")
-    print(f"  Wall time: {stats.total_time:.2f}s")
-
-    speedup = timing_stats['total']['total'] / stats.total_time
-
-    print(
-        f"  Speedup potential: {timing_stats['total']['total']:.2f}s / "
-        f"{stats.total_time:.2f}s = {speedup:.2f}x"
-    )
-
-    print(f"  Load imbalance: {100 * stats.load_imbalance:.1f}%")
+    print(f"  Aggregate task time: {stats.total_time:.2f}s")
+    print(f"  Wall time:           {wall:.2f}s")
+    print(f"  Speedup:             {speedup:.2f}x")
+    print(f"  Load imbalance:      {100 * stats.load_imbalance:.1f}%")
 
 
 def _prebuild_remapper_mpi(processor: 'MPAS2DProcessor',
@@ -957,13 +1116,16 @@ class ParallelPrecipitationProcessor:
             'weights_dir': remap_config.weights_dir,
         }
 
-        if is_mpi_mode:
-            if not hasattr(processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_2d.py to store data_dir in load_2d_data() method, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
+        use_grid_reload = _processor_supports_reload(processor)
+
+        if is_mpi_mode and not use_grid_reload:
+            raise AttributeError(
+                "MPI mode requires processor to have 'data_dir' attribute. "
+                "Please update mpasdiag/processing/processors_2d.py to store data_dir in load_2d_data() method, "
+                "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+            )
+
+        if use_grid_reload:
             return {
                 **shared_kwargs,
                 'grid_file': processor.grid_file,
@@ -993,7 +1155,7 @@ class ParallelPrecipitationProcessor:
                                                  formats: List[str] = ['png'],
                                                  time_indices: Optional[List[int]] = None,
                                                  n_processes: Optional[int] = None,
-                                                 load_balance_strategy: str = "dynamic",
+                                                 load_balance_strategy: str = "cyclic",
                                                  style: Optional[PrecipitationMapStyle] = None,
                                                  remap_config: Optional[RemapConfig] = None) -> Optional[List[str]]:
         """
@@ -1079,10 +1241,18 @@ class ParallelPrecipitationProcessor:
         
         tasks = [(time_idx, worker_kwargs) for time_idx in time_indices]
         
+        seeded_key = (
+            _seed_worker_processor_cache('2d', worker_kwargs, processor)
+            if is_mpi_mode else None
+        )
+
         results = manager.parallel_map(
             _precipitation_worker,
             tasks
         )
+
+        if seeded_key is not None:
+            _rank_processor_cache.pop(seeded_key, None)
         
         if manager.is_master and results is not None:
             created = _process_parallel_results(
@@ -1109,7 +1279,7 @@ class ParallelSurfaceProcessor:
                                            grid_resolution: Optional[float] = None,
                                            time_indices: Optional[List[int]] = None,
                                            n_processes: Optional[int] = None,
-                                           load_balance_strategy: str = "dynamic",
+                                           load_balance_strategy: str = "cyclic",
                                            style: Optional[SurfaceBatchStyle] = None,
                                            remap_config: Optional[RemapConfig] = None) -> Optional[List[str]]:
         """
@@ -1159,15 +1329,16 @@ class ParallelSurfaceProcessor:
         manager.set_error_policy('collect')
         
         is_mpi_mode = manager.backend == 'mpi'
-        
-        if is_mpi_mode:
-            if not hasattr(processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
-            
+        use_grid_reload = _processor_supports_reload(processor)
+
+        if is_mpi_mode and not use_grid_reload:
+            raise AttributeError(
+                "MPI mode requires processor to have 'data_dir' attribute. "
+                "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
+                "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+            )
+
+        if use_grid_reload:
             worker_kwargs = {
                 'grid_file': processor.grid_file,
                 'data_dir': processor.data_dir,
@@ -1229,7 +1400,15 @@ class ParallelSurfaceProcessor:
             logger.info("Variable: %s, Plot type: %s", var_name, plot_type)
             logger.info(_OUTDIR_MSG, output_dir)
         
+        seeded_key = (
+            _seed_worker_processor_cache('2d', worker_kwargs, processor)
+            if is_mpi_mode else None
+        )
+
         results = manager.parallel_map(_surface_worker, worker_args)
+
+        if seeded_key is not None:
+            _rank_processor_cache.pop(seeded_key, None)
         
         if manager.is_master and results is not None:
             var_info = f"Variable: {var_name}, Plot type: {plot_type}"
@@ -1306,13 +1485,16 @@ class ParallelWindProcessor:
             'file_prefix': 'mpas_wind', 'formats': formats,
         }
 
-        if is_mpi_mode:
-            if not hasattr(processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
+        use_grid_reload = _processor_supports_reload(processor)
+
+        if is_mpi_mode and not use_grid_reload:
+            raise AttributeError(
+                "MPI mode requires processor to have 'data_dir' attribute. "
+                "Please update mpasdiag/processing/processors_2d.py on your HPC system, "
+                "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+            )
+
+        if use_grid_reload:
             return {**shared_kwargs, 'grid_file': processor.grid_file, 'data_dir': processor.data_dir}
 
         cache = MPASDataCache(max_variables=5)
@@ -1335,7 +1517,7 @@ class ParallelWindProcessor:
                                          formats: Optional[List[str]] = None,
                                          time_indices: Optional[List[int]] = None,
                                          n_processes: Optional[int] = None,
-                                         load_balance_strategy: str = "dynamic",
+                                         load_balance_strategy: str = "cyclic",
                                          style: Optional[WindBatchStyle] = None,
                                          remap_config: Optional[RemapConfig] = None) -> Optional[List[str]]:
         """
@@ -1350,7 +1532,7 @@ class ParallelWindProcessor:
             formats (Optional[List[str]]): List of output image formats such as ['png', 'pdf'] (default: None for ['png']).
             time_indices (Optional[List[int]]): Specific timestep indices to process, None processes all (default: None).
             n_processes (Optional[int]): Number of MPI processes to use, None uses all available (default: None).
-            load_balance_strategy (str): Strategy for task distribution - 'static', 'dynamic', 'block', or 'cyclic' (default: 'dynamic').
+            load_balance_strategy (str): MPI task-distribution strategy - 'cyclic' (default; uses all ranks and balances time-series cost trends), 'static', 'block', or 'dynamic' (master/worker work-stealing, best for highly irregular workloads but sacrifices one rank to dispatching). Ignored by the multiprocessing backend, whose pool already balances dynamically.
             style (Optional[WindBatchStyle]): Rendering and regridding settings (plot_type, subsample, scale, show_background, grid_resolution, regrid_method). If None, defaults are used.
             remap_config (Optional[RemapConfig]): Remapping settings (remap_engine, remap_method, weights_dir). If None, defaults are used.
 
@@ -1426,7 +1608,15 @@ class ParallelWindProcessor:
                 )
             logger.info(_OUTDIR_MSG, output_dir)
         
+        seeded_key = (
+            _seed_worker_processor_cache('2d', worker_kwargs, processor)
+            if is_mpi_mode else None
+        )
+
         results = manager.parallel_map(_wind_worker, worker_args)
+
+        if seeded_key is not None:
+            _rank_processor_cache.pop(seeded_key, None)
         
         if manager.is_master and results is not None:
             var_info = f"U: {u_variable}, V: {v_variable}, Plot type: {plot_type}"
@@ -1501,7 +1691,7 @@ class ParallelCrossSectionProcessor:
                                                   formats: List[str] = ['png'],
                                                   time_indices: Optional[List[int]] = None,
                                                   n_processes: Optional[int] = None,
-                                                  load_balance_strategy: str = "dynamic",
+                                                  load_balance_strategy: str = "cyclic",
                                                   style: Optional[CrossSectionBatchStyle] = None) -> Optional[List[str]]:
         """
         This method creates vertical cross-section plots in parallel across multiple time steps using either multiprocessing or MPI-based parallel execution. It manages the distribution of tasks to worker processes, collects results, and generates a comprehensive report on the outcomes of the parallel processing operation. The method handles both data processing and visualization phases while tracking timing metrics for insights into efficiency. 
@@ -1545,15 +1735,16 @@ class ParallelCrossSectionProcessor:
         manager.set_error_policy('collect')
         
         is_mpi_mode = manager.backend == 'mpi'
-        
-        if is_mpi_mode:
-            if not hasattr(mpas_3d_processor, 'data_dir'):
-                raise AttributeError(
-                    "MPI mode requires processor to have 'data_dir' attribute. "
-                    "Please update mpasdiag/processing/processors_3d.py on your HPC system, "
-                    "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
-                )
-            
+        use_grid_reload = _processor_supports_reload(mpas_3d_processor)
+
+        if is_mpi_mode and not use_grid_reload:
+            raise AttributeError(
+                "MPI mode requires processor to have 'data_dir' attribute. "
+                "Please update mpasdiag/processing/processors_3d.py on your HPC system, "
+                "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+            )
+
+        if use_grid_reload:
             worker_kwargs = {
                 'grid_file': mpas_3d_processor.grid_file,
                 'data_dir': mpas_3d_processor.data_dir,
@@ -1609,7 +1800,15 @@ class ParallelCrossSectionProcessor:
                 logger.info("Maximum height: %s km", max_height)
             logger.info(_OUTDIR_MSG, output_dir)
         
+        seeded_key = (
+            _seed_worker_processor_cache('3d', worker_kwargs, mpas_3d_processor)
+            if is_mpi_mode else None
+        )
+
         results = manager.parallel_map(_cross_section_worker, worker_args)
+
+        if seeded_key is not None:
+            _rank_processor_cache.pop(seeded_key, None)
         
         if manager.is_master and results is not None:
             created = ParallelCrossSectionProcessor._collect_cross_section_results(
@@ -1624,7 +1823,118 @@ class ParallelCrossSectionProcessor:
         return None
 
 
-def auto_batch_processor(use_parallel: Optional[bool] = None, 
+class ParallelSkewTProcessor:
+    """ This class provides a static method for parallel generation of Skew-T sounding diagrams across timesteps using MPI-based distributed processing or multiprocessing. """
+
+    @staticmethod
+    def create_batch_skewt_plots_parallel(mpas_3d_processor: 'MPAS3DProcessor',
+                                          output_dir: str,
+                                          lon: float,
+                                          lat: float,
+                                          formats: Optional[List[str]] = None,
+                                          time_indices: Optional[List[int]] = None,
+                                          n_processes: Optional[int] = None,
+                                          load_balance_strategy: str = "cyclic",
+                                          file_prefix: str = 'mpas_skewt',
+                                          show_parcel: bool = False) -> Optional[List[str]]:
+        """
+        This method creates Skew-T sounding diagrams in parallel across multiple timesteps at a fixed station location, using either multiprocessing or MPI-based parallel execution. It distributes the per-timestep sounding extraction, thermodynamic index computation, and plotting across workers, gathers the results on the master process, and reports timing and success statistics. In MPI mode each rank reuses its already-loaded processor (no second read); in multiprocessing mode each worker reloads the needed data from grid_file/data_dir once and caches it. This replaces the previously serial, rank-0-only Skew-T path so all ranks/workers contribute.
+
+        Parameters:
+            mpas_3d_processor (MPAS3DProcessor): Initialized MPAS3DProcessor with loaded 3D data and grid information.
+            output_dir (str): Directory where the Skew-T diagram files will be saved.
+            lon (float): Station longitude in degrees for the sounding location.
+            lat (float): Station latitude in degrees for the sounding location.
+            formats (Optional[List[str]]): Output image formats such as ['png', 'pdf'] (default: ['png']).
+            time_indices (Optional[List[int]]): Timestep indices to process; if None, all timesteps are processed.
+            n_processes (Optional[int]): Number of parallel processes for multiprocessing; ignored under MPI.
+            load_balance_strategy (str): Task distribution strategy ('dynamic', 'static', 'cyclic', 'block').
+            file_prefix (str): Filename prefix for the generated diagrams.
+            show_parcel (bool): Whether to draw the parcel ascent path on the diagram.
+
+        Returns:
+            Optional[List[str]]: List of generated file paths on the master process, None on worker ranks.
+        """
+        if formats is None:
+            formats = ['png']
+
+        time_dim = 'Time' if 'Time' in mpas_3d_processor.dataset.sizes else 'time'
+        total_times = mpas_3d_processor.dataset.sizes[time_dim]
+
+        if time_indices is None:
+            time_indices = list(range(total_times))
+
+        manager = MPASParallelManager(
+            load_balance_strategy=load_balance_strategy,
+            verbose=True,
+            n_workers=n_processes,
+        )
+        manager.set_error_policy('collect')
+
+        is_mpi_mode = manager.backend == 'mpi'
+        use_grid_reload = _processor_supports_reload(mpas_3d_processor)
+
+        if is_mpi_mode and not use_grid_reload:
+            raise AttributeError(
+                "MPI mode requires processor to have 'data_dir' attribute. "
+                "Please update mpasdiag/processing/processors_3d.py on your HPC system, "
+                "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
+            )
+
+        shared_kwargs = {
+            'output_dir': output_dir,
+            'lon': lon,
+            'lat': lat,
+            'file_prefix': file_prefix,
+            'formats': formats,
+            'show_parcel': show_parcel,
+        }
+
+        if use_grid_reload:
+            worker_kwargs = {
+                **shared_kwargs,
+                'grid_file': mpas_3d_processor.grid_file,
+                'data_dir': mpas_3d_processor.data_dir,
+            }
+        else:
+            worker_kwargs = {**shared_kwargs, 'processor': mpas_3d_processor}
+
+        worker_args = [(time_idx, worker_kwargs) for time_idx in time_indices]
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        if manager.is_master:
+            logger.info(
+                "Creating Skew-T diagrams for %d time steps in parallel", len(time_indices),
+            )
+            logger.info("Station: (%.2f, %.2f)", lon, lat)
+            logger.info(_OUTDIR_MSG, output_dir)
+
+        seeded_key = (
+            _seed_worker_processor_cache('3d', worker_kwargs, mpas_3d_processor)
+            if is_mpi_mode else None
+        )
+
+        results = manager.parallel_map(_skewt_worker, worker_args)
+
+        if seeded_key is not None:
+            _rank_processor_cache.pop(seeded_key, None)
+
+        if manager.is_master and results is not None:
+            var_info = f"Station: ({lon:.2f}, {lat:.2f})"
+            created = _process_parallel_results(
+                results, time_indices, output_dir, manager, "SKEW-T", var_info
+            )
+            del results, manager
+            gc.collect()
+            return created
+
+        del results, manager
+        gc.collect()
+        return None
+
+
+def auto_batch_processor(use_parallel: Optional[bool] = None,
                          **kwargs: Any) -> bool:
     """
     This function automatically determines whether to use parallel processing based on the presence of an MPI environment and the specified `use_parallel` flag. It checks for the availability of the `mpi4py` library and the number of MPI processes to decide if parallel execution is feasible. The function provides a flexible interface for selecting processing mode, allowing users to explicitly override the decision or rely on automatic detection. 

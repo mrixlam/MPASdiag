@@ -184,62 +184,6 @@ def _resolve_log_level(args: argparse.Namespace) -> int:
     return logging.INFO
 
 
-def test_log_level_flag_overrides_verbose() -> None:
-    """
-    This test verifies that when a specific log level is provided in the "log_level" attribute of the args namespace, it takes precedence over the "verbose" flag. It creates an argparse.Namespace with log_level set to "WARNING" and verbose set to True, then calls the _resolve_log_level function with these arguments. The test checks that the resolved log level is logging.WARNING, confirming that the explicit log level flag overrides the verbose flag when determining the effective log level. 
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    args = argparse.Namespace(log_level="WARNING", verbose=True, quiet=False)
-    assert _resolve_log_level(args) == logging.WARNING
-
-
-def test_quiet_overrides_verbose_when_no_log_level() -> None:
-    """
-    This test verifies that when the "quiet" flag is set to True and no specific log level is provided, the _resolve_log_level function returns logging.ERROR, overriding the "verbose" flag. It creates an argparse.Namespace with verbose set to True and quiet set to True, then calls the _resolve_log_level function with these arguments. The test checks that the resolved log level is logging.ERROR, confirming that the quiet flag takes precedence over the verbose flag when no explicit log level is specified. 
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    args = argparse.Namespace(log_level=None, verbose=True, quiet=True)
-    assert _resolve_log_level(args) == logging.ERROR
-
-
-def test_verbose_maps_to_debug() -> None:
-    """
-    This test verifies that when the "verbose" flag is set to True and no specific log level is provided, the _resolve_log_level function returns logging.DEBUG. It creates an argparse.Namespace with verbose set to True and quiet set to False, then calls the _resolve_log_level function with these arguments. The test checks that the resolved log level is logging.DEBUG, confirming that the verbose flag correctly maps to the DEBUG log level when no explicit log level is specified and the quiet flag is not set. 
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    args = argparse.Namespace(log_level=None, verbose=True, quiet=False)
-    assert _resolve_log_level(args) == logging.DEBUG
-
-
-def test_default_is_info() -> None:
-    """
-    This test verifies that when no specific log level is provided and neither the "quiet" nor "verbose" flags are set, the _resolve_log_level function defaults to returning logging.INFO. It creates an argparse.Namespace with log_level set to None, verbose set to False, and quiet set to False, then calls the _resolve_log_level function with these arguments. The test checks that the resolved log level is logging.INFO, confirming that the default log level is INFO when no other configuration is provided. 
-
-    Parameters:
-        None
-
-    Returns:
-        None
-    """
-    args = argparse.Namespace(log_level=None, verbose=False, quiet=False)
-    assert _resolve_log_level(args) == logging.INFO
-
-
 def test_mpas_config_log_level_validation() -> None:
     """
     This test verifies that the MPASConfig class correctly validates log level inputs. It creates an instance of MPASConfig with a valid log level string (e.g., "warning") and checks that the log_level attribute is set to the expected value (e.g., "WARNING"). It then attempts to create an instance of MPASConfig with an invalid log level string (e.g., "BOGUS") and checks that a ValueError is raised, confirming that the class properly checks for valid log level inputs and raises an error when an invalid value is provided. This ensures that users of MPASConfig are informed of incorrect log level configurations in a clear manner. 

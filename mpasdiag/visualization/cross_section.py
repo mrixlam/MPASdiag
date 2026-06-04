@@ -706,7 +706,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             np.ndarray: A 2D array of interpolated data values along the cross-section path for each vertical level, with shape (num_vertical_levels, num_points).
         """
         cross_section_data = np.full((len(vertical_levels), num_points), np.nan)
-        
+
+        path_indices = self._precompute_path_indices(
+            lon_coords, lat_coords, path_lons, path_lats
+        )
+
         for level_idx, level in enumerate(vertical_levels):
             try:
                 isel_dict: Dict[str, int] = {}
@@ -720,8 +724,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 isel_dict[vert_dim] = level_idx
                 data_values = self._extract_level_data(var_da, isel_dict, lon_coords.shape[0])
 
-                cross_section_data[level_idx, :] = self._interpolate_along_path(
-                    lon_coords, lat_coords, data_values, path_lons, path_lats
+                cross_section_data[level_idx, :] = self._interpolate_with_indices(
+                    lon_coords, lat_coords, data_values, path_lons, path_lats, path_indices
                 )
             except Exception as e:
                 logger.warning("Could not extract data for level %s: %s", level, e)
@@ -906,6 +910,85 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         _, indices = tree.query(path_points)
         
         return grid_data_valid[indices]
+
+    def _precompute_path_indices(self: 'MPASVerticalCrossSectionPlotter',
+                                 grid_lons: np.ndarray,
+                                 grid_lats: np.ndarray,
+                                 path_lons: np.ndarray,
+                                 path_lats: np.ndarray) -> Optional[np.ndarray]:
+        """
+        This method builds the nearest-neighbour mapping from the cross-section path points to the model grid exactly once, returning the index of the closest grid cell for each path point. Because that mapping depends only on the grid geometry and the transect -- not on the data values or the vertical level -- it can be reused for every vertical level of a plot instead of being recomputed inside the per-level interpolation loop, where the previous code rebuilt a KDTree for each of the ~N_levels levels. The tree is built over the full (unmasked) grid on the unit sphere so Euclidean distance matches great-circle distance; levels whose data contain NaNs are handled separately to preserve the original 'nearest valid cell' behaviour.
+
+        Parameters:
+            grid_lons (np.ndarray): Longitudes of the grid cells in degrees.
+            grid_lats (np.ndarray): Latitudes of the grid cells in degrees.
+            path_lons (np.ndarray): Longitudes of the path points in degrees.
+            path_lats (np.ndarray): Latitudes of the path points in degrees.
+
+        Returns:
+            Optional[np.ndarray]: Index of the nearest grid cell for each path point, or None if the grid is empty.
+        """
+        grid_lons_flat = np.asarray(grid_lons).ravel()
+        grid_lats_flat = np.asarray(grid_lats).ravel()
+
+        if grid_lons_flat.size == 0:
+            return None
+
+        grid_lat_r = np.radians(grid_lats_flat)
+        grid_lon_r = np.radians(grid_lons_flat)
+
+        grid_points = np.column_stack([
+            np.cos(grid_lat_r) * np.cos(grid_lon_r),
+            np.cos(grid_lat_r) * np.sin(grid_lon_r),
+            np.sin(grid_lat_r),
+        ])
+
+        path_lat_r = np.radians(path_lats)
+        path_lon_r = np.radians(path_lons)
+        
+        path_points = np.column_stack([
+            np.cos(path_lat_r) * np.cos(path_lon_r),
+            np.cos(path_lat_r) * np.sin(path_lon_r),
+            np.sin(path_lat_r),
+        ])
+
+        _, indices = KDTree(grid_points).query(path_points)
+        return indices
+
+    def _interpolate_with_indices(self: 'MPASVerticalCrossSectionPlotter',
+                                  grid_lons: np.ndarray,
+                                  grid_lats: np.ndarray,
+                                  grid_data: Union[np.ndarray, xr.DataArray, Any],
+                                  path_lons: np.ndarray,
+                                  path_lats: np.ndarray,
+                                  path_indices: Optional[np.ndarray]) -> np.ndarray:
+        """
+        This method maps one vertical level of grid data onto the cross-section path using the precomputed nearest-neighbour indices, the fast path that avoids rebuilding a KDTree for every level. When the level's data has no NaNs the precomputed full-grid indices give exactly the same result as the original per-level masked search, so it simply gathers the nearest-cell values. If the level contains NaNs (so the set of valid cells differs from the full grid) or no precomputed indices are available, it delegates to _interpolate_along_path to reproduce the original 'nearest valid cell' behaviour exactly.
+
+        Parameters:
+            grid_lons (np.ndarray): Longitudes of the grid cells in degrees.
+            grid_lats (np.ndarray): Latitudes of the grid cells in degrees.
+            grid_data (Union[np.ndarray, xr.DataArray, Any]): Data values for this vertical level, one per grid cell.
+            path_lons (np.ndarray): Longitudes of the path points in degrees.
+            path_lats (np.ndarray): Latitudes of the path points in degrees.
+            path_indices (Optional[np.ndarray]): Precomputed nearest-cell index per path point, or None.
+
+        Returns:
+            np.ndarray: Interpolated data values along the path for this level.
+        """
+        if isinstance(grid_data, xr.DataArray):
+            grid_data = grid_data.values
+        elif not isinstance(grid_data, np.ndarray):
+            grid_data = np.asarray(grid_data)
+
+        grid_data_flat = grid_data.ravel()
+
+        if path_indices is None or bool(np.isnan(grid_data_flat).any()):
+            return self._interpolate_along_path(
+                grid_lons, grid_lats, grid_data, path_lons, path_lats
+            )
+
+        return grid_data_flat[path_indices]
 
     def _compute_var_levels(self: 'MPASVerticalCrossSectionPlotter',
                             var_lower: str,

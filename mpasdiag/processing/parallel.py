@@ -26,6 +26,8 @@ from .utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_FORKSERVER_PRELOAD = ['mpasdiag.processing.parallel_wrappers']
+
 try:
     from mpi4py import MPI
     MPI_AVAILABLE = True
@@ -94,6 +96,7 @@ class ParallelStats:
     completed_tasks: int = 0
     failed_tasks: int = 0
     total_time: float = 0.0
+    wall_time: float = 0.0
     worker_times: Dict[int, float] = field(default_factory=dict)
     load_imbalance: float = 0.0
 
@@ -316,6 +319,10 @@ class MPASResultCollector:
 class MPASParallelManager:
     """ Manages parallel processing of tasks across multiple CPU cores using MPI or multiprocessing backends, with support for load balancing and error handling policies. """
 
+    _TAG_REQUEST = 11  # worker -> master: ready for work (carries previous result or None)
+    _TAG_TASK = 12     # master -> worker: process this task index
+    _TAG_STOP = 13     # master -> worker: no more work, exit
+
     def _setup_multiprocessing_backend(self: 'MPASParallelManager') -> None:
         """
         This method configures the MPASParallelManager instance for parallel execution using Python's multiprocessing module. It sets the backend to 'multiprocessing', determines the number of worker processes to use based on the number of CPU cores (defaulting to one less than the total cores), and initializes attributes related to multiprocessing execution. The method ensures that the parallel manager is ready to execute tasks in parallel using multiprocessing, while also setting up the necessary state for managing task distribution and result collection within a shared-memory environment.
@@ -502,45 +509,153 @@ class MPASParallelManager:
         assert self.comm is not None, "MPI communicator must be initialized"
         assert self.distributor is not None, "Task distributor must be initialized"
         assert self.collector is not None, "Result collector must be initialized"
-        
-        tasks = self.comm.bcast(tasks, root=0)        
-        local_tasks = self.distributor.distribute_tasks(tasks)
-        
+
+        self.comm.Barrier()
+        wall_start = MPI.Wtime()
+
+        tasks = self.comm.bcast(tasks, root=0)
+
+        use_work_stealing = (
+            self.distributor.strategy == LoadBalanceStrategy.DYNAMIC and self.size >= 3
+        )
+
         if self.is_master and self.verbose:
-            logger.info("Processing %d tasks across %d workers", len(tasks), self.size)
-            logger.info("Load balance strategy: %s", self.distributor.strategy.value)
+            n_workers = (self.size - 1) if use_work_stealing else self.size
+            logger.info("Processing %d tasks across %d workers", len(tasks), n_workers)
+            logger.info(
+                "Load balance strategy: %s%s",
+                self.distributor.strategy.value,
+                " (master/worker work-stealing)" if use_work_stealing else "",
+            )
             logger.info("Error policy: %s", self.error_policy.value)
-        
-        local_results = self._execute_local_tasks(func, local_tasks, *args, **kwargs)
-        all_results = self.collector.gather_results(local_results)
-        
-        del local_results
+
+        if use_work_stealing:
+            all_results = self._mpi_work_stealing(func, tasks, *args, **kwargs)
+        else:
+            local_tasks = self.distributor.distribute_tasks(tasks)
+            local_results = self._execute_local_tasks(func, local_tasks, *args, **kwargs)
+            all_results = self.collector.gather_results(local_results)
+            del local_results
+
+        wall_time = self.comm.allreduce(MPI.Wtime() - wall_start, op=MPI.MAX)
         gc.collect()
-        
+
         if self.is_master:
             assert all_results is not None, "Results should not be None on master"
             self.stats = self.collector.compute_statistics(all_results)
-            
+            self.stats.wall_time = wall_time
+
             if self.verbose:
                 self._print_statistics()
             
             return all_results
-        
+
         return None
+
+    def _mpi_work_stealing(self: 'MPASParallelManager',
+                           func: Callable,
+                           tasks: List[Any],
+                           *args,
+                           **kwargs) -> Optional[List[TaskResult]]:
+        """
+        This method runs a true dynamic master/worker (work-stealing) schedule over the broadcast task list. Rank 0 acts as a dedicated dispatcher that hands out task indices to workers on demand and collects their results, while every other rank repeatedly requests a task, executes it, and returns the result until the dispatcher signals that no work remains. Because the dispatcher assigns the next task the instant a worker reports back, faster workers naturally take on more tasks and the load stays balanced even when per-task costs vary widely -- at the cost of rank 0 not computing, which is why the caller only selects this path when at least three ranks are available. All ranks already hold the full task list (broadcast by _mpi_map) so workers can look up their assigned task by index.
+
+        Parameters:
+            func (Callable): The function to execute on each task.
+            tasks (List[Any]): The complete, broadcast list of tasks indexed by the dispatcher.
+            *args (tuple): Additional positional arguments forwarded to func on the workers.
+            **kwargs (dict): Additional keyword arguments forwarded to func on the workers.
+
+        Returns:
+            Optional[List[TaskResult]]: The ordered results on the master (rank 0), or None on worker ranks.
+        """
+        if self.is_master:
+            return self._mpi_dispatch_master(len(tasks))
+        self._mpi_dispatch_worker(func, tasks, *args, **kwargs)
+        return None
+
+    def _mpi_dispatch_master(self: 'MPASParallelManager',
+                             n_tasks: int) -> List[TaskResult]:
+        """
+        This method is the dispatcher half of the dynamic work-stealing scheduler, run only on rank 0. It repeatedly waits for any worker to report readiness (optionally carrying the result of the task it just finished), records that result, and replies with either the next unassigned task index or a stop signal once the queue is drained. It keeps serving until every worker has been told to stop, which guarantees that the result of every dispatched task is received before that worker is released. The collected results are returned in task order for downstream statistics and aggregation.
+
+        Parameters:
+            n_tasks (int): Total number of tasks to dispatch and collect.
+
+        Returns:
+            List[TaskResult]: Results ordered by task index.
+        """
+        assert self.comm is not None, "MPI communicator must be initialized"
+        collected: Dict[int, TaskResult] = {}
+        next_task = 0
+        active_workers = self.size - 1
+        status = MPI.Status()
+
+        while active_workers > 0:
+            previous = self.comm.recv(
+                source=MPI.ANY_SOURCE, tag=self._TAG_REQUEST, status=status,
+            )
+            worker = status.Get_source()
+
+            if previous is not None:
+                finished_id, finished_result = previous
+                collected[finished_id] = finished_result
+
+            if next_task < n_tasks:
+                self.comm.send(next_task, dest=worker, tag=self._TAG_TASK)
+                next_task += 1
+            else:
+                self.comm.send(None, dest=worker, tag=self._TAG_STOP)
+                active_workers -= 1
+
+        return [collected[i] for i in range(n_tasks)]
+
+    def _mpi_dispatch_worker(self: 'MPASParallelManager',
+                             func: Callable,
+                             tasks: List[Any],
+                             *args,
+                             **kwargs) -> None:
+        """
+        This method is the worker half of the dynamic work-stealing scheduler, run on every rank other than the dispatcher. It loops sending a readiness message to rank 0 -- piggybacking the result of the previously completed task -- and then receives either the next task index to execute or a stop signal. For each assigned index it looks up the task in the broadcast list and executes it through the shared single-task path so timing and error handling match the static scheduler, repeating until told to stop. The final task's result is delivered on the readiness message that immediately precedes the stop signal, so no result is lost.
+
+        Parameters:
+            func (Callable): The function to execute on each assigned task.
+            tasks (List[Any]): The complete, broadcast task list indexed by the dispatcher's assignments.
+            *args (tuple): Additional positional arguments forwarded to func.
+            **kwargs (dict): Additional keyword arguments forwarded to func.
+
+        Returns:
+            None
+        """
+        assert self.comm is not None, "MPI communicator must be initialized"
+        status = MPI.Status()
+        previous: Optional[Tuple[int, TaskResult]] = None
+
+        while True:
+            self.comm.send(previous, dest=0, tag=self._TAG_REQUEST)
+            task_id = self.comm.recv(source=0, tag=MPI.ANY_TAG, status=status)
+
+            if status.Get_tag() == self._TAG_STOP:
+                break
+
+            result = self._execute_one_task(func, task_id, tasks[task_id], *args, **kwargs)
+            previous = (task_id, result)
 
     @staticmethod
     def _get_mp_context_methods() -> List[str]:
         """
-        This static method determines the available multiprocessing context methods based on the operating system. It returns a list of context method names that can be used for creating multiprocessing pools. On Windows and macOS, only the 'spawn' method is available, while on other platforms (e.g., Linux), both 'fork' and 'spawn' methods are typically available. This method is used to ensure compatibility with the multiprocessing module across different platforms and to provide fallback options in case one method fails.
+        This static method determines the multiprocessing context start methods to try, in order, based on the operating system. On Windows only 'spawn' is available. On macOS the fast 'fork' method is unsafe with the GUI/Accelerate stack, so 'forkserver' is preferred (it imports the plotting stack once in a clean server process and forks workers from it -- avoiding the per-worker re-import cold-start of 'spawn') with 'spawn' kept as a fallback. On other platforms (e.g. Linux) 'fork' already shares the parent's imports cheaply, so it is tried first with 'spawn' as a fallback. Providing an ordered list lets the pool fall back to the next method if one fails.
 
         Parameters:
             None
 
         Returns:
-            List[str]: A list of multiprocessing context method names to try when creating a multiprocessing pool. 
+            List[str]: An ordered list of multiprocessing context start methods to try when creating a multiprocessing pool.
         """
-        if sys.platform in ('win32', 'darwin'):
+        if sys.platform == 'win32':
             return ['spawn']
+        if sys.platform == 'darwin':
+            return ['forkserver', 'spawn']
         return ['fork', 'spawn']
 
     def _run_pool_with_fallback(self: 'MPASParallelManager',
@@ -559,6 +674,8 @@ class MPASParallelManager:
         for context_method in context_methods:
             try:
                 mp_context = get_context(context_method)
+                if context_method == 'forkserver':
+                    mp_context.set_forkserver_preload(_FORKSERVER_PRELOAD)
                 with mp_context.Pool(processes=self.size) as pool:
                     return pool.map(_multiprocessing_task_wrapper, task_args)
             except Exception as e:
@@ -631,15 +748,18 @@ class MPASParallelManager:
 
         results = self._run_pool_with_fallback(task_args)
 
+        wall_time = time.time() - start_time
+
         stats = ParallelStats()
         stats.total_tasks = len(results)
         stats.completed_tasks = sum(1 for r in results if r.success)
         stats.failed_tasks = sum(1 for r in results if not r.success)
         stats.total_time = sum(r.execution_time for r in results)
+        stats.wall_time = wall_time
         self.stats = stats
 
         if self.verbose:
-            self._print_mp_statistics(stats, time.time() - start_time)
+            self._print_mp_statistics(stats, wall_time)
 
         del task_args
         gc.collect()
@@ -664,37 +784,59 @@ class MPASParallelManager:
             List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task. 
         """
         results = []
-        
+
         for task_id, task in local_tasks:
-            start_time = time.time()
-            result = TaskResult(task_id=task_id, success=False, worker_rank=self.rank)
-            
-            try:
-                output = func(task, *args, **kwargs)
-                result.success = True
-                result.result = output
-                
-            except Exception as e:
-                result.success = False
-                result.error = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
-                
-                if self.error_policy == ErrorPolicy.ABORT:
-                    if self.backend == 'mpi' and self.comm is not None:
-                        self.comm.Abort(1)
-                    else:
-                        raise
-                
-                if self.verbose:
-                    logger.exception(
-                        "[Rank %d] Error processing task %d: %s",
-                        self.rank, task_id, str(e),
-                    )
-            
-            finally:
-                result.execution_time = time.time() - start_time
-                results.append(result)
-        
+            results.append(self._execute_one_task(func, task_id, task, *args, **kwargs))
+
         return results
+
+    def _execute_one_task(self: 'MPASParallelManager',
+                          func: Callable,
+                          task_id: int,
+                          task: Any,
+                          *args,
+                          **kwargs) -> TaskResult:
+        """
+        This method executes a single task and returns its TaskResult, applying the configured error-handling policy and recording the wall-clock execution time. It is the shared per-task execution path used by both static distribution (via _execute_local_tasks) and the dynamic master/worker work-stealing scheduler, so success/error semantics and timing stay identical across both. Under the ABORT policy in MPI mode it aborts the communicator; otherwise it records the error on the TaskResult so the caller can collect or continue.
+
+        Parameters:
+            func (Callable): The function to execute on the task; it receives the task as its first argument followed by any additional positional and keyword arguments.
+            task_id (int): Position of the task within the overall batch, stored on the result for ordered collection.
+            task (Any): The task payload passed as the first argument to func.
+            *args (tuple): Additional positional arguments forwarded to func.
+            **kwargs (dict): Additional keyword arguments forwarded to func.
+
+        Returns:
+            TaskResult: Outcome of the task with success flag, result or error, execution time, and worker rank.
+        """
+        start_time = time.time()
+        result = TaskResult(task_id=task_id, success=False, worker_rank=self.rank)
+
+        try:
+            output = func(task, *args, **kwargs)
+            result.success = True
+            result.result = output
+
+        except Exception as e:
+            result.success = False
+            result.error = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+
+            if self.error_policy == ErrorPolicy.ABORT:
+                if self.backend == 'mpi' and self.comm is not None:
+                    self.comm.Abort(1)
+                else:
+                    raise
+
+            if self.verbose:
+                logger.exception(
+                    "[Rank %d] Error processing task %d: %s",
+                    self.rank, task_id, str(e),
+                )
+
+        finally:
+            result.execution_time = time.time() - start_time
+
+        return result
     
     def _serial_map(self: 'MPASParallelManager', 
                     func: Callable, 
@@ -760,6 +902,13 @@ class MPASParallelManager:
             100 * self.stats.completed_tasks / self.stats.total_tasks,
         )
         logger.info("Total time:        %.2f seconds", self.stats.total_time)
+
+        if self.stats.wall_time > 0:
+            logger.info("Wall time:         %.2f seconds", self.stats.wall_time)
+            logger.info(
+                "Speedup:           %.2fx",
+                self.stats.total_time / self.stats.wall_time,
+            )
 
         if len(self.stats.worker_times) > 1:
             logger.info("Per-worker times:")

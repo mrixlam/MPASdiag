@@ -133,6 +133,7 @@ class TestMPIMapExecution:
         mock_comm.Get_size.return_value = 4
         mock_comm.bcast.return_value = list(range(10))
         mock_comm.gather.return_value = [[TaskResult(i, True, worker_rank=0) for i in range(10)]]
+        mock_comm.allreduce.return_value = 1.0  
         
         with patch('mpasdiag.processing.parallel.MPI_AVAILABLE', True):
             mock_mpi = MagicMock()
@@ -410,6 +411,180 @@ class TestBarrierAndFinalize:
             manager.finalize()
 
         assert "finalized" in f.getvalue().lower()
+
+
+class TestWorkStealing:
+    """ Tests for the dynamic master/worker (work-stealing) MPI scheduler, driven with a mocked communicator so the dispatch protocol runs in a single process. """
+
+    @staticmethod
+    def _serial_manager() -> MPASParallelManager:
+        """ 
+        This helper method creates and returns a MPASParallelManager instance configured with the 'serial' backend and verbose mode disabled. It is used in the work-stealing tests to provide a manager instance that can be manipulated with a mocked communicator to simulate MPI behavior without requiring an actual MPI environment. This allows the tests to focus on verifying the logic of the master/worker dispatch protocol in a controlled, single-process context.
+
+        Parameters:
+            None
+
+        Returns:
+            MPASParallelManager: An instance of MPASParallelManager with 'serial' backend and verbose mode disabled.
+        """
+        return MPASParallelManager(backend='serial', verbose=False)
+
+    def test_mpi_dispatch_master(self: 'TestWorkStealing') -> None:
+        """
+        This test verifies the dispatcher half of the work-stealing scheduler. It mocks the communicator so that two workers (world size 3) each send an initial readiness message and then return the result of one task, and asserts that _mpi_dispatch_master hands out both task indices, records both results in task order, and sends exactly one stop signal to each worker once the queue drains.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        r0 = TaskResult(0, True, result='r0')
+        r1 = TaskResult(1, True, result='r1')
+
+        mock_comm = Mock()
+        mock_comm.recv.side_effect = [None, None, (0, r0), (1, r1)]
+
+        mock_status = Mock()
+        mock_status.Get_source.side_effect = [1, 2, 1, 2]
+
+        manager = self._serial_manager()
+        manager.comm = mock_comm
+        manager.size = 3
+
+        mock_mpi = MagicMock()
+        mock_mpi.Status.return_value = mock_status
+
+        with patch('mpasdiag.processing.parallel.MPI', mock_mpi):
+            results = manager._mpi_dispatch_master(2)
+
+        assert results == [r0, r1]
+        assert mock_comm.send.call_count == 4
+
+        stop_calls = [c for c in mock_comm.send.call_args_list
+                      if c.kwargs.get('tag') == manager._TAG_STOP]
+        
+        assert len(stop_calls) == 2
+
+    def test_mpi_dispatch_worker(self: 'TestWorkStealing') -> None:
+        """
+        This test verifies the worker half of the work-stealing scheduler. It mocks the communicator to hand back two task indices and then a stop signal, and asserts that _mpi_dispatch_worker executes the function on exactly the two assigned tasks in order and issues one readiness message per round-trip before exiting on the stop tag.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        manager = self._serial_manager()
+
+        mock_comm = Mock()
+        mock_comm.recv.side_effect = [0, 1, None]
+        manager.comm = mock_comm
+
+        mock_status = Mock()
+
+        mock_status.Get_tag.side_effect = [
+            manager._TAG_TASK, manager._TAG_TASK, manager._TAG_STOP,
+        ]
+
+        executed = []
+
+        def func(task: str) -> str:
+            """
+            This is a simple function that takes a task (in this case, a string) and returns its uppercase version. It is used in the test for the worker half of the work-stealing scheduler to verify that the worker correctly executes the assigned tasks and produces results. The function also appends the original task to the `executed` list, allowing the test to assert that the correct tasks were executed in order. This helps confirm that the worker logic processes tasks as expected before receiving a stop signal.
+
+            Parameters:
+                task (str): The input task to be processed (a string).
+
+            Returns:
+                str: The uppercase version of the input task.
+            """
+            executed.append(task)
+            return task.upper()
+
+        mock_mpi = MagicMock()
+        mock_mpi.Status.return_value = mock_status
+
+        with patch('mpasdiag.processing.parallel.MPI', mock_mpi):
+            manager._mpi_dispatch_worker(func, ['a', 'b'])
+
+        assert executed == ['a', 'b']
+        assert mock_comm.send.call_count == 3
+
+    def test_mpi_work_stealing_master_branch(self: 'TestWorkStealing') -> None:
+        """
+        This test verifies that _mpi_work_stealing runs the master dispatch loop and returns the gathered results on the master rank. It mocks the manager to be the master rank and patches the _mpi_dispatch_master method to return a canned list of results, then asserts that _mpi_work_stealing returns those results as expected. This confirms that the master branch of the work-stealing scheduler correctly initiates the dispatch protocol and collects results from workers, ultimately returning the aggregated results to the caller.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        manager = self._serial_manager()
+        manager.is_master = True
+        canned = [TaskResult(0, True)]
+
+        with patch.object(manager, '_mpi_dispatch_master', return_value=canned) as disp:
+            result = manager._mpi_work_stealing(lambda t: t, ['a'])
+
+        disp.assert_called_once_with(1)
+        assert result == canned
+
+    def test_mpi_work_stealing_worker_branch(self: 'TestWorkStealing') -> None:
+        """
+        This test verifies that _mpi_work_stealing runs the worker dispatch loop and returns None on worker ranks. It mocks the manager to be a worker rank and patches the _mpi_dispatch_worker method, then asserts that _mpi_work_stealing returns None on the worker. This confirms that the worker branch of the work-stealing scheduler correctly processes assigned tasks and does not attempt to return results, adhering to the expected behavior of workers in an MPI context.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        manager = self._serial_manager()
+        manager.is_master = False
+
+        with patch.object(manager, '_mpi_dispatch_worker') as disp:
+            result = manager._mpi_work_stealing(lambda t: t, ['a', 'b'])
+
+        disp.assert_called_once()
+        assert result is None
+
+    def test_mpi_map_uses_work_stealing(self: 'TestWorkStealing') -> None:
+        """
+        This test verifies that the _mpi_map method uses the work-stealing scheduler when the distributor is set to DYNAMIC. It mocks the manager to be the master rank, sets up a mock communicator, and patches the _mpi_work_stealing method to return a canned list of results. The test then calls _mpi_map and asserts that _mpi_work_stealing was called and that the results are returned as expected. This confirms that when the load balance strategy is set to dynamic, the MPI mapping logic correctly utilizes the work-stealing scheduler to distribute tasks and collect results across ranks.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        mock_comm = Mock()
+        mock_comm.bcast.return_value = list(range(6))
+        mock_comm.allreduce.return_value = 1.0
+
+        canned = [TaskResult(i, True) for i in range(6)]
+
+        manager = self._serial_manager()
+        manager.backend = 'mpi'
+        manager.comm = mock_comm
+        manager.size = 4
+        manager.is_master = True
+        manager.distributor = MPASTaskDistributor(mock_comm, LoadBalanceStrategy.DYNAMIC)
+        manager.collector = MPASResultCollector(mock_comm)
+
+        mock_mpi = MagicMock()
+        mock_mpi.Wtime.return_value = 0.0
+
+        with patch('mpasdiag.processing.parallel.MPI', mock_mpi):
+            with patch.object(manager, '_mpi_work_stealing', return_value=canned) as ws:
+                results = manager._mpi_map(lambda t: t, list(range(6)))
+
+        ws.assert_called_once()
+        assert results is not None
+        assert len(results) == 6
 
 
 if __name__ == "__main__":

@@ -12,7 +12,6 @@ Date: November 2025
 Version: 1.0.0
 """
 
-import gc
 import warnings
 import numpy as np
 import pandas as pd
@@ -283,7 +282,6 @@ class MPASVisualizer:
             plt.close(self.fig)
             self.fig = None
             self.ax = None
-            gc.collect()
     
     def create_time_series_plot(self: 'MPASVisualizer',
                                 times: List[datetime],
