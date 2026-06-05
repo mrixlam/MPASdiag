@@ -1514,33 +1514,33 @@ def _apply_lon_convention(lon_coords: xr.DataArray,
                           lon_max: float,
                           lon_convention: str) -> xr.DataArray:
     """
-    This helper function applies the specified longitude convention to the longitude coordinates of the original MPAS cell centers. It supports three conventions: 'auto', '[-180,180]', and '[0,360]'. If 'auto' is selected, it detects whether the data appears to be global or regional based on the longitude range and the min/max values, and preserves the original convention for global/wide-span data while converting to a consistent convention for regional data. For regional data, it converts longitudes to the specified convention if the longitude range is less than or equal to 180 degrees. This ensures that the longitude coordinates are in a consistent format that matches the target grid and allows for proper remapping and masking operations. The function returns the adjusted longitude coordinates as an xarray DataArray.
+    This helper function applies the specified longitude convention to the original MPAS longitude coordinates. It first resolves the 'auto' convention by examining the target grid bounds; if the target grid extends beyond 180 degrees from a non-negative origin, it assumes a [0,360] convention, otherwise it uses the signed [-180,180] convention. Then, it applies the appropriate normalization to the longitude coordinates based on the resolved convention. For the [-180,180] convention, it shifts and wraps longitudes to ensure they fall within that range. For the [0,360] convention, it wraps longitudes to ensure they are non-negative and less than 360 degrees. If an unrecognized convention is provided, it returns the original longitude coordinates without modification. This function ensures that the longitude coordinates of the MPAS cell centers are consistent with the target grid's longitude convention for accurate remapping. 
 
     Parameters:
-        lon_coords (xr.DataArray): Original longitude coordinates of the MPAS cell centers.
-        lon_data_range (float): The range of longitude values in the original data, used for auto-detection of global vs regional data.
-        lon_min (float): Minimum longitude for target grid in degrees, used for auto-detection of global vs regional data.
-        lon_max (float): Maximum longitude for target grid in degrees, used for auto-detection of global vs regional data.
+        lon_coords (xr.DataArray): Original longitude coordinates of the MPAS cell centers (in degrees).
+        lon_data_range (float): The range of longitude values in the original data (used for diagnostics).
+        lon_min (float): Minimum longitude of the target grid in degrees, used to resolve the 'auto' convention.
+        lon_max (float): Maximum longitude of the target grid in degrees, used to resolve the 'auto' convention.
         lon_convention (str): The longitude convention to apply, options are 'auto', '[-180,180]', and '[0,360]'.
 
     Returns:
-        xr.DataArray: Adjusted longitude coordinates of the MPAS cell centers according to the specified longitude convention, returned as an xarray DataArray.
+        xr.DataArray: Adjusted longitude coordinates of the MPAS cell centers according to the resolved longitude convention, returned as an xarray DataArray.
     """
+    # Resolve 'auto' from the target grid bounds and data range
     if lon_convention == 'auto':
-        if lon_data_range > 180 or (lon_min >= 0 and lon_max > 180):
-            logger.debug(
-                "Detected global/wide-span data (range=%.1f°), "
-                "preserving original longitude convention",
-                lon_data_range,
-            )
-            return lon_coords
-        lon_convention = '[-180,180]' if (lon_max <= 180 and lon_min >= -180) else '[0,360]'
+        lon_convention = '[0,360]' if (lon_min >= 0 and lon_max > 180) else '[-180,180]'
+        logger.debug(
+            "Resolved 'auto' longitude convention to %s for target [%.1f, %.1f]° (data range=%.1f°)",
+            lon_convention, lon_min, lon_max, lon_data_range,
+        )
 
-    if lon_convention == '[-180,180]' and lon_data_range <= 180:
-        return xr.where(lon_coords > 180, lon_coords - 360, lon_coords)
+    # Apply the resolved longitude convention to the original coordinates
+    if lon_convention == '[-180,180]':
+        return ((lon_coords + 180) % 360) - 180
 
-    if lon_convention == '[0,360]' and lon_data_range <= 180:
-        return xr.where(lon_coords < 0, lon_coords + 360, lon_coords)
+    # Wrap to [0,360] if that's the convention
+    if lon_convention == '[0,360]':
+        return lon_coords % 360
 
     return lon_coords
 

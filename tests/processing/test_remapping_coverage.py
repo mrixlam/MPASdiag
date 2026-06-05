@@ -844,6 +844,51 @@ class TestApplyLonConvention:
         assert result_vals[0] == pytest.approx(270.0)  # -90 + 360
         assert result_vals[1] == pytest.approx(315.0)  # -45 + 360
 
+    def test_auto_maps_global_0_360_source_to_signed_target(self: 'TestApplyLonConvention') -> None:
+        """
+        This test verifies that when _apply_lon_convention is called with lon_convention='auto' and a lon_data_range that indicates a global [0, 360] source grid, the function correctly maps the longitudes to a signed [-180, 180] target convention. It creates a test array of longitude coordinates that includes values greater than 180, calls _apply_lon_convention with 'auto', and checks that the resulting longitude values are within the [-180, 180] range and that specific conversions (e.g., 200 becomes -160) are correct.  This covers the logic in _apply_lon_convention that automatically detects a global [0, 360] source and converts it to a signed convention when 'auto' is specified.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon_coords = xr.DataArray(np.array([10.0, 100.0, 200.0, 350.0]))
+        lon_data_range = 340.0  
+
+        result = _apply_lon_convention(
+            lon_coords, lon_data_range, lon_min=-180.0, lon_max=180.0,
+            lon_convention='auto'
+        )
+
+        result_vals = result.values
+        assert np.all((result_vals >= -180.0) & (result_vals <= 180.0))
+        assert result_vals[2] == pytest.approx(-160.0) 
+        assert result_vals[3] == pytest.approx(-10.0) 
+        assert np.any(result_vals < 0) 
+
+    def test_auto_resolves_to_0_360_for_wide_positive_target(self: 'TestApplyLonConvention') -> None:
+        """
+        This test verifies that when _apply_lon_convention is called with lon_convention='auto' and a lon_data_range that indicates a global [0, 360] source grid, but the target longitude bounds are also in the [0, 360] range, the function correctly resolves to applying the [0, 360] convention without converting to signed. It creates a test array of longitude coordinates that includes negative values, calls _apply_lon_convention with 'auto' and target bounds in [0, 360], and checks that the resulting longitude values are all non-negative and that specific conversions (e.g., -90 becomes 270) are correct.  This covers the logic in _apply_lon_convention that considers both the source data range and the target longitude bounds when 'auto' is specified. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon_coords = xr.DataArray(np.array([-90.0, 45.0]))
+
+        result = _apply_lon_convention(
+            lon_coords, 135.0, lon_min=0.0, lon_max=360.0,
+            lon_convention='auto'
+        )
+
+        result_vals = result.values
+        assert np.all(result_vals >= 0)
+        assert result_vals[0] == pytest.approx(270.0)   # -90 -> 270
+
 
 class TestDispatchRemapErrors:
     """ Cover the ImportError and ValueError guards inside dispatch_remap. """

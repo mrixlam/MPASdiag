@@ -16,6 +16,7 @@ import sys
 import pytest
 import matplotlib
 import numpy as np
+import pandas as pd
 import xarray as xr
 matplotlib.use('Agg')
 from typing import Any
@@ -184,6 +185,98 @@ class TestComputePrecipitationDifference:
 
         if 'note' in result.attrs:
             assert 'Insufficient' in result.attrs['note']
+
+
+class TestPrecipitationTimeMetadata:
+    """ Tests that compute_precipitation_difference attaches valid-time metadata for downstream annotation. """
+
+    @staticmethod
+    def _make_dataset(n_time: int = 4, 
+                      n_cells: int = 6) -> xr.Dataset:
+        """
+        This helper method creates a synthetic dataset with a `Time` coordinate and `rainc`/`rainnc` variables for testing the time metadata handling in the `compute_precipitation_difference` method. The dataset simulates a simple time series of precipitation data across a specified number of cells, allowing tests to verify that valid-time and accumulation start time metadata are correctly attached to the computed differences. 
+
+        Parameters:
+            n_time (int): Number of hourly time steps.
+            n_cells (int): Number of mesh cells.
+
+        Returns:
+            xr.Dataset: Dataset with `Time` datetime coordinate and `rainc`/`rainnc` variables.
+        """
+        rng = np.random.default_rng(0)
+        times = pd.date_range('2024-09-16T21:00:00', periods=n_time, freq='1h')
+        rainc = np.cumsum(rng.uniform(0, 5, (n_time, n_cells)), axis=0)
+        rainnc = np.cumsum(rng.uniform(0, 5, (n_time, n_cells)), axis=0)
+        return xr.Dataset(
+            {
+                'rainc': (['Time', 'nCells'], rainc),
+                'rainnc': (['Time', 'nCells'], rainnc),
+            },
+            coords={'Time': ('Time', times)},
+        )
+
+    def test_valid_time_and_window_start_attached(self: 'TestPrecipitationTimeMetadata') -> None:
+        """
+        This test verifies that the `compute_precipitation_difference` method correctly attaches `valid_time` and `accumulation_start_time` attributes to the output `xarray.DataArray`. It checks that the `valid_time` corresponds to the timestamp of the selected time index and that the `accumulation_start_time` reflects the correct lookback period based on the specified accumulation period. This ensures that the method provides accurate time metadata for downstream use in annotations and interpretations.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        ds = self._make_dataset()
+        times = ds['Time'].values
+        diag = PrecipitationDiagnostics(verbose=False)
+
+        result = diag.compute_precipitation_difference(
+            ds, time_index=2, var_name='total', accum_period='a01h'
+        )
+
+        assert result.attrs['valid_time'] == pd.Timestamp(times[2]).isoformat()
+        assert result.attrs['accumulation_start_time'] == pd.Timestamp(times[1]).isoformat()
+
+    def test_window_start_tracks_accumulation_period(self: 'TestPrecipitationTimeMetadata') -> None:
+        """
+        This test checks that the `accumulation_start_time` attribute correctly tracks the accumulation period specified in the `compute_precipitation_difference` method. For example, if an accumulation period of 'a03h' is used, the `accumulation_start_time` should reflect a timestamp that is 3 hours prior to the `valid_time`. This ensures that the method accurately calculates and attaches time metadata based on the accumulation period, which is crucial for correct interpretation of the precipitation differences. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        ds = self._make_dataset()
+        times = ds['Time'].values
+        diag = PrecipitationDiagnostics(verbose=False)
+
+        result = diag.compute_precipitation_difference(
+            ds, time_index=3, var_name='rainnc', accum_period='a03h'
+        )
+
+        assert result.attrs['valid_time'] == pd.Timestamp(times[3]).isoformat()
+        assert result.attrs['accumulation_start_time'] == pd.Timestamp(times[0]).isoformat()
+
+    def test_first_time_step_has_valid_time_without_window_start(self: 'TestPrecipitationTimeMetadata') -> None:
+        """
+        This test verifies that when the `compute_precipitation_difference` method is called with `time_index=0`, it still attaches a `valid_time` attribute corresponding to the first timestamp, but does not include an `accumulation_start_time` since there is no prior data to define a lookback window. This ensures that the method can handle edge cases at the start of the time series and provides appropriate metadata for interpretation. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        ds = self._make_dataset()
+        times = ds['Time'].values
+        diag = PrecipitationDiagnostics(verbose=False)
+
+        result = diag.compute_precipitation_difference(
+            ds, time_index=0, var_name='rainnc', accum_period='a01h'
+        )
+
+        assert result.attrs['valid_time'] == pd.Timestamp(times[0]).isoformat()
+        assert 'accumulation_start_time' not in result.attrs
 
 
 if __name__ == '__main__':

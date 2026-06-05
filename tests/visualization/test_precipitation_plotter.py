@@ -1117,5 +1117,263 @@ class TestPrecipitationPlotterHelpers:
         assert np.all(out >= 0)
 
 
+class TestTimeAnnotationSource:
+    """ Tests that the accumulation annotation prefers data_array time metadata over config.time_index. """
+
+    @pytest.fixture(autouse=True)
+    def setup_method(self: 'TestTimeAnnotationSource') -> None:
+        """
+        This fixture sets up the test environment for testing the source of time annotations in the `create_precipitation_map` method. It initializes an instance of `MPASPrecipitationPlotter` and prepares longitude, latitude, and precipitation arrays for use in the tests. The fixture ensures that a consistent set of data is available for validating how the plotter determines the accumulation annotation based on metadata and configuration settings. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        self.plotter = MPASPrecipitationPlotter()
+        self.lon = np.linspace(-100, -90, 20)
+        self.lat = np.linspace(30, 40, 20)
+        self.precip = np.linspace(1.0, 20.0, 20)
+
+    @staticmethod
+    def _accumulation_text(ax: object) -> str:
+        """
+        This helper method searches the text artists in the given axes for an annotation that starts with 'Accumulation:' and returns its content. If no such annotation is found, it returns an empty string. This method is used in the tests to extract the accumulation annotation text for validation. 
+
+        Parameters:
+            ax (object): The plot axes whose text artists are searched.
+
+        Returns:
+            str: The annotation text starting with 'Accumulation:', or '' if none is found.
+        """
+        for txt in ax.texts:
+            content = txt.get_text()
+            if content.startswith('Accumulation:'):
+                return content
+        return ''
+
+    def test_metadata_drives_annotation_over_config(self: 'TestTimeAnnotationSource') -> None:
+        """
+        This test validates that when creating a precipitation map, the accumulation annotation is derived from the `data_array` metadata (specifically the `valid_time` and `accumulation_start_time` attributes) rather than the `config.time_index`. It sets up a dataset with a time coordinate that differs from the metadata valid time and checks that the resulting annotation reflects the metadata times, confirming that the plotter prioritizes data metadata for time annotations. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.utils_config import MPASConfig
+
+        times = pd.date_range('2024-09-16T22:00:00', periods=3, freq='1h')
+        dataset = xr.Dataset(coords={'Time': ('Time', times)})
+
+        config = MPASConfig()
+        config.time_index = 0
+
+        data_array = xr.DataArray(
+            self.precip,
+            dims=['nCells'],
+            attrs={
+                'units': 'mm',
+                'valid_time': '2024-09-17T00:00:00',
+                'accumulation_start_time': '2024-09-16T23:00:00',
+            },
+        )
+
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-100, -90, 30, 40),
+            accum_period='a01h',
+            data_array=data_array,
+            dataset=dataset,
+            config=config,
+            style=PrecipitationRenderStyle(plot_type='scatter'),
+        )
+
+        annotation = self._accumulation_text(ax)
+        assert annotation == 'Accumulation: 2024-09-16 23:00 UTC to 2024-09-17 00:00 UTC (1 h)'
+        plt.close(fig)
+
+    def test_explicit_time_end_takes_precedence_over_metadata(self: 'TestTimeAnnotationSource') -> None:
+        """
+        This test validates that when an explicit `time_end` parameter is provided to the `create_precipitation_map` function, it takes precedence over the `data_array` metadata for determining the accumulation annotation. It sets up a dataset with a time coordinate and metadata valid time that differ from the provided `time_end`, then checks that the resulting annotation reflects the explicitly provided `time_end`, confirming that the plotter prioritizes explicit parameters over metadata for time annotations.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        data_array = xr.DataArray(
+            self.precip,
+            dims=['nCells'],
+            attrs={
+                'units': 'mm',
+                'valid_time': '2024-09-17T00:00:00',
+                'accumulation_start_time': '2024-09-16T23:00:00',
+            },
+        )
+
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-100, -90, 30, 40),
+            accum_period='a01h',
+            time_end=datetime(2024, 9, 18, 6, 0),
+            data_array=data_array,
+            style=PrecipitationRenderStyle(plot_type='scatter'),
+        )
+
+        annotation = self._accumulation_text(ax)
+        assert annotation == 'Accumulation: 2024-09-18 05:00 UTC to 2024-09-18 06:00 UTC (1 h)'
+        plt.close(fig)
+
+
+class TestResolveAccumulationTimes:
+    """ Unit tests for _resolve_accumulation_times precedence, including batch (explicit time_end) behavior. """
+
+    @pytest.fixture(autouse=True)
+    def setup_method(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This fixture sets up the test environment for testing the `_resolve_accumulation_times` method by initializing an instance of `MPASPrecipitationPlotter`. The method being tested is responsible for determining the accumulation start and end times based on a combination of explicit parameters, data array metadata, and dataset time coordinates. The fixture ensures that a plotter instance is available for all tests in this class, allowing them to focus on validating the precedence logic of time resolution under various scenarios, including batch processing with explicit time_end and cases with or without metadata. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        self.plotter = MPASPrecipitationPlotter()
+
+    @staticmethod
+    def _data_array_with_meta(valid_time: str, 
+                              accum_start: str) -> xr.DataArray:
+        """
+        This helper method creates a sample `xr.DataArray` with specified `valid_time` and `accumulation_start_time` attributes for testing the `_resolve_accumulation_times` method. The returned `DataArray` contains dummy data and the necessary time metadata to simulate real input scenarios for the tests. 
+
+        Parameters:
+            valid_time (str): ISO 'valid_time' attribute value.
+            accum_start (str): ISO 'accumulation_start_time' attribute value.
+
+        Returns:
+            xr.DataArray: DataArray with the requested time metadata attributes.
+        """
+        return xr.DataArray(
+            np.array([1.0, 2.0, 3.0]),
+            dims=['nCells'],
+            attrs={'valid_time': valid_time, 'accumulation_start_time': accum_start},
+        )
+
+    def test_explicit_end_matching_metadata_uses_exact_start(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This test validates that when an explicit `time_end` parameter is provided and matches the `data_array` metadata `valid_time`, the method uses the exact `accumulation_start_time` from the metadata for the start time. This confirms that in batch processing scenarios where `time_end` is explicitly provided, the plotter can still utilize metadata for determining the start time when there is a match, ensuring accurate accumulation period annotations. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        da = self._data_array_with_meta('2024-09-17T00:00:00', '2024-09-16T23:30:00')
+
+        end, start = self.plotter._resolve_accumulation_times(
+            time_end=datetime(2024, 9, 17, 0, 0), time_start=None,
+            data_array=da, dataset=None, config=None,
+        )
+
+        assert end == datetime(2024, 9, 17, 0, 0)
+        assert start == datetime(2024, 9, 16, 23, 30)
+
+    def test_explicit_end_mismatching_metadata_drops_start(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This test validates that when an explicit `time_end` parameter is provided but does not match the `data_array` metadata `valid_time`, the method drops the start time rather than using the mismatched metadata. This confirms that in batch processing scenarios, the plotter prioritizes the explicit `time_end` and avoids using potentially incorrect metadata for the start time, ensuring that accumulation period annotations are based on reliable information. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        da = self._data_array_with_meta('2024-09-17T00:00:00', '2024-09-16T23:00:00')
+
+        end, start = self.plotter._resolve_accumulation_times(
+            time_end=datetime(2024, 9, 18, 6, 0), time_start=None,
+            data_array=da, dataset=None, config=None,
+        )
+
+        assert end == datetime(2024, 9, 18, 6, 0)
+        assert start is None
+
+    def test_metadata_used_when_no_explicit_end(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This test validates that when no explicit `time_end` parameter is provided, both the end and start times are derived from the `data_array` metadata. This confirms that in non-batch scenarios where `time_end` is not explicitly set, the plotter relies on metadata to determine the accumulation period, ensuring that annotations reflect the information contained within the data. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        da = self._data_array_with_meta('2024-09-17T00:00:00', '2024-09-16T23:00:00')
+
+        end, start = self.plotter._resolve_accumulation_times(
+            time_end=None, time_start=None, data_array=da, dataset=None, config=None,
+        )
+
+        assert end == datetime(2024, 9, 17, 0, 0)
+        assert start == datetime(2024, 9, 16, 23, 0)
+
+    def test_config_fallback_when_no_metadata(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This test validates that when no explicit `time_end` parameter is provided and the `data_array` lacks valid time metadata, the method falls back to using the `config.time_index` to determine the end time from the dataset's time coordinate. This confirms that the plotter can still derive a valid end time for accumulation annotations based on configuration settings when metadata is unavailable, ensuring that the functionality remains robust in cases where data metadata is incomplete or missing. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.utils_config import MPASConfig
+
+        times = pd.date_range('2024-09-16T22:00:00', periods=3, freq='1h')
+        dataset = xr.Dataset(coords={'Time': ('Time', times)})
+        config = MPASConfig()
+        config.time_index = 2
+
+        end, start = self.plotter._resolve_accumulation_times(
+            time_end=None, time_start=None, data_array=None, dataset=dataset, config=config,
+        )
+        
+        assert end == pd.Timestamp(times[2]).to_pydatetime()
+        assert start is None
+
+    def test_malformed_metadata_is_ignored(self: 'TestResolveAccumulationTimes') -> None:
+        """
+        This test validates that when the `data_array` contains malformed time metadata that cannot be parsed, the method ignores the metadata and returns `None` for both start and end times. This confirms that the plotter can gracefully handle cases with invalid metadata without crashing, ensuring that accumulation annotations are not generated based on unreliable information. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        da = xr.DataArray(
+            np.array([1.0, 2.0]),
+            dims=['nCells'],
+            attrs={'valid_time': 'not-a-date', 'accumulation_start_time': 'also-bad'},
+        )
+
+        end, start = self.plotter._resolve_accumulation_times(
+            time_end=None, time_start=None, data_array=da, dataset=None, config=None,
+        )
+        
+        assert end is None
+        assert start is None
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

@@ -13,6 +13,7 @@ Version: 1.0.0
 """
 # Load necessary libraries
 import numpy as np
+import pandas as pd
 import xarray as xr
 from typing import Any, Optional, cast
 
@@ -75,7 +76,9 @@ class PrecipitationDiagnostics:
         
         # Handle edge case for first time step where differencing is not possible
         if time_index < time_step_diff:
-            return self._handle_first_time_step(dataset, time_dim, time_index, var_name, accum_period, accum_hours, data_type)
+            first_step = self._handle_first_time_step(dataset, time_dim, time_index, var_name, accum_period, accum_hours, data_type)
+            self._attach_time_metadata(first_step, dataset, time_dim, time_index, time_index - time_step_diff)
+            return first_step
         
         # Perform temporal differencing to compute accumulation for the specified variable and accumulation period
         if self.verbose:
@@ -108,6 +111,9 @@ class PrecipitationDiagnostics:
             'accumulation_hours': accum_hours
         })
 
+        # Attach valid-time and window-start metadata so downstream plotting annotates the correct accumulation window
+        self._attach_time_metadata(accumulated_precipitation, dataset, time_dim, time_index, previous_index)
+
         # Provide diagnostic output about the computed accumulation, including range and spatial coverage, to help identify potential issues in the results
         if self.verbose:
             logger.info(
@@ -118,8 +124,45 @@ class PrecipitationDiagnostics:
 
         # Return accumulated precipitation DataArray
         return accumulated_precipitation
-    
-    def get_accumulation_hours(self: 'PrecipitationDiagnostics', 
+
+    def _attach_time_metadata(self: 'PrecipitationDiagnostics',
+                              data: xr.DataArray,
+                              dataset: xr.Dataset,
+                              time_dim: str,
+                              time_index: int,
+                              previous_index: int) -> None:
+        """
+        This helper function attaches valid-time and accumulation window start metadata to the provided DataArray based on the time coordinate values from the dataset. It records the valid time of the current step as an ISO 8601 string and, if a valid previous index is provided, also records the accumulation window start time. This metadata is crucial for downstream plotting and analysis to correctly annotate the accumulation window associated with the precipitation data. The function includes error handling to ensure that any issues with accessing time metadata do not disrupt the overall processing of the precipitation data, making it a best-effort annotation that enhances the usability of the results without being a critical dependency. 
+
+        Parameters:
+            data (xr.DataArray): Accumulation DataArray to annotate in place.
+            dataset (xr.Dataset): Source MPAS dataset providing the time coordinate.
+            time_dim (str): Name of the time dimension/coordinate in the dataset.
+            time_index (int): Index of the current (valid) time step.
+            previous_index (int): Index marking the start of the accumulation window; negative when undefined.
+
+        Returns:
+            None
+        """
+        try:
+            # Resolve the time coordinate values; skip annotation if it is unavailable
+            if time_dim not in dataset.variables and time_dim not in dataset.coords:
+                return
+            
+            # Extract time values from the dataset for the specified time dimension
+            times = dataset[time_dim].values
+
+            # Record the valid time of the current step as an ISO 8601 string
+            data.attrs['valid_time'] = pd.Timestamp(times[time_index]).isoformat()
+
+            # Record the accumulation window start only when a valid previous index exists
+            if previous_index >= 0:
+                data.attrs['accumulation_start_time'] = pd.Timestamp(times[previous_index]).isoformat()
+        except (KeyError, IndexError, ValueError, TypeError):
+            # Time metadata is best-effort; never let annotation failures break the accumulation result
+            return
+
+    def get_accumulation_hours(self: 'PrecipitationDiagnostics',
                                accum_period: str) -> int:
         """
         This helper function maps standard MPAS accumulation period identifiers (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') to their corresponding number of hours. If the provided identifier is not recognized, it defaults to 24 hours. This centralizes the mapping logic for accumulation periods and allows for easy extension in the future if additional periods are needed. 

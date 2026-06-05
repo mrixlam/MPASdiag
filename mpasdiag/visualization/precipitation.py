@@ -404,7 +404,88 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         self.ax.text(0.01, 0.02, annotation_text, transform=self.ax.transAxes, fontsize=9,
                     verticalalignment='bottom', horizontalalignment='left',
                     bbox={'facecolor': 'white', 'alpha': 0.7, 'edgecolor': 'none'})
-    
+
+    @staticmethod
+    def _read_time_metadata(data_array: Optional[xr.DataArray]) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """
+        This static method reads time metadata from an xarray DataArray's attributes, specifically looking for 'valid_time' and 'accumulation_start_time'. It attempts to parse these attributes into Python datetime objects using pandas Timestamp for robust handling of various datetime formats. If the attributes are missing or cannot be parsed, it returns None for those values. This method provides a best-effort approach to extract time information that may have been attached by the diagnostics, allowing for more informative annotations on the precipitation plots when such metadata is available. 
+
+        Parameters:
+            data_array (Optional[xr.DataArray]): DataArray whose attrs may carry 'valid_time' and 'accumulation_start_time'.
+
+        Returns:
+            Tuple[Optional[datetime], Optional[datetime]]: The (meta_end, meta_start) datetimes parsed from metadata.
+        """
+        if data_array is None:
+            return None, None
+
+        def _parse(key: str) -> Optional[datetime]:
+            """
+            This helper function attempts to parse a datetime from the specified attribute key in the DataArray's attributes. It returns a Python datetime object if parsing is successful, or None if the attribute is missing or cannot be parsed. This allows for robust handling of time metadata that may be present in various formats.
+
+            Parameters:
+                key (str): The attribute key to look for in the DataArray's attributes (e.g., 'valid_time', 'accumulation_start_time').
+
+            Returns:
+                Optional[datetime]: The parsed datetime object if successful, or None if the attribute is missing or cannot be parsed.
+            """
+            value = data_array.attrs.get(key)
+
+            if value is None:
+                return None
+            
+            try:
+                return pd.Timestamp(value).to_pydatetime()
+            except (ValueError, TypeError):
+                return None
+
+        return _parse('valid_time'), _parse('accumulation_start_time')
+
+    def _resolve_accumulation_times(self: 'MPASPrecipitationPlotter',
+                                    time_end: Optional[datetime],
+                                    time_start: Optional[datetime],
+                                    data_array: Optional[xr.DataArray],
+                                    dataset: Optional[xr.Dataset],
+                                    config: Optional[Any]) -> Tuple[Optional[datetime], Optional[datetime]]:
+        """
+        This method resolves the accumulation end and start times for annotation by considering explicit parameters, metadata from the DataArray, and fallback logic based on the dataset and config. The explicit parameters take precedence, followed by metadata if it is consistent with the explicit values, and finally a fallback to the dataset's Time coordinate based on the config's time_index if necessary. This allows for flexible handling of time information while ensuring that any derived times are consistent and meaningful for annotating the precipitation plot. The method returns the resolved (time_end, time_start) pair that can be used for annotation or further processing. 
+
+        Parameters:
+            time_end (Optional[datetime]): Explicit accumulation end time; takes precedence when provided.
+            time_start (Optional[datetime]): Explicit accumulation start time; takes precedence when provided.
+            data_array (Optional[xr.DataArray]): DataArray whose attrs may carry 'valid_time' and 'accumulation_start_time'.
+            dataset (Optional[xr.Dataset]): Dataset providing the Time coordinate for the config fallback.
+            config (Optional[Any]): Configuration object whose time_index drives the fallback derivation.
+
+        Returns:
+            Tuple[Optional[datetime], Optional[datetime]]: The resolved (time_end, time_start) pair.
+        """
+        # Read any valid-time metadata attached by the diagnostics
+        meta_end, meta_start = self._read_time_metadata(data_array)
+
+        # Resolve the end time with precedence: explicit parameter > metadata > config fallback
+        if time_end is None:
+            time_end = meta_end
+
+        # If time_end is still None, attempt to derive it from the dataset's Time coordinate using the config's time_index
+        if time_end is None and dataset is not None and config is not None:
+            time_idx = getattr(config, "time_index", None)
+            if (
+                time_idx is not None
+                and hasattr(dataset, "Time")
+                and len(dataset.Time) > time_idx
+            ):
+                time_end = pd.Timestamp(dataset.Time.values[time_idx]).to_pydatetime()
+
+        # Resolve the start time from metadata only when it is consistent with the resolved end
+        if time_start is None and meta_start is not None:
+            consistent = meta_end is None or time_end is None or pd.Timestamp(meta_end) == pd.Timestamp(time_end)
+            if consistent:
+                time_start = meta_start
+
+        # Return the resolved accumulation window endpoints
+        return time_end, time_start
+
     def create_precipitation_map(self: 'MPASPrecipitationPlotter',
                                  lon: np.ndarray,
                                  lat: np.ndarray,
@@ -528,15 +609,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Set title and add time annotation
         self.ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
         
-        # Derive time_end from dataset and config if not provided
-        if time_end is None and dataset is not None and config is not None:
-            time_idx = getattr(config, "time_index", None)
-            if (
-                time_idx is not None
-                and hasattr(dataset, "Time")
-                and len(dataset.Time) > time_idx
-            ):
-                time_end = pd.Timestamp(dataset.Time.values[time_idx]).to_pydatetime()
+        # Resolve the accumulation window (valid-time metadata preferred, config.time_index as fallback)
+        time_end, time_start = self._resolve_accumulation_times(
+            time_end, time_start, data_array, dataset, config
+        )
 
         # Add time annotation for accumulation period
         self._add_time_annotation(time_end, time_start, accum_period)

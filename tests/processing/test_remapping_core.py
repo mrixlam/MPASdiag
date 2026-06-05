@@ -642,6 +642,42 @@ class TestRemappingCoverageGaps:
 
         assert isinstance(result, xr.DataArray)
 
+    def test_remap_global_0_360_source_covers_western_hemisphere(self: 'TestRemappingCoverageGaps') -> None:
+        """
+        This test verifies that the `remap_mpas_to_latlon_with_masking` function correctly handles a global remapping scenario where the source longitude values are in the [0,360] range and cover the western hemisphere (e.g., 240 to 280 degrees). The test creates a dataset with 'lonCell' and 'latCell' coordinates in degrees, along with synthetic data values, and calls the remapping function with global bounds and the appropriate longitude convention. The function should correctly interpret the longitude values, perform the remapping, and return a valid xarray DataArray with finite values in the western hemisphere. This ensures that users can perform global remapping operations even when their source data uses a longitude convention that includes dateline wrapping. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+
+        lon1d = np.arange(0.0, 360.0, 4.0)
+        lat1d = np.arange(-60.0, 61.0, 4.0)
+
+        lon_grid, lat_grid = np.meshgrid(lon1d, lat1d)
+
+        lon_deg = lon_grid.ravel()
+        lat_deg = lat_grid.ravel()
+
+        ds = xr.Dataset({
+            'lonCell': ('nCells', lon_deg),
+            'latCell': ('nCells', lat_deg),
+        })
+        
+        data = _RNG.uniform(0, 10, lon_deg.size)
+
+        result = remap_mpas_to_latlon_with_masking(
+            data, ds, lon_min=-180, lon_max=180, lat_min=-60, lat_max=60,
+            resolution=2.0, lon_convention='auto'
+        )
+
+        lon_axis = result.lon.values
+        west = result.values[:, lon_axis < 0]
+        assert np.isfinite(west).any(), "Expected finite remapped data west of 0E"
+
 
     def test_remap_mpas_to_latlon_xarray_input(self: 'TestRemappingCoverageGaps') -> None:
         """

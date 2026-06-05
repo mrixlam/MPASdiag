@@ -46,6 +46,9 @@ plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
 # Define plot configuration
 cfg = MPASConfig()
 
+# Wire the time index so the accumulation annotation tracks the selected time step
+cfg.time_index = tindex
+
 # Define map boundaries
 cfg.lon_min = -180.0
 cfg.lon_max = 180.0
