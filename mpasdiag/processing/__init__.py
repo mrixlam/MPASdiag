@@ -38,12 +38,12 @@ try:
     _REMAPPING_AVAILABLE = True
 except ImportError:
     _REMAPPING_AVAILABLE = False
-    MPASRemapper = None
-    remap_mpas_to_latlon = None
-    remap_mpas_to_latlon_with_masking = None
-    build_remapped_valid_mask = None
-    create_target_grid = None
-    dispatch_remap = None
+    MPASRemapper = None  # type: ignore[assignment,misc]
+    remap_mpas_to_latlon = None  # type: ignore[assignment]
+    remap_mpas_to_latlon_with_masking = None  # type: ignore[assignment]
+    build_remapped_valid_mask = None  # type: ignore[assignment]
+    create_target_grid = None  # type: ignore[assignment]
+    dispatch_remap = None  # type: ignore[assignment]
 
 __all__ = [
     'MPASBaseProcessor',

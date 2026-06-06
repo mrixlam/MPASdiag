@@ -13,7 +13,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Programming Language :: Python :: 3",
@@ -67,7 +67,7 @@ dev = [
     "execnet>=1.9.0",
     "black>=21.0",
     "flake8>=3.8",
-    "mypy>=0.800",
+    "mypy>=1.15.0",
     "sphinx>=4.0",
     "sphinx-rtd-theme>=0.5",
 ]
@@ -92,15 +92,11 @@ mpasdiag = "mpasdiag.cli:main"
 esmpy = { git = "https://github.com/esmf-org/esmf", subdirectory = "src/addon/esmpy" }
 
 [tool.setuptools]
-packages = ["mpasdiag"]
 include-package-data = true
 
-[tool.setuptools.package-data]
-"*" = [
-    "data/*.yaml",
-    "data/*.json",
-    "templates/*.yaml",
-]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mpasdiag*"]
 
 [tool.setuptools.dynamic]
 # Keep this empty since we're using static configuration

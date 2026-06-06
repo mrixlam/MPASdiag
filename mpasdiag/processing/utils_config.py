@@ -236,7 +236,7 @@ class MPASConfig:
         return config_dict
     
     @classmethod
-    def from_dict(cls: 'MPASConfig', 
+    def from_dict(cls: type['MPASConfig'],
                   config_dict: Dict[str, Any]) -> 'MPASConfig':
         """
         This class method creates an instance of MPASConfig from a given dictionary of configuration parameters. It takes a dictionary as input, which should contain keys that match the attribute names of the MPASConfig dataclass. The method checks if the 'figure_size' key is present in the dictionary and if its value is a list; if so, it converts it to a tuple since the MPASConfig class expects figure_size to be a tuple. Finally, it uses the unpacking operator (**) to pass the dictionary items as keyword arguments to the MPASConfig constructor, which will initialize the instance with the provided configuration values. This method allows for easy creation of configuration objects from dictionaries, such as those loaded from YAML files or other sources.  
@@ -270,7 +270,7 @@ class MPASConfig:
         logger.info("Configuration saved to: %s", filepath)
     
     @classmethod
-    def load_from_file(cls: 'MPASConfig', 
+    def load_from_file(cls: type['MPASConfig'],
                        filepath: str) -> 'MPASConfig':
         """
         This class method loads configuration parameters from a specified YAML file and creates an instance of MPASConfig with those parameters. It opens the YAML file in read mode and uses the yaml.safe_load function to parse the contents of the file into a dictionary. Then, it calls the from_dict class method to convert the loaded dictionary into an MPASConfig instance, which will be initialized with the parameters from the file. This method allows users to easily load previously saved configurations or configurations shared by others, ensuring that all parameters are correctly set up for use in analysis and plotting operations. 

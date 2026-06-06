@@ -1,5 +1,4 @@
-# Note: NetCDF and HDF5 files in data/ and weights/ directories are tracked with Git LFS
-# See .gitattributes for LFS configuration
+# Note: NetCDF and HDF5 sample files in data/ and weights/ directories are tracked directly in git
 # Ignore NetCDF files outside of data/ and weights/ directories
 /*.nc
 /*.nc4
@@ -11,6 +10,7 @@
 # Patterns for local directories
 # output/
 tmp/
+logs/
 
 # Python artifacts
 __pycache__/

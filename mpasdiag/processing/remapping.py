@@ -27,7 +27,7 @@ try:
     ESMPY_AVAILABLE = True
 except ImportError:
     ESMPY_AVAILABLE = False
-    esmpy = None  # type: ignore[assignment]
+    esmpy = None
     warnings.warn(
         "ESMPy is not installed. Install with: conda install -c conda-forge esmpy",
         ImportWarning,
@@ -71,7 +71,7 @@ def _compute_grid_bounds(coords: np.ndarray,
     Returns:
         np.ndarray: 1D array of grid bounds with length equal to len(coords) + 1, representing the edges of the grid cells. 
     """
-    bounds = np.zeros(len(coords) + 1)
+    bounds: np.ndarray = np.zeros(len(coords) + 1)
     bounds[0] = coords[0] - resolution / 2
     
     for i in range(1, len(coords)):
@@ -140,6 +140,7 @@ class MPASRemapper:
         self.extrap_num_src_pnts = extrap_num_src_pnts
         self.skipna = skipna
 
+        self.weights_dir: Optional[Path]
         if weights_dir is not None:
             self.weights_dir = Path(weights_dir)
             self.weights_dir.mkdir(parents=True, exist_ok=True)
@@ -260,7 +261,7 @@ class MPASRemapper:
             return self._weights
 
         using_mpi = comm is not None and comm.Get_size() > 1
-        mpi_rank = comm.Get_rank() if using_mpi else 0
+        mpi_rank = comm.Get_rank() if (using_mpi and comm is not None) else 0
 
         if mpi_rank == 0:
             logger.info("Building %s regridder", self.method)
@@ -527,6 +528,7 @@ class MPASRemapper:
             None
         """
         if mpi_rank == 0:
+            assert self._weights is not None
             weights_coo = self._weights.tocoo()
 
             metadata: Any = {
@@ -543,7 +545,7 @@ class MPASRemapper:
             col_indices    = weights_coo.col.astype(np.int32)
             weight_values  = weights_coo.data.astype(np.float64)
 
-            bcast_coe      = (self._cell_of_element.astype(np.int64)
+            bcast_coe: Optional[np.ndarray] = (self._cell_of_element.astype(np.int64)
                               if self._cell_of_element is not None
                               else np.empty(0, np.int64))
         else:
@@ -617,6 +619,7 @@ class MPASRemapper:
         n_lat, n_lon = self._tgt_shape
         result_2d = result_flat.reshape(n_lat, n_lon)
 
+        assert self.target_grid is not None
         lon_1d = self.target_grid['lon'].values
         lat_1d = self.target_grid['lat'].values
 
@@ -871,7 +874,7 @@ class MPASRemapper:
             vertices_per_element = nv
             triangle_lon_bounds = lon_bounds
             triangle_lat_bounds = lat_bounds
-            cell_of_element = np.arange(n_cells, dtype=np.int64)
+            cell_of_element: np.ndarray = np.arange(n_cells, dtype=np.int64)
         else:
             triangles_per_cell = nv - 2
             n_elements = n_cells * triangles_per_cell
@@ -894,9 +897,9 @@ class MPASRemapper:
 
         n_elements = len(cell_of_element)
         n_nodes = n_elements * vertices_per_element
-        node_lons = triangle_lon_bounds.flatten().astype(np.float64)
-        node_lats = triangle_lat_bounds.flatten().astype(np.float64)
-        node_ids = np.arange(1, n_nodes + 1, dtype=np.int32)
+        node_lons: np.ndarray = triangle_lon_bounds.flatten().astype(np.float64)
+        node_lats: np.ndarray = triangle_lat_bounds.flatten().astype(np.float64)
+        node_ids: np.ndarray = np.arange(1, n_nodes + 1, dtype=np.int32)
         node_owners = np.zeros(n_nodes, dtype=np.int32)
 
         mesh = esmpy.Mesh(
@@ -911,9 +914,9 @@ class MPASRemapper:
             node_owners=node_owners,
         )
 
-        element_ids = np.arange(1, n_elements + 1, dtype=np.int32)
-        element_types = np.full(n_elements, element_type, dtype=np.int32)
-        element_conn = np.arange(0, n_nodes, dtype=np.int32)
+        element_ids: np.ndarray = np.arange(1, n_elements + 1, dtype=np.int32)
+        element_types: np.ndarray = np.full(n_elements, element_type, dtype=np.int32)
+        element_conn: np.ndarray = np.arange(0, n_nodes, dtype=np.int32)
 
         element_coords = np.column_stack([
             lon_deg[cell_of_element].astype(np.float64),
@@ -1441,6 +1444,8 @@ def build_remapped_valid_mask(lon_vals: np.ndarray,
             inside = hull_path.contains_points(grid_points)
             mask_bool = inside.reshape((n_lat, n_lon))
             return mask_bool
+
+        return None
     except ImportError:
         logger.warning("scipy or matplotlib required for convex hull masking")
         return None

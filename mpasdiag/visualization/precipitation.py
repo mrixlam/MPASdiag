@@ -26,7 +26,7 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import BoundaryNorm
-from typing import Tuple, Optional, List, Any, Union, Dict
+from typing import Tuple, Optional, List, Any, Union, Dict, cast
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 # Import relevant MPASdiag modules for visualization and processing
@@ -118,7 +118,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         return MPASVisualizationStyle.create_precip_colormap(accum)
     
     def _convert_precipitation_units(self: 'MPASPrecipitationPlotter',
-                                     precip_data: np.ndarray,
+                                     precip_data: Union[np.ndarray, xr.DataArray],
                                      data_array: Optional[xr.DataArray],
                                      var_name: str) -> Tuple[np.ndarray, str]:
         """
@@ -166,7 +166,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             precip_data = np.asarray(converted_data)
         
         # Check for negative precipitation values which are physically invalid and likely indicate data issues
-        n_negative = np.sum(precip_data < 0)
+        n_negative = int(np.sum(precip_data < 0))
 
         # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to ensure physical validity for precipitation fields
         if n_negative > 0:
@@ -394,8 +394,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             annotation_text = f"Accumulation: {start_utc} to {end_utc} ({n_hours} h)"
         elif accum_period:
             # Use accumulation period string if time_end is not provided but accum_period is specified
-            accum_hours_map = {'a01h': '1-h', 'a03h': '3-h', 'a06h': '6-h', 'a12h': '12-h', 'a24h': '24-h'}
-            accum_display = accum_hours_map.get(accum_period, accum_period)
+            accum_label_map = {'a01h': '1-h', 'a03h': '3-h', 'a06h': '6-h', 'a12h': '12-h', 'a24h': '24-h'}
+            accum_display = accum_label_map.get(accum_period, accum_period)
             annotation_text = f"Accumulation: {accum_display}"
         else:
             return
@@ -435,7 +435,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 return None
             
             try:
-                return pd.Timestamp(value).to_pydatetime()
+                result: datetime = pd.Timestamp(value).to_pydatetime()
+                return result
             except (ValueError, TypeError):
                 return None
 
@@ -721,7 +722,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     )
         
         # Check for negative precipitation values which are physically invalid and likely indicate data issues
-        n_negative = np.sum(precip_data < 0)
+        n_negative = int(np.sum(precip_data < 0))
 
         # If negative values are found, log a warning with the count and minimum value, then clip to 0 to ensure physically valid precipitation values for plotting
         if n_negative > 0:
@@ -1396,11 +1397,13 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         try:
             # First try specific method for 2D coordinates if available
             if hasattr(processor, 'extract_2d_coordinates_for_variable'):
-                return processor.extract_2d_coordinates_for_variable(var_name)
-            
+                return cast(Tuple[np.ndarray, np.ndarray],
+                            processor.extract_2d_coordinates_for_variable(var_name))
+
             # Next try general method for spatial coordinates if available
             elif hasattr(processor, 'extract_spatial_coordinates'):
-                return processor.extract_spatial_coordinates()
+                return cast(Tuple[np.ndarray, np.ndarray],
+                            processor.extract_spatial_coordinates())
             
             # Finally, fallback to direct dataset access if specific methods are not available
             else:
@@ -1909,7 +1912,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Position colorbar below the two panels, centered, with consistent styling
         cbar = MPASVisualizationStyle.add_colorbar(
-            self.fig, self.ax, scatter,
+            cast(Figure, self.fig), cast(Axes, self.ax), scatter,
             label='Precipitation [mm]', orientation='horizontal',
             fraction=0.03, pad=0.08, shrink=0.6, fmt=None, labelpad=0,
             label_pos='top', tick_labelsize=8
@@ -1929,7 +1932,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         plt.subplots_adjust(left=0.05, right=0.95, top=0.92, bottom=0.15, wspace=0.15)
         
         # Return the figure and axes for further manipulation or saving
-        return self.fig, axes
+        return cast(Figure, self.fig), axes
     
     def save_plot(self: 'MPASPrecipitationPlotter',
                   output_path: str,
@@ -1964,7 +1967,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             full_path = f"{output_path}.{fmt}"
 
             # Define savefig options with specified format and bounding box settings
-            save_kwargs = {'dpi': self.dpi, 'bbox_inches': bbox_inches, 'pad_inches': pad_inches, 'format': fmt}
+            save_kwargs: Dict[str, Any] = {
+                'dpi': self.dpi, 'bbox_inches': bbox_inches,
+                'pad_inches': pad_inches, 'format': fmt,
+            }
 
             # Optimize PNG files with low compression for faster saving while maintaining quality, especially for large precipitation maps with many points.
             if fmt.lower() == 'png':

@@ -243,10 +243,10 @@ class MPASVisualizationStyle:
             'cldfrac_tot_UPP': {'colormap': 'gray', 'extend': 'max'},
         }
         
-        style = style_configs.get(var_name.lower(), {
+        style: Dict[str, Any] = cast(Dict[str, Any], style_configs.get(var_name.lower(), {
             'colormap': 'viridis',
             'extend': 'both'
-        })
+        }))
         
         var_lower = var_name.lower()
         is_precipitation = (style.get('use_precip_colormap') or 
@@ -261,9 +261,9 @@ class MPASVisualizationStyle:
         
         if data_array is not None and 'levels' not in style and not is_precipitation:
             try:
-                levels = MPASVisualizationStyle._generate_levels_from_data(data_array, var_name)
-                if levels is not None:
-                    style['levels'] = levels
+                data_levels = MPASVisualizationStyle._generate_levels_from_data(data_array, var_name)
+                if data_levels is not None:
+                    style['levels'] = data_levels
             except Exception:
                 pass
         
@@ -320,19 +320,21 @@ class MPASVisualizationStyle:
                     
                     start = np.floor(data_min / step) * step
                     end = np.ceil(data_max / step) * step
-                    levels = np.arange(start, end + step, step).tolist()
+                    levels: List[float] = cast(List[float], np.arange(start, end + step, step).tolist())
                 else:
                     n_levels = 15
                     level_step = (data_max - data_min) / n_levels
                     levels = [data_min + i * level_step for i in range(n_levels + 1)]
                 
-                return levels
-                
+                return cast(Optional[List[float]], levels)
+
         except Exception:
             return None
 
+        return None
+
     @staticmethod
-    def _levels_for_temperature(data_min: float, 
+    def _levels_for_temperature(data_min: float,
                                 data_max: float, 
                                 data_range: float) -> Tuple[str, List[float]]:
         """
@@ -605,7 +607,7 @@ class MPASVisualizationStyle:
         return map_proj, data_crs
     
     @staticmethod
-    def add_timestamp_and_branding(fig: Figure) -> None:
+    def add_timestamp_and_branding(fig: Optional[Figure]) -> None:
         """
         This method adds a timestamp and branding annotation to the provided matplotlib Figure object. It generates a timestamp string in UTC format and attempts to retrieve the version of MPASdiag being used for plot generation. The method then constructs a branding text string that includes both the MPASdiag version and the timestamp. To ensure that the branding does not interfere with the main plot area, it creates or reuses a dedicated footer Axes at the bottom of the figure where the branding text is placed. The footer is designed to be non-intrusive, with a smaller font size and reduced opacity, allowing it to provide useful metadata about the plot generation without detracting from the visual presentation of the diagnostic data. If any issues arise while creating the footer, the method falls back to placing the branding text directly on the figure with a lower opacity to maintain visibility while minimizing interference with the plot content. 
 
@@ -624,7 +626,7 @@ class MPASVisualizationStyle:
             from .. import __version__
             version_str = f"v{__version__}"
         except ImportError:
-            version_str = "v1.1.2"
+            version_str = "v1.0.0"
 
         branding_text = f'Generated with MPASdiag {version_str} on: {timestamp}'
 
@@ -724,7 +726,7 @@ class MPASVisualizationStyle:
         
         for fmt in formats:
             full_path = f"{output_path}.{fmt}"
-            save_kwargs = {'dpi': dpi, 'bbox_inches': bbox_inches, 'pad_inches': pad_inches, 'format': fmt}
+            save_kwargs: Dict[str, Any] = {'dpi': dpi, 'bbox_inches': bbox_inches, 'pad_inches': pad_inches, 'format': fmt}
             if fmt.lower() == 'png':
                 save_kwargs['pil_kwargs'] = {'compress_level': 1}
             fig.savefig(full_path, **save_kwargs)
@@ -772,7 +774,7 @@ class MPASVisualizationStyle:
         try:
             cbar.ax.xaxis.set_label_position(cast(Literal['top', 'bottom'], label_pos))
             tick_position = 'bottom' if label_pos == 'top' else 'top'
-            cbar.ax.xaxis.set_ticks_position(tick_position)
+            cbar.ax.xaxis.set_ticks_position(cast(Literal['top', 'bottom'], tick_position))
         except Exception:
             pass
         if label is not None:
@@ -803,7 +805,7 @@ class MPASVisualizationStyle:
         try:
             cbar.ax.yaxis.set_label_position(cast(Literal['left', 'right'], label_pos))
             tick_position = 'left' if label_pos == 'right' else 'right'
-            cbar.ax.yaxis.set_ticks_position(tick_position)
+            cbar.ax.yaxis.set_ticks_position(cast(Literal['left', 'right'], tick_position))
         except Exception:
             pass
         if label is not None:
@@ -868,7 +870,7 @@ class MPASVisualizationStyle:
             Optional[Colorbar]: The created Colorbar object if the colorbar was successfully added, or None if the necessary parameters were not provided. This allows for further customization of the colorbar after creation if needed. 
         """
         if fig is None or ax is None or mappable is None:
-            return
+            return None
 
         cbar = fig.colorbar(mappable, ax=ax, orientation=orientation,
                             fraction=fraction, pad=pad, shrink=shrink, extend=extend)
@@ -916,7 +918,7 @@ class MPASVisualizationStyle:
 
         if long_name:
             if units and f'[{units}]' in long_name:
-                return long_name
+                return cast(str, long_name)
             return f"{long_name} [{units}]" if units else long_name
 
         if units:
@@ -955,7 +957,7 @@ class MPASVisualizationStyle:
         return f"{abs(value):.1f}°{direction}"
     
     @staticmethod
-    def calculate_adaptive_marker_size(map_extent: Tuple[float, float, float, float], 
+    def calculate_adaptive_marker_size(map_extent: Optional[Tuple[float, float, float, float]],
                                      num_points: int, 
                                      fig_size: Tuple[float, float] = (12, 10)) -> float:
         """
@@ -1085,8 +1087,8 @@ class MPASVisualizationStyle:
         nonzero_ticks = tick_array[tick_array != 0]
 
         if len(nonzero_ticks) > 0:
-            max_abs = np.max(np.abs(nonzero_ticks))
-            min_abs = np.min(np.abs(nonzero_ticks))
+            max_abs = float(np.max(np.abs(nonzero_ticks)))
+            min_abs = float(np.min(np.abs(nonzero_ticks)))
             if max_abs >= 1e4 or min_abs < 1e-3:
                 return [f'{x:.1e}' for x in ticks]
 

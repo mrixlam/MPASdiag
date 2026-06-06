@@ -309,12 +309,13 @@ class MPASVisualizer:
         except Exception:
             times_index = np.array(times, dtype='datetime64[ns]')
 
-        self.ax.plot(times_index, values, linewidth=2, marker='o', markersize=4) # type: ignore
+        self.ax.plot(times_index, values, linewidth=2, marker='o', markersize=4)
         self.ax.set_xlabel(xlabel, fontsize=12)
         self.ax.set_ylabel(ylabel, fontsize=12)
         self.ax.set_title(title, fontsize=14, fontweight='bold')
         self.ax.grid(True, alpha=0.3)
         
+        assert self.fig is not None and self.ax is not None
         self.fig.autofmt_xdate()
         plt.tight_layout()
         
@@ -375,10 +376,11 @@ class MPASVisualizer:
         
         if log_scale:
             self.ax.set_yscale('log')
-        
+
         plt.tight_layout()
         self.add_timestamp_and_branding()
-        
+
+        assert self.fig is not None and self.ax is not None
         return self.fig, self.ax
 
     def extract_2d_from_3d(self: 'MPASVisualizer', 
@@ -482,6 +484,7 @@ class MPASVisualizer:
         map_proj, data_crs = self.setup_map_projection(lon_min, lon_max, lat_min, lat_max, projection)
         
         self.fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
+        assert self.fig is not None
         self.ax = self.fig.add_subplot(111, projection=map_proj)
         assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
         
@@ -788,7 +791,7 @@ class MPASVisualizer:
         except Exception:
             pass
 
-        return np.asarray(converted_array)
+        return cast(np.ndarray, np.asarray(converted_array))
 
     def _add_gridlines(self: 'MPASVisualizer', 
                        data_crs: ccrs.CRS) -> None:
@@ -932,7 +935,7 @@ class MPASVisualizer:
         full_data = np.full(len(lon_full), np.nan)
         within_threshold = nearest_distances < 1e-4
         full_data[within_threshold] = data_valid[nearest_indices[within_threshold]]
-        return full_data
+        return cast(np.ndarray, full_data)
 
     def _get_or_build_remapper(self: 'MPASVisualizer',
                                lon_full: np.ndarray,
@@ -1184,7 +1187,7 @@ class MPASVisualizer:
             return None
 
         try:
-            lon_full, lat_full = self._extract_full_grid(dataset)  # type: ignore[arg-type]
+            lon_full, lat_full = self._extract_full_grid(dataset)
             full_data = self._backmap_to_full_grid(lon, lat, data, lon_full, lat_full)
 
             logger.info(
@@ -1193,7 +1196,7 @@ class MPASVisualizer:
             )
 
             remap_result = self._remap_conservative(
-                full_data, lon_full, lat_full, dataset,  # type: ignore[arg-type]
+                full_data, lon_full, lat_full, dataset,
                 lon_min, lon_max, lat_min, lat_max, resolution,
                 comm=comm,
                 method=esmf_method,

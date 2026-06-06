@@ -9,7 +9,7 @@ Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
 Email: mrislam@ucar.edu
 Date: November 2025
-Version: 1.1.0
+Version: 1.0.0
 """
 
 import sys
@@ -32,7 +32,7 @@ def _detect_mpi_rank_and_size() -> "tuple[int, int]":
         tuple[int, int]: A tuple containing the MPI rank and size. Defaults to (0, 1) if MPI is not available.
     """
     try:
-        from mpi4py import MPI  # type: ignore
+        from mpi4py import MPI
         comm = MPI.COMM_WORLD
         return comm.Get_rank(), comm.Get_size()
     except Exception:

@@ -620,12 +620,12 @@ class PrecipitationDiagnostics:
                 return None
             
             # Compute minimum, maximum, and mean values from the finite data for summary statistics
-            data_min = np.nanmin(finite_values)
-            data_max = np.nanmax(finite_values)
+            data_min = float(np.nanmin(finite_values))
+            data_max = float(np.nanmax(finite_values))
             data_mean = np.nanmean(finite_values)
 
             # Count the number of points with precipitation greater than a small threshold (e.g., 0.01 mm)
-            nonzero_count = np.sum(finite_values > 0.01)
+            nonzero_count = int(np.sum(finite_values > 0.01))
             total_count = len(finite_values)
 
             # Calculate the percentage of non-zero precipitation points relative to the total number of finite points

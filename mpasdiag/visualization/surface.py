@@ -141,12 +141,12 @@ class MPASSurfacePlotter(MPASVisualizer):
             np.ndarray: The converted data coerced into a numpy array format suitable for plotting.
         """
         if isinstance(converted, xr.DataArray):
-            return converted.values
+            return cast(np.ndarray, converted.values)
         
         if isinstance(converted, np.ndarray):
             return converted
 
-        return np.asarray(converted)
+        return cast(np.ndarray, np.asarray(converted))
 
     def _extract_and_convert_units(self: 'MPASSurfacePlotter',
                                    data: np.ndarray,
@@ -212,7 +212,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         # For moisture variables, check for negative values and clip to 0 if found, since negative moisture is physically invalid. 
         if any(moisture_var in var_name.lower() for moisture_var in moisture_vars):
             # Count the number of negative values in the data array to log a warning if any are found
-            n_negative = np.sum(data < 0)
+            n_negative = int(np.sum(data < 0))
 
             # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
             if n_negative > 0:
@@ -1154,7 +1154,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             None: This function performs validation and logging but does not return any value. It raises a warning if contour levels are not within the data range.
         """
         # Compute the minimum and maximum values of the interpolated data to determine the range of values that will be plotted in the contours.
-        data_min, data_max = np.nanmin(data_interp), np.nanmax(data_interp)
+        data_min, data_max = float(np.nanmin(data_interp)), float(np.nanmax(data_interp))
         logger.debug("Overlay data range: %.2f to %.2f", float(data_min), float(data_max))
 
         if levels is not None:
@@ -1329,8 +1329,8 @@ class MPASSurfacePlotter(MPASVisualizer):
                                   formats: List[str] = ['png'],
                                   grid_resolution: Optional[float] = None,
                                   clim_min: Optional[float] = None,
-                                  clim_max: Optional[float] = None, 
-                                  config: Optional[dict] = None) -> List[str]:
+                                  clim_max: Optional[float] = None,
+                                  config: Optional[Any] = None) -> List[str]:
         """
         This function performs batch processing to create surface maps for each time step in the loaded dataset using the specified variable name and plot type. It iterates through all available time steps, extracts the necessary data for the specified variable, and creates a surface map for each time step using the `create_surface_map` method. The generated plots are saved to the specified output directory with file names that include the variable name, plot type, and time information for easy identification. The function handles errors gracefully by catching exceptions during the creation of each surface map and logging them without interrupting the entire batch process. It also provides progress updates every 10 time steps to inform the user about the processing status. At the end of the batch processing, it returns a list of file paths for all created surface map files across all requested formats. Debug print statements can be included throughout this process to confirm the progress of batch processing, any errors encountered, and the details of each created surface map, which can assist in troubleshooting and verifying that the batch processing is being executed correctly based on the input parameters. 
 
@@ -1484,6 +1484,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                                 cmap=colormap, s=point_size, alpha=0.8)
         
         # Add a colorbar using the centralized styling helper
+        assert self.fig is not None and self.ax is not None
         cbar = MPASVisualizationStyle.add_colorbar(
             self.fig, self.ax, scatter,
             label=colorbar_label, orientation='horizontal', fraction=0.03,

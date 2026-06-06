@@ -34,7 +34,7 @@ try:
     MPI_AVAILABLE = True
 except ImportError:
     MPI_AVAILABLE = False
-    MPI = None 
+    MPI = None  # type: ignore[assignment]
     warnings.warn(
         "mpi4py is not available. Parallel processing will use Python multiprocessing. "
         "To enable MPI parallelization, install mpi4py: pip install mpi4py",
@@ -170,9 +170,7 @@ class MPASTaskDistributor:
         Returns:
             List[Tuple[int, Any]]: List of (task_id, task) tuples assigned to this worker based on the load balancing strategy. 
         """
-        if self.strategy == LoadBalanceStrategy.STATIC:
-            return self._static_distribution(tasks)
-        elif self.strategy == LoadBalanceStrategy.DYNAMIC:
+        if self.strategy == LoadBalanceStrategy.DYNAMIC:
             return self._dynamic_distribution(tasks)
         elif self.strategy == LoadBalanceStrategy.BLOCK:
             return self._block_distribution(tasks)
@@ -334,13 +332,13 @@ class MPASParallelManager:
         Returns:
             None
         """
-        self.backend = 'multiprocessing'
+        self.backend: Optional[str] = 'multiprocessing'
         self.rank = 0
         self.size = self.n_workers or max(1, cpu_count() - 1)
-        self.is_master = True
-        self.comm = None
-        self.distributor = None
-        self.collector = None
+        self.is_master: bool = True
+        self.comm: Optional[Any] = None
+        self.distributor: Optional[MPASTaskDistributor] = None
+        self.collector: Optional[MPASResultCollector] = None
 
     def _setup_serial_backend(self: 'MPASParallelManager') -> None:
         """
@@ -448,7 +446,7 @@ class MPASParallelManager:
         else:
             self._setup_serial_backend()
 
-        self.stats = None
+        self.stats: Optional[ParallelStats] = None
         self._log_backend_initialized()
 
     def set_error_policy(self: 'MPASParallelManager', 
@@ -653,9 +651,10 @@ class MPASParallelManager:
         Returns:
             List[str]: An ordered list of multiprocessing context start methods to try when creating a multiprocessing pool.
         """
-        if sys.platform == 'win32':
+        current_platform = sys.platform
+        if current_platform == 'win32':
             return ['spawn']
-        if sys.platform == 'darwin':
+        if current_platform == 'darwin':
             return ['forkserver', 'spawn']
         return ['fork', 'spawn']
 

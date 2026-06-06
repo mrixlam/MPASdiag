@@ -90,7 +90,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         """
         for name in names:
             if name in grid_ds.coords or name in grid_ds.data_vars:
-                return grid_ds[name].values
+                return cast(np.ndarray, grid_ds[name].values)
         return None
 
 
@@ -144,20 +144,23 @@ class MPAS3DProcessor(MPASBaseProcessor):
                         f"Available variables: {available_vars}"
                     )
 
-                if np.nanmax(np.abs(lat_coords)) <= np.pi:
-                    lat_coords = lat_coords * 180.0 / np.pi
-                    lon_coords = lon_coords * 180.0 / np.pi
+                lon_arr: np.ndarray = np.asarray(lon_coords)
+                lat_arr: np.ndarray = np.asarray(lat_coords)
 
-                lon_coords = ((lon_coords.ravel() + 180) % 360) - 180
-                lat_coords = lat_coords.ravel()
+                if np.nanmax(np.abs(lat_arr)) <= np.pi:
+                    lat_arr = lat_arr * 180.0 / np.pi
+                    lon_arr = lon_arr * 180.0 / np.pi
+
+                lon_arr = ((lon_arr.ravel() + 180) % 360) - 180
+                lat_arr = lat_arr.ravel()
 
                 if self.verbose:
                     logger.debug(
                         "Extracted %s coordinates for 3D variable %s: %s points",
-                        spatial_dim, var_name, f"{len(lon_coords):,}",
+                        spatial_dim, var_name, f"{len(lon_arr):,}",
                     )
 
-                return lon_coords, lat_coords
+                return lon_arr, lat_arr
 
         except Exception as e:
             raise RuntimeError(f"Error loading coordinates from grid file {self.grid_file}: {e}")
@@ -318,6 +321,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             int: The validated model level index.
         """
+        assert self.dataset is not None
         max_levels = self.dataset.sizes.get('nVertLevels', self.dataset.sizes.get('nVertLevelsP1', 0))
         if level >= max_levels:
             raise ValueError(f"Model level {level} exceeds available levels {max_levels}")
@@ -334,10 +338,11 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             int: The corresponding model level index.
         """
+        assert self.dataset is not None
         if level.lower() == 'surface':
             return 0
         if level.lower() == 'top':
-            return self.dataset.sizes.get('nVertLevels', self.dataset.sizes.get('nVertLevelsP1', 1)) - 1
+            return int(self.dataset.sizes.get('nVertLevels', self.dataset.sizes.get('nVertLevelsP1', 1))) - 1
         raise ValueError(f"Unknown level specification: {level}")
 
     def _compute_mean_pressure_levels(self: 'MPAS3DProcessor',
@@ -361,7 +366,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         vertical_dim = 'nVertLevels' if 'nVertLevels' in total_pressure.dims else 'nVertLevelsP1'
         horizontal_dims = [d for d in total_pressure.dims if d != vertical_dim]
         mean_pressure = total_pressure.mean(dim=horizontal_dims) if horizontal_dims else total_pressure
-        return np.asarray(mean_pressure.values).ravel()
+        return cast(np.ndarray, np.asarray(mean_pressure.values).ravel())
 
     def _lerp_variable(self: 'MPAS3DProcessor',
                        var_name: str,
@@ -469,6 +474,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 level, lower_idx, p_lower, upper_idx, p_upper, w,
             )
 
+        assert self.dataset is not None
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
         return self._lerp_variable(
@@ -493,6 +499,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the interpolated DataArray (or None if index-based extraction is used). 
         """
+        assert self.dataset is not None
         if 'pressure_p' not in self.dataset or 'pressure_base' not in self.dataset:
             raise ValueError("Cannot find pressure level - pressure data not available")
 
@@ -558,6 +565,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         var_data.attrs['selected_level'] = level
         var_data.attrs['level_index'] = level_idx
 
+        assert self.dataset is not None
         if isinstance(level, float) and 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
             pressure_p = ds['pressure_p'].isel({time_dim: time_idx, vertical_dim: level_idx})
             pressure_base = ds['pressure_base'].isel({time_dim: time_idx, vertical_dim: level_idx})
@@ -630,6 +638,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 var_name, level, level_idx, validated_time_index,
             )
 
+        assert self.dataset is not None
         vertical_dim = 'nVertLevels' if 'nVertLevels' in self.dataset[var_name].sizes else 'nVertLevelsP1'
 
         ds = self._get_plain_dataset(self.dataset)
@@ -664,7 +673,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             np.ndarray: The potentially padded array of pressure levels, with an additional level added if necessary for 'nVertLevelsP1'.
         """
         if vertical_dim == 'nVertLevelsP1' and num_levels == len(levels) + 1:
-            return np.append(levels, levels[-1] * 0.9)
+            return cast(np.ndarray, np.append(levels, levels[-1] * 0.9))
         return levels
 
     def _get_vertical_dim(self: 'MPAS3DProcessor', 
@@ -678,6 +687,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             Tuple[str, int]: A tuple containing the name of the vertical dimension and the number of levels in that dimension.
         """
+        assert self.dataset is not None
         var_dims = self.dataset[var_name].sizes
 
         if 'nVertLevels' in var_dims:
@@ -714,7 +724,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         except Exception:
             pressure_da = ds_raw['pressure']
 
-        levels = np.asarray(pressure_da.mean(dim='nCells').values, dtype=float).ravel()
+        levels: np.ndarray = np.asarray(pressure_da.mean(dim='nCells').values, dtype=float).ravel()
 
         if not np.all(np.isfinite(levels)) or np.nanmin(levels) <= 0:
             if self.verbose:
@@ -762,7 +772,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
             + ds_raw['pressure_base'].isel({time_dim: time_idx})
         )
 
-        levels = np.asarray(total_pressure.mean(dim='nCells').values, dtype=float).ravel()
+        levels: np.ndarray = np.asarray(total_pressure.mean(dim='nCells').values, dtype=float).ravel()
         levels = self._pad_p1_levels(levels, num_levels, vertical_dim)
 
         if self.verbose:
@@ -793,12 +803,12 @@ class MPAS3DProcessor(MPASBaseProcessor):
         valid_level_indices = np.nonzero(np.isfinite(levels) & (levels > 0))[0]
 
         if valid_level_indices.size >= 2:
-            return np.interp(all_level_indices, valid_level_indices, levels[valid_level_indices])
+            return cast(np.ndarray, np.interp(all_level_indices, valid_level_indices, levels[valid_level_indices]))
 
         if valid_level_indices.size == 1:
-            return np.linspace(mean_sp, levels[valid_level_indices[0]], len(levels))
+            return cast(np.ndarray, np.linspace(mean_sp, levels[valid_level_indices[0]], len(levels)))
 
-        return np.logspace(np.log10(mean_sp), np.log10(1.0), len(levels))
+        return cast(np.ndarray, np.logspace(np.log10(mean_sp), np.log10(1.0), len(levels)))
 
     def _pressure_levels_from_hybrid_coeffs(self: 'MPAS3DProcessor',
                                             var_name: str,
@@ -828,7 +838,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                 warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
                 mean_surface_pressure = float(np.nanmean(surface_pressure_vals))
 
-            levels = np.asarray(fzp, dtype=float).ravel() * mean_surface_pressure
+            levels: np.ndarray = np.asarray(fzp, dtype=float).ravel() * mean_surface_pressure
 
             if not np.all(np.isfinite(levels)) or np.nanmin(levels) <= 0:
                 levels = self._repair_pressure_levels(levels, mean_surface_pressure)
@@ -870,24 +880,25 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             Optional[List[Union[int, float]]]: A list of pressure levels in Pa if resolved successfully, or None if pressure levels could not be resolved.
         """
+        assert self.dataset is not None
         if 'pressure' in self.dataset:
             levels = self._pressure_levels_from_pressure_var(
                 var_name, vertical_dim, num_levels, time_dim, time_idx
             )
             if levels is not None:
-                return levels.tolist()
+                return cast(List[Union[int, float]], levels.tolist())
 
         if 'pressure_p' in self.dataset and 'pressure_base' in self.dataset:
-            return self._pressure_levels_from_perturbation(
+            return cast(List[Union[int, float]], self._pressure_levels_from_perturbation(
                 var_name, vertical_dim, num_levels, time_dim, time_idx
-            ).tolist()
+            ).tolist())
 
         if 'fzp' in self.dataset and 'surface_pressure' in self.dataset:
             levels = self._pressure_levels_from_hybrid_coeffs(
                 var_name, vertical_dim, num_levels, time_dim, time_idx
             )
             if levels is not None:
-                return levels.tolist()
+                return cast(List[Union[int, float]], levels.tolist())
 
         return None
 
@@ -973,10 +984,10 @@ class MPAS3DProcessor(MPASBaseProcessor):
             np.ndarray: A 2D numpy array containing the extracted horizontal slice.
         """
         if level_dim in data_3d.sizes:
-            return data_3d.isel({level_dim: level_index}).values
+            return cast(np.ndarray, data_3d.isel({level_dim: level_index}).values)
 
         fallback_dim = list(data_3d.sizes.keys())[1]
-        return data_3d.isel({fallback_dim: level_index}).values
+        return cast(np.ndarray, data_3d.isel({fallback_dim: level_index}).values)
 
     @staticmethod
     def _extract_xarray_by_value(data_3d: xr.DataArray,
@@ -1002,9 +1013,9 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         if method == 'nearest':
             closest_idx = int(np.argmin(np.abs(coord_values - level_value)))
-            return data_3d.isel({level_dim: closest_idx}).values
+            return cast(np.ndarray, data_3d.isel({level_dim: closest_idx}).values)
 
-        return data_3d.interp({level_dim: level_value}, method='linear').values
+        return cast(np.ndarray, data_3d.interp({level_dim: level_value}, method='linear').values)
 
     @staticmethod
     def _extract_numpy_by_index(data_3d: np.ndarray,

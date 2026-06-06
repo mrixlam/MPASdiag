@@ -37,7 +37,7 @@ conda install -y -c conda-forge numpy pandas scipy xarray dask numba -y
 conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil -y
 
 # Install testing suite dependencies
-conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet pytest-mock -y
+conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet pytest-mock mypy -y
 
 # Install matplotlib and cartopy for plotting support
 conda install -y -c conda-forge matplotlib cartopy -y
@@ -997,4 +997,4 @@ If you use this package in your research, please cite:
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: June 01, 2026
+**Last Updated**: June 06, 2026

@@ -227,9 +227,12 @@ class MPAS2DProcessor(MPASBaseProcessor):
         Returns:
             Optional[np.ndarray]: The values of the first found coordinate variable, or None if none are found.
         """
+        if self.dataset is None:
+            return None
         for name in names:
             if name in self.dataset.coords or name in self.dataset.data_vars:
-                return self.dataset[name].values
+                values: np.ndarray = np.asarray(self.dataset[name].values)
+                return values
         return None
 
     def extract_2d_coordinates_for_variable(self: 'MPAS2DProcessor', 
@@ -265,20 +268,24 @@ class MPAS2DProcessor(MPASBaseProcessor):
             available_vars = list(self.dataset.coords.keys()) + list(self.dataset.data_vars.keys())
             raise ValueError(f"Could not find {spatial_dim} coordinates. Available variables: {available_vars}")
 
-        if np.nanmax(np.abs(lat_coords)) <= np.pi:
-            lat_coords = lat_coords * 180.0 / np.pi
-            lon_coords = lon_coords * 180.0 / np.pi
+        # Both coordinate arrays are guaranteed present past the guard above.
+        lon_arr: np.ndarray = np.asarray(lon_coords)
+        lat_arr: np.ndarray = np.asarray(lat_coords)
 
-        lon_coords = ((lon_coords.ravel() + 180) % 360) - 180
-        lat_coords = lat_coords.ravel()
+        if np.nanmax(np.abs(lat_arr)) <= np.pi:
+            lat_arr = lat_arr * 180.0 / np.pi
+            lon_arr = lon_arr * 180.0 / np.pi
+
+        lon_arr = ((lon_arr.ravel() + 180) % 360) - 180
+        lat_arr = lat_arr.ravel()
 
         if self.verbose:
             logger.debug(
                 "Extracted %s coordinates for %s: %s points",
-                spatial_dim, var_name, f"{len(lon_coords):,}",
+                spatial_dim, var_name, f"{len(lon_arr):,}",
             )
 
-        return lon_coords, lat_coords
+        return lon_arr, lat_arr
 
     def _log_2d_variable_range(self: 'MPAS2DProcessor',
                                var_name: str,

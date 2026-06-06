@@ -40,7 +40,7 @@ class MPASDateTimeUtils:
         Returns:
             List[datetime]: List of datetime objects corresponding to each input file, parsed from filenames or generated as synthetic values when parsing fails. 
         """
-        file_datetimes = []
+        file_datetimes: List[datetime] = []
 
         pattern = r'(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})\.(\d{2})'
         
@@ -114,9 +114,9 @@ class MPASDateTimeUtils:
         time_value = dataset.Time.values[time_index]
 
         if hasattr(time_value, 'strftime'):
-            return time_value.strftime('%Y%m%dT%H')
+            return str(time_value.strftime('%Y%m%dT%H'))
 
-        return pd.to_datetime(time_value).strftime('%Y%m%dT%H')
+        return str(pd.to_datetime(time_value).strftime('%Y%m%dT%H'))
 
     @staticmethod
     def _log_time_info(verbose: bool, 

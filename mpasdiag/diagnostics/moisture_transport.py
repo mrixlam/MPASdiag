@@ -42,7 +42,8 @@ def _trapezoidal_column_integral(integrand_arr: np.ndarray,
     integrand_midpoints = (integrand_arr[..., :-1] + integrand_arr[..., 1:]) / 2.0
 
     # Return the column-integrated quantity divided by gravity to convert from mass flux to a column-integrated value
-    return np.sum(integrand_midpoints * pressure_thickness, axis=-1) / GRAVITY
+    column_integral: np.ndarray = np.sum(integrand_midpoints * pressure_thickness, axis=-1) / GRAVITY
+    return column_integral
 
 
 class MoistureTransportDiagnostics:

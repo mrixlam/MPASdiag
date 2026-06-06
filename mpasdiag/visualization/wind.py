@@ -248,6 +248,7 @@ class MPASWindPlotter(MPASVisualizer):
                 label='Wind Speed [m s$^{-1}$]', orientation='horizontal',
                 fraction=0.03, pad=0.05, shrink=0.8, fmt=None, labelpad=10, label_pos='top', tick_labelsize=10
             )
+            return None
         else:
             # Raise an error for unsupported plot types to ensure users are aware of valid options and prevent silent failures
             raise ValueError(f"plot_type must be 'barbs', 'arrows', or 'streamlines', got '{plot_type}'")
@@ -481,12 +482,12 @@ class MPASWindPlotter(MPASVisualizer):
         if wind_speed.ndim == 2:
             # For 2D arrays, calculate statistics while ignoring NaN values to avoid skewing results due to invalid points in the regridded data.
             wind_speed_valid = wind_speed[np.isfinite(wind_speed)]
-            max_speed = np.max(wind_speed_valid)
-            mean_speed = np.mean(wind_speed_valid)
+            max_speed = float(np.max(wind_speed_valid))
+            mean_speed = float(np.mean(wind_speed_valid))
         else:
             # For 1D arrays, calculate statistics directly as all values should be valid after filtering.
-            max_speed = np.max(wind_speed)
-            mean_speed = np.mean(wind_speed)
+            max_speed = float(np.max(wind_speed))
+            mean_speed = float(np.mean(wind_speed))
         
         # Construct the title string with the base title
         title_parts = ["MPAS Wind Analysis"]
@@ -797,7 +798,7 @@ class MPASWindPlotter(MPASVisualizer):
         
         if lon_converted.ndim == 2:
             # For 2D arrays, count valid points by checking finite values in both longitude and U-component arrays.
-            num_points = np.sum(np.isfinite(lon_converted) & np.isfinite(u_converted))
+            num_points = int(np.sum(np.isfinite(lon_converted) & np.isfinite(u_converted)))
         else:
             # For 1D arrays, count valid points by checking finite values in the subsampled arrays.
             num_points = len(lon_converted[np.isfinite(lon_converted) & np.isfinite(u_converted)])
@@ -837,7 +838,7 @@ class MPASWindPlotter(MPASVisualizer):
         """
         if lon_valid.ndim == 2:
             # For 2D arrays, count valid points by checking for finite values in the longitude array
-            num_vectors = np.sum(np.isfinite(lon_valid))
+            num_vectors = int(np.sum(np.isfinite(lon_valid)))
 
             # If no valid points are found, print a warning and return False to indicate that the overlay cannot be plotted.
             if num_vectors == 0:
@@ -938,8 +939,8 @@ class MPASWindPlotter(MPASVisualizer):
         
         # Validate that there are valid points to plot and log the count before rendering the overlay. 
         if not self._validate_and_log_wind_overlay(lon_valid, lat_valid):
-            return
-        
+            return None
+
         # Render wind vectors on the provided axes using the specified plot type and styling from the configuration.
         # For 'arrows' plot type, _render_wind_vectors returns the Quiver object which is propagated back to the
         # caller so it can optionally add a quiverkey reference arrow (e.g. for IVT magnitude labelling).

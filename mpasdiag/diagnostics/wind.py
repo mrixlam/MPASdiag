@@ -486,7 +486,7 @@ class WindDiagnostics:
             if level_spec.lower() == 'surface':
                 return 0
             elif level_spec.lower() == 'top':
-                return dataset.sizes.get(vertical_dim, 1) - 1
+                return int(dataset.sizes.get(vertical_dim, 1)) - 1
             else:
                 raise ValueError(f"Unknown level specification: {level_spec}")
         else:
@@ -789,8 +789,9 @@ class WindDiagnostics:
         dp = np.abs(np.gradient(layer_pressures)) if len(layer_pressures) > 1 else np.ones(1)
 
         # Compute the pressure-weighted mean U and V components to get the storm motion vector
-        u_storm = float(np.sum(u_layer * dp) / np.sum(dp))
-        v_storm = float(np.sum(v_layer * dp) / np.sum(dp))
+        dp_sum = float(np.sum(dp))
+        u_storm = float(np.sum(u_layer * dp)) / dp_sum
+        v_storm = float(np.sum(v_layer * dp)) / dp_sum
 
         # Print the calculated storm motion components 
         if self.verbose:

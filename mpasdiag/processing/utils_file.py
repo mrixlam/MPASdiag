@@ -149,7 +149,7 @@ class FileManager:
         try:
             import psutil
 
-            return psutil.virtual_memory().available / (1024**3)
+            return float(psutil.virtual_memory().available / (1024**3))
         except ImportError:
             return 0.0
     

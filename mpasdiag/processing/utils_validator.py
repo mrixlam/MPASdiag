@@ -75,14 +75,14 @@ class DataValidator:
                     }
                 }
         """
-        results = {
+        results: Dict[str, Any] = {
             "valid": True,
             "issues": [],
             "stats": {}
         }
-        
+
         finite_mask = np.isfinite(data)
-        finite_count = np.sum(finite_mask)
+        finite_count = int(np.sum(finite_mask))
         total_count = len(data.flatten())
         
         results["stats"]["total_points"] = total_count

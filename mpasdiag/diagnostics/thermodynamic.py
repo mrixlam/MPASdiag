@@ -563,7 +563,7 @@ class ThermodynamicDiagnostics:
             if level.lower() == 'surface':
                 return 0
             if level.lower() == 'top':
-                return max_levels - 1
+                return int(max_levels) - 1
             raise ValueError(f"Unknown level specification: '{level}'")
 
         # If we reach this point, the level specification type is invalid

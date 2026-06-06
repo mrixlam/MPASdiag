@@ -88,9 +88,9 @@ class MPASUnifiedCLI:
         Returns:
             None
         """
-        self.logger = None
-        self.perf_monitor = None
-        self.config = None
+        self.logger: Optional[logging.Logger] = None
+        self.perf_monitor: Optional[PerformanceMonitor] = None
+        self.config: Optional[MPASConfig] = None
     
     def create_main_parser(self: 'MPASUnifiedCLI') -> argparse.ArgumentParser:
         """
@@ -840,7 +840,7 @@ class MPASUnifiedCLI:
         """
         effective_log_file = log_file if log_file is not None else getattr(config, 'log_file', None)
 
-        if getattr(config, 'log_level', None):
+        if config.log_level:
             log_level = getattr(logging, config.log_level)
         elif getattr(config, 'quiet', False):
             log_level = logging.ERROR
@@ -1013,8 +1013,8 @@ class MPASUnifiedCLI:
         Returns:
             bool: True if the configuration passes all validation checks and is considered valid for execution, False if any validation errors are detected that require user correction before execution can continue.
         """
-        errors = []
-        
+        errors: List[str] = []
+
         self._validate_file_path(config.grid_file, "Grid file", errors)
         
         is_valid_dir = self._validate_directory_path(config.data_dir, "Data directory", errors)
@@ -1790,6 +1790,7 @@ class MPASUnifiedCLI:
         Returns:
             None
         """
+        assert processor.dataset is not None
         time_dim = 'Time' if 'Time' in processor.dataset.dims else 'time'
         n_times = processor.dataset.sizes.get(time_dim, 1)
         time_start = config.time_start if config.time_start is not None else 0

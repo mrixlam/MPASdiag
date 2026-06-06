@@ -52,7 +52,7 @@ class MPASDataCache:
         Returns:
             None
         """
-        self._lock = None  
+        self._lock: Optional[threading.RLock] = None
         self._coordinates: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
         self._variables: Dict[str, CachedVariable] = {}
         self._grid_data: Dict[str, np.ndarray] = {}  

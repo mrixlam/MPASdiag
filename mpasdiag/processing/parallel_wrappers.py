@@ -20,7 +20,7 @@ import os
 import time
 from types import SimpleNamespace
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Any, Dict
+from typing import List, Optional, Tuple, Any, Dict, cast
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -272,7 +272,7 @@ def _extract_precip_coordinates(processor: Any,
             except Exception:
                 pass
             return lon, lat
-    return processor.extract_2d_coordinates_for_variable(var_name)
+    return cast(Tuple[np.ndarray, np.ndarray], processor.extract_2d_coordinates_for_variable(var_name))
 
 
 def _get_time_str(dataset: xr.Dataset, 
@@ -726,7 +726,7 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     for fmt in formats:
         if fmt != 'png':
             output_file = save_path.replace('.png', f'.{fmt}')
-            save_kwargs = {'dpi': 100, 'bbox_inches': 'tight'}
+            save_kwargs: Dict[str, Any] = {'dpi': 100, 'bbox_inches': 'tight'}
             if fmt.lower() == 'png':
                 save_kwargs['pil_kwargs'] = {'compress_level': 1}
             fig.savefig(output_file, **save_kwargs)
@@ -1046,6 +1046,7 @@ def _prebuild_remapper_mpi(processor: 'MPAS2DProcessor',
     dataset = plotter._ensure_boundary_data(dataset)
     lon_full, lat_full = plotter._extract_full_grid(dataset)
 
+    assert dataset is not None
     lon_bounds = dataset['lon_b'].values
     lat_bounds = dataset['lat_b'].values
 
@@ -1191,6 +1192,7 @@ class ParallelPrecipitationProcessor:
         hours_per_file = 1
         min_time_idx = accum_hours // hours_per_file
 
+        assert processor.dataset is not None
         time_dim = 'Time' if 'Time' in processor.dataset.sizes else 'time'
         total_times = processor.dataset.sizes[time_dim]
 
@@ -1315,6 +1317,7 @@ class ParallelSurfaceProcessor:
         remap_engine = remap_config.remap_engine
         remap_method = remap_config.remap_method
 
+        assert processor.dataset is not None
         time_dim = 'Time' if 'Time' in processor.dataset.sizes else 'time'
         total_times = processor.dataset.sizes[time_dim]
         
@@ -1560,6 +1563,7 @@ class ParallelWindProcessor:
         if formats is None:
             formats = ['png']
         
+        assert processor.dataset is not None
         time_dim = 'Time' if 'Time' in processor.dataset.sizes else 'time'
         total_times = processor.dataset.sizes[time_dim]
         
@@ -1721,6 +1725,7 @@ class ParallelCrossSectionProcessor:
         colormap = style.colormap
         file_prefix = style.file_prefix
 
+        assert mpas_3d_processor.dataset is not None
         time_dim = 'Time' if 'Time' in mpas_3d_processor.dataset.sizes else 'time'
         total_times = mpas_3d_processor.dataset.sizes[time_dim]
         
@@ -1858,6 +1863,7 @@ class ParallelSkewTProcessor:
         if formats is None:
             formats = ['png']
 
+        assert mpas_3d_processor.dataset is not None
         time_dim = 'Time' if 'Time' in mpas_3d_processor.dataset.sizes else 'time'
         total_times = mpas_3d_processor.dataset.sizes[time_dim]
 

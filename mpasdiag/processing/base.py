@@ -62,10 +62,10 @@ class MPASBaseProcessor:
         self.verbose = verbose
 
         # Initialize dataset and data type attributes to None
-        self.dataset = None
+        self.dataset: Optional[Union[xr.Dataset, ux.UxDataset]] = None
 
         # Initially set data_type to None
-        self.data_type = None
+        self.data_type: Optional[str] = None
         
         # If verbose mode is enabled, print an initialization message 
         if self.verbose:
@@ -191,10 +191,10 @@ class MPASBaseProcessor:
             # Return the chunks and open_chunks separately so that open_chunks can be used for opening files
             return open_chunks, chunks
 
-    def _load_multifile_dataset(self: 'MPASBaseProcessor', 
-                                data_files: List[str], 
+    def _load_multifile_dataset(self: 'MPASBaseProcessor',
+                                data_files: List[str],
                                 file_datetimes: List[datetime],
-                                open_chunks: dict,
+                                open_chunks: Optional[dict],
                                 drop_variables: Optional[List[str]] = None) -> xr.Dataset:
         """
         This helper method loads and combines multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency. It uses `xr.open_mfdataset` to read the specified data files, combining them along the Time dimension using a nested concatenation strategy. The provided `open_chunks` configuration is applied when opening the files to ensure that chunking is compatible with the concatenation process. After loading, it assigns the provided datetime objects as the Time coordinates in the combined dataset and sorts the dataset by the Time coordinate to ensure temporal ordering. The resulting combined dataset is lazily loaded with chunking applied for efficient handling of large MPAS datasets, and it is returned for use in subsequent processing steps. 
@@ -285,10 +285,10 @@ class MPASBaseProcessor:
         return ux.UxDataset(combined_ds, uxgrid=grid_info)
 
     def _attempt_primary_load(self: 'MPASBaseProcessor', 
-                              data_files: List[str], 
-                              file_datetimes: List[datetime], 
-                              open_chunks: dict, 
-                              full_chunks: Optional[dict], 
+                              data_files: List[str],
+                              file_datetimes: List[datetime],
+                              open_chunks: Optional[dict],
+                              full_chunks: Optional[dict],
                               use_pure_xarray: bool, 
                               data_type_label: str,
                               drop_variables: Optional[List[str]] = None) -> Tuple[Any, str]:
@@ -706,8 +706,8 @@ class MPASBaseProcessor:
         Returns:
             Union[float, np.ndarray]: Normalized longitude value(s) in the standard [-180, 180] degree range, with the same type and dimensions as the input. 
         """
-        lon = np.asarray(lon)
-        normalized_lon = ((lon + 180) % 360) - 180
+        lon_array = np.asarray(lon)
+        normalized_lon: np.ndarray = ((lon_array + 180) % 360) - 180
 
         if normalized_lon.ndim == 0:
             return float(normalized_lon)
@@ -771,12 +771,16 @@ class MPASBaseProcessor:
             available_vars = list(self.dataset.coords.keys()) + list(self.dataset.data_vars.keys())
             raise ValueError(f"Could not find spatial coordinates. Available variables: {available_vars}")
         
-        if np.nanmax(np.abs(lat_coords)) <= np.pi:
-            lat_coords = lat_coords * 180.0 / np.pi
-            lon_coords = lon_coords * 180.0 / np.pi
-        
-        lon_coords_flat: np.ndarray = lon_coords.ravel()
-        lat_coords_flat: np.ndarray = lat_coords.ravel()
+        # Both coordinate arrays are guaranteed present past the guard above.
+        lon_arr: np.ndarray = np.asarray(lon_coords)
+        lat_arr: np.ndarray = np.asarray(lat_coords)
+
+        if np.nanmax(np.abs(lat_arr)) <= np.pi:
+            lat_arr = lat_arr * 180.0 / np.pi
+            lon_arr = lon_arr * 180.0 / np.pi
+
+        lon_coords_flat: np.ndarray = lon_arr.ravel()
+        lat_coords_flat: np.ndarray = lat_arr.ravel()
         
         lon_coords_normalized = self.normalize_longitude(lon_coords_flat)
         assert isinstance(lon_coords_normalized, np.ndarray), "Expected array from normalize_longitude"
