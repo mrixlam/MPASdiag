@@ -1133,7 +1133,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             )
         
         # Create 2D meshgrids for longitude and latitude from the remapped result to be used in contour plotting, and extract the interpolated data values as a 2D array 
-        lon_mesh, lat_mesh = np.meshgrid(remapped_overlay.lon.values, remapped_overlay.lat.values)
+        lon_mesh, lat_mesh = np.meshgrid(remapped_overlay.lon.values, remapped_overlay.lat.values)  # type: np.ndarray, np.ndarray
 
         # Return the longitude mesh, latitude mesh, and interpolated data array for use in contour or contourf plotting of the surface overlay on the map.
         return lon_mesh, lat_mesh, remapped_overlay.values

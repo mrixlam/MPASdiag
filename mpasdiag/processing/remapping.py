@@ -742,7 +742,7 @@ class MPASRemapper:
         intermediate_lats = np.arange(lat_min, lat_max + intermediate_resolution / 2,
                                       intermediate_resolution)
 
-        lon_2d, lat_2d = np.meshgrid(intermediate_lons, intermediate_lats)
+        lon_2d, lat_2d = np.meshgrid(intermediate_lons, intermediate_lats)  # type: np.ndarray, np.ndarray
         n_lon, n_lat = len(intermediate_lons), len(intermediate_lats)
 
         logger.debug(
@@ -958,7 +958,7 @@ class MPASRemapper:
         )
 
         grid.add_coords(staggerloc=esmpy.StaggerLoc.CENTER)
-        lon_2d, lat_2d = np.meshgrid(lon_1d, lat_1d)            # each (n_lat, n_lon)
+        lon_2d, lat_2d = np.meshgrid(lon_1d, lat_1d)  # type: np.ndarray, np.ndarray  # each (n_lat, n_lon)
         grid.coords[esmpy.StaggerLoc.CENTER][0][:] = lon_2d.T   # stored as (n_lon, n_lat)
         grid.coords[esmpy.StaggerLoc.CENTER][1][:] = lat_2d.T
 
@@ -970,7 +970,7 @@ class MPASRemapper:
             lat_b = _compute_grid_bounds(lat_1d, dlat)    # (n_lat + 1,)
 
             grid.add_coords(staggerloc=esmpy.StaggerLoc.CORNER)
-            lon_b_2d, lat_b_2d = np.meshgrid(lon_b, lat_b)   # (n_lat+1, n_lon+1)
+            lon_b_2d, lat_b_2d = np.meshgrid(lon_b, lat_b)  # type: np.ndarray, np.ndarray  # (n_lat+1, n_lon+1)
 
             grid.coords[esmpy.StaggerLoc.CORNER][0][:] = lon_b_2d.T
             grid.coords[esmpy.StaggerLoc.CORNER][1][:] = lat_b_2d.T
@@ -1294,7 +1294,7 @@ def remap_mpas_to_latlon(data: Union[xr.DataArray, np.ndarray],
         lat_min, lat_max, resolution,
     )
     
-    lon_2d, lat_2d = np.meshgrid(target_lons, target_lats)
+    lon_2d, lat_2d = np.meshgrid(target_lons, target_lats)  # type: np.ndarray, np.ndarray
     
     if method == 'nearest':
         source_points = np.column_stack([lon_deg, lat_deg])
@@ -1438,7 +1438,7 @@ def build_remapped_valid_mask(lon_vals: np.ndarray,
             n_lat, n_lon = remapped_values.shape
             lat_coord = np.linspace(lat_min, lat_max, n_lat)
             lon_coord = np.linspace(lon_min, lon_max, n_lon)
-            grid_lon_2d, grid_lat_2d = np.meshgrid(lon_coord, lat_coord)
+            grid_lon_2d, grid_lat_2d = np.meshgrid(lon_coord, lat_coord)  # type: np.ndarray, np.ndarray
             grid_points = np.column_stack((grid_lon_2d.ravel(), grid_lat_2d.ravel()))
             hull_path = Path(hull_pts)
             inside = hull_path.contains_points(grid_points)

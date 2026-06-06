@@ -466,7 +466,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             vertical_display, vertical_coord_display, data_values, max_height
         )
 
-        X, Y = np.meshgrid(longitudes, vertical_display)
+        X, Y = np.meshgrid(longitudes, vertical_display)  # type: np.ndarray, np.ndarray
         colormap, levels = self._resolve_plot_style(var_name, data_values, colormap, levels)
 
         self._render_cross_section_plot(
@@ -1412,7 +1412,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             tick_vals = [t for t in standard_ticks if data_min <= t <= data_max]
             if len(tick_vals) >= 2:
                 self.ax.yaxis.set_major_locator(FixedLocator(tick_vals))
-                def _fmt(x, pos):
+                def _fmt(x: float, pos: Any) -> str:
                     if x >= 1:
                         return f"{int(x):d}"
                     return f"{x:.2f}"

@@ -6,7 +6,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 [![codecov](https://codecov.io/gh/mrixlam/MPASdiag/branch/main/graph/badge.svg)](https://codecov.io/gh/mrixlam/MPASdiag)
 ![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Status](https://img.shields.io/badge/status-beta-yellow.svg)
+![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19486544.svg)](https://doi.org/10.5281/zenodo.19486544)
 
 ## Installation

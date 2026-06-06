@@ -467,8 +467,8 @@ class MPASParallelManager:
     def parallel_map(self: 'MPASParallelManager', 
                      func: Callable, 
                      tasks: List[Any], 
-                     *args, 
-                     **kwargs) -> Optional[List[TaskResult]]:
+                     *args: Any, 
+                     **kwargs: Any) -> Optional[List[TaskResult]]:
         """
         This method executes the provided function on a list of tasks in parallel using the configured backend (MPI or multiprocessing). It handles the distribution of tasks to workers, execution of the function on each task, and collection of results while adhering to the configured error handling policy. The method automatically selects the appropriate parallelization strategy based on the availability of MPI and user configuration. It returns a list of TaskResult objects containing the outcome of each task execution, including success status, results, errors, and timing information. In MPI mode, the complete list of results is returned only on the master process (rank 0), while other ranks receive None. This method serves as the main entry point for executing parallel tasks in MPASdiag workflows, providing a flexible and robust interface for parallel processing. 
 
@@ -491,8 +491,8 @@ class MPASParallelManager:
     def _mpi_map(self: 'MPASParallelManager', 
                  func: Callable, 
                  tasks: List[Any], 
-                 *args, 
-                 **kwargs) -> Optional[List[TaskResult]]:
+                 *args: Any, 
+                 **kwargs: Any) -> Optional[List[TaskResult]]:
         """
         This method executes the provided function on a list of tasks in parallel using the MPI backend. It first broadcasts the complete list of tasks to all worker processes, then each worker uses the task distributor to determine which subset of tasks it should process based on the selected load balancing strategy. Each worker executes its assigned tasks locally and generates a list of TaskResult objects containing the outcome of each task execution. The results from all workers are then gathered back to the master process (rank 0) using the result collector, where they are aggregated into a single list. The master process also computes statistics on task execution performance based on the collected results. Finally, the method returns the complete list of TaskResult objects to the caller on the master process, while other ranks receive None. This implementation provides efficient parallel processing using MPI while ensuring robust error handling and comprehensive performance tracking. 
 
@@ -554,8 +554,8 @@ class MPASParallelManager:
     def _mpi_work_stealing(self: 'MPASParallelManager',
                            func: Callable,
                            tasks: List[Any],
-                           *args,
-                           **kwargs) -> Optional[List[TaskResult]]:
+                           *args: Any,
+                           **kwargs: Any) -> Optional[List[TaskResult]]:
         """
         This method runs a true dynamic master/worker (work-stealing) schedule over the broadcast task list. Rank 0 acts as a dedicated dispatcher that hands out task indices to workers on demand and collects their results, while every other rank repeatedly requests a task, executes it, and returns the result until the dispatcher signals that no work remains. Because the dispatcher assigns the next task the instant a worker reports back, faster workers naturally take on more tasks and the load stays balanced even when per-task costs vary widely -- at the cost of rank 0 not computing, which is why the caller only selects this path when at least three ranks are available. All ranks already hold the full task list (broadcast by _mpi_map) so workers can look up their assigned task by index.
 
@@ -612,8 +612,8 @@ class MPASParallelManager:
     def _mpi_dispatch_worker(self: 'MPASParallelManager',
                              func: Callable,
                              tasks: List[Any],
-                             *args,
-                             **kwargs) -> None:
+                             *args: Any,
+                             **kwargs: Any) -> None:
         """
         This method is the worker half of the dynamic work-stealing scheduler, run on every rank other than the dispatcher. It loops sending a readiness message to rank 0 -- piggybacking the result of the previously completed task -- and then receives either the next task index to execute or a stop signal. For each assigned index it looks up the task in the broadcast list and executes it through the shared single-task path so timing and error handling match the static scheduler, repeating until told to stop. The final task's result is delivered on the readiness message that immediately precedes the stop signal, so no result is lost.
 
@@ -720,8 +720,8 @@ class MPASParallelManager:
     def _multiprocessing_map(self: 'MPASParallelManager', 
                              func: Callable, 
                              tasks: List[Any], 
-                             *args, 
-                             **kwargs) -> List[TaskResult]:
+                             *args: Any, 
+                             **kwargs: Any) -> List[TaskResult]:
         """
         This method executes the provided function on a list of tasks in parallel using the multiprocessing backend. It prepares the arguments for each task by creating a list of tuples containing the task ID, task data, function to execute, error handling policy, and any additional arguments. The method then attempts to create a multiprocessing pool using different context methods (fork, spawn) based on the operating system and available options. It maps the task wrapper function across all tasks in parallel, which executes each task and captures results or errors according to the configured error policy. If multiprocessing fails for any reason, it falls back to serial execution. After processing all tasks, it computes statistics on execution performance and returns a list of TaskResult objects containing the outcome of each task execution. This implementation provides robust parallel processing using multiprocessing while ensuring comprehensive error handling and performance tracking. 
 
@@ -769,8 +769,8 @@ class MPASParallelManager:
     def _execute_local_tasks(self: 'MPASParallelManager', 
                              func: Callable, 
                              local_tasks: List[Tuple[int, Any]], 
-                             *args, 
-                             **kwargs) -> List[TaskResult]:
+                             *args: Any, 
+                             **kwargs: Any) -> List[TaskResult]:
         """
         This method executes a list of tasks assigned to the local worker process. It iterates over each task, executes the provided function, and captures the result or any exceptions that occur. The method implements the configured error handling policy (abort, continue, or collect) and measures execution time for each task. It returns a list of TaskResult objects containing the outcome of each task execution, including success status, result data, error messages, and timing information. This method is called by both the MPI and multiprocessing mapping functions to process the subset of tasks assigned to this worker, ensuring consistent error handling and performance tracking across different parallel backends. 
 
@@ -794,8 +794,8 @@ class MPASParallelManager:
                           func: Callable,
                           task_id: int,
                           task: Any,
-                          *args,
-                          **kwargs) -> TaskResult:
+                          *args: Any,
+                          **kwargs: Any) -> TaskResult:
         """
         This method executes a single task and returns its TaskResult, applying the configured error-handling policy and recording the wall-clock execution time. It is the shared per-task execution path used by both static distribution (via _execute_local_tasks) and the dynamic master/worker work-stealing scheduler, so success/error semantics and timing stay identical across both. Under the ABORT policy in MPI mode it aborts the communicator; otherwise it records the error on the TaskResult so the caller can collect or continue.
 
@@ -841,8 +841,8 @@ class MPASParallelManager:
     def _serial_map(self: 'MPASParallelManager', 
                     func: Callable, 
                     tasks: List[Any], 
-                    *args, 
-                    **kwargs) -> List[TaskResult]:
+                    *args: Any, 
+                    **kwargs: Any) -> List[TaskResult]:
         """
         This method executes the provided function on a list of tasks sequentially in serial mode. It iterates over each task, executes the function, and captures the result or any exceptions that occur. The method implements the configured error handling policy (abort, continue, or collect) and measures execution time for each task. It returns a list of TaskResult objects containing the outcome of each task execution, including success status, result data, error messages, and timing information. This method is used when no parallel backend is available or when the user explicitly chooses to run in serial mode, providing a fallback option for executing tasks without parallelization while still maintaining consistent error handling and performance tracking. 
 
@@ -950,7 +950,7 @@ class MPASParallelManager:
 
 def parallel_plot(plot_function: Callable, 
                   files: List[str], 
-                  **kwargs) -> Optional[List[TaskResult]]:
+                  **kwargs: Any) -> Optional[List[TaskResult]]:
     """
     This function provides a convenient interface for executing a plotting function in parallel across multiple files using the MPASParallelManager. It accepts a plotting function that takes a file path as input and produces a plot, along with a list of file paths to process. The function initializes the MPASParallelManager with dynamic load balancing and collects results from all tasks while adhering to the configured error handling policy. It returns a list of TaskResult objects containing the outcome of each plotting task, including success status, results, errors, and timing information. This utility function simplifies the process of generating plots in parallel for multiple files, allowing users to efficiently visualize data across large datasets while leveraging the capabilities of the MPASParallelManager for robust parallel processing. 
 

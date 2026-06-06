@@ -123,8 +123,8 @@ class MPASVisualizer:
         assert self.fig is not None, "Figure must be created before adding branding"
         MPASVisualizationStyle.add_timestamp_and_branding(self.fig)
     
-    def format_latitude(self: 'MPASVisualizer', 
-                        value: float, _) -> str:
+    def format_latitude(self: 'MPASVisualizer',
+                        value: float, _: Any) -> str:
         """
         This method formats a numeric latitude value for axis tick labels using standardized geographic conventions with degree symbols and hemisphere indicators. It delegates to MPASVisualizationStyle to ensure consistent latitude formatting across all plot types, converting decimal degrees to readable strings with N/S suffixes (e.g., 45.0 becomes '45°N', -30.0 becomes '30°S'). The method accepts a placeholder second argument to satisfy matplotlib's FuncFormatter interface requirements, which allows it to be used directly as a formatter for axis ticks in cartopy plots. 
 
@@ -137,8 +137,8 @@ class MPASVisualizer:
         """
         return MPASVisualizationStyle.format_latitude(value, _)
 
-    def format_longitude(self: 'MPASVisualizer', 
-                         value: float, _) -> str:
+    def format_longitude(self: 'MPASVisualizer',
+                         value: float, _: Any) -> str:
         """
         This method formats a numeric longitude value for axis tick labels using standardized geographic conventions with degree symbols and hemisphere indicators. It delegates to MPASVisualizationStyle to ensure consistent longitude formatting across all plot types, converting decimal degrees to readable strings with E/W suffixes (e.g., 120.0 becomes '120°E', -75.0 becomes '75°W'). The method accepts a placeholder second argument to satisfy matplotlib's FuncFormatter interface requirements, which allows it to be used directly as a formatter for axis ticks in cartopy plots.
 
@@ -729,8 +729,8 @@ class MPASVisualizer:
                                 lon: np.ndarray, 
                                 lat: np.ndarray, 
                                 wind_speed: np.ndarray, 
-                                colormap: str, 
-                                data_crs) -> None:
+                                colormap: str,
+                                data_crs: Any) -> None:
         """
         This method creates a filled contour background for wind speed magnitude on the map to enhance the visualization of wind patterns. It uses a scatter plot to represent the wind speed at each data point, colored according to the specified colormap. The method calculates an adaptive marker size based on the geographic extent and density of points to ensure that the background is informative without being overly cluttered. It also adds a colorbar to the plot with appropriate labeling for wind speed in m/s. This background provides additional context for interpreting the wind vectors plotted on top, allowing viewers to quickly identify areas of stronger or weaker winds across the map. 
 
@@ -1202,7 +1202,7 @@ class MPASVisualizer:
                 method=esmf_method,
             )
 
-            lon_mesh, lat_mesh = np.meshgrid(remap_result.lon.values, remap_result.lat.values)
+            lon_mesh, lat_mesh = np.meshgrid(remap_result.lon.values, remap_result.lat.values)  # type: np.ndarray, np.ndarray
             return lon_mesh, lat_mesh, remap_result.values
         except Exception as exc:
             if engine == 'esmf':
@@ -1271,7 +1271,7 @@ class MPASVisualizer:
 
         lon_coords = remapped_result.lon.values
         lat_coords = remapped_result.lat.values
-        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)
+        lon_mesh, lat_mesh = np.meshgrid(lon_coords, lat_coords)  # type: np.ndarray, np.ndarray
         data_interp = remapped_result.values
 
         logger.debug("KDTree produced %dx%d grid", data_interp.shape[0], data_interp.shape[1])

@@ -927,7 +927,7 @@ class MPASVisualizationStyle:
         return None
     
     @staticmethod
-    def format_latitude(value: float, _) -> str:
+    def format_latitude(value: float, _: Any) -> str:
         """
         This method formats latitude coordinate values for axis tick labels with cardinal direction (N/S) suffix following geographic conventions. This method takes a latitude value in degrees, determines the appropriate cardinal direction (N for non-negative, S for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "45.0°N", "30.5°S"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for y-axis tick labeling on cartographic plots. 
 
@@ -942,7 +942,7 @@ class MPASVisualizationStyle:
         return f"{abs(value):.1f}°{direction}"
 
     @staticmethod
-    def format_longitude(value: float, _) -> str:
+    def format_longitude(value: float, _: Any) -> str:
         """
         This method formats longitude coordinate values for axis tick labels with cardinal direction (E/W) suffix following geographic conventions. It takes a longitude value in degrees, determines the appropriate cardinal direction (E for non-negative, W for negative values), computes the absolute value to remove sign, and returns a formatted string with one decimal place followed by degree symbol and direction letter (e.g., "120.0°W", "75.5°E"). The second parameter is required by matplotlib FuncFormatter signature but unused in this implementation, allowing the method to be passed directly to FuncFormatter for x-axis tick labeling on cartographic plots. 
 
