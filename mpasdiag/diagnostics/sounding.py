@@ -27,6 +27,9 @@ from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_NEAREST_CELL_TREE_CACHE: Dict[Any, Any] = {}
+_NEAREST_CELL_TREE_CACHE_MAX = 4
+
 _mpcalc: Optional[ModuleType] = None
 _munits: Any = None
 
@@ -220,7 +223,7 @@ class SoundingDiagnostics:
         dewpoint_c = 243.5 * ln_ratio / (17.67 - ln_ratio)
 
         # Return the computed dewpoint profile in degrees Celsius
-        return cast(np.ndarray, dewpoint_c)
+        return dewpoint_c
 
     def compute_thermodynamic_indices(self: 'SoundingDiagnostics', 
                                       pressure_hpa: np.ndarray, 
@@ -365,9 +368,9 @@ class SoundingDiagnostics:
             np.ndarray: Actual (sensible) temperature in K.
         """
         # Return the actual temperature profile in K by applying the Poisson equation
-        return cast(np.ndarray, np.asarray(theta, dtype=np.float64) * (
+        return np.asarray(theta, dtype=np.float64) * (
             np.asarray(pressure_pa, dtype=np.float64) / P0_REF_PA
-        ) ** KAPPA)
+        ) ** KAPPA
 
     def _load_grid_coordinates(self: 'SoundingDiagnostics', 
                                processor: 'MPAS3DProcessor') -> Tuple[np.ndarray, np.ndarray]:
@@ -427,29 +430,20 @@ class SoundingDiagnostics:
                            target_lon: float,
                            target_lat: float,) -> int:
         """
-        This function finds the index of the nearest cell in the grid to a target longitude and latitude using a KDTree for efficient spatial querying. It first converts the grid coordinates and target location from spherical (longitude, latitude) to Cartesian (x, y, z) coordinates on the unit sphere, then builds a KDTree from the grid points and queries it with the target point to find the nearest neighbor. The function returns the index of the nearest cell in the grid, which can then be used to extract the sounding profile at that location. 
+        This function finds the index of the nearest cell in the grid to a target longitude and latitude using a KDTree for efficient spatial querying. It converts the grid coordinates and target location from spherical (longitude, latitude) to Cartesian (x, y, z) coordinates on the unit sphere, then queries a KDTree of the grid points to find the nearest neighbor. The KDTree depends only on the model grid, so it is built once and cached (keyed by a cheap grid fingerprint) and reused across every call for that grid -- in a batch of soundings this turns a per-file O(n_cells log n_cells) tree build into a single cheap query. The function returns the index of the nearest cell in the grid, which can then be used to extract the sounding profile at that location.
 
         Parameters:
             grid_lon (np.ndarray): 1D array of grid longitudes in degrees.
             grid_lat (np.ndarray): 1D array of grid latitudes in degrees.
             target_lon (float): Target longitude in degrees.
-            target_lat (float): Target latitude in degrees. 
+            target_lat (float): Target latitude in degrees.
 
         Returns:
             int: Index of the nearest cell in the grid.
         """
-        # Convert the grid longitude and latitude from degrees to radians
-        lon_r = np.radians(grid_lon)
-        lat_r = np.radians(grid_lat)
+        tree = SoundingDiagnostics._get_nearest_cell_tree(grid_lon, grid_lat)
 
-        # Convert the grid longitude and latitude to Cartesian coordinates on the unit sphere
-        cart = np.column_stack([
-            np.cos(lat_r) * np.cos(lon_r),
-            np.cos(lat_r) * np.sin(lon_r),
-            np.sin(lat_r),
-        ])
-
-        # Convert the target longitude and latitude from degrees to radians 
+        # Convert the target longitude and latitude from degrees to radians
         tgt_lon_r = np.radians(target_lon)
         tgt_lat_r = np.radians(target_lat)
 
@@ -460,12 +454,55 @@ class SoundingDiagnostics:
             np.sin(tgt_lat_r),
         ]])
 
-        # Build a KDTree from the grid points and query it with the target point to find the nearest neighbor
-        tree = cKDTree(cart)
+        # Query the cached tree with the target point to find the nearest neighbor
         _, nearest_idx = tree.query(tgt_cart)
 
         # Return the index of the nearest cell as an integer
         return int(nearest_idx[0])
+
+    @staticmethod
+    def _get_nearest_cell_tree(grid_lon: np.ndarray,
+                               grid_lat: np.ndarray) -> Any:
+        """
+        This helper returns a KDTree built over the model grid's cell centres on the unit sphere, reusing a cached tree whenever the same grid is queried again. It computes a cheap fingerprint of the grid (shape plus endpoint and summed coordinates) so repeated soundings on the identical grid -- the common batch case of one Skew-T per timestep at a fixed station -- avoid rebuilding the tree, which is the dominant cost of nearest-cell lookup. The cache is bounded; when it is full it is cleared before inserting a new tree so a long-lived worker that processes several distinct grids cannot leak memory.
+
+        Parameters:
+            grid_lon (np.ndarray): 1D array of grid longitudes in degrees.
+            grid_lat (np.ndarray): 1D array of grid latitudes in degrees.
+
+        Returns:
+            Any: A scipy KDTree over the grid cell centres in unit-sphere Cartesian coordinates.
+        """
+        grid_lon = np.asarray(grid_lon)
+        grid_lat = np.asarray(grid_lat)
+
+        key = (
+            grid_lon.shape,
+            float(grid_lon[0]), float(grid_lon[-1]),
+            float(grid_lat[0]), float(grid_lat[-1]),
+            float(grid_lon.sum()), float(grid_lat.sum()),
+        )
+
+        tree = _NEAREST_CELL_TREE_CACHE.get(key)
+        if tree is not None:
+            return tree
+
+        lon_r = np.radians(grid_lon)
+        lat_r = np.radians(grid_lat)
+
+        cart = np.column_stack([
+            np.cos(lat_r) * np.cos(lon_r),
+            np.cos(lat_r) * np.sin(lon_r),
+            np.sin(lat_r),
+        ])
+
+        tree = cKDTree(cart)
+
+        if len(_NEAREST_CELL_TREE_CACHE) >= _NEAREST_CELL_TREE_CACHE_MAX:
+            _NEAREST_CELL_TREE_CACHE.clear()
+        _NEAREST_CELL_TREE_CACHE[key] = tree
+
+        return tree
 
     @staticmethod
     def _haversine_km(lon1: float, 
@@ -738,7 +775,7 @@ class SoundingDiagnostics:
 
                 # Find the index of the level closest to the LCL pressure for the STP calculation
                 lcl_idx = int(np.argmin(
-                    np.abs(pressure_hpa - stp_deps[1])))
+                    np.abs(pressure_hpa - stp_deps[1])))  # type: ignore[arg-type]
 
                 # Calculate the height of the LCL above the surface in meters for the STP calculation
                 lcl_height_m = float(height_metpy[lcl_idx].magnitude) - surface_height_m
@@ -805,7 +842,7 @@ class SoundingDiagnostics:
             pressure_vals = ds['pressure'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
             # Return the pressure profile in hPa
-            return cast(np.ndarray, np.asarray(pressure_vals.values, dtype=np.float64).ravel())
+            return np.asarray(pressure_vals.values, dtype=np.float64).ravel()
 
         if 'pressure_p' in ds and 'pressure_base' in ds:
             # Extract the pressure perturbation for the given time and cell index
@@ -815,7 +852,7 @@ class SoundingDiagnostics:
             base_pressure = ds['pressure_base'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
             # Return the total pressure profile in hPa
-            return cast(np.ndarray, np.asarray((pressure_perturbation + base_pressure).values, dtype=np.float64).ravel())
+            return np.asarray((pressure_perturbation + base_pressure).values, dtype=np.float64).ravel()
 
         # Raise an error if no pressure variable is found in the dataset
         raise ValueError("Cannot determine pressure: dataset lacks 'pressure', "
@@ -849,7 +886,7 @@ class SoundingDiagnostics:
                 temperature_k = np.asarray(data.values, dtype=np.float64).ravel()
 
                 # Convert from Kelvin to Celsius if the mean temperature is above 100 K
-                return cast(np.ndarray, temperature_k - 273.15)  # K → °C
+                return temperature_k - 273.15  # K → °C
 
         for name in ('theta', 'potential_temperature'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -867,7 +904,7 @@ class SoundingDiagnostics:
                     logger.debug("Converted '%s' (potential temp) to actual temperature", name)
 
                 # Return the temperature profile in °C
-                return cast(np.ndarray, temperature_k - 273.15)
+                return temperature_k - 273.15
 
         # Raise an error if no temperature or potential temperature variable is found
         raise ValueError("Cannot find temperature or theta variable in dataset.")
@@ -902,7 +939,7 @@ class SoundingDiagnostics:
                     dewpoint_vals = dewpoint_vals - 273.15
 
                 # Return the dewpoint profile in °C
-                return cast(np.ndarray, dewpoint_vals)
+                return dewpoint_vals
 
         for name in ('qv', 'q_vapor', 'scalars_qv', 'specific_humidity', 'vapor_mixing_ratio'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -925,7 +962,7 @@ class SoundingDiagnostics:
             logger.warning("No moisture variable found; dewpoint set to NaN")
 
         # Return NaN array if dewpoint cannot be determined
-        return cast(np.ndarray, np.full_like(pressure_pa, np.nan))
+        return np.full_like(pressure_pa, np.nan)
 
     def _extract_wind_profiles(self: 'SoundingDiagnostics',
                                ds: xr.Dataset,
@@ -1016,7 +1053,7 @@ class SoundingDiagnostics:
                     height_vals = 0.5 * (height_vals[:-1] + height_vals[1:])
 
                 # Return the extracted height profile in meters
-                return cast(np.ndarray, height_vals)
+                return height_vals
 
             # Catch any exceptions that occur during height extraction and return None 
             except Exception:

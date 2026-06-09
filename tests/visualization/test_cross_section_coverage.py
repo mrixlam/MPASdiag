@@ -701,7 +701,43 @@ class TestInterpolateAllLevels:
 
         assert np.all(np.isnan(result))
 
-    def test_per_level_exception_prints_warning(self: 'TestInterpolateAllLevels', 
+    def test_slab_path_matches_per_level(self: 'TestInterpolateAllLevels') -> None:
+        """
+        This test verifies that the _interpolate_all_levels method produces the same result when using the slab extraction path versus the per-level extraction path. It creates a plotter instance and a DataArray with dimensions ['Time', 'nCells', 'nVertLevels'], filled with random values and some NaNs. The test then calls the _interpolate_all_levels method twice: once with the normal slab extraction path, and once with the per-level extraction path by patching the _extract_variable_slab method to return None. Finally, it asserts that the results from both paths are equal, confirming that they produce the same output. 
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        plotter = _plotter()
+
+        rng = np.random.default_rng(7)
+        values = rng.normal(size=(N_TIME, N_CELLS, N_VERT))
+        values[rng.random((N_TIME, N_CELLS, N_VERT)) < 0.2] = np.nan
+        var_da = xr.DataArray(values, dims=['Time', 'nCells', 'nVertLevels'])
+
+        kwargs = dict(
+            vertical_levels=np.arange(N_VERT, dtype=float),
+            time_index=1,
+            time_dim='Time',
+            vert_dim='nVertLevels',
+            lon_coords=np.linspace(-100., -90., N_CELLS),
+            lat_coords=np.linspace(35., 45., N_CELLS),
+            path_lons=np.linspace(-99., -91., 5),
+            path_lats=np.linspace(36., 44., 5),
+            num_points=5,
+        )
+
+        via_slab = plotter._interpolate_all_levels(var_da, **kwargs)
+
+        with patch.object(plotter, '_extract_variable_slab', return_value=None):
+            via_per_level = plotter._interpolate_all_levels(var_da, **kwargs)
+
+        assert np.array_equal(via_slab, via_per_level, equal_nan=True)
+
+    def test_per_level_exception_prints_warning(self: 'TestInterpolateAllLevels',
                                                 capsys: pytest.CaptureFixture) -> None:
         """
         This test verifies that the _interpolate_all_levels method correctly prints a warning when an exception occurs during level extraction. It creates a plotter instance and a DataArray with dimensions ['Time', 'nCells', 'nVertLevels']. The test then patches the _extract_level_data method to raise a RuntimeError and asserts that the warning message is printed.
@@ -719,7 +755,8 @@ class TestInterpolateAllLevels:
             dims=['Time', 'nCells', 'nVertLevels'],
         )
 
-        with patch.object(plotter, '_extract_level_data', side_effect=RuntimeError("extraction failed")):
+        with patch.object(plotter, '_extract_variable_slab', return_value=None), \
+             patch.object(plotter, '_extract_level_data', side_effect=RuntimeError("extraction failed")):
             plotter._interpolate_all_levels(
                 var_da,
                 vertical_levels=np.arange(N_VERT, dtype=float),
@@ -754,7 +791,8 @@ class TestInterpolateAllLevels:
             dims=['Time', 'nCells', 'nVertLevels'],
         )
 
-        with patch.object(plotter, '_extract_level_data', side_effect=RuntimeError("fail")):
+        with patch.object(plotter, '_extract_variable_slab', return_value=None), \
+             patch.object(plotter, '_extract_level_data', side_effect=RuntimeError("fail")):
             result = plotter._interpolate_all_levels(
                 var_da,
                 vertical_levels=np.arange(N_VERT, dtype=float),

@@ -34,6 +34,40 @@ from ..processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
 
+_PATH_NEIGHBOR_CACHE: Dict[Any, np.ndarray] = {}
+_PATH_NEIGHBOR_CACHE_MAX = 8
+
+
+def _path_neighbor_fingerprint(grid_lons: np.ndarray,
+                               grid_lats: np.ndarray,
+                               path_lons: np.ndarray,
+                               path_lats: np.ndarray,
+                               k: int) -> Tuple[Any, ...]:
+    """
+    This helper builds a cheap, collision-resistant fingerprint identifying a (grid, transect) pair for the path-neighbour cache. The grid is summarised by its shape, endpoint coordinates and coordinate sums, and the transect by its length, endpoint coordinates and coordinate sums, together with the neighbour count k; identical batches (same model grid, same transect) therefore map to the same key while different grids or transects do not. The sums are O(n_cells) but negligible beside the KDTree build they let us skip, and they guard against distinct grids that happen to share endpoints.
+
+    Parameters:
+        grid_lons (np.ndarray): Flattened grid longitudes in degrees.
+        grid_lats (np.ndarray): Flattened grid latitudes in degrees.
+        path_lons (np.ndarray): Flattened transect longitudes in degrees.
+        path_lats (np.ndarray): Flattened transect latitudes in degrees.
+        k (int): Number of nearest neighbours retained per path point.
+
+    Returns:
+        Tuple[Any, ...]: A hashable fingerprint suitable as a dict key.
+    """
+    return (
+        grid_lons.shape,
+        float(grid_lons[0]), float(grid_lons[-1]),
+        float(grid_lats[0]), float(grid_lats[-1]),
+        float(grid_lons.sum()), float(grid_lats.sum()),
+        path_lons.shape,
+        float(path_lons[0]), float(path_lons[-1]),
+        float(path_lats[0]), float(path_lats[-1]),
+        float(path_lons.sum()), float(path_lats.sum()),
+        int(k),
+    )
+
 
 @dataclass
 class CrossSectionStyle:
@@ -131,7 +165,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         moisture_vars = ['q2', 'qv', 'qc', 'qr', 'qi', 'qs', 'qg', 'qv2m', 'humidity', 'mixing_ratio']
 
         if any(mv in var_name.lower() for mv in moisture_vars):
-            n_negative = int(np.sum(data_values < 0))
+            n_negative = np.sum(data_values < 0)
             if n_negative > 0:
                 logger.warning(
                     "Found %s negative %s values (min: %.4f). Clipping to 0 (physically invalid).",
@@ -182,7 +216,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         if desired_display == 'pressure':
             try:
-                pressure_values: np.ndarray = vertical_coords.astype(float).copy()
+                pressure_values = vertical_coords.astype(float).copy()
             except Exception:
                 pressure_values = np.asarray(vertical_coords, dtype=float)
             if not np.all(np.isfinite(pressure_values)) or np.nanmin(pressure_values) <= 0:
@@ -447,7 +481,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         )
 
         self.fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
-        assert self.fig is not None
         self.ax = self.fig.add_subplot(111)
 
         longitudes = cross_section_data['longitudes']
@@ -466,7 +499,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             vertical_display, vertical_coord_display, data_values, max_height
         )
 
-        X, Y = np.meshgrid(longitudes, vertical_display)  # type: np.ndarray, np.ndarray
+        X, Y = np.meshgrid(longitudes, vertical_display)
         colormap, levels = self._resolve_plot_style(var_name, data_values, colormap, levels)
 
         self._render_cross_section_plot(
@@ -511,7 +544,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             return_pressure = vertical_coord in ('pressure', 'height')
 
-            raw_levels = mpas_3d_processor.get_vertical_levels(
+            vertical_levels = mpas_3d_processor.get_vertical_levels(
                 var_name, return_pressure=return_pressure, time_index=time_index
             )
 
@@ -521,7 +554,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             if vertical_coord not in ('pressure', 'modlev'):
                 vertical_coord = 'modlev'
 
-            vertical_levels: np.ndarray = np.array(raw_levels)
+            vertical_levels = np.array(vertical_levels)
 
             logger.debug("_resolve_vertical_levels: return_pressure=%s", return_pressure)
             logger.debug("_resolve_vertical_levels: vertical_coord_type='%s'", vertical_coord)
@@ -555,7 +588,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return vertical_levels, vertical_coord
         except Exception as e:
             logger.warning("Could not get vertical levels, using indices: %s", e)
-            assert mpas_3d_processor.dataset is not None
             n_levels = (
                 mpas_3d_processor.dataset.sizes.get('nVertLevels')
                 or mpas_3d_processor.dataset.sizes.get('nVertLevelsP1')
@@ -580,7 +612,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, np.ndarray]: The longitude and latitude coordinates extracted from the dataset for the specified variable, formatted as numpy arrays.
         """
-        assert mpas_3d_processor.dataset is not None
         try:
             var_da = mpas_3d_processor.dataset[var_name]
             lon_coords, lat_coords = mpas_3d_processor.extract_2d_coordinates_for_variable(var_name, var_da)
@@ -628,7 +659,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             Tuple[xr.DataArray, Optional[str], Optional[str]]: The data array for the variable, the time dimension name, and the vertical dimension name.
         """
         ds = mpas_3d_processor.dataset
-        assert ds is not None
 
         if type(ds) is not xr.Dataset and isinstance(ds, xr.Dataset):
             ds = xr.Dataset(dict(ds.data_vars), coords=ds.coords, attrs=ds.attrs)
@@ -650,8 +680,55 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         return var_da, time_dim, vert_dim
 
+    _SLAB_MAX_BYTES = 2 * 1024 ** 3  # 2 GiB
+
+    def _extract_variable_slab(self: 'MPASVerticalCrossSectionPlotter',
+                               var_da: xr.DataArray,
+                               time_index: int,
+                               time_dim: Optional[str],
+                               vert_dim: Optional[str],
+                               expected_ncells: int,
+                               n_levels: int) -> Optional[Tuple[np.ndarray, int]]:
+        """
+        This method reads the cross-section variable for a single timestep -- all vertical levels at once -- into a NumPy array, so the per-level interpolation loop can slice levels in memory instead of triggering a separate dask read for each level. Because MPAS 3D output is chunked with every vertical level in one on-disk chunk, the previous per-level .compute() re-read and discarded that whole chunk once per level (~N_levels× the necessary I/O per plot, multiplied again across timesteps and ranks); reading the (levels, nCells) slab a single time eliminates that redundancy while touching ONLY the one variable and one timestep this task needs -- not the rest of the lazily-opened dataset. To keep peak memory bounded it estimates the slab size first and returns None (so the caller falls back to per-level reads) when the slab would exceed _SLAB_MAX_BYTES, or when the variable lacks a vertical dimension or does not reduce to the expected (levels, nCells) two-dimensional shape.
+
+        Parameters:
+            var_da (xr.DataArray): The 3D variable to read (dims including time and vertical where present).
+            time_index (int): Index along the time dimension to select for this plot.
+            time_dim (Optional[str]): Name of the time dimension, or None if the variable has no time axis.
+            vert_dim (Optional[str]): Name of the vertical dimension; None disables slab reading.
+            expected_ncells (int): Number of grid cells the non-vertical axis must have for the slab to be valid.
+            n_levels (int): Number of vertical levels, used with expected_ncells to estimate slab memory.
+
+        Returns:
+            Optional[Tuple[np.ndarray, int]]: The computed (levels, nCells) slab and the axis index of the vertical dimension within it, or None to signal the caller should fall back to per-level reads.
+        """
+        if vert_dim is None:
+            return None
+
+        itemsize = int(getattr(var_da.dtype, 'itemsize', 8) or 8)
+
+        if expected_ncells * max(n_levels, 1) * itemsize > self._SLAB_MAX_BYTES:
+            return None
+
+        slab_da = var_da.isel({time_dim: time_index}) if time_dim is not None else var_da
+
+        if vert_dim not in slab_da.dims:
+            return None
+        vert_axis = slab_da.dims.index(vert_dim)
+
+        if hasattr(slab_da, 'compute'):
+            slab_da = slab_da.compute()
+
+        slab = np.asarray(slab_da.values if hasattr(slab_da, 'values') else slab_da)
+
+        if slab.ndim != 2 or slab.shape[1 - vert_axis] != expected_ncells:
+            return None
+
+        return slab, vert_axis
+
     @staticmethod
-    def _extract_level_data(var_da: xr.DataArray, 
+    def _extract_level_data(var_da: xr.DataArray,
                             isel_dict: Dict[str, int],
                             expected_ncells: int) -> np.ndarray:
         """
@@ -678,7 +755,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 f"expected ({expected_ncells},)"
             )
 
-        return cast(np.ndarray, data_values)
+        return data_values
 
     def _interpolate_all_levels(self: 'MPASVerticalCrossSectionPlotter',
                                 var_da: xr.DataArray,
@@ -715,18 +792,26 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             lon_coords, lat_coords, path_lons, path_lats
         )
 
+        slab = self._extract_variable_slab(
+            var_da, time_index, time_dim, vert_dim, lon_coords.shape[0], len(vertical_levels)
+        )
+
         for level_idx, level in enumerate(vertical_levels):
             try:
-                isel_dict: Dict[str, int] = {}
-
-                if time_dim is not None:
-                    isel_dict[time_dim] = time_index
-
                 if vert_dim is None:
                     continue
 
-                isel_dict[vert_dim] = level_idx
-                data_values = self._extract_level_data(var_da, isel_dict, lon_coords.shape[0])
+                if slab is not None:
+                    slab_values, vert_axis = slab
+                    data_values = np.take(slab_values, level_idx, axis=vert_axis)
+                else:
+                    isel_dict: Dict[str, int] = {}
+
+                    if time_dim is not None:
+                        isel_dict[time_dim] = time_index
+
+                    isel_dict[vert_dim] = level_idx
+                    data_values = self._extract_level_data(var_da, isel_dict, lon_coords.shape[0])
 
                 cross_section_data[level_idx, :] = self._interpolate_with_indices(
                     lon_coords, lat_coords, data_values, path_lons, path_lats, path_indices
@@ -737,8 +822,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         valid_mask = ~np.isnan(cross_section_data)
 
         if np.any(valid_mask):
-            data_min = float(np.min(cross_section_data[valid_mask]))
-            data_max = float(np.max(cross_section_data[valid_mask]))
+            data_min = np.min(cross_section_data[valid_mask])
+            data_max = np.max(cross_section_data[valid_mask])
             logger.debug(
                 "Final cross-section data: %.3f to %.3f (%d/%d valid points)",
                 float(data_min), float(data_max),
@@ -747,7 +832,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         else:
             logger.warning("Final cross-section data contains NO valid values")
 
-        return cast(np.ndarray, cross_section_data)
+        return cross_section_data
 
 
     def _generate_cross_section_data(self: 'MPASVerticalCrossSectionPlotter', 
@@ -896,7 +981,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         grid_data_valid = grid_data_flat[valid_mask]
         
         if len(grid_data_valid) == 0:
-            return cast(np.ndarray, np.full(len(path_lons), np.nan))
+            return np.full(len(path_lons), np.nan)
             
         grid_points = np.column_stack([
             np.cos(np.radians(grid_lats_valid)) * np.cos(np.radians(grid_lons_valid)),
@@ -913,7 +998,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         tree = KDTree(grid_points)
         _, indices = tree.query(path_points)
         
-        return cast(np.ndarray, grid_data_valid[indices])
+        return grid_data_valid[indices]
+
+    _PATH_NEIGHBORS = 16
 
     def _precompute_path_indices(self: 'MPASVerticalCrossSectionPlotter',
                                  grid_lons: np.ndarray,
@@ -921,7 +1008,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                  path_lons: np.ndarray,
                                  path_lats: np.ndarray) -> Optional[np.ndarray]:
         """
-        This method builds the nearest-neighbour mapping from the cross-section path points to the model grid exactly once, returning the index of the closest grid cell for each path point. Because that mapping depends only on the grid geometry and the transect -- not on the data values or the vertical level -- it can be reused for every vertical level of a plot instead of being recomputed inside the per-level interpolation loop, where the previous code rebuilt a KDTree for each of the ~N_levels levels. The tree is built over the full (unmasked) grid on the unit sphere so Euclidean distance matches great-circle distance; levels whose data contain NaNs are handled separately to preserve the original 'nearest valid cell' behaviour.
+        This method builds the nearest-neighbour mapping from the cross-section path points to the model grid, returning the K nearest grid-cell indices per path point (distance-sorted) so every vertical level can be interpolated without rebuilding a KDTree. Because the mapping depends only on the grid geometry and the transect -- not on the data values -- the previous code's per-level KDTree rebuild was pure waste, yet its NaN fast-path was defeated on real data: a single NaN anywhere in a level (e.g. terrain/below-ground masking, present at nearly every pressure level) forced the whole level back onto a fresh full-grid KDTree. Retaining K candidates lets each level take the first non-NaN among a path point's K nearest cells, which equals the original 'nearest valid cell' whenever at least one of the K is valid -- true for every path point except those whose own column is deeply terrain-masked at that level. The table is also (grid+transect)-invariant -- identical for every timestep in a batch -- so it is cached per process (keyed by a cheap grid+transect fingerprint) and the full-grid KDTree is built only once per worker/rank rather than once per file. The tree is built over the full (unmasked) grid on the unit sphere so Euclidean distance matches great-circle order; the tree itself is not retained because the rare all-NaN-neighbour case is handled by the level loop's exact fallback.
 
         Parameters:
             grid_lons (np.ndarray): Longitudes of the grid cells in degrees.
@@ -930,13 +1017,27 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             path_lats (np.ndarray): Latitudes of the path points in degrees.
 
         Returns:
-            Optional[np.ndarray]: Index of the nearest grid cell for each path point, or None if the grid is empty.
+            Optional[np.ndarray]: Array of shape (n_path, k) holding each path point's k nearest grid-cell indices sorted by distance, or None if the grid is empty.
         """
         grid_lons_flat = np.asarray(grid_lons).ravel()
         grid_lats_flat = np.asarray(grid_lats).ravel()
 
         if grid_lons_flat.size == 0:
             return None
+
+        k = int(min(self._PATH_NEIGHBORS, grid_lons_flat.shape[0]))
+
+        path_lons_flat = np.asarray(path_lons).ravel()
+        path_lats_flat = np.asarray(path_lats).ravel()
+
+        cache_key = _path_neighbor_fingerprint(
+            grid_lons_flat, grid_lats_flat, path_lons_flat, path_lats_flat, k
+        )
+
+        cached = _PATH_NEIGHBOR_CACHE.get(cache_key)
+
+        if cached is not None:
+            return cached
 
         grid_lat_r = np.radians(grid_lats_flat)
         grid_lon_r = np.radians(grid_lons_flat)
@@ -947,17 +1048,28 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             np.sin(grid_lat_r),
         ])
 
-        path_lat_r = np.radians(path_lats)
-        path_lon_r = np.radians(path_lons)
-        
+        path_lat_r = np.radians(path_lats_flat)
+        path_lon_r = np.radians(path_lons_flat)
+
         path_points = np.column_stack([
             np.cos(path_lat_r) * np.cos(path_lon_r),
             np.cos(path_lat_r) * np.sin(path_lon_r),
             np.sin(path_lat_r),
         ])
 
-        _, indices = KDTree(grid_points).query(path_points)
-        return cast(np.ndarray, indices)
+        _, neighbors = KDTree(grid_points).query(path_points, k=k)
+
+        neighbors = np.asarray(neighbors)
+
+        if neighbors.ndim == 1:
+            neighbors = neighbors[:, np.newaxis]
+
+        if len(_PATH_NEIGHBOR_CACHE) >= _PATH_NEIGHBOR_CACHE_MAX:
+            _PATH_NEIGHBOR_CACHE.clear()
+
+        _PATH_NEIGHBOR_CACHE[cache_key] = neighbors
+
+        return neighbors
 
     def _interpolate_with_indices(self: 'MPASVerticalCrossSectionPlotter',
                                   grid_lons: np.ndarray,
@@ -965,9 +1077,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                   grid_data: Union[np.ndarray, xr.DataArray, Any],
                                   path_lons: np.ndarray,
                                   path_lats: np.ndarray,
-                                  path_indices: Optional[np.ndarray]) -> np.ndarray:
+                                  path_neighbors: Optional[np.ndarray]) -> np.ndarray:
         """
-        This method maps one vertical level of grid data onto the cross-section path using the precomputed nearest-neighbour indices, the fast path that avoids rebuilding a KDTree for every level. When the level's data has no NaNs the precomputed full-grid indices give exactly the same result as the original per-level masked search, so it simply gathers the nearest-cell values. If the level contains NaNs (so the set of valid cells differs from the full grid) or no precomputed indices are available, it delegates to _interpolate_along_path to reproduce the original 'nearest valid cell' behaviour exactly.
+        This method maps one vertical level of grid data onto the cross-section path using the precomputed k-nearest-neighbour table, avoiding a KDTree rebuild in the common case. For each path point it scans that point's K nearest grid cells (already distance-sorted) and takes the first one whose value is not NaN; because the candidates are sorted by distance, this equals the 'nearest valid cell' the original per-level masked search returned, whenever at least one of the K candidates is valid. Crucially this is now correct even when the level contains NaNs elsewhere in the domain (the common case that previously forced a full-grid KDTree rebuild), because only the path points' own neighbourhoods matter. Only path points whose K candidates are ALL NaN -- a transect column deeply terrain-masked at this level -- need the original search, so those (and only those) are filled by a single delegation to _interpolate_along_path, which costs one valid-cell tree build for that level (never more than the old per-level cost, and skipped entirely for levels where the path is unmasked). A fully-NaN level or an absent table also falls back to _interpolate_along_path.
 
         Parameters:
             grid_lons (np.ndarray): Longitudes of the grid cells in degrees.
@@ -975,7 +1087,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             grid_data (Union[np.ndarray, xr.DataArray, Any]): Data values for this vertical level, one per grid cell.
             path_lons (np.ndarray): Longitudes of the path points in degrees.
             path_lats (np.ndarray): Latitudes of the path points in degrees.
-            path_indices (Optional[np.ndarray]): Precomputed nearest-cell index per path point, or None.
+            path_neighbors (Optional[np.ndarray]): Precomputed (n_path, k) nearest-cell index table from _precompute_path_indices, or None.
 
         Returns:
             np.ndarray: Interpolated data values along the path for this level.
@@ -987,12 +1099,30 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         grid_data_flat = grid_data.ravel()
 
-        if path_indices is None or bool(np.isnan(grid_data_flat).any()):
+        if path_neighbors is None:
             return self._interpolate_along_path(
                 grid_lons, grid_lats, grid_data, path_lons, path_lats
             )
 
-        return cast(np.ndarray, grid_data_flat[path_indices])
+        candidate = grid_data_flat[path_neighbors]      # (n_path, k), distance-sorted
+        valid = ~np.isnan(candidate)
+        has_valid = valid.any(axis=1)
+
+        result = np.full(path_neighbors.shape[0], np.nan, dtype=np.float64)
+        rows = np.nonzero(has_valid)[0]
+
+        if rows.size:
+            first_valid_col = np.argmax(valid[rows], axis=1)
+            result[rows] = candidate[rows, first_valid_col]
+
+        if not bool(has_valid.all()):
+            exact = self._interpolate_along_path(
+                grid_lons, grid_lats, grid_data, path_lons, path_lats
+            )
+            unresolved = ~has_valid
+            result[unresolved] = exact[unresolved]
+
+        return result
 
     def _compute_var_levels(self: 'MPASVerticalCrossSectionPlotter',
                             var_lower: str,
@@ -1015,20 +1145,20 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         """
         if 'temperature' in var_lower or 'temp' in var_lower:
             step = 5 if data_range > 50 else 2
-            return cast(np.ndarray, np.arange(data_min, data_max + step, step))
+            return np.arange(data_min, data_max + step, step)
         
         if 'pressure' in var_lower:
             if data_min > 0:
-                return cast(np.ndarray, np.logspace(np.log10(data_min), np.log10(data_max), 15))
-            return cast(np.ndarray, np.linspace(data_min, data_max, 15))
+                return np.logspace(np.log10(data_min), np.log10(data_max), 15)
+            return np.linspace(data_min, data_max, 15)
 
         if 'wind' in var_lower or var_name.startswith('u') or var_name.startswith('v'):
             max_abs = max(abs(data_min), abs(data_max))
             if data_min < 0 and data_max > 0:
-                return cast(np.ndarray, np.linspace(-max_abs, max_abs, 21))
-            return cast(np.ndarray, np.linspace(data_min, data_max, 15))
+                return np.linspace(-max_abs, max_abs, 21)
+            return np.linspace(data_min, data_max, 15)
 
-        return cast(np.ndarray, np.linspace(data_min, data_max, 15))
+        return np.linspace(data_min, data_max, 15)
 
     def _get_default_levels(self: 'MPASVerticalCrossSectionPlotter', 
                             data_values: Union[np.ndarray, xr.DataArray, float], 
@@ -1051,13 +1181,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         valid_data = data_values[~np.isnan(data_values)]
         
         if len(valid_data) == 0:
-            return cast(np.ndarray, np.linspace(0, 1, 11))
+            return np.linspace(0, 1, 11)
             
         data_min, data_max = valid_data.min(), valid_data.max()
         data_range = data_max - data_min
         
         if data_range == 0:
-            return cast(np.ndarray, np.array([data_min]))
+            return np.array([data_min])
             
         var_lower = var_name.lower()
         return self._compute_var_levels(var_lower, var_name, data_min, data_max, data_range)
@@ -1082,7 +1212,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             height_data = None
 
-            assert mpas_3d_processor.dataset is not None
             if var_name in mpas_3d_processor.dataset.data_vars:
                 height_data = mpas_3d_processor.dataset[var_name].isel(Time=time_index, nCells=0).values
             elif hasattr(mpas_3d_processor, 'grid_file') and mpas_3d_processor.grid_file:
@@ -1127,7 +1256,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
             with xr.open_dataset(grid_file, **open_kwargs) as grid_ds:
                 if var_name in grid_ds.data_vars:
-                    return cast(np.ndarray, grid_ds[var_name].isel(nCells=0).values)
+                    return grid_ds[var_name].isel(nCells=0).values
         except Exception:
             pass
         return None
@@ -1148,7 +1277,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         height_data = np.asarray(height_data, dtype=float)
 
         if len(height_data) == len(vertical_coords) + 1:
-            return cast(np.ndarray, 0.5 * (height_data[:-1] + height_data[1:]))
+            return 0.5 * (height_data[:-1] + height_data[1:])
         
         if len(height_data) == len(vertical_coords):
             return height_data
@@ -1164,7 +1293,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                                         fill_value=cast(Any, 'extrapolate'))
             
             interp_x_query = np.linspace(0, 1, len(vertical_coords))
-            return cast(np.ndarray, height_interp_fn(interp_x_query))
+            return height_interp_fn(interp_x_query)
         except Exception:
             return None
 
@@ -1259,7 +1388,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 exponent = -R * lapse_rate / g
                 height_m[i] = base_height + (base_temp / lapse_rate) * ((pressure_val / base_pressure) ** exponent - 1.0)
 
-        return cast(np.ndarray, height_m)
+        return height_m
 
     def _pressure_to_height_approx(self: 'MPASVerticalCrossSectionPlotter',
                                    vertical_coords: np.ndarray,) -> Tuple[np.ndarray, str]:
@@ -1273,7 +1402,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             Tuple[np.ndarray, str]: A tuple containing the converted height values in kilometers and the string 'height_km' if conversion is successful, or the original vertical coordinates converted to hPa and the string 'pressure_hPa' if an exception occurs during conversion.
         """
         try:
-            pressure_pa: np.ndarray = vertical_coords.astype(float).copy()
+            pressure_pa = vertical_coords.astype(float).copy()
 
             logger.debug("_pressure_to_height_approx: Input pressure values:")
             logger.debug(
@@ -1407,12 +1536,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         try:
             from matplotlib.ticker import FixedLocator, FuncFormatter
             standard_ticks = [1000, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30, 20, 10, 1]
-            data_min = float(np.nanmin(vertical_coords))
-            data_max = float(np.nanmax(vertical_coords))
+            data_min = np.nanmin(vertical_coords)
+            data_max = np.nanmax(vertical_coords)
             tick_vals = [t for t in standard_ticks if data_min <= t <= data_max]
             if len(tick_vals) >= 2:
                 self.ax.yaxis.set_major_locator(FixedLocator(tick_vals))
-                def _fmt(x: float, pos: Any) -> str:
+                def _fmt(x, pos):
                     if x >= 1:
                         return f"{int(x):d}"
                     return f"{x:.2f}"
@@ -1436,7 +1565,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         assert self.ax is not None, "Axes must be created before setup"
         
         try:
-            vmin = float(np.nanmin(vertical_coords))
+            vmin = np.nanmin(vertical_coords)
         except Exception:
             logger.warning("Could not determine pressure coordinate min; using linear y-scale")
             return
@@ -1573,12 +1702,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             str: Formatted time string for display in the plot title or annotations, or a fallback string with the time index if specific time information is not available. 
         """
         try:
-            assert mpas_3d_processor.dataset is not None
             if hasattr(mpas_3d_processor, 'get_time_info'):
                 return mpas_3d_processor.get_time_info(time_index)
             elif hasattr(mpas_3d_processor.dataset, 'Time') and len(mpas_3d_processor.dataset.Time) > time_index:
                 time_value = pd.to_datetime(mpas_3d_processor.dataset.Time.values[time_index])
-                return str(time_value.strftime('Valid: %Y-%m-%d %H:%M UTC'))
+                return time_value.strftime('Valid: %Y-%m-%d %H:%M UTC')
             else:
                 return f"Time Index: {time_index}"
         except Exception:
@@ -1598,10 +1726,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             str: Formatted time string for display in the plot title or annotations during batch processing, or a fallback string with the time index if specific time information is not available.
         """
         try:
-            assert mpas_3d_processor.dataset is not None
             if hasattr(mpas_3d_processor.dataset, 'Time') and len(mpas_3d_processor.dataset.Time) > time_idx:
                 time_value = pd.to_datetime(mpas_3d_processor.dataset.Time.values[time_idx])
-                return str(time_value.strftime('%Y%m%dT%H'))
+                return time_value.strftime('%Y%m%dT%H')
         except Exception:
             pass
         return f"t{time_idx:03d}"
