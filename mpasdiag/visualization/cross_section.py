@@ -499,6 +499,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             vertical_display, vertical_coord_display, data_values, max_height
         )
 
+        X: np.ndarray
+        Y: np.ndarray
         X, Y = np.meshgrid(longitudes, vertical_display)
         colormap, levels = self._resolve_plot_style(var_name, data_values, colormap, levels)
 
