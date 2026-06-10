@@ -223,7 +223,7 @@ class SoundingDiagnostics:
         dewpoint_c = 243.5 * ln_ratio / (17.67 - ln_ratio)
 
         # Return the computed dewpoint profile in degrees Celsius
-        return dewpoint_c
+        return cast(np.ndarray, dewpoint_c)
 
     def compute_thermodynamic_indices(self: 'SoundingDiagnostics', 
                                       pressure_hpa: np.ndarray, 
@@ -368,9 +368,9 @@ class SoundingDiagnostics:
             np.ndarray: Actual (sensible) temperature in K.
         """
         # Return the actual temperature profile in K by applying the Poisson equation
-        return np.asarray(theta, dtype=np.float64) * (
+        return cast(np.ndarray, np.asarray(theta, dtype=np.float64) * (
             np.asarray(pressure_pa, dtype=np.float64) / P0_REF_PA
-        ) ** KAPPA
+        ) ** KAPPA)
 
     def _load_grid_coordinates(self: 'SoundingDiagnostics', 
                                processor: 'MPAS3DProcessor') -> Tuple[np.ndarray, np.ndarray]:
@@ -775,7 +775,7 @@ class SoundingDiagnostics:
 
                 # Find the index of the level closest to the LCL pressure for the STP calculation
                 lcl_idx = int(np.argmin(
-                    np.abs(pressure_hpa - stp_deps[1])))  # type: ignore[arg-type]
+                    np.abs(pressure_hpa - stp_deps[1])))
 
                 # Calculate the height of the LCL above the surface in meters for the STP calculation
                 lcl_height_m = float(height_metpy[lcl_idx].magnitude) - surface_height_m
@@ -842,7 +842,7 @@ class SoundingDiagnostics:
             pressure_vals = ds['pressure'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
             # Return the pressure profile in hPa
-            return np.asarray(pressure_vals.values, dtype=np.float64).ravel()
+            return cast(np.ndarray, np.asarray(pressure_vals.values, dtype=np.float64).ravel())
 
         if 'pressure_p' in ds and 'pressure_base' in ds:
             # Extract the pressure perturbation for the given time and cell index
@@ -852,7 +852,7 @@ class SoundingDiagnostics:
             base_pressure = ds['pressure_base'].isel({time_dim: time_idx, 'nCells': cell_idx})
 
             # Return the total pressure profile in hPa
-            return np.asarray((pressure_perturbation + base_pressure).values, dtype=np.float64).ravel()
+            return cast(np.ndarray, np.asarray((pressure_perturbation + base_pressure).values, dtype=np.float64).ravel())
 
         # Raise an error if no pressure variable is found in the dataset
         raise ValueError("Cannot determine pressure: dataset lacks 'pressure', "
@@ -886,7 +886,7 @@ class SoundingDiagnostics:
                 temperature_k = np.asarray(data.values, dtype=np.float64).ravel()
 
                 # Convert from Kelvin to Celsius if the mean temperature is above 100 K
-                return temperature_k - 273.15  # K → °C
+                return cast(np.ndarray, temperature_k - 273.15)  # K → °C
 
         for name in ('theta', 'potential_temperature'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -904,7 +904,7 @@ class SoundingDiagnostics:
                     logger.debug("Converted '%s' (potential temp) to actual temperature", name)
 
                 # Return the temperature profile in °C
-                return temperature_k - 273.15
+                return cast(np.ndarray, temperature_k - 273.15)
 
         # Raise an error if no temperature or potential temperature variable is found
         raise ValueError("Cannot find temperature or theta variable in dataset.")
@@ -939,7 +939,7 @@ class SoundingDiagnostics:
                     dewpoint_vals = dewpoint_vals - 273.15
 
                 # Return the dewpoint profile in °C
-                return dewpoint_vals
+                return cast(np.ndarray, dewpoint_vals)
 
         for name in ('qv', 'q_vapor', 'scalars_qv', 'specific_humidity', 'vapor_mixing_ratio'):
             if name in ds and 'nVertLevels' in ds[name].dims:
@@ -962,7 +962,7 @@ class SoundingDiagnostics:
             logger.warning("No moisture variable found; dewpoint set to NaN")
 
         # Return NaN array if dewpoint cannot be determined
-        return np.full_like(pressure_pa, np.nan)
+        return cast(np.ndarray, np.full_like(pressure_pa, np.nan))
 
     def _extract_wind_profiles(self: 'SoundingDiagnostics',
                                ds: xr.Dataset,
@@ -1053,7 +1053,7 @@ class SoundingDiagnostics:
                     height_vals = 0.5 * (height_vals[:-1] + height_vals[1:])
 
                 # Return the extracted height profile in meters
-                return height_vals
+                return cast(np.ndarray, height_vals)
 
             # Catch any exceptions that occur during height extraction and return None 
             except Exception:
