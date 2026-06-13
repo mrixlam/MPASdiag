@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Benchmark: Batch Plotter Runtime with MPI Support
@@ -24,11 +26,17 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+import os
+
+for _var in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+             'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
+    os.environ.setdefault(_var, '1')
+
 # Load standard libraries
 import gc
-import os
 import csv
 import time
+import socket
 import argparse
 from pathlib import Path
 from datetime import datetime
@@ -66,6 +74,16 @@ except ImportError:
     COMM = None
     RANK = 0
     SIZE = 1
+
+HOSTNAME = socket.gethostname()
+N_NODES = len(set(COMM.allgather(HOSTNAME))) if COMM is not None else 1
+
+if SIZE > 1:
+    try:
+        import dask
+        dask.config.set(scheduler='synchronous')
+    except ImportError:
+        pass
 
 BACKEND = 'serial'
 PARALLEL_WIDTH = 1
@@ -387,7 +405,9 @@ def write_csv(results: list[dict],
     Returns:
         None
     """
-    fieldnames = ['experiment', 'category', 'mpi_ranks', 'backend', 'workers', 'elapsed_s', 'n_files', 'timestamp']
+    fieldnames = ['experiment', 'category', 'mpi_ranks', 'backend', 'workers', 'trial',
+                  'elapsed_s', 'elapsed_min_s', 'elapsed_mean_s', 'n_files',
+                  'n_nodes', 'hostname', 'timestamp']
     with open(csv_path, 'w', newline='') as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
@@ -424,19 +444,25 @@ def _make_result(exp_name: str,
                  category: str,
                  elapsed: float,
                  n_files: int,
-                 timestamp: str) -> dict:
+                 timestamp: str,
+                 elapsed_min: float | None = None,
+                 elapsed_mean: float | None = None,
+                 trial: int = 1) -> dict:
     """
-    This function creates a result record dictionary for a single benchmark. It takes the experiment name, benchmark category, elapsed time in seconds, number of files created, and a timestamp string as input parameters, and returns a dictionary containing these values along with the number of MPI ranks used (from the global SIZE variable). The elapsed time is rounded to 4 decimal places for consistency. This function is intended to standardize the format of the benchmark results for later aggregation and CSV writing.
+    This function creates a result record dictionary for a single benchmark. It takes the experiment name, benchmark category, elapsed time in seconds (the maximum across ranks, i.e. the makespan), number of files created, and a timestamp string as input parameters, and returns a dictionary containing these values along with the number of MPI ranks used (from the global SIZE variable), the minimum and mean elapsed time across ranks (which together with the maximum quantify load imbalance), the trial index, and the node count and hostname identifying where the run executed. The elapsed times are rounded to 4 decimal places for consistency. This function is intended to standardize the format of the benchmark results for later aggregation and CSV writing.
 
     Parameters:
         exp_name: The name of the experiment this result belongs to.
         category: The benchmark category (e.g. 'data_load_2d', 'precipitation').
-        elapsed: The elapsed time in seconds for the benchmarked operation.
+        elapsed: The elapsed time in seconds (max across ranks) for the benchmarked operation.
         n_files: The number of plot files created by the operation.
         timestamp: The run timestamp string shared across all records of a run.
+        elapsed_min: The minimum elapsed time across ranks, or None to reuse elapsed.
+        elapsed_mean: The mean elapsed time across ranks, or None to reuse elapsed.
+        trial: The 1-based trial index when a category is benchmarked repeatedly.
 
     Returns:
-        dict: A dictionary containing the benchmark result with keys 'experiment', 'category', 'mpi_ranks', 'elapsed_s', 'n_files', and 'timestamp'.
+        dict: A dictionary matching the CSV schema in write_csv.
     """
     return {
         'experiment': exp_name,
@@ -444,8 +470,13 @@ def _make_result(exp_name: str,
         'mpi_ranks': SIZE,
         'backend': BACKEND,
         'workers': PARALLEL_WIDTH,
+        'trial': trial,
         'elapsed_s': round(elapsed, 4),
+        'elapsed_min_s': round(elapsed if elapsed_min is None else elapsed_min, 4),
+        'elapsed_mean_s': round(elapsed if elapsed_mean is None else elapsed_mean, 4),
         'n_files': n_files,
+        'n_nodes': N_NODES,
+        'hostname': HOSTNAME,
         'timestamp': timestamp,
     }
 
@@ -466,6 +497,9 @@ def print_banner(mode_label: str,
     print("  MPASdiag Batch Plotter Benchmark")
     print(f"  Execution mode: {mode_label}")
     print(f"  MPI ranks in job: {SIZE}")
+    print(f"  Nodes: {N_NODES} (rank 0 on {HOSTNAME})")
+    print(f"  OMP_NUM_THREADS={os.environ.get('OMP_NUM_THREADS')} "
+          f"OPENBLAS_NUM_THREADS={os.environ.get('OPENBLAS_NUM_THREADS')}")
     print(f"  Experiments: {experiment_names}")
     print("=" * 60)
 
@@ -530,7 +564,8 @@ def build_benchmarks(processor_2d: MPAS2DProcessor,
 def run_single_benchmark(plotter_name: str,
                          bench_fn: Callable[[], tuple[float, int]],
                          exp_name: str,
-                         timestamp: str) -> dict | None:
+                         timestamp: str,
+                         trial: int = 1) -> dict | None:
     """
     This function runs a single benchmark and gathers the results across MPI ranks. It takes the benchmark category name, a zero-argument callable that executes the benchmark and returns (elapsed time, number of files), the experiment name, and a timestamp string. The function prints a status message indicating which benchmark is running, synchronises the ranks with a barrier, executes the benchmark function to get the timing and file count, and then gathers these results from all ranks to rank 0. On rank 0, it computes the maximum elapsed time across ranks (as the effective runtime) and the total number of files created, prints the results for this benchmark, and creates a result record dictionary using the _make_result helper function. The function returns this result record on rank 0, while other ranks return None. 
 
@@ -559,12 +594,25 @@ def run_single_benchmark(plotter_name: str,
         file_counts = [n_files]
 
     result = None
-    
+
     if RANK == 0:
         max_time = max(timings)
+        min_time = min(timings)
+        mean_time = sum(timings) / len(timings)
         total_files = sum(file_counts)
         print(f"    -> {plotter_name}: {max_time:.2f}s, {total_files} files")
-        result = _make_result(exp_name, plotter_name, max_time, total_files, timestamp)
+
+        if total_files == 0:
+            print(
+                f"    !! WARNING: {plotter_name} produced 0 files -- every task "
+                "likely failed; this timing measures failure handling, not work. "
+                "Check the error log above."
+            )
+
+        result = _make_result(
+            exp_name, plotter_name, max_time, total_files, timestamp,
+            elapsed_min=min_time, elapsed_mean=mean_time, trial=trial,
+        )
 
     gc.collect()
     return result
@@ -574,7 +622,8 @@ def run_experiment(exp_name: str,
                    paths: dict,
                    use_parallel: bool,
                    n_workers: int | None,
-                   timestamp: str) -> list[dict]:
+                   timestamp: str,
+                   trials: int = 1) -> list[dict]:
     """
     This function runs a single experiment, which includes loading the data, running all benchmarks for that experiment, and collecting the results. It takes the experiment name, a dictionary of paths for loading the data, a boolean indicating whether to use parallel processing, the number of worker processes to use if parallel processing is enabled, and a timestamp string. The function first prints the experiment name on rank 0, creates an output directory for the experiment, and synchronises the ranks. It then loads the 2D and 3D data using the load_experiment_data helper function, which returns the loaded processors and the time taken for loading. The loading times are recorded as benchmark results. Next, it builds the list of benchmarks to run using the build_benchmarks helper function, which returns a list of (name, callable) pairs. The function then iterates over these benchmarks, running each one with run_single_benchmark to get the result record, which is collected into a list of results. Finally, it cleans up by deleting the processors and calling garbage collection before returning the list of results for this experiment.
 
@@ -603,17 +652,32 @@ def run_experiment(exp_name: str,
 
     processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(paths)
 
+    if COMM is not None:
+        load_2d_times = COMM.gather(load_2d_time, root=0) or [load_2d_time]
+        load_3d_times = COMM.gather(load_3d_time, root=0) or [load_3d_time]
+    else:
+        load_2d_times = [load_2d_time]
+        load_3d_times = [load_3d_time]
+
     if RANK == 0:
-        print(f"  2D load: {load_2d_time:.2f}s | 3D load: {load_3d_time:.2f}s")
-        results.append(_make_result(exp_name, 'data_load_2d', load_2d_time, 0, timestamp))
-        results.append(_make_result(exp_name, 'data_load_3d', load_3d_time, 0, timestamp))
+        print(f"  2D load: {max(load_2d_times):.2f}s | 3D load: {max(load_3d_times):.2f}s")
+        for category, load_times in (('data_load_2d', load_2d_times),
+                                     ('data_load_3d', load_3d_times)):
+            results.append(_make_result(
+                exp_name, category, max(load_times), 0, timestamp,
+                elapsed_min=min(load_times),
+                elapsed_mean=sum(load_times) / len(load_times),
+            ))
 
     benchmarks = build_benchmarks(processor_2d, processor_3d, exp_out, use_parallel, n_workers)
 
-    for plotter_name, bench_fn in benchmarks:
-        result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp)
-        if result is not None:
-            results.append(result)
+    for trial in range(1, trials + 1):
+        if RANK == 0 and trials > 1:
+            print(f"  --- Trial {trial}/{trials} ---")
+        for plotter_name, bench_fn in benchmarks:
+            result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp, trial)
+            if result is not None:
+                results.append(result)
 
     del processor_2d, processor_3d
     gc.collect()
@@ -646,6 +710,12 @@ def parse_args() -> argparse.Namespace:
         '--experiments', nargs='+', metavar='NAME', default=None,
         choices=list(EXPERIMENTS.keys()),
         help="Subset of experiments to run (default: all).",
+    )
+    parser.add_argument(
+        '--trials', type=int, default=1,
+        help="Repetitions of each plotting category per experiment; report the "
+             "spread across trials to separate real changes from filesystem "
+             "noise (default: 1).",
     )
     args, _ = parser.parse_known_args()
     return args
@@ -723,7 +793,8 @@ def main() -> None:
 
     for exp_name, paths in experiments.items():
         all_results.extend(
-            run_experiment(exp_name, paths, use_parallel, n_workers, timestamp)
+            run_experiment(exp_name, paths, use_parallel, n_workers, timestamp,
+                           trials=max(1, args.trials))
         )
 
     if RANK == 0:

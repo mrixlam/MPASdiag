@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Surface Data Tests
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules for testing
 import os
 import sys
@@ -18,7 +21,8 @@ import pytest
 import matplotlib
 import numpy as np
 import xarray as xr
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from typing import Tuple
@@ -27,16 +31,18 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.visualization.surface import SurfaceMapStyle
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 class TestDataExtraction:
-    """ Tests for data extraction and validation. """
-    
+    """Tests for data extraction and validation."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestDataExtraction', 
-                     mpas_coordinates: 'Tuple[np.ndarray, np.ndarray]', 
-                     mpas_surface_temp_data: 'np.ndarray') -> None:
+    def setup_method(
+        self: "TestDataExtraction",
+        mpas_coordinates: "Tuple[np.ndarray, np.ndarray]",
+        mpas_surface_temp_data: "np.ndarray",
+    ) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and prepares real MPAS coordinate and surface temperature data for testing various data extraction scenarios in the plotting functions. It ensures that the test methods have access to realistic data arrays for longitude, latitude, and surface temperature, which are essential for verifying that the plotting functions can handle different data shapes, level selection methods, and unit handling cases effectively.
 
@@ -50,21 +56,23 @@ class TestDataExtraction:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         self.plotter = MPASSurfacePlotter()
 
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:50]
         self.lat = lat_full[:50]
-        
+
         self.temp_data = mpas_surface_temp_data[:50]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_3d_data_with_level_index(self: 'TestDataExtraction') -> None:
+
+    def test_3d_data_with_level_index(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle 3D data arrays when a specific vertical level index is provided. It checks that the plotter correctly extracts the specified level from the 3D array and generates a plot without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully for the selected level.
 
@@ -74,22 +82,22 @@ class TestDataExtraction:
         Returns:
             None
         """
-        data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
-        
+        data_3d = np.tile(self.temp_data, (10, 5, 1)).T
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data_3d,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     level_index=3,
-                 )
-        
+            self.lon,
+            self.lat,
+            data_3d,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            level_index=3,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_3d_data_with_level_value(self: 'TestDataExtraction') -> None:
+
+    def test_3d_data_with_level_value(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle 3D data arrays when a specific vertical level value is provided. It checks that the plotter correctly identifies the level corresponding to the provided value and generates a plot without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully for the selected level value.
 
@@ -99,22 +107,22 @@ class TestDataExtraction:
         Returns:
             None
         """
-        data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
-        
+        data_3d = np.tile(self.temp_data, (10, 5, 1)).T
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data_3d,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     level_value=850,
-                 )
-        
+            self.lon,
+            self.lat,
+            data_3d,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            level_value=850,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_3d_data_no_level_specified(self: 'TestDataExtraction') -> None:
+
+    def test_3d_data_no_level_specified(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle 3D data arrays when no specific vertical level is specified. It checks that the plotter defaults to using the first level of the 3D array and generates a plot without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully using the default level.
 
@@ -124,21 +132,21 @@ class TestDataExtraction:
         Returns:
             None
         """
-        data_3d = np.tile(self.temp_data, (10, 5, 1)).T  
-        
+        data_3d = np.tile(self.temp_data, (10, 5, 1)).T
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data_3d,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                 )
-        
+            self.lon,
+            self.lat,
+            data_3d,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_2d_data_with_level_index(self: 'TestDataExtraction') -> None:
+
+    def test_2d_data_with_level_index(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle 2D data arrays that include a level dimension when a specific vertical level index is provided. It checks that the plotter correctly extracts the specified level from the 2D array and generates a plot without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully for the selected level index.
 
@@ -148,22 +156,22 @@ class TestDataExtraction:
         Returns:
             None
         """
-        data_2d = np.tile(self.temp_data, (10, 1)).T 
-        
+        data_2d = np.tile(self.temp_data, (10, 1)).T
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data_2d,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     level_index=5,
-                 )
-        
+            self.lon,
+            self.lat,
+            data_2d,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            level_index=5,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_data_array_with_units(self: 'TestDataExtraction') -> None:
+
+    def test_data_array_with_units(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle xarray DataArrays that include units in their attributes. It checks that the plotter correctly extracts the unit information from the DataArray and applies any necessary unit conversions before plotting. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully with the DataArray input and its associated units.
 
@@ -173,26 +181,22 @@ class TestDataExtraction:
         Returns:
             None
         """
-        data = xr.DataArray(
-            self.temp_data,
-            dims=['nCells'],
-            attrs={'units': 'K'}
-        )
-        
+        data = xr.DataArray(self.temp_data, dims=["nCells"], attrs={"units": "K"})
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     data_array=data,
-                 )
-        
+            self.lon,
+            self.lat,
+            data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            data_array=data,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_data_with_exception_in_unit_extraction(self: 'TestDataExtraction') -> None:
+
+    def test_data_with_exception_in_unit_extraction(self: "TestDataExtraction") -> None:
         """
         This test verifies that the plotting function can handle cases where an exception occurs during unit extraction from an xarray DataArray. It checks that if the DataArray's attributes cause an error when attempting to extract units, the plotter should catch the exception and proceed with plotting without applying unit conversions. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully even when unit extraction fails.
 
@@ -204,33 +208,31 @@ class TestDataExtraction:
         """
         data = self.temp_data
 
-        data_array = xr.DataArray(
-            data,
-            dims=['nCells'],
-            attrs={'invalid': 'test'}  
-        )
-        
+        data_array = xr.DataArray(data, dims=["nCells"], attrs={"invalid": "test"})
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     data_array=data_array,
-                 )
-        
+            self.lon,
+            self.lat,
+            data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            data_array=data_array,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
 class TestUnitConversion:
-    """ Tests for unit conversion edge cases. """
-    
+    """Tests for unit conversion edge cases."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestUnitConversion', 
-                     mpas_coordinates: tuple, 
-                     mpas_surface_temp_data: np.ndarray) -> None:
+    def setup_method(
+        self: "TestUnitConversion",
+        mpas_coordinates: tuple,
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This fixture initializes the MPASSurfacePlotter and prepares real MPAS coordinate and surface temperature data for testing unit conversion edge cases in the plotting functions. It ensures that the test methods have access to realistic data arrays for longitude, latitude, and surface temperature, which are essential for verifying that the plotting functions can handle scenarios where unit conversion may fail or when DataArrays with units are provided. The fixture sets up the necessary attributes for the test methods to exercise unit conversion logic effectively.
 
@@ -244,20 +246,22 @@ class TestUnitConversion:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:50]
         self.lat = lat_full[:50]
-        
+
         self.temp_data = mpas_surface_temp_data[:50]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_unit_conversion_failure(self: 'TestUnitConversion') -> None:
+
+    def test_unit_conversion_failure(self: "TestUnitConversion") -> None:
         """
         This test verifies that when unit conversion fails due to unrecognized or invalid units in an xarray DataArray, the plotting function should catch the exception and proceed with plotting without applying unit conversions. It checks that the plotter can handle the failure gracefully and still returns a valid Figure object, indicating that the plotting process completed successfully even when unit conversion is not possible.
 
@@ -268,25 +272,23 @@ class TestUnitConversion:
             None
         """
         data = xr.DataArray(
-            self.temp_data,
-            dims=['nCells'],
-            attrs={'units': 'invalid_unit'}
+            self.temp_data, dims=["nCells"], attrs={"units": "invalid_unit"}
         )
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     data_array=data,
-                 )
-        
+            self.lon,
+            self.lat,
+            data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            data_array=data,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_unit_conversion_xarray_result(self: 'TestUnitConversion') -> None:
+
+    def test_unit_conversion_xarray_result(self: "TestUnitConversion") -> None:
         """
         This test verifies that when unit conversion succeeds and returns an xarray DataArray, the plotting function can handle this result correctly. It checks that if the unit conversion helper returns a DataArray with converted values and preserved metadata, the plotter can still generate a valid Figure object without errors. The test asserts that a Figure object is returned, indicating that the plotting process completed successfully with the converted DataArray.
 
@@ -296,31 +298,27 @@ class TestUnitConversion:
         Returns:
             None
         """
-        data = xr.DataArray(
-            self.temp_data,
-            dims=['nCells'],
-            attrs={'units': 'K'}
-        )
-        
+        data = xr.DataArray(self.temp_data, dims=["nCells"], attrs={"units": "K"})
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter'),
-                     data_array=data,
-                 )
-        
+            self.lon,
+            self.lat,
+            data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter"),
+            data_array=data,
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
 class TestDataValidation:
-    """ Tests for data validation and filtering. """
-    
+    """Tests for data validation and filtering."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestDataValidation') -> None:
+    def setup_method(self: "TestDataValidation") -> None:
         """
         This fixture initializes the MPASSurfacePlotter for testing data validation and filtering scenarios in the plotting functions. It sets up the necessary attributes for the test methods to exercise validation logic effectively, including default extent bounds for testing cases where data points may be outside the plotting area or when all data points are invalid.
 
@@ -332,8 +330,8 @@ class TestDataValidation:
         """
         self.plotter = MPASSurfacePlotter()
         self.extent_bounds = (-100, -90, 30, 40)
-    
-    def test_no_valid_data_points(self: 'TestDataValidation') -> None:
+
+    def test_no_valid_data_points(self: "TestDataValidation") -> None:
         """
         This test verifies that when all data points are invalid (e.g., all NaN values), the plotting function should raise a ValueError indicating that there are no valid data points to plot. It checks that the plotter correctly identifies the lack of valid data and responds with an appropriate error message, preventing the generation of an empty or misleading plot.
 
@@ -346,19 +344,19 @@ class TestDataValidation:
         lon = np.array([0, 1, 2])
         lat = np.array([0, 1, 2])
         data = np.array([np.nan, np.nan, np.nan])
-        
+
         with pytest.raises(ValueError) as ctx:
             self.plotter.create_surface_map(
                 lon,
                 lat,
                 data,
-                't2m',
+                "t2m",
                 GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type='scatter'),
+                style=SurfaceMapStyle(plot_type="scatter"),
             )
-        assert 'No valid data points' in str(ctx.value)
-    
-    def test_data_outside_extent(self: 'TestDataValidation') -> None:
+        assert "No valid data points" in str(ctx.value)
+
+    def test_data_outside_extent(self: "TestDataValidation") -> None:
         """
         This test verifies that when all data points are outside the specified plotting extent, the plotting function should raise a ValueError indicating that there are no valid data points within the extent to plot. It checks that the plotter correctly identifies that all data points fall outside the defined bounds and responds with an appropriate error message, preventing the generation of an empty or misleading plot.
 
@@ -371,18 +369,18 @@ class TestDataValidation:
         lon = np.array([10, 20, 30])
         lat = np.array([10, 20, 30])
         data = np.array([1, 2, 3])
-        
+
         with pytest.raises(ValueError) as ctx:
             self.plotter.create_surface_map(
                 lon,
                 lat,
                 data,
-                't2m',
+                "t2m",
                 GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type='scatter'),
+                style=SurfaceMapStyle(plot_type="scatter"),
             )
-        assert 'No valid data points' in str(ctx.value)
+        assert "No valid data points" in str(ctx.value)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

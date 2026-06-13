@@ -21,7 +21,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 keywords = [
@@ -97,6 +96,9 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["mpasdiag*"]
+
+[tool.setuptools.package-data]
+mpasdiag = ["py.typed"]
 
 [tool.setuptools.dynamic]
 # Keep this empty since we're using static configuration

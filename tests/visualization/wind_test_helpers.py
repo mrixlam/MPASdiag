@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Shared helpers for wind visualization tests.
 
@@ -10,11 +12,11 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 import pytest
 
 
-def require_wind_fixtures(mpas_coordinates: tuple, 
-                          mpas_wind_data: tuple) -> None:
+def require_wind_fixtures(mpas_coordinates: tuple, mpas_wind_data: tuple) -> None:
     """
     This helper checks for the availability of the MPAS coordinate and wind data fixtures, and calls ``pytest.skip()`` if any component is unavailable.  By centralizing this check, we reduce code duplication and improve maintainability across the wind visualization test modules. Each test method in those modules should call this helper at the beginning of its execution to ensure that it only runs when the necessary data is available.
 
@@ -26,8 +28,11 @@ def require_wind_fixtures(mpas_coordinates: tuple,
         None
     """
     if (
-        mpas_coordinates is None or mpas_wind_data is None or
-        mpas_coordinates[0] is None or mpas_coordinates[1] is None or
-        mpas_wind_data[0] is None or mpas_wind_data[1] is None
+        mpas_coordinates is None
+        or mpas_wind_data is None
+        or mpas_coordinates[0] is None
+        or mpas_coordinates[1] is None
+        or mpas_wind_data[0] is None
+        or mpas_wind_data[1] is None
     ):
         pytest.skip("MPAS data not available")

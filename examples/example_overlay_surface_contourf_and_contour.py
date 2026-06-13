@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Example V: Overlaying MSLP contours on a 2D surface map of 2-m temperature
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Example III: Global Precipitation Map as Filled Contour Plot

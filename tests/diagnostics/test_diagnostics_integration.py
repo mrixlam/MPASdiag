@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Diagnostics Integration Tests
 
@@ -10,29 +12,32 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
-# Load necessary libraries 
+
+# Load necessary libraries
 import os
 import sys
 import pytest
 import matplotlib
 import numpy as np
 import xarray as xr
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 from typing import Any
 
 from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 _RNG = np.random.default_rng(42)
 
 
 class TestDiagnosticsIntegration:
-    """ Integration tests for diagnostics modules. """
-    
-    def test_wind_and_precipitation_together(self: 'TestDiagnosticsIntegration', 
-                                             mock_mpas_2d_data: Any) -> None:
+    """Integration tests for diagnostics modules."""
+
+    def test_wind_and_precipitation_together(
+        self: "TestDiagnosticsIntegration", mock_mpas_2d_data: Any
+    ) -> None:
         """
         This test verifies that the wind and precipitation diagnostics can be executed together on the same dataset without errors. It checks that both diagnostics produce outputs and that the dimensions of the outputs are consistent. This ensures that the diagnostics can be used in a combined workflow, which is common in meteorological analyses.
 
@@ -44,29 +49,31 @@ class TestDiagnosticsIntegration:
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
         from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-        
+
         wind_diag = WindDiagnostics(verbose=False)
         precip_diag = PrecipitationDiagnostics(verbose=False)
-        
-        u = mock_mpas_2d_data['u10'].isel(Time=0).compute()
-        v = mock_mpas_2d_data['v10'].isel(Time=0).compute()
+
+        u = mock_mpas_2d_data["u10"].isel(Time=0).compute()
+        v = mock_mpas_2d_data["v10"].isel(Time=0).compute()
         speed = wind_diag.compute_wind_speed(u, v)
-        
-        rainnc = mock_mpas_2d_data['rainnc'].isel(Time=0)
+
+        rainnc = mock_mpas_2d_data["rainnc"].isel(Time=0)
         tp = precip_diag.compute_precipitation_difference(
-            mock_mpas_2d_data, time_index=0, var_name='rainnc', accum_period='a01h'
-        )   
+            mock_mpas_2d_data, time_index=0, var_name="rainnc", accum_period="a01h"
+        )
 
         assert speed is not None
         assert rainnc is not None
         assert tp is not None
-        assert speed.shape[0] == rainnc.shape[0]  
+        assert speed.shape[0] == rainnc.shape[0]
 
 
 class TestIntegrationWithRealData:
-    """ Integration tests using realistic precipitation and wind data. """
-    
-    def test_full_workflow_1hour_accumulation(self: 'TestIntegrationWithRealData') -> None:
+    """Integration tests using realistic precipitation and wind data."""
+
+    def test_full_workflow_1hour_accumulation(
+        self: "TestIntegrationWithRealData",
+    ) -> None:
         """
         This test simulates a realistic workflow for computing 1-hour precipitation accumulation from cumulative data. It creates synthetic cumulative precipitation data that mimics real-world conditions, then uses the PrecipitationDiagnostics to compute the 1-hour difference. The test checks that the output is a DataArray with the expected shape and that all values are non-negative, which is a physical requirement for precipitation.
 
@@ -78,26 +85,30 @@ class TestIntegrationWithRealData:
         """
         n_cells = 100
         n_time = 24
-        
+
         hourly_rates = _RNG.exponential(2.0, (n_time, n_cells))
         rainnc_data = np.cumsum(hourly_rates, axis=0)
-        
-        ds = xr.Dataset({
-            'rainnc': (['Time', 'nCells'], rainnc_data),
-        })
-        
+
+        ds = xr.Dataset(
+            {
+                "rainnc": (["Time", "nCells"], rainnc_data),
+            }
+        )
+
         diag = PrecipitationDiagnostics(verbose=False)
-        
+
         for t in range(1, 24, 6):
             result = diag.compute_precipitation_difference(
-                ds, time_index=t, var_name='rainnc', accum_period='a01h'
+                ds, time_index=t, var_name="rainnc", accum_period="a01h"
             )
-            
+
             assert isinstance(result, xr.DataArray)
             assert result.shape == (n_cells,)
             assert np.all(result.values >= 0)
-    
-    def test_full_workflow_multiple_accumulation_periods(self: 'TestIntegrationWithRealData') -> None:
+
+    def test_full_workflow_multiple_accumulation_periods(
+        self: "TestIntegrationWithRealData",
+    ) -> None:
         """
         This test evaluates the precipitation diagnostic's ability to compute differences for multiple accumulation periods (1h, 3h, 6h, 12h, 24h) using synthetic cumulative data. It creates a dataset with cumulative precipitation that increases over time and checks that the computed differences have the correct metadata indicating the accumulation period. This ensures that the diagnostic can handle various periods and that the output is properly annotated.
 
@@ -109,30 +120,32 @@ class TestIntegrationWithRealData:
         """
         n_cells = 50
         n_time = 25
-        
+
         hourly_rates = _RNG.random((n_time, n_cells)) * 5
         rainnc_data = np.cumsum(hourly_rates, axis=0)
         rainc_data = np.cumsum(_RNG.random((n_time, n_cells)) * 2, axis=0)
-        
-        ds = xr.Dataset({
-            'rainnc': (['Time', 'nCells'], rainnc_data),
-            'rainc': (['Time', 'nCells'], rainc_data),
-        })
-        
+
+        ds = xr.Dataset(
+            {
+                "rainnc": (["Time", "nCells"], rainnc_data),
+                "rainc": (["Time", "nCells"], rainc_data),
+            }
+        )
+
         diag = PrecipitationDiagnostics(verbose=False)
-        
-        periods = ['a01h', 'a03h', 'a06h', 'a12h', 'a24h']
+
+        periods = ["a01h", "a03h", "a06h", "a12h", "a24h"]
 
         for period in periods:
             result = diag.compute_precipitation_difference(
-                ds, time_index=24, var_name='rainnc', accum_period=period
+                ds, time_index=24, var_name="rainnc", accum_period=period
             )
-            
-            assert isinstance(result, xr.DataArray)
-            assert 'accumulation_period' in result.attrs
-            assert result.attrs['accumulation_period'] == period
 
-    def test_full_workflow_2d_wind(self: 'TestIntegrationWithRealData') -> None:
+            assert isinstance(result, xr.DataArray)
+            assert "accumulation_period" in result.attrs
+            assert result.attrs["accumulation_period"] == period
+
+    def test_full_workflow_2d_wind(self: "TestIntegrationWithRealData") -> None:
         """
         Integration test for a complete 2D wind diagnostic workflow. It creates realistic 10m wind data, extracts components, computes speed and direction, and runs analysis summaries. This end-to-end check validates multiple helper functions work together on a synthetic dataset. The test asserts types and basic properties of resulting analysis.
 
@@ -143,34 +156,38 @@ class TestIntegrationWithRealData:
             None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
-        
+
         n_cells = 200
         n_time = 24
-        
-        u10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 2  
-        v10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 1 
-        
-        ds = xr.Dataset({
-            'u10': (['Time', 'nCells'], u10_data, {'units': 'm s^{-1}'}),
-            'v10': (['Time', 'nCells'], v10_data, {'units': 'm s^{-1}'}),
-        })
-        
+
+        u10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 2
+        v10_data = _RNG.standard_normal((n_time, n_cells)) * 5 + 1
+
+        ds = xr.Dataset(
+            {
+                "u10": (["Time", "nCells"], u10_data, {"units": "m s^{-1}"}),
+                "v10": (["Time", "nCells"], v10_data, {"units": "m s^{-1}"}),
+            }
+        )
+
         diag = WindDiagnostics(verbose=False)
-        
-        u, v = diag.get_2d_wind_components(ds, 'u10', 'v10', time_index=12)
-        
+
+        u, v = diag.get_2d_wind_components(ds, "u10", "v10", time_index=12)
+
         speed = diag.compute_wind_speed(u, v)
         direction = diag.compute_wind_direction(u, v, degrees=True)
-        
+
         analysis = diag.analyze_wind_components(u, v)
-        
+
         assert isinstance(speed, xr.DataArray)
         assert isinstance(direction, xr.DataArray)
         assert isinstance(analysis, dict)
-        assert 'horizontal_speed' in analysis
-        assert analysis['horizontal_speed']['mean'] > 0
-    
-    def test_full_workflow_3d_wind_with_shear(self: 'TestIntegrationWithRealData') -> None:
+        assert "horizontal_speed" in analysis
+        assert analysis["horizontal_speed"]["mean"] > 0
+
+    def test_full_workflow_3d_wind_with_shear(
+        self: "TestIntegrationWithRealData",
+    ) -> None:
         """
         Integration test for a 3D wind workflow that includes shear calculation. The test constructs synthetic 3D fields, extracts components at two levels, and computes vertical shear magnitude and direction. This validates combined operation of extraction and shear algorithms on multi-level datasets. The test asserts types and non-negativity of shear magnitude.
 
@@ -181,41 +198,51 @@ class TestIntegrationWithRealData:
             None
         """
         from mpasdiag.diagnostics.wind import WindDiagnostics
-        
+
         n_cells = 100
         n_vert_levels = 20
         n_time = 10
-        
+
         u_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
         v_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 10
         w_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 0.5
-        
-        ds = xr.Dataset({
-            'uReconstructZonal': (['Time', 'nVertLevels', 'nCells'], u_data),
-            'vReconstructMeridional': (['Time', 'nVertLevels', 'nCells'], v_data),
-            'w': (['Time', 'nVertLevels', 'nCells'], w_data),
-        })
-        
+
+        ds = xr.Dataset(
+            {
+                "uReconstructZonal": (["Time", "nVertLevels", "nCells"], u_data),
+                "vReconstructMeridional": (["Time", "nVertLevels", "nCells"], v_data),
+                "w": (["Time", "nVertLevels", "nCells"], w_data),
+            }
+        )
+
         diag = WindDiagnostics(verbose=False)
-        
+
         u_upper, v_upper, _ = diag.get_3d_wind_components(
-            ds, 'uReconstructZonal', 'vReconstructMeridional', 'w',
-            level=10, time_index=0
+            ds,
+            "uReconstructZonal",
+            "vReconstructMeridional",
+            "w",
+            level=10,
+            time_index=0,
         )
-        
+
         u_lower, v_lower, _ = diag.get_3d_wind_components(
-            ds, 'uReconstructZonal', 'vReconstructMeridional', 'w',
-            level=0, time_index=0
+            ds,
+            "uReconstructZonal",
+            "vReconstructMeridional",
+            "w",
+            level=0,
+            time_index=0,
         )
-        
+
         shear_mag, shear_dir = diag.compute_wind_shear(
             u_upper, v_upper, u_lower, v_lower
         )
-        
+
         assert isinstance(shear_mag, xr.DataArray)
         assert isinstance(shear_dir, xr.DataArray)
         assert np.all(shear_mag.values >= 0)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

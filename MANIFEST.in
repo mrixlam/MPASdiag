@@ -1,0 +1,32 @@
+# Files to include in the source distribution (sdist)
+
+include LICENSE
+include README.md
+include CHANGELOG.md
+include CONTRIBUTING.md
+include CODE_OF_CONDUCT.md
+include SECURITY.md
+include CITATION.cff
+include requirements.txt
+include environment.yml
+include pyproject.toml
+
+# Include all package source
+recursive-include mpasdiag *.py
+include mpasdiag/py.typed
+
+# Exclude development, test, and generated artifacts
+exclude .codecov.yml
+exclude .pre-commit-config.yaml
+exclude uv.lock
+prune tests
+prune examples
+prune data
+prune output
+prune .github
+
+# Exclude caches and compiled files
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store

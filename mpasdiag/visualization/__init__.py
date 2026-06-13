@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPAS Visualization Package
@@ -25,14 +27,14 @@ from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.visualization.skewt import MPASSkewTPlotter
 
 __all__ = [
-    'MPASVisualizer',
-    'UnitConverter',
-    'MPASFileMetadata',
-    'MPASVisualizationStyle',
-    'MPASSurfacePlotter',
-    'create_surface_plot',
-    'MPASVerticalCrossSectionPlotter',
-    'MPASPrecipitationPlotter',
-    'MPASWindPlotter',
-    'MPASSkewTPlotter'
+    "MPASVisualizer",
+    "UnitConverter",
+    "MPASFileMetadata",
+    "MPASVisualizationStyle",
+    "MPASSurfacePlotter",
+    "create_surface_plot",
+    "MPASVerticalCrossSectionPlotter",
+    "MPASPrecipitationPlotter",
+    "MPASWindPlotter",
+    "MPASSkewTPlotter",
 ]

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Visualization Layer Integration Tests
 
-This module contains integration tests for the MPASdiag visualization pipeline, ensuring that the various plotters can successfully render figures from real processed data. Each test renders a specific type of plot (e.g., precipitation map, surface map, wind plot, cross-section) using data extracted from the provided MPAS datasets and asserts that the output files are created and non-empty. 
+This module contains integration tests for the MPASdiag visualization pipeline, ensuring that the various plotters can successfully render figures from real processed data. Each test renders a specific type of plot (e.g., precipitation map, surface map, wind plot, cross-section) using data extracted from the provided MPAS datasets and asserts that the output files are created and non-empty.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: June 2026
 Version: 1.0.0
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +38,6 @@ from mpasdiag.visualization.cross_section import (
 
 from tests.integration.conftest import CARTOPY_AVAILABLE, bounds_from_coords
 
-
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.requires_data,
@@ -45,7 +47,7 @@ pytestmark = [
 
 def _assert_saved(output_path: Path) -> None:
     """
-    This helper function asserts that a rendered figure was successfully saved to disk by checking that the file exists and is non-empty. This is used across multiple tests to verify that the visualization pipeline produced an output file. 
+    This helper function asserts that a rendered figure was successfully saved to disk by checking that the file exists and is non-empty. This is used across multiple tests to verify that the visualization pipeline produced an output file.
 
     Parameters:
         output_path (Path): Expected output file path (including extension).
@@ -58,13 +60,15 @@ def _assert_saved(output_path: Path) -> None:
 
 
 class TestVisualizationPipeline:
-    """ Real-rendering integration tests wiring processing/diagnostics output into the plotters. """
+    """Real-rendering integration tests wiring processing/diagnostics output into the plotters."""
 
-    def test_precipitation_map_render(self: "TestVisualizationPipeline",
-                                      real_2d_processor: MPAS2DProcessor,
-                                      output_dir: Path,) -> None:
+    def test_precipitation_map_render(
+        self: "TestVisualizationPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        output_dir: Path,
+    ) -> None:
         """
-        This test renders a precipitation map from a real accumulated precipitation field and asserts that a non-empty PNG file is produced. It exercises the full pipeline from data extraction, diagnostic computation, to cartographic rendering. 
+        This test renders a precipitation map from a real accumulated precipitation field and asserts that a non-empty PNG file is produced. It exercises the full pipeline from data extraction, diagnostic computation, to cartographic rendering.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with MPAS data.
@@ -106,11 +110,13 @@ class TestVisualizationPipeline:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_surface_map_render(self: "TestVisualizationPipeline",
-                                real_2d_processor: MPAS2DProcessor,
-                                output_dir: Path,) -> None:
+    def test_surface_map_render(
+        self: "TestVisualizationPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        output_dir: Path,
+    ) -> None:
         """
-        This test renders a surface map of a real 2D field (e.g., 2m temperature) and asserts that a non-empty PNG file is produced. It verifies that the surface plotter can successfully visualize real data with appropriate styling and coordinate handling. 
+        This test renders a surface map of a real 2D field (e.g., 2m temperature) and asserts that a non-empty PNG file is produced. It verifies that the surface plotter can successfully visualize real data with appropriate styling and coordinate handling.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with MPAS data.
@@ -142,11 +148,13 @@ class TestVisualizationPipeline:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_simple_scatter_render(self: "TestVisualizationPipeline",
-                                   real_2d_processor: MPAS2DProcessor,
-                                   output_dir: Path,) -> None:
+    def test_simple_scatter_render(
+        self: "TestVisualizationPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        output_dir: Path,
+    ) -> None:
         """
-        This test renders a simple scatter plot of a real 2D field (e.g., 2m temperature) and asserts that a non-empty PNG file is produced. It serves as a basic sanity check that the plotter can render raw data points without additional styling or geographic context. 
+        This test renders a simple scatter plot of a real 2D field (e.g., 2m temperature) and asserts that a non-empty PNG file is produced. It serves as a basic sanity check that the plotter can render raw data points without additional styling or geographic context.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with MPAS data.
@@ -171,11 +179,13 @@ class TestVisualizationPipeline:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_wind_plot_render(self: "TestVisualizationPipeline",
-                              real_2d_processor: MPAS2DProcessor,
-                              output_dir: Path,) -> None:
+    def test_wind_plot_render(
+        self: "TestVisualizationPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        output_dir: Path,
+    ) -> None:
         """
-        This test renders a wind plot (e.g., barbs) from real 2D wind component fields and asserts that a non-empty PNG file is produced. It tests the integration of the wind diagnostics with the wind plotter, ensuring that the correct components are extracted, subsampled, and visualized with appropriate styling. 
+        This test renders a wind plot (e.g., barbs) from real 2D wind component fields and asserts that a non-empty PNG file is produced. It tests the integration of the wind diagnostics with the wind plotter, ensuring that the correct components are extracted, subsampled, and visualized with appropriate styling.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with MPAS data.
@@ -218,11 +228,13 @@ class TestVisualizationPipeline:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_cross_section_render(self: "TestVisualizationPipeline",
-                                  real_3d_processor: MPAS3DProcessor,
-                                  output_dir: Path,) -> None:
+    def test_cross_section_render(
+        self: "TestVisualizationPipeline",
+        real_3d_processor: MPAS3DProcessor,
+        output_dir: Path,
+    ) -> None:
         """
-        This test renders a vertical cross-section plot from a real 3D field (e.g., potential temperature) and asserts that a non-empty PNG file is produced. It verifies that the cross-section plotter can correctly extract a vertical slice from the 3D data, handle the specified vertical coordinate, and render it with appropriate styling. 
+        This test renders a vertical cross-section plot from a real 3D field (e.g., potential temperature) and asserts that a non-empty PNG file is produced. It verifies that the cross-section plotter can correctly extract a vertical slice from the 3D data, handle the specified vertical coordinate, and render it with appropriate styling.
 
         Parameters:
             real_3d_processor (MPAS3DProcessor): Loaded 3D processor fixture with MPAS data.
@@ -232,7 +244,7 @@ class TestVisualizationPipeline:
             None
         """
         plotter = MPASVerticalCrossSectionPlotter(figsize=(8, 6), dpi=80)
-        
+
         fig, ax = plotter.create_vertical_cross_section(
             real_3d_processor,
             "theta",

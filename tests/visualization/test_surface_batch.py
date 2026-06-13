@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Surface Map Batch Processing Tests
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules
 import os
 import sys
@@ -21,7 +24,8 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import xarray as xr
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 from typing import Generator
 from unittest.mock import Mock
 import matplotlib.pyplot as plt
@@ -32,19 +36,19 @@ from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_plot
 from mpasdiag.processing.utils_geog import GeographicBounds
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 _RNG = np.random.default_rng(42)
 
 
 class TestBatchProcessing:
-    """ Tests for batch surface map creation. """
-    
+    """Tests for batch surface map creation."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestBatchProcessing') -> Generator[None, None, None]:
+    def setup_method(self: "TestBatchProcessing") -> Generator[None, None, None]:
         """
-        This fixture sets up a temporary directory and a plotter instance for batch processing tests. It also defines a common geographic extent for the tests. After the test runs, it ensures that the temporary directory is cleaned up. 
+        This fixture sets up a temporary directory and a plotter instance for batch processing tests. It also defines a common geographic extent for the tests. After the test runs, it ensures that the temporary directory is cleaned up.
 
         Parameters:
             None
@@ -59,9 +63,8 @@ class TestBatchProcessing:
         yield
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-    
-    
-    def test_batch_with_time_dimension(self: 'TestBatchProcessing') -> None:
+
+    def test_batch_with_time_dimension(self: "TestBatchProcessing") -> None:
         """
         This test confirms that the batch processing function correctly iterates over a dataset with a `Time` dimension and produces output files for each time step. It creates a mock processor with a dataset containing a `Time` coordinate, mocks the necessary methods to return appropriate data, and asserts that the expected number of files are created in the output directory.
 
@@ -72,32 +75,38 @@ class TestBatchProcessing:
             None
         """
         mock_processor = Mock()
-        times = pd.date_range('2025-01-01', periods=3, freq='6h')
-        
-        ds = xr.Dataset({
-            't2m': (['Time', 'nCells'], _RNG.random((3, 50)) * 300),
-            'lonCell': ('nCells', np.linspace(-100, -90, 50)),
-            'latCell': ('nCells', np.linspace(30, 40, 50))
-        }, coords={'Time': times})
-        
+        times = pd.date_range("2025-01-01", periods=3, freq="6h")
+
+        ds = xr.Dataset(
+            {
+                "t2m": (["Time", "nCells"], _RNG.random((3, 50)) * 300),
+                "lonCell": ("nCells", np.linspace(-100, -90, 50)),
+                "latCell": ("nCells", np.linspace(30, 40, 50)),
+            },
+            coords={"Time": times},
+        )
+
         mock_processor.dataset = ds
-        mock_processor.get_2d_variable_data = Mock(side_effect=lambda var, idx: ds[var].isel(Time=idx))
+        mock_processor.get_2d_variable_data = Mock(
+            side_effect=lambda var, idx: ds[var].isel(Time=idx)
+        )
 
         mock_processor.extract_2d_coordinates_for_variable = Mock(
             return_value=(ds.lonCell.values, ds.latCell.values)
         )
-        
+
         files = self.plotter.create_batch_surface_maps(
-            mock_processor, self.temp_dir,
+            mock_processor,
+            self.temp_dir,
             GeographicBounds(*self.extent_bounds),
-            var_name='t2m',
-            plot_type='scatter'
+            var_name="t2m",
+            plot_type="scatter",
         )
-        
+
         assert len(files) == pytest.approx(3)
         assert all(os.path.exists(f) for f in files)
-    
-    def test_batch_without_time_dimension(self: 'TestBatchProcessing') -> None:
+
+    def test_batch_without_time_dimension(self: "TestBatchProcessing") -> None:
         """
         This test checks that the batch processing function can handle datasets that do not have a `Time` dimension. It creates a mock processor with a dataset that only has spatial dimensions, mocks the necessary methods to return appropriate data, and asserts that a single output file is created in the output directory.
 
@@ -108,29 +117,34 @@ class TestBatchProcessing:
             None
         """
         mock_processor = Mock()
-        
-        ds = xr.Dataset({
-            't2m': (['time', 'nCells'], _RNG.random((2, 50)) * 300),
-            'lonCell': ('nCells', np.linspace(-100, -90, 50)),
-            'latCell': ('nCells', np.linspace(30, 40, 50))
-        })
-        
+
+        ds = xr.Dataset(
+            {
+                "t2m": (["time", "nCells"], _RNG.random((2, 50)) * 300),
+                "lonCell": ("nCells", np.linspace(-100, -90, 50)),
+                "latCell": ("nCells", np.linspace(30, 40, 50)),
+            }
+        )
+
         mock_processor.dataset = ds
-        mock_processor.get_2d_variable_data = Mock(side_effect=lambda var, idx: ds[var].isel(time=idx))
+        mock_processor.get_2d_variable_data = Mock(
+            side_effect=lambda var, idx: ds[var].isel(time=idx)
+        )
 
         mock_processor.extract_2d_coordinates_for_variable = Mock(
             return_value=(ds.lonCell.values, ds.latCell.values)
         )
-        
+
         files = self.plotter.create_batch_surface_maps(
-            mock_processor, self.temp_dir,
+            mock_processor,
+            self.temp_dir,
             GeographicBounds(*self.extent_bounds),
-            var_name='t2m'
+            var_name="t2m",
         )
-        
+
         assert len(files) == pytest.approx(2)
-    
-    def test_batch_with_exception(self: 'TestBatchProcessing') -> None:
+
+    def test_batch_with_exception(self: "TestBatchProcessing") -> None:
         """
         This test ensures that if an exception occurs during the processing of a time step, the batch function handles it gracefully and continues processing subsequent time steps. It creates a mock processor with a dataset containing a `Time` coordinate, mocks the method to raise an exception for one of the time steps, and asserts that only the successful time steps produce output files.
 
@@ -141,38 +155,42 @@ class TestBatchProcessing:
             None
         """
         mock_processor = Mock()
-        times = pd.date_range('2025-01-01', periods=2, freq='6h')
-        
-        ds = xr.Dataset({
-            't2m': (['Time', 'nCells'], _RNG.random((2, 50)) * 300),
-            'lonCell': ('nCells', np.linspace(-100, -90, 50)),
-            'latCell': ('nCells', np.linspace(30, 40, 50))
-        }, coords={'Time': times})
-        
+        times = pd.date_range("2025-01-01", periods=2, freq="6h")
+
+        ds = xr.Dataset(
+            {
+                "t2m": (["Time", "nCells"], _RNG.random((2, 50)) * 300),
+                "lonCell": ("nCells", np.linspace(-100, -90, 50)),
+                "latCell": ("nCells", np.linspace(30, 40, 50)),
+            },
+            coords={"Time": times},
+        )
+
         mock_processor.dataset = ds
 
         mock_processor.get_2d_variable_data = Mock(
-            side_effect=[ds['t2m'].isel(Time=0), Exception("Processing failed")]
+            side_effect=[ds["t2m"].isel(Time=0), Exception("Processing failed")]
         )
 
         mock_processor.extract_2d_coordinates_for_variable = Mock(
             return_value=(ds.lonCell.values, ds.latCell.values)
         )
-        
+
         files = self.plotter.create_batch_surface_maps(
-            mock_processor, self.temp_dir,
+            mock_processor,
+            self.temp_dir,
             GeographicBounds(*self.extent_bounds),
-            var_name='t2m'
+            var_name="t2m",
         )
-        
+
         assert len(files) == pytest.approx(1)
 
 
 class TestHelperMethods:
-    """ Tests for helper methods. """
-    
+    """Tests for helper methods."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestHelperMethods') -> None:
+    def setup_method(self: "TestHelperMethods") -> None:
         """
         This fixture initializes an instance of `MPASSurfacePlotter` for use in helper method tests. It ensures that each test has access to a fresh plotter instance without needing to create it within each test method.
 
@@ -183,8 +201,8 @@ class TestHelperMethods:
             None
         """
         self.plotter = MPASSurfacePlotter()
-    
-    def test_get_surface_colormap_and_levels(self: 'TestHelperMethods') -> None:
+
+    def test_get_surface_colormap_and_levels(self: "TestHelperMethods") -> None:
         """
         This test verifies that the `get_surface_colormap_and_levels` method returns a valid colormap name and a list of contour levels for a given variable. It calls the method with a common variable name (e.g., 't2m') and asserts that the returned colormap is a string and the levels are provided as a list. This ensures that the method is correctly configured to provide plotting parameters for surface variables.
 
@@ -194,14 +212,16 @@ class TestHelperMethods:
         Returns:
             None
         """
-        cmap, levels = self.plotter.get_surface_colormap_and_levels('t2m')
-        
+        cmap, levels = self.plotter.get_surface_colormap_and_levels("t2m")
+
         assert isinstance(cmap, str)
         assert isinstance(levels, list)
-    
-    def test_create_simple_scatter_plot(self: 'TestHelperMethods', 
-                                        mpas_coordinates: tuple, 
-                                        mpas_surface_temp_data: np.ndarray) -> None:
+
+    def test_create_simple_scatter_plot(
+        self: "TestHelperMethods",
+        mpas_coordinates: tuple,
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This test confirms that the `create_simple_scatter_plot` method generates a Matplotlib Figure and Axes when provided with valid longitude, latitude, and data arrays. It uses real MPAS coordinate and surface temperature data from fixtures, calls the plotting method, and asserts that the returned objects are of the expected types. This validates that the helper method can successfully create a scatter plot with real data.
 
@@ -215,29 +235,29 @@ class TestHelperMethods:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
         lat = lat_full[:50]
         data = mpas_surface_temp_data[:50]
-        
+
         fig, ax = self.plotter.create_simple_scatter_plot(
-            lon, lat, data,
-            title="Test Plot",
-            colorbar_label="Temperature [K]"
+            lon, lat, data, title="Test Plot", colorbar_label="Temperature [K]"
         )
-        
+
         assert isinstance(fig, Figure)
         assert isinstance(ax, Axes)
         plt.close(fig)
-    
+
 
 class TestConvenienceFunction:
-    """ Tests for create_surface_plot convenience function. """
-    
-    def test_create_surface_plot_function(self: 'TestConvenienceFunction', 
-                                          mpas_coordinates: tuple, 
-                                          mpas_surface_temp_data: np.ndarray) -> None:
+    """Tests for create_surface_plot convenience function."""
+
+    def test_create_surface_plot_function(
+        self: "TestConvenienceFunction",
+        mpas_coordinates: tuple,
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This test verifies that the `create_surface_plot` convenience function successfully creates a surface plot and returns a Matplotlib Figure and GeoAxes when provided with valid longitude, latitude, data, variable name, and extent. It uses real MPAS coordinate and surface temperature data from fixtures, calls the convenience function, and asserts that the returned objects are of the expected types. This confirms that the convenience function correctly interfaces with the underlying plotting functionality.
 
@@ -251,55 +271,63 @@ class TestConvenienceFunction:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
         lat = lat_full[:50]
         data = mpas_surface_temp_data[:50]
-        extent = (float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max()))
-        
-        fig, ax = create_surface_plot(
-            lon, lat, data, 't2m', extent,
-            plot_type='scatter',
-            title="Test Plot"
+        extent = (
+            float(lon.min()),
+            float(lon.max()),
+            float(lat.min()),
+            float(lat.max()),
         )
-        
+
+        fig, ax = create_surface_plot(
+            lon, lat, data, "t2m", extent, plot_type="scatter", title="Test Plot"
+        )
+
         assert isinstance(fig, Figure)
         assert isinstance(ax, GeoAxes)
         plt.close(fig)
-    
-    def test_create_surface_plot_with_kwargs(self: 'TestConvenienceFunction', 
-                                             mpas_coordinates: tuple, 
-                                             mpas_surface_temp_data: np.ndarray) -> None:
+
+    def test_create_surface_plot_with_kwargs(
+        self: "TestConvenienceFunction",
+        mpas_coordinates: tuple,
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This test checks that the `create_surface_plot` convenience function can accept additional keyword arguments for customizing the plot, such as colormap and projection. It uses real MPAS coordinate and surface temperature data from fixtures, calls the convenience function with extra parameters, and asserts that the returned Figure is of the expected type. This ensures that the convenience function can handle and apply additional plotting options correctly.
 
         Parameters:
             mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
             mpas_surface_temp_data: Session fixture providing real surface temperature data.
-            
+
         Returns:
             None
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
         lat = lat_full[:50]
         data = mpas_surface_temp_data[:50]
-        extent = (float(lon.min()), float(lon.max()), float(lat.min()), float(lat.max()))
-        
-        fig, _ = create_surface_plot(
-            lon, lat, data, 't2m', extent,
-            colormap='coolwarm',
-            projection='Mercator'
+        extent = (
+            float(lon.min()),
+            float(lon.max()),
+            float(lat.min()),
+            float(lat.max()),
         )
-        
+
+        fig, _ = create_surface_plot(
+            lon, lat, data, "t2m", extent, colormap="coolwarm", projection="Mercator"
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

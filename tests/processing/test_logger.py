@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Tests for MPAS Logger Utilities
 
-This module contains a set of unit tests for the logging utilities in the MPASdiag package, specifically targeting the MPASLogger class, MPIRankFilter, and the get_logger function. The tests verify that the logging configuration is correctly applied to the root logger, that child loggers are properly namespaced and propagate messages to the root logger's handlers, and that the MPIRankFilter correctly injects MPI rank and size attributes into log records while allowing WARNING messages from all ranks. Additionally, tests for the _resolve_log_level function ensure that command-line arguments for log level, quiet, and verbose flags are correctly interpreted to determine the effective log level. Finally, a test for MPASConfig validates that log level inputs are properly checked for validity. This suite ensures that the logging infrastructure in MPASdiag is robust and behaves as expected under various configurations. 
+This module contains a set of unit tests for the logging utilities in the MPASdiag package, specifically targeting the MPASLogger class, MPIRankFilter, and the get_logger function. The tests verify that the logging configuration is correctly applied to the root logger, that child loggers are properly namespaced and propagate messages to the root logger's handlers, and that the MPIRankFilter correctly injects MPI rank and size attributes into log records while allowing WARNING messages from all ranks. Additionally, tests for the _resolve_log_level function ensure that command-line arguments for log level, quiet, and verbose flags are correctly interpreted to determine the effective log level. Finally, a test for MPASConfig validates that log level inputs are properly checked for validity. This suite ensures that the logging infrastructure in MPASdiag is robust and behaves as expected under various configurations.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 import argparse
 import logging
 from collections.abc import Iterator
@@ -28,7 +31,7 @@ from mpasdiag.processing.utils_logger import (
 @pytest.fixture(autouse=True)
 def _reset_root_logger() -> Iterator[None]:
     """
-    This fixture is automatically applied to all tests in this module and ensures that the root logger is reset before each test runs. It removes all handlers from the root logger at the start of the test, allowing each test to configure the logging system without interference from previous tests. After the test completes, it again removes any handlers that may have been added during the test, ensuring a clean state for subsequent tests. This prevents issues with multiple handlers being added to the root logger across different tests, which could lead to duplicate log messages or unintended logging behavior. 
+    This fixture is automatically applied to all tests in this module and ensures that the root logger is reset before each test runs. It removes all handlers from the root logger at the start of the test, allowing each test to configure the logging system without interference from previous tests. After the test completes, it again removes any handlers that may have been added during the test, ensuring a clean state for subsequent tests. This prevents issues with multiple handlers being added to the root logger across different tests, which could lead to duplicate log messages or unintended logging behavior.
 
     Parameters:
         None
@@ -47,7 +50,7 @@ def _reset_root_logger() -> Iterator[None]:
 
 def test_mpas_logger_configures_root_once() -> None:
     """
-    This test verifies that the MPASLogger class configures the root logger correctly and does not add multiple handlers when instantiated multiple times. It creates an instance of MPASLogger with the root logger name and a specific log level, then checks that the root logger has exactly one handler and that the log level is set as expected. It then creates another instance of MPASLogger with the same root logger name but a different log level, and checks again that there is still only one handler (not a new one) and that the log level has been updated to the new value. This ensures that MPASLogger properly manages the root logger configuration without adding duplicate handlers on multiple instantiations. 
+    This test verifies that the MPASLogger class configures the root logger correctly and does not add multiple handlers when instantiated multiple times. It creates an instance of MPASLogger with the root logger name and a specific log level, then checks that the root logger has exactly one handler and that the log level is set as expected. It then creates another instance of MPASLogger with the same root logger name but a different log level, and checks again that there is still only one handler (not a new one) and that the log level has been updated to the new value. This ensures that MPASLogger properly manages the root logger configuration without adding duplicate handlers on multiple instantiations.
 
     Parameters:
         None
@@ -70,7 +73,7 @@ def test_mpas_logger_configures_root_once() -> None:
 
 def test_get_logger_returns_child_under_root() -> None:
     """
-    This test verifies that the get_logger function returns a child logger that is properly namespaced under the root logger. It first creates an instance of MPASLogger with the root logger name and a specific log level, then calls get_logger with a child logger name. The test checks that the returned logger's name is correctly prefixed with "mpasdiag." and that its parent logger is the root logger configured by MPASLogger. This confirms that get_logger is correctly creating child loggers under the "mpasdiag" namespace and that they are properly connected to the root logger for message propagation. 
+    This test verifies that the get_logger function returns a child logger that is properly namespaced under the root logger. It first creates an instance of MPASLogger with the root logger name and a specific log level, then calls get_logger with a child logger name. The test checks that the returned logger's name is correctly prefixed with "mpasdiag." and that its parent logger is the root logger configured by MPASLogger. This confirms that get_logger is correctly creating child loggers under the "mpasdiag" namespace and that they are properly connected to the root logger for message propagation.
 
     Parameters:
         None
@@ -81,12 +84,15 @@ def test_get_logger_returns_child_under_root() -> None:
     MPASLogger(name=ROOT_LOGGER_NAME, level=logging.INFO, verbose=True)
     child = get_logger("mpasdiag.processing.foo")
     assert child.name == "mpasdiag.processing.foo"
-    assert child.parent.name.startswith(ROOT_LOGGER_NAME) or child.parent.name == ROOT_LOGGER_NAME
+    assert (
+        child.parent.name.startswith(ROOT_LOGGER_NAME)
+        or child.parent.name == ROOT_LOGGER_NAME
+    )
 
 
 def test_get_logger_namespaces_non_mpasdiag_names() -> None:
     """
-    This test verifies that the get_logger function correctly namespaces logger names that do not already start with "mpasdiag.". It calls get_logger with a logger name that does not start with "mpasdiag." and checks that the returned logger's name is prefixed with "mpasdiag.". This ensures that get_logger consistently namespaces loggers under the "mpasdiag" hierarchy, even if the input name does not follow that convention, allowing for organized logging across the MPASdiag codebase. 
+    This test verifies that the get_logger function correctly namespaces logger names that do not already start with "mpasdiag.". It calls get_logger with a logger name that does not start with "mpasdiag." and checks that the returned logger's name is prefixed with "mpasdiag.". This ensures that get_logger consistently namespaces loggers under the "mpasdiag" hierarchy, even if the input name does not follow that convention, allowing for organized logging across the MPASdiag codebase.
 
     Parameters:
         None
@@ -100,7 +106,7 @@ def test_get_logger_namespaces_non_mpasdiag_names() -> None:
 
 def test_child_propagates_to_root_handlers(caplog: pytest.LogCaptureFixture) -> None:
     """
-    This test verifies that log messages emitted from a child logger created by get_logger are properly propagated to the handlers of the root logger configured by MPASLogger. It creates an instance of MPASLogger with the root logger name and a specific log level, then obtains a child logger using get_logger. The test emits a log message from the child logger and uses the caplog fixture to capture log records at the DEBUG level for the root logger. Finally, it checks that the captured log records include the message emitted from the child logger, confirming that messages from child loggers are correctly propagated to the root logger's handlers as intended. 
+    This test verifies that log messages emitted from a child logger created by get_logger are properly propagated to the handlers of the root logger configured by MPASLogger. It creates an instance of MPASLogger with the root logger name and a specific log level, then obtains a child logger using get_logger. The test emits a log message from the child logger and uses the caplog fixture to capture log records at the DEBUG level for the root logger. Finally, it checks that the captured log records include the message emitted from the child logger, confirming that messages from child loggers are correctly propagated to the root logger's handlers as intended.
 
     Parameters:
         caplog (pytest.LogCaptureFixture): A pytest fixture that captures log records emitted during the test.
@@ -117,7 +123,7 @@ def test_child_propagates_to_root_handlers(caplog: pytest.LogCaptureFixture) -> 
 
 def test_rank_filter_injects_rank_and_size() -> None:
     """
-    This test verifies that the MPIRankFilter correctly injects the rank and size attributes into log records and that it allows INFO messages to be logged only from rank 0 while allowing WARNING messages from all ranks. It creates an instance of MPIRankFilter and constructs a LogRecord with INFO level. The test checks that the filter adds the "rank" and "size" attributes to the record and that the filter returns True (allowing the message) if the rank is 0, and False (filtering out the message) if the rank is non-zero. This confirms that MPIRankFilter is functioning as intended in a parallel execution context, ensuring that log messages are appropriately filtered based on MPI rank while still allowing important WARNING messages to be logged from all ranks. 
+    This test verifies that the MPIRankFilter correctly injects the rank and size attributes into log records and that it allows INFO messages to be logged only from rank 0 while allowing WARNING messages from all ranks. It creates an instance of MPIRankFilter and constructs a LogRecord with INFO level. The test checks that the filter adds the "rank" and "size" attributes to the record and that the filter returns True (allowing the message) if the rank is 0, and False (filtering out the message) if the rank is non-zero. This confirms that MPIRankFilter is functioning as intended in a parallel execution context, ensuring that log messages are appropriately filtered based on MPI rank while still allowing important WARNING messages to be logged from all ranks.
 
     Parameters:
         None
@@ -127,8 +133,13 @@ def test_rank_filter_injects_rank_and_size() -> None:
     """
     flt = MPIRankFilter()
     record = logging.LogRecord(
-        name="mpasdiag.test", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="x", args=(), exc_info=None,
+        name="mpasdiag.test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="x",
+        args=(),
+        exc_info=None,
     )
     keep = flt.filter(record)
     assert hasattr(record, "rank")
@@ -139,9 +150,11 @@ def test_rank_filter_injects_rank_and_size() -> None:
         assert keep is False
 
 
-def test_rank_filter_keeps_warnings_on_non_zero_rank(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rank_filter_keeps_warnings_on_non_zero_rank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """
-    This test verifies that the MPIRankFilter allows WARNING messages to be logged from all ranks, even when the rank is non-zero. It creates an instance of MPIRankFilter and uses monkeypatch to set the rank to a non-zero value (e.g., 2) and the size to a positive integer (e.g., 4). The test then constructs two LogRecord instances: one with INFO level and another with WARNING level. It checks that the filter returns False for the INFO record (filtering it out) and True for the WARNING record (allowing it), confirming that MPIRankFilter correctly allows WARNING messages from all ranks while still filtering INFO messages based on rank. 
+    This test verifies that the MPIRankFilter allows WARNING messages to be logged from all ranks, even when the rank is non-zero. It creates an instance of MPIRankFilter and uses monkeypatch to set the rank to a non-zero value (e.g., 2) and the size to a positive integer (e.g., 4). The test then constructs two LogRecord instances: one with INFO level and another with WARNING level. It checks that the filter returns False for the INFO record (filtering it out) and True for the WARNING record (allowing it), confirming that MPIRankFilter correctly allows WARNING messages from all ranks while still filtering INFO messages based on rank.
 
     Parameters:
         monkeypatch (pytest.MonkeyPatch): A pytest fixture that allows modification of attributes for testing purposes.
@@ -154,12 +167,22 @@ def test_rank_filter_keeps_warnings_on_non_zero_rank(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(flt, "size", 4)
 
     info_record = logging.LogRecord(
-        name="x", level=logging.INFO, pathname=__file__, lineno=1,
-        msg="x", args=(), exc_info=None,
+        name="x",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="x",
+        args=(),
+        exc_info=None,
     )
     warn_record = logging.LogRecord(
-        name="x", level=logging.WARNING, pathname=__file__, lineno=1,
-        msg="w", args=(), exc_info=None,
+        name="x",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=1,
+        msg="w",
+        args=(),
+        exc_info=None,
     )
     assert flt.filter(info_record) is False
     assert flt.filter(warn_record) is True
@@ -167,7 +190,7 @@ def test_rank_filter_keeps_warnings_on_non_zero_rank(monkeypatch: pytest.MonkeyP
 
 def _resolve_log_level(args: argparse.Namespace) -> int:
     """
-    This function resolves the effective log level based on the command-line arguments provided. It checks if a specific log level is set in the "log_level" attribute of the args namespace and returns the corresponding logging level if it is. If no specific log level is set, it checks if the "quiet" flag is True and returns logging.ERROR if so. If the "verbose" flag is True, it returns logging.DEBUG. If neither "quiet" nor "verbose" flags are set, it defaults to returning logging.INFO. This function allows for flexible configuration of log levels based on user input from the command line, ensuring that the logging behavior can be easily adjusted for different use cases. 
+    This function resolves the effective log level based on the command-line arguments provided. It checks if a specific log level is set in the "log_level" attribute of the args namespace and returns the corresponding logging level if it is. If no specific log level is set, it checks if the "quiet" flag is True and returns logging.ERROR if so. If the "verbose" flag is True, it returns logging.DEBUG. If neither "quiet" nor "verbose" flags are set, it defaults to returning logging.INFO. This function allows for flexible configuration of log levels based on user input from the command line, ensuring that the logging behavior can be easily adjusted for different use cases.
 
     Parameters:
         args (argparse.Namespace): The argparse namespace containing the command-line arguments.
@@ -186,7 +209,7 @@ def _resolve_log_level(args: argparse.Namespace) -> int:
 
 def test_mpas_config_log_level_validation() -> None:
     """
-    This test verifies that the MPASConfig class correctly validates log level inputs. It creates an instance of MPASConfig with a valid log level string (e.g., "warning") and checks that the log_level attribute is set to the expected value (e.g., "WARNING"). It then attempts to create an instance of MPASConfig with an invalid log level string (e.g., "BOGUS") and checks that a ValueError is raised, confirming that the class properly checks for valid log level inputs and raises an error when an invalid value is provided. This ensures that users of MPASConfig are informed of incorrect log level configurations in a clear manner. 
+    This test verifies that the MPASConfig class correctly validates log level inputs. It creates an instance of MPASConfig with a valid log level string (e.g., "warning") and checks that the log_level attribute is set to the expected value (e.g., "WARNING"). It then attempts to create an instance of MPASConfig with an invalid log level string (e.g., "BOGUS") and checks that a ValueError is raised, confirming that the class properly checks for valid log level inputs and raises an error when an invalid value is provided. This ensures that users of MPASConfig are informed of incorrect log level configurations in a clear manner.
 
     Parameters:
         None

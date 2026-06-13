@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag - MPAS Model Output Analysis and Visualization Package
@@ -18,9 +20,4 @@ __author__ = "Rubaiat Islam"
 __email__ = "mrislam@ucar.edu"
 __institution__ = "Mesoscale & Microscale Meteorology Laboratory, NCAR"
 
-__all__ = [
-    '__version__',
-    '__author__',
-    '__email__',
-    '__institution__'
-]
+__all__ = ["__version__", "__author__", "__email__", "__institution__"]

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Shared Fixtures and Test Utilities
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load standard libraries
 import logging
 import shutil
@@ -29,10 +32,11 @@ _RNG = np.random.default_rng(42)
 
 
 class _DynamicStdoutHandler(logging.Handler):
-    """ Logging handler that writes formatted log records to stdout immediately. """
+    """Logging handler that writes formatted log records to stdout immediately."""
 
-    def emit(self: '_DynamicStdoutHandler', 
-             record: logging.LogRecord) -> None:  # type: ignore[override]
+    def emit(
+        self: "_DynamicStdoutHandler", record: logging.LogRecord
+    ) -> None:  # type: ignore[override]
         """
         This method formats the given log record and writes it to standard output, followed by a newline. It ensures that the output is flushed immediately so that log messages appear in real-time during test execution. If any exceptions occur during formatting or writing, they are handled gracefully by invoking the standard error handling mechanism of the logging framework.
 
@@ -53,12 +57,12 @@ class _DynamicStdoutHandler(logging.Handler):
 @pytest.fixture(autouse=True)
 def _configure_mpasdiag_logger_for_capture() -> Generator[None, None, None]:
     """
-    This fixture configures the MPASdiag logger to use a custom handler that writes log messages to standard output, ensuring that logs are captured by pytest's output capture system. It temporarily replaces the logger's handlers and settings for the duration of each test, allowing log messages to be visible in test reports and debugging output. After the test completes, the original logger configuration is restored to avoid side effects on other tests or modules. 
+    This fixture configures the MPASdiag logger to use a custom handler that writes log messages to standard output, ensuring that logs are captured by pytest's output capture system. It temporarily replaces the logger's handlers and settings for the duration of each test, allowing log messages to be visible in test reports and debugging output. After the test completes, the original logger configuration is restored to avoid side effects on other tests or modules.
 
     Parameters:
         None
 
-    Returns:    
+    Returns:
         Generator[None, None, None]: A generator that sets up the logger before yielding control to the test and restores it afterward.
     """
     root = logging.getLogger("mpasdiag")
@@ -86,7 +90,7 @@ def _configure_mpasdiag_logger_for_capture() -> Generator[None, None, None]:
         root.propagate = original_propagate
 
 
-_GRID_FILE = 'data/grids/x1.10242.static.nc'
+_GRID_FILE = "data/grids/x1.10242.static.nc"
 
 
 @pytest.fixture(scope="session")
@@ -147,6 +151,7 @@ def mpas_2d_processor_diag() -> Optional[Any]:
     """
     try:
         from tests.test_data_helpers import _find_and_load_2d_processor
+
         return _find_and_load_2d_processor("u240k/diag")
     except (FileNotFoundError, ImportError):
         return None
@@ -168,11 +173,11 @@ def mpas_3d_processor() -> Optional[Any]:
     try:
         from mpasdiag.processing import MPAS3DProcessor
         from tests.test_data_helpers import _grid_file_path
-        
+
         data_dir = Path(__file__).parent.parent / "data" / "u240k" / "mpasout"
         if not data_dir.exists():
             return None
-        
+
         grid_file = _grid_file_path()
         proc = MPAS3DProcessor(grid_file, verbose=False)
         proc.load_3d_data(str(data_dir))
@@ -200,17 +205,17 @@ def mpas_coordinates() -> Optional[Tuple[np.ndarray, np.ndarray]]:
         grid_file = _grid_file_path()
         grid_ds = xr.open_dataset(grid_file, decode_times=False)
 
-        lon = grid_ds['lonCell'].values
-        lat = grid_ds['latCell'].values
-        
+        lon = grid_ds["lonCell"].values
+        lat = grid_ds["latCell"].values
+
         if np.nanmax(np.abs(lon)) <= 2 * np.pi + 1e-6:
             lon = np.degrees(lon)
 
         if np.nanmax(np.abs(lat)) <= np.pi / 2 + 1e-6:
             lat = np.degrees(lat)
-        
+
         lon = ((lon + 180.0) % 360.0) - 180.0
-        
+
         grid_ds.close()
         return lon, lat
     except (FileNotFoundError, ImportError):
@@ -232,6 +237,7 @@ def mpas_wind_data() -> Optional[Tuple[np.ndarray, np.ndarray]]:
     """
     try:
         from tests.test_data_helpers import load_wind_uv_from_diag
+
         return load_wind_uv_from_diag(n=100)
     except (FileNotFoundError, ImportError):
         return None
@@ -246,12 +252,13 @@ def mpas_precip_data() -> Optional[np.ndarray]:
 
     Parameters:
         None
-        
+
     Returns:
         Optional[np.ndarray]: 1D array of precipitation values or None if data is unavailable.
     """
     try:
         from tests.test_data_helpers import load_precip_from_diag
+
         return load_precip_from_diag(n=100)
     except (FileNotFoundError, ImportError):
         return None
@@ -272,6 +279,7 @@ def mpas_surface_temp_data() -> Optional[np.ndarray]:
     """
     try:
         from tests.test_data_helpers import load_surface_t2m_from_diag
+
         return load_surface_t2m_from_diag(n=100)
     except (FileNotFoundError, ImportError):
         return None
@@ -292,6 +300,7 @@ def mpas_qv_3d_data() -> Optional[np.ndarray]:
     """
     try:
         from tests.test_data_helpers import load_qv_3d_from_mpasout
+
         return load_qv_3d_from_mpasout(n=100)
     except (FileNotFoundError, ImportError):
         return None
@@ -306,12 +315,13 @@ def mpas_data_available() -> bool:
 
     Parameters:
         None
-        
+
     Returns:
         bool: True if MPAS data is available, False otherwise.
     """
     try:
         from tests.test_data_helpers import _grid_file_path
+
         _grid_file_path()
         data_dir = Path(__file__).parent.parent / "data" / "u240k"
         return data_dir.exists() and (data_dir / "diag").exists()
@@ -350,7 +360,7 @@ def mock_mpas_mesh(grid_file: Optional[str]) -> xr.Dataset:
     """
     if grid_file is not None:
         ds = xr.open_dataset(grid_file, decode_times=False)
-        n_cells = min(100, len(ds['nCells']))
+        n_cells = min(100, len(ds["nCells"]))
         ds_subset = ds.isel(nCells=slice(0, n_cells))
         return ds_subset
     else:
@@ -358,29 +368,42 @@ def mock_mpas_mesh(grid_file: Optional[str]) -> xr.Dataset:
         n_edges = 150
         n_vertices = 50
         max_edges = 7
-        
-        ds = xr.Dataset({
-            'latCell': (['nCells'], _RNG.uniform(-90, 90, n_cells)),
-            'lonCell': (['nCells'], _RNG.uniform(-180, 180, n_cells)),
-            'xCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
-            'yCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
-            'zCell': (['nCells'], _RNG.uniform(-1e7, 1e7, n_cells)),
-            'areaCell': (['nCells'], _RNG.uniform(1e9, 1e10, n_cells)),
-            'nEdgesOnCell': (['nCells'], _RNG.integers(3, max_edges + 1, n_cells)),
-            'cellsOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_cells, (n_cells, max_edges))),
-            'edgesOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_edges, (n_cells, max_edges))),
-            'verticesOnCell': (['nCells', 'maxEdges'], _RNG.integers(0, n_vertices, (n_cells, max_edges))),
-        })
-        
-        ds.attrs['on_a_sphere'] = 'YES'
-        ds.attrs['sphere_radius'] = 6371229.0
-        
+
+        ds = xr.Dataset(
+            {
+                "latCell": (["nCells"], _RNG.uniform(-90, 90, n_cells)),
+                "lonCell": (["nCells"], _RNG.uniform(-180, 180, n_cells)),
+                "xCell": (["nCells"], _RNG.uniform(-1e7, 1e7, n_cells)),
+                "yCell": (["nCells"], _RNG.uniform(-1e7, 1e7, n_cells)),
+                "zCell": (["nCells"], _RNG.uniform(-1e7, 1e7, n_cells)),
+                "areaCell": (["nCells"], _RNG.uniform(1e9, 1e10, n_cells)),
+                "nEdgesOnCell": (["nCells"], _RNG.integers(3, max_edges + 1, n_cells)),
+                "cellsOnCell": (
+                    ["nCells", "maxEdges"],
+                    _RNG.integers(0, n_cells, (n_cells, max_edges)),
+                ),
+                "edgesOnCell": (
+                    ["nCells", "maxEdges"],
+                    _RNG.integers(0, n_edges, (n_cells, max_edges)),
+                ),
+                "verticesOnCell": (
+                    ["nCells", "maxEdges"],
+                    _RNG.integers(0, n_vertices, (n_cells, max_edges)),
+                ),
+            }
+        )
+
+        ds.attrs["on_a_sphere"] = "YES"
+        ds.attrs["sphere_radius"] = 6371229.0
+
         return ds
 
 
-def _build_3d_ds_from_real(ds_real: xr.Dataset,
-                           mock_mpas_mesh: xr.Dataset,
-                           n_cells: int,) -> xr.Dataset:
+def _build_3d_ds_from_real(
+    ds_real: xr.Dataset,
+    mock_mpas_mesh: xr.Dataset,
+    n_cells: int,
+) -> xr.Dataset:
     """
     This helper function constructs a 3D dataset from real mpasout data when available. It subsets the data to a manageable size for testing, adds necessary mesh variables from the provided mock mesh if they are missing, and ensures that required 3D fields like `uReconstructZonal` and `uReconstructMeridional` are present by adding synthetic values if they were removed from the original mpasout files. This allows tests to use real data when possible while maintaining compatibility with test cases that expect certain variables to be present.
 
@@ -392,15 +415,15 @@ def _build_3d_ds_from_real(ds_real: xr.Dataset,
     Returns:
         xr.Dataset: An xarray Dataset containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
     """
-    n_cells_subset = min(n_cells, len(ds_real['nCells']))
-    n_time_subset = min(3, len(ds_real['Time']))
-    n_vert = len(ds_real['nVertLevels'])
+    n_cells_subset = min(n_cells, len(ds_real["nCells"]))
+    n_time_subset = min(3, len(ds_real["Time"]))
+    n_vert = len(ds_real["nVertLevels"])
 
     ds = ds_real.isel(nCells=slice(0, n_cells_subset), Time=slice(0, n_time_subset))
 
     mesh_vars_to_add = {
         var: mock_mpas_mesh[var].isel(nCells=slice(0, n_cells_subset))
-        for var in ['latCell', 'lonCell', 'areaCell', 'xCell', 'yCell', 'zCell']
+        for var in ["latCell", "lonCell", "areaCell", "xCell", "yCell", "zCell"]
         if var not in ds and var in mock_mpas_mesh
     }
 
@@ -408,22 +431,21 @@ def _build_3d_ds_from_real(ds_real: xr.Dataset,
         ds = ds.assign(mesh_vars_to_add)
 
     shape_3d = (n_time_subset, n_cells_subset, n_vert)
-    dims_3d = ['Time', 'nCells', 'nVertLevels']
+    dims_3d = ["Time", "nCells", "nVertLevels"]
 
-    if 'uReconstructZonal' not in ds:
-        ds['uReconstructZonal'] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
+    if "uReconstructZonal" not in ds:
+        ds["uReconstructZonal"] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
 
-    if 'uReconstructMeridional' not in ds:
-        ds['uReconstructMeridional'] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
+    if "uReconstructMeridional" not in ds:
+        ds["uReconstructMeridional"] = (dims_3d, _RNG.uniform(-30, 30, shape_3d))
 
-    if 'temperature' not in ds and 'theta' in ds:
-        ds['temperature'] = ds['theta']
+    if "temperature" not in ds and "theta" in ds:
+        ds["temperature"] = ds["theta"]
 
     return ds
 
 
-def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset, 
-                           n_cells: int) -> xr.Dataset:
+def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset, n_cells: int) -> xr.Dataset:
     """
     This helper function constructs a fully synthetic 3D dataset with the necessary structure and variables for testing when real mpasout data is not available. It uses the provided mock mesh for geometry variables and generates random values for 3D fields such as `pressure`, `theta`, `temperature`, `uReconstructZonal`, `uReconstructMeridional`, `w`, and `rho`. The resulting dataset includes a `Time` dimension and vertical levels, allowing tests to exercise processing and plotting routines that expect real MPAS 3D data structure.
 
@@ -436,31 +458,44 @@ def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset,
     """
     n_vertical = 55
     n_time = 3
-    dims_3d = ['Time', 'nCells', 'nVertLevels']
+    dims_3d = ["Time", "nCells", "nVertLevels"]
 
     ds = mock_mpas_mesh.copy()
-    ds = ds.expand_dims({'Time': n_time})
+    ds = ds.expand_dims({"Time": n_time})
 
-    ds['pressure'] = (dims_3d, _RNG.uniform(10000, 101325, (n_time, n_cells, n_vertical)))
-    ds['theta'] = (dims_3d, _RNG.uniform(250, 400, (n_time, n_cells, n_vertical)))
-    ds['temperature'] = (dims_3d, _RNG.uniform(200, 320, (n_time, n_cells, n_vertical)))
-    ds['uReconstructZonal'] = (dims_3d, _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-    ds['uReconstructMeridional'] = (dims_3d, _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)))
-    ds['w'] = (dims_3d, _RNG.uniform(-5, 5, (n_time, n_cells, n_vertical)))
-    ds['rho'] = (dims_3d, _RNG.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
+    ds["pressure"] = (
+        dims_3d,
+        _RNG.uniform(10000, 101325, (n_time, n_cells, n_vertical)),
+    )
+    ds["theta"] = (dims_3d, _RNG.uniform(250, 400, (n_time, n_cells, n_vertical)))
+    ds["temperature"] = (dims_3d, _RNG.uniform(200, 320, (n_time, n_cells, n_vertical)))
+    ds["uReconstructZonal"] = (
+        dims_3d,
+        _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)),
+    )
+    ds["uReconstructMeridional"] = (
+        dims_3d,
+        _RNG.uniform(-30, 30, (n_time, n_cells, n_vertical)),
+    )
+    ds["w"] = (dims_3d, _RNG.uniform(-5, 5, (n_time, n_cells, n_vertical)))
+    ds["rho"] = (dims_3d, _RNG.uniform(0.1, 1.5, (n_time, n_cells, n_vertical)))
 
-    ds['xtime'] = (['Time'], [
-        '2024-01-01_00:00:00',
-        '2024-01-01_06:00:00',
-        '2024-01-01_12:00:00',
-    ])
+    ds["xtime"] = (
+        ["Time"],
+        [
+            "2024-01-01_00:00:00",
+            "2024-01-01_06:00:00",
+            "2024-01-01_12:00:00",
+        ],
+    )
 
     return ds
 
 
 @pytest.fixture
-def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset, 
-                      mpas_3d_processor: Optional[object]) -> xr.Dataset:
+def mock_mpas_3d_data(
+    mock_mpas_mesh: xr.Dataset, mpas_3d_processor: Optional[object]
+) -> xr.Dataset:
     """
     This fixture provides real MPAS 3D data from mpasout files when available, which includes theta, pressure, w, and other 3D fields. Since uReconstructZonal and uReconstructMeridional were removed from mpasout files to save space, synthetic wind components are added for tests that require them. For actual wind testing, use mock_mpas_2d_data which has real u10/v10 from diag files.
 
@@ -471,15 +506,18 @@ def mock_mpas_3d_data(mock_mpas_mesh: xr.Dataset,
     Returns:
         xr.Dataset: An xarray Dataset with `Time` and vertical levels containing 3D fields from mpasout (theta, pressure, w, etc) plus synthetic wind components for test compatibility.
     """
-    n_cells = len(mock_mpas_mesh['nCells'])
+    n_cells = len(mock_mpas_mesh["nCells"])
     if mpas_3d_processor is not None and mpas_3d_processor.dataset is not None:
-        return _build_3d_ds_from_real(mpas_3d_processor.dataset, mock_mpas_mesh, n_cells)
+        return _build_3d_ds_from_real(
+            mpas_3d_processor.dataset, mock_mpas_mesh, n_cells
+        )
     return _build_3d_ds_synthetic(mock_mpas_mesh, n_cells)
 
 
 @pytest.fixture
-def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset, 
-                      mpas_2d_processor_diag: Optional[object]) -> xr.Dataset:
+def mock_mpas_2d_data(
+    mock_mpas_mesh: xr.Dataset, mpas_2d_processor_diag: Optional[object]
+) -> xr.Dataset:
     """
     This fixture provides real MPAS 2D diagnostic data from diag files when available, which includes surface variables like t2m, rainnc, u10, v10. Falls back to synthetic data only when real data is unavailable. Uses diag files (not mpasout) for optimal 2D diagnostic coverage.
 
@@ -490,44 +528,51 @@ def mock_mpas_2d_data(mock_mpas_mesh: xr.Dataset,
     Returns:
         xr.Dataset: An xarray Dataset containing 2D diagnostic variables with a `Time` dimension from diag files.
     """
-    n_cells = len(mock_mpas_mesh['nCells'])
-    
-    if mpas_2d_processor_diag is not None and mpas_2d_processor_diag.dataset is not None:
+    n_cells = len(mock_mpas_mesh["nCells"])
+
+    if (
+        mpas_2d_processor_diag is not None
+        and mpas_2d_processor_diag.dataset is not None
+    ):
         ds_real = mpas_2d_processor_diag.dataset
-        
-        n_cells_subset = min(n_cells, len(ds_real['nCells']))
-        n_time_subset = min(3, len(ds_real['Time']))
-        
+
+        n_cells_subset = min(n_cells, len(ds_real["nCells"]))
+        n_time_subset = min(3, len(ds_real["Time"]))
+
         ds = ds_real.isel(nCells=slice(0, n_cells_subset), Time=slice(0, n_time_subset))
-        
+
         mesh_vars_to_add = {}
 
-        for var in ['latCell', 'lonCell', 'areaCell', 'xCell', 'yCell', 'zCell']:
+        for var in ["latCell", "lonCell", "areaCell", "xCell", "yCell", "zCell"]:
             if var not in ds and var in mock_mpas_mesh:
-                mesh_vars_to_add[var] = mock_mpas_mesh[var].isel(nCells=slice(0, n_cells_subset))
-        
+                mesh_vars_to_add[var] = mock_mpas_mesh[var].isel(
+                    nCells=slice(0, n_cells_subset)
+                )
+
         if mesh_vars_to_add:
             ds = ds.assign(mesh_vars_to_add)
-        
+
         return ds
     else:
         n_time = 3
-        
+
         ds = mock_mpas_mesh.copy()
-        ds = ds.expand_dims({'Time': n_time})
-        
-        ds['rainnc'] = (['Time', 'nCells'], _RNG.uniform(0, 50, (n_time, n_cells)))
-        ds['t2m'] = (['Time', 'nCells'], _RNG.uniform(250, 310, (n_time, n_cells)))
-        ds['u10'] = (['Time', 'nCells'], _RNG.uniform(-20, 20, (n_time, n_cells)))
-        ds['v10'] = (['Time', 'nCells'], _RNG.uniform(-20, 20, (n_time, n_cells)))
-        ds['surface_pressure'] = (['Time', 'nCells'], _RNG.uniform(95000, 105000, (n_time, n_cells)))
-        
-        ds['xtime'] = (['Time'], [
-            '2024-01-01_00:00:00',
-            '2024-01-01_06:00:00',
-            '2024-01-01_12:00:00'
-        ])
-        
+        ds = ds.expand_dims({"Time": n_time})
+
+        ds["rainnc"] = (["Time", "nCells"], _RNG.uniform(0, 50, (n_time, n_cells)))
+        ds["t2m"] = (["Time", "nCells"], _RNG.uniform(250, 310, (n_time, n_cells)))
+        ds["u10"] = (["Time", "nCells"], _RNG.uniform(-20, 20, (n_time, n_cells)))
+        ds["v10"] = (["Time", "nCells"], _RNG.uniform(-20, 20, (n_time, n_cells)))
+        ds["surface_pressure"] = (
+            ["Time", "nCells"],
+            _RNG.uniform(95000, 105000, (n_time, n_cells)),
+        )
+
+        ds["xtime"] = (
+            ["Time"],
+            ["2024-01-01_00:00:00", "2024-01-01_06:00:00", "2024-01-01_12:00:00"],
+        )
+
         return ds
 
 
@@ -545,25 +590,36 @@ def mock_remapped_data() -> xr.Dataset:
     n_lat = 50
     n_lon = 100
     n_time = 3
-    
+
     lat = np.linspace(-90, 90, n_lat)
     lon = np.linspace(-180, 180, n_lon)
-    
-    ds = xr.Dataset({
-        'temperature': (['time', 'lat', 'lon'], 
-                       _RNG.uniform(200, 320, (n_time, n_lat, n_lon))),
-        'precipitation': (['time', 'lat', 'lon'], 
-                         _RNG.uniform(0, 50, (n_time, n_lat, n_lon))),
-        'u_wind': (['time', 'lat', 'lon'], 
-                   _RNG.uniform(-30, 30, (n_time, n_lat, n_lon))),
-        'v_wind': (['time', 'lat', 'lon'], 
-                   _RNG.uniform(-30, 30, (n_time, n_lat, n_lon))),
-    }, coords={
-        'lat': lat,
-        'lon': lon,
-        'time': pd.date_range('2024-01-01', periods=n_time, freq='6h')
-    })
-    
+
+    ds = xr.Dataset(
+        {
+            "temperature": (
+                ["time", "lat", "lon"],
+                _RNG.uniform(200, 320, (n_time, n_lat, n_lon)),
+            ),
+            "precipitation": (
+                ["time", "lat", "lon"],
+                _RNG.uniform(0, 50, (n_time, n_lat, n_lon)),
+            ),
+            "u_wind": (
+                ["time", "lat", "lon"],
+                _RNG.uniform(-30, 30, (n_time, n_lat, n_lon)),
+            ),
+            "v_wind": (
+                ["time", "lat", "lon"],
+                _RNG.uniform(-30, 30, (n_time, n_lat, n_lon)),
+            ),
+        },
+        coords={
+            "lat": lat,
+            "lon": lon,
+            "time": pd.date_range("2024-01-01", periods=n_time, freq="6h"),
+        },
+    )
+
     return ds
 
 
@@ -579,16 +635,16 @@ def mock_file_paths(temp_dir: Path) -> Dict[str, Path]:
         Dict[str, Path]: A mapping of logical file names to pathlib `Path` objects within the temporary directory (e.g., 'grid', 'mpasout_1').
     """
     paths = {
-        'grid': temp_dir / 'x1.10242.static.nc',
-        'mpasout_1': temp_dir / 'mpasout.2024-01-01_00.00.00.nc',
-        'mpasout_2': temp_dir / 'mpasout.2024-01-01_06.00.00.nc',
-        'diag_1': temp_dir / 'diag.2024-01-01_00.00.00.nc',
-        'diag_2': temp_dir / 'diag.2024-01-01_06.00.00.nc',
-        'output': temp_dir / 'output',
+        "grid": temp_dir / "x1.10242.static.nc",
+        "mpasout_1": temp_dir / "mpasout.2024-01-01_00.00.00.nc",
+        "mpasout_2": temp_dir / "mpasout.2024-01-01_06.00.00.nc",
+        "diag_1": temp_dir / "diag.2024-01-01_00.00.00.nc",
+        "diag_2": temp_dir / "diag.2024-01-01_06.00.00.nc",
+        "output": temp_dir / "output",
     }
-    
-    paths['output'].mkdir(parents=True, exist_ok=True)
-    
+
+    paths["output"].mkdir(parents=True, exist_ok=True)
+
     return paths
 
 
@@ -603,17 +659,19 @@ def mock_weight_file(temp_dir: Path) -> str:
     Returns:
         str: Filesystem path to the written weight NetCDF file.
     """
-    weight_file = temp_dir / 'weights.nc'
-    
+    weight_file = temp_dir / "weights.nc"
+
     n_s = 100
     n_b = 50
-    
-    ds = xr.Dataset({
-        'row': (['n_s'], _RNG.integers(0, n_b, n_s)),
-        'col': (['n_s'], _RNG.integers(0, 1000, n_s)),
-        'S': (['n_s'], _RNG.uniform(0, 1, n_s)),
-    })
-    
+
+    ds = xr.Dataset(
+        {
+            "row": (["n_s"], _RNG.integers(0, n_b, n_s)),
+            "col": (["n_s"], _RNG.integers(0, 1000, n_s)),
+            "S": (["n_s"], _RNG.uniform(0, 1, n_s)),
+        }
+    )
+
     ds.to_netcdf(weight_file)
     return str(weight_file)
 
@@ -630,26 +688,26 @@ def mock_config() -> Dict[str, Any]:
         Dict[str, Any]: A nested dictionary containing `input`, `output`, `processing`, and `visualization` configuration sections.
     """
     return {
-        'input': {
-            'invariant_file': _GRID_FILE,
-            'data_dir': 'data/u240k/mpasout',
-            'diag_dir': 'data/u240k/diag',
+        "input": {
+            "invariant_file": _GRID_FILE,
+            "data_dir": "data/u240k/mpasout",
+            "diag_dir": "data/u240k/diag",
         },
-        'output': {
-            'output_dir': 'output/test',
-            'format': 'png',
-            'dpi': 300,
+        "output": {
+            "output_dir": "output/test",
+            "format": "png",
+            "dpi": 300,
         },
-        'processing': {
-            'n_workers': 4,
-            'chunk_size': 1000,
-            'cache_enabled': True,
+        "processing": {
+            "n_workers": 4,
+            "chunk_size": 1000,
+            "cache_enabled": True,
         },
-        'visualization': {
-            'colormap': 'viridis',
-            'figure_size': [12, 8],
-            'font_size': 12,
-        }
+        "visualization": {
+            "colormap": "viridis",
+            "figure_size": [12, 8],
+            "font_size": 12,
+        },
     }
 
 
@@ -664,10 +722,11 @@ def mock_cli_args() -> Any:
     Returns:
         Any: An object with attributes matching expected CLI options (e.g. `invariant_file`, `data_dir`, `variable`, `time_index`).
     """
-    class Args:
-        """ A simple class to hold CLI argument attributes for testing purposes. """
 
-        def __init__(self: 'Args') -> None:
+    class Args:
+        """A simple class to hold CLI argument attributes for testing purposes."""
+
+        def __init__(self: "Args") -> None:
             """
             The constructor initializes attributes with default values that are commonly used in CLI entry points. Tests can modify these attributes as needed to simulate different command-line scenarios without needing to construct complex argument parsing logic.
 
@@ -678,16 +737,16 @@ def mock_cli_args() -> Any:
                 None
             """
             self.invariant_file = _GRID_FILE
-            self.data_dir = 'data/u240k/mpasout'
-            self.output_dir = 'output/test'
-            self.variable = 'temperature'
+            self.data_dir = "data/u240k/mpasout"
+            self.output_dir = "output/test"
+            self.variable = "temperature"
             self.time_index = 0
             self.level = 500
             self.workers = 4
             self.verbose = True
-            self.format = 'png'
+            self.format = "png"
             self.dpi = 300
-    
+
     return Args()
 
 
@@ -726,11 +785,11 @@ def mock_cache() -> Mock:
     cache.get = Mock(return_value=None)
     cache.set = Mock()
     cache.clear = Mock()
-    cache.stats = Mock(return_value={'hits': 0, 'misses': 0, 'size': 0})
+    cache.stats = Mock(return_value={"hits": 0, "misses": 0, "size": 0})
     return cache
 
 
-@pytest.fixture(params=['temperature', 'pressure', 'wind', 'precipitation'])
+@pytest.fixture(params=["temperature", "pressure", "wind", "precipitation"])
 def variable_names(request: Any) -> str:
     """
     Each test invocation receives one of the configured variable name strings which allows parameterized coverage across plotting and processing routines. Use this fixture to exercise multiple code paths without duplicating test logic.
@@ -787,8 +846,9 @@ def assert_valid_dataset(ds: xr.Dataset) -> None:
     assert all(var in ds for var in ds.data_vars)
 
 
-def assert_valid_array(arr: np.ndarray, 
-                       expected_shape: Optional[Tuple[int, ...]] = None) -> None:
+def assert_valid_array(
+    arr: np.ndarray, expected_shape: Optional[Tuple[int, ...]] = None
+) -> None:
     """
     The function asserts the input is an `np.ndarray`, contains at least one element and that all values are finite. If `expected_shape` is provided the array's shape is compared to that tuple, allowing tests to validate structural expectations in addition to element-level checks.
 
@@ -806,8 +866,7 @@ def assert_valid_array(arr: np.ndarray,
         assert arr.shape == expected_shape
 
 
-def create_mock_netcdf_file(filepath: Path, 
-                            dataset: xr.Dataset) -> None:
+def create_mock_netcdf_file(filepath: Path, dataset: xr.Dataset) -> None:
     """
     Tests use this helper to persist small datasets to disk for I/O and integration-style checks. The helper forwards the call to `xarray.Dataset.to_netcdf` and does not perform additional validation.
 
@@ -834,14 +893,8 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
     config.addinivalue_line(
         "markers", "requires_data: marks tests that require real data files"
     )
-    config.addinivalue_line(
-        "markers", "parallel: marks tests for parallel processing"
-    )
-
-
+    config.addinivalue_line("markers", "parallel: marks tests for parallel processing")

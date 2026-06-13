@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Conftest for processing module tests.
 
-This module defines fixtures for loading test data and setting up temporary directories for the MPASdiag processing tests. These fixtures provide reusable components for unit and integration tests, ensuring consistent test environments and data availability. 
+This module defines fixtures for loading test data and setting up temporary directories for the MPASdiag processing tests. These fixtures provide reusable components for unit and integration tests, ensuring consistent test environments and data availability.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules
 import pytest
 import shutil
@@ -94,8 +97,4 @@ def simple_mpas_data() -> dict:
     lat = np.radians(lat_deg)
     data = (u - u.min()) / (u.max() - u.min() + 1e-12)
 
-    return {
-        'lon': lon,
-        'lat': lat,
-        'data': data
-    }
+    return {"lon": lon, "lat": lat, "data": data}

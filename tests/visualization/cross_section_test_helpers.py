@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Shared helpers for cross-section plotter tests.
 
-This module contains shared helper functions and constants used across multiple test modules for the MPASVerticalCrossSectionPlotter class. These helpers include functions to check proper initialization of the plotter, validate the generation of great circle paths, verify default contour level calculations, test interpolation along paths, and ensure input validation. By centralizing these common checks, we can maintain consistency across tests and reduce code duplication when testing various aspects of the cross-section plotting functionality. 
+This module contains shared helper functions and constants used across multiple test modules for the MPASVerticalCrossSectionPlotter class. These helpers include functions to check proper initialization of the plotter, validate the generation of great circle paths, verify default contour level calculations, test interpolation along paths, and ensure input validation. By centralizing these common checks, we can maintain consistency across tests and reduce code duplication when testing various aspects of the cross-section plotting functionality.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -10,6 +12,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 import os
 import math
 import pytest
@@ -18,13 +21,12 @@ from typing import cast, Any
 
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 
-
 TEST_DATA_DIR: str = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data'
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
 )
 
-GRID_FILE: str = os.path.join(TEST_DATA_DIR, 'grids', 'x1.10242.static.nc')
-MPASOUT_DIR: str = os.path.join(TEST_DATA_DIR, 'u240k', 'mpasout')
+GRID_FILE: str = os.path.join(TEST_DATA_DIR, "grids", "x1.10242.static.nc")
+MPASOUT_DIR: str = os.path.join(TEST_DATA_DIR, "u240k", "mpasout")
 
 
 def check_plotter_initialization() -> None:
@@ -51,7 +53,7 @@ def check_plotter_initialization() -> None:
 
 def check_great_circle_path() -> None:
     """
-    This test verifies that the `_generate_great_circle_path` method in the MPASVerticalCrossSectionPlotter class correctly generates a great circle path between two geographic points. By providing specific start and end coordinates along with a defined number of points, the test checks that the output longitude, latitude, and distance arrays have the expected length and values. It ensures that the first and last points of the generated path match the requested start and end coordinates within a reasonable tolerance. Additionally, it verifies that the distance array is monotonically non-decreasing and starts at zero, confirming that the path generation logic is functioning as intended for accurate cross-sectional plotting along great circle routes. 
+    This test verifies that the `_generate_great_circle_path` method in the MPASVerticalCrossSectionPlotter class correctly generates a great circle path between two geographic points. By providing specific start and end coordinates along with a defined number of points, the test checks that the output longitude, latitude, and distance arrays have the expected length and values. It ensures that the first and last points of the generated path match the requested start and end coordinates within a reasonable tolerance. Additionally, it verifies that the distance array is monotonically non-decreasing and starts at zero, confirming that the path generation logic is functioning as intended for accurate cross-sectional plotting along great circle routes.
 
     Parameters:
         None
@@ -85,7 +87,7 @@ def check_great_circle_path() -> None:
 
 def check_default_levels() -> None:
     """
-    This test verifies that the `_get_default_levels` method in the MPASVerticalCrossSectionPlotter class correctly calculates default contour levels for different types of data. By providing sample data arrays representing temperature-like, wind-like, constant, and all-NaN data, the test checks that the generated levels are appropriate for each case. For temperature and wind data, it ensures that the levels cover the range of the data values. For constant data, it verifies that at least one level is generated. For all-NaN data, it checks that a default set of levels is still produced. This ensures that the plotter can handle a variety of input data scenarios and generate meaningful contour levels for visualization. 
+    This test verifies that the `_get_default_levels` method in the MPASVerticalCrossSectionPlotter class correctly calculates default contour levels for different types of data. By providing sample data arrays representing temperature-like, wind-like, constant, and all-NaN data, the test checks that the generated levels are appropriate for each case. For temperature and wind data, it ensures that the levels cover the range of the data values. For constant data, it verifies that at least one level is generated. For all-NaN data, it checks that a default set of levels is still produced. This ensures that the plotter can handle a variety of input data scenarios and generate meaningful contour levels for visualization.
 
     Parameters:
         None
@@ -96,29 +98,29 @@ def check_default_levels() -> None:
     plotter = MPASVerticalCrossSectionPlotter()
 
     temp_data = np.array([[250, 260, 270], [280, 290, 300], [310, 320, 330]])
-    temp_levels = plotter._get_default_levels(temp_data, 'theta')
+    temp_levels = plotter._get_default_levels(temp_data, "theta")
     assert len(temp_levels) > 0
     assert temp_levels.min() <= temp_data.min()
     assert temp_levels.max() >= temp_data.max()
 
     wind_data = np.array([[-10, -5, 0], [5, 10, 15], [-15, 20, 25]])
-    wind_levels = plotter._get_default_levels(wind_data, 'uwind')
+    wind_levels = plotter._get_default_levels(wind_data, "uwind")
     assert len(wind_levels) > 0
     assert wind_levels.min() <= wind_data.min()
     assert wind_levels.max() >= wind_data.max()
 
     constant_data = np.full((3, 3), 5.0)
-    constant_levels = plotter._get_default_levels(constant_data, 'constant')
+    constant_levels = plotter._get_default_levels(constant_data, "constant")
     assert len(constant_levels) >= 1
 
     nan_data = np.full((3, 3), np.nan)
-    nan_levels = plotter._get_default_levels(nan_data, 'nan_data')
+    nan_levels = plotter._get_default_levels(nan_data, "nan_data")
     assert len(nan_levels) > 0
 
 
 def check_interpolation_along_path() -> None:
     """
-    This test verifies that the `_interpolate_along_path` method in the MPASVerticalCrossSectionPlotter class correctly performs interpolation of grid data along a specified path. By providing known grid coordinates, data values, and path points, the test checks that the output interpolated values have the expected length and contain valid (non-NaN) results. This ensures that the interpolation logic is functioning as intended, allowing for accurate extraction of cross-sectional data along arbitrary paths. 
+    This test verifies that the `_interpolate_along_path` method in the MPASVerticalCrossSectionPlotter class correctly performs interpolation of grid data along a specified path. By providing known grid coordinates, data values, and path points, the test checks that the output interpolated values have the expected length and contain valid (non-NaN) results. This ensures that the interpolation logic is functioning as intended, allowing for accurate extraction of cross-sectional data along arbitrary paths.
 
     Parameters:
         None
@@ -161,7 +163,7 @@ def check_input_validation() -> None:
             mpas_3d_processor=cast(Any, "invalid"),
             var_name="theta",
             start_point=(-100, 40),
-            end_point=(-90, 40)
+            end_point=(-90, 40),
         )
         assert False, "Should have raised ValueError for invalid processor"
     except ValueError as e:

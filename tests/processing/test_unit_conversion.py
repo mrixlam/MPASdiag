@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Tests for MPASdiag unit conversion functionality
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules for testing
 import pytest
 import numpy as np
@@ -20,11 +23,11 @@ from mpasdiag.processing.utils_metadata import MPASFileMetadata
 
 
 class TestUnitConversion:
-    """ Test suite for validating unit conversion functionality in MPASdiag processing module. """
-    
-    def test_temperature_conversions(self: 'TestUnitConversion') -> None:
+    """Test suite for validating unit conversion functionality in MPASdiag processing module."""
+
+    def test_temperature_conversions(self: "TestUnitConversion") -> None:
         """
-        This test validates temperature unit conversions between Kelvin, Celsius, and Fahrenheit using standard offset transformations. The test confirms that the converter correctly applies the necessary offsets for absolute temperature scales (K to °C) and the combined scaling and offset for Fahrenheit conversions. Representative temperature values (273.15 K = 0 °C, 288.15 K = 15 °C) are used to verify conversion accuracy with precision validation to 2 decimal places. These temperature conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards. 
+        This test validates temperature unit conversions between Kelvin, Celsius, and Fahrenheit using standard offset transformations. The test confirms that the converter correctly applies the necessary offsets for absolute temperature scales (K to °C) and the combined scaling and offset for Fahrenheit conversions. Representative temperature values (273.15 K = 0 °C, 288.15 K = 15 °C) are used to verify conversion accuracy with precision validation to 2 decimal places. These temperature conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards.
 
         Parameters:
             None
@@ -32,17 +35,31 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert float(UnitConverter.convert_units(273.15, 'K', '°C')) == pytest.approx(0.0, abs=0.01)
-        assert float(UnitConverter.convert_units(288.15, 'K', '°C')) == pytest.approx(15.0, abs=0.01)
-        assert float(UnitConverter.convert_units(0.0, '°C', 'K')) == pytest.approx(273.15, abs=0.01)
-        assert float(UnitConverter.convert_units(25.0, '°C', 'K')) == pytest.approx(298.15, abs=0.01)
-        assert float(UnitConverter.convert_units(0.0, '°C', '°F')) == pytest.approx(32.0, abs=0.01)
-        assert float(UnitConverter.convert_units(100.0, '°C', '°F')) == pytest.approx(212.0, abs=0.01)
-        assert float(UnitConverter.convert_units(273.15, 'K', '°F')) == pytest.approx(32.0, abs=0.01)
-    
-    def test_pressure_conversions(self: 'TestUnitConversion') -> None:
+        assert float(UnitConverter.convert_units(273.15, "K", "°C")) == pytest.approx(
+            0.0, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(288.15, "K", "°C")) == pytest.approx(
+            15.0, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(0.0, "°C", "K")) == pytest.approx(
+            273.15, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(25.0, "°C", "K")) == pytest.approx(
+            298.15, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(0.0, "°C", "°F")) == pytest.approx(
+            32.0, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(100.0, "°C", "°F")) == pytest.approx(
+            212.0, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(273.15, "K", "°F")) == pytest.approx(
+            32.0, abs=0.01
+        )
+
+    def test_pressure_conversions(self: "TestUnitConversion") -> None:
         """
-        This test validates pressure unit conversions between Pascals, hectopascals, and millibars using standard scaling factors. The test confirms that the converter correctly applies the factor of 100 for Pa to hPa conversions and recognizes the equivalence of hPa and mb units. Representative pressure values (101325 Pa = 1013.25 hPa) are used to verify conversion accuracy with precision validation to 2 decimal places. These pressure conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards. 
+        This test validates pressure unit conversions between Pascals, hectopascals, and millibars using standard scaling factors. The test confirms that the converter correctly applies the factor of 100 for Pa to hPa conversions and recognizes the equivalence of hPa and mb units. Representative pressure values (101325 Pa = 1013.25 hPa) are used to verify conversion accuracy with precision validation to 2 decimal places. These pressure conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards.
 
         Parameters:
             None
@@ -50,14 +67,22 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert float(UnitConverter.convert_units(101325.0, 'Pa', 'hPa')) == pytest.approx(1013.25, abs=0.01)
-        assert float(UnitConverter.convert_units(1013.25, 'hPa', 'Pa')) == pytest.approx(101325.0, abs=0.1)
-        assert float(UnitConverter.convert_units(1013.25, 'hPa', 'mb')) == pytest.approx(1013.25, abs=0.01)
-        assert float(UnitConverter.convert_units(1013.25, 'mb', 'hPa')) == pytest.approx(1013.25, abs=0.01)
-    
-    def test_mixing_ratio_conversions(self: 'TestUnitConversion') -> None:
+        assert float(
+            UnitConverter.convert_units(101325.0, "Pa", "hPa")
+        ) == pytest.approx(1013.25, abs=0.01)
+        assert float(
+            UnitConverter.convert_units(1013.25, "hPa", "Pa")
+        ) == pytest.approx(101325.0, abs=0.1)
+        assert float(
+            UnitConverter.convert_units(1013.25, "hPa", "mb")
+        ) == pytest.approx(1013.25, abs=0.01)
+        assert float(
+            UnitConverter.convert_units(1013.25, "mb", "hPa")
+        ) == pytest.approx(1013.25, abs=0.01)
+
+    def test_mixing_ratio_conversions(self: "TestUnitConversion") -> None:
         """
-        This test validates mixing ratio unit conversions between kg/kg and g/kg using standard scaling factors. The test confirms that the converter correctly applies the factor of 1000 for kg/kg to g/kg conversions. Representative mixing ratio values (0.012 kg/kg = 12 g/kg) are used to verify conversion accuracy with precision validation to 2 decimal places. These moisture conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards. 
+        This test validates mixing ratio unit conversions between kg/kg and g/kg using standard scaling factors. The test confirms that the converter correctly applies the factor of 1000 for kg/kg to g/kg conversions. Representative mixing ratio values (0.012 kg/kg = 12 g/kg) are used to verify conversion accuracy with precision validation to 2 decimal places. These moisture conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards.
 
         Parameters:
             None
@@ -65,12 +90,16 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert float(UnitConverter.convert_units(0.012, 'kg/kg', 'g/kg')) == pytest.approx(12.0, abs=0.01)
-        assert float(UnitConverter.convert_units(12.0, 'g/kg', 'kg/kg')) == pytest.approx(0.012, abs=0.0001)
-    
-    def test_wind_speed_conversions(self: 'TestUnitConversion') -> None:
+        assert float(
+            UnitConverter.convert_units(0.012, "kg/kg", "g/kg")
+        ) == pytest.approx(12.0, abs=0.01)
+        assert float(
+            UnitConverter.convert_units(12.0, "g/kg", "kg/kg")
+        ) == pytest.approx(0.012, abs=0.0001)
+
+    def test_wind_speed_conversions(self: "TestUnitConversion") -> None:
         """
-        This test validates wind speed unit conversions between meters per second, knots, miles per hour, and kilometers per hour using standard scaling factors. The test confirms that the converter correctly applies the appropriate factors for m/s to kt (1 m/s = 1.94384 kt), m/s to mph (1 m/s = 2.23694 mph), and m/s to km/h (1 m/s = 3.6 km/h) conversions. Representative wind speed values (10 m/s) are used to verify conversion accuracy with precision validation to 2 decimal places. These wind speed conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards. 
+        This test validates wind speed unit conversions between meters per second, knots, miles per hour, and kilometers per hour using standard scaling factors. The test confirms that the converter correctly applies the appropriate factors for m/s to kt (1 m/s = 1.94384 kt), m/s to mph (1 m/s = 2.23694 mph), and m/s to km/h (1 m/s = 3.6 km/h) conversions. Representative wind speed values (10 m/s) are used to verify conversion accuracy with precision validation to 2 decimal places. These wind speed conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards.
 
         Parameters:
             None
@@ -78,13 +107,19 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert float(UnitConverter.convert_units(10.0, 'm/s', 'kt')) == pytest.approx(19.4384, abs=0.01)
-        assert float(UnitConverter.convert_units(10.0, 'm/s', 'mph')) == pytest.approx(22.3694, abs=0.01)
-        assert float(UnitConverter.convert_units(10.0, 'm/s', 'km/h')) == pytest.approx(36.0, abs=0.1)
-    
-    def test_precipitation_conversions(self: 'TestUnitConversion') -> None:
+        assert float(UnitConverter.convert_units(10.0, "m/s", "kt")) == pytest.approx(
+            19.4384, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(10.0, "m/s", "mph")) == pytest.approx(
+            22.3694, abs=0.01
+        )
+        assert float(UnitConverter.convert_units(10.0, "m/s", "km/h")) == pytest.approx(
+            36.0, abs=0.1
+        )
+
+    def test_precipitation_conversions(self: "TestUnitConversion") -> None:
         """
-        This test validates precipitation rate unit conversions between millimeters per hour, millimeters per day, and inches per hour using standard scaling factors. The test confirms that the converter correctly applies the factor of 24 for mm/hr to mm/day conversions and the factor of 25.4 for mm/hr to in/hr conversions. Representative precipitation rate values (2 mm/hr) are used to verify conversion accuracy with precision validation to 2 decimal places. These precipitation conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards. 
+        This test validates precipitation rate unit conversions between millimeters per hour, millimeters per day, and inches per hour using standard scaling factors. The test confirms that the converter correctly applies the factor of 24 for mm/hr to mm/day conversions and the factor of 25.4 for mm/hr to in/hr conversions. Representative precipitation rate values (2 mm/hr) are used to verify conversion accuracy with precision validation to 2 decimal places. These precipitation conversions enable flexible display of MPAS model output matching conventions from different meteorological applications and international standards.
 
         Parameters:
             None
@@ -92,13 +127,18 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert float(UnitConverter.convert_units(2.0, 'mm/hr', 'mm/day')) == pytest.approx(48.0, abs=0.1)
-        assert float(UnitConverter.convert_units(25.4, 'mm/hr', 'in/hr')) == pytest.approx(1.0, abs=0.01)
-    
-    def test_array_conversions(self: 'TestUnitConversion', 
-                               mpas_surface_temp_data: np.ndarray) -> None:
+        assert float(
+            UnitConverter.convert_units(2.0, "mm/hr", "mm/day")
+        ) == pytest.approx(48.0, abs=0.1)
+        assert float(
+            UnitConverter.convert_units(25.4, "mm/hr", "in/hr")
+        ) == pytest.approx(1.0, abs=0.01)
+
+    def test_array_conversions(
+        self: "TestUnitConversion", mpas_surface_temp_data: np.ndarray
+    ) -> None:
         """
-        This test validates that the unit converter can handle numpy arrays of data, applying element-wise transformations while preserving array shape and data type. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in a numpy array using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places, and the test also checks that the converted values are within a reasonable physical range for surface temperatures. These array conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows without requiring manual looping or restructuring of data. 
+        This test validates that the unit converter can handle numpy arrays of data, applying element-wise transformations while preserving array shape and data type. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in a numpy array using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places, and the test also checks that the converted values are within a reasonable physical range for surface temperatures. These array conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows without requiring manual looping or restructuring of data.
 
         Parameters:
             mpas_surface_temp_data: Session fixture providing real MPAS surface temperature array.
@@ -109,23 +149,24 @@ class TestUnitConversion:
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
             return
-        
+
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_array = mpas_surface_temp_data[:subset_size]
-        
-        converted = UnitConverter.convert_units(temp_array, 'K', '°C')
+
+        converted = UnitConverter.convert_units(temp_array, "K", "°C")
         expected = temp_array - 273.15
-        
+
         assert isinstance(converted, np.ndarray)
         assert converted.shape == temp_array.shape
-        
+
         np.testing.assert_array_almost_equal(converted, expected, decimal=2)
         assert np.all(converted >= -80.0) and np.all(converted <= 60.0)
-    
-    def test_xarray_conversions(self: 'TestUnitConversion', 
-                                mpas_surface_temp_data: np.ndarray) -> None:
+
+    def test_xarray_conversions(
+        self: "TestUnitConversion", mpas_surface_temp_data: np.ndarray
+    ) -> None:
         """
-        This test validates that the unit converter can handle xarray DataArray objects, applying element-wise transformations while preserving the DataArray structure, dimensions, and coordinate information. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in an xarray DataArray using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places using xarray testing utilities, which also confirm that the DataArray structure is preserved through the conversion process. These xarray conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows while maintaining the self-describing data structure benefits that xarray provides. 
+        This test validates that the unit converter can handle xarray DataArray objects, applying element-wise transformations while preserving the DataArray structure, dimensions, and coordinate information. The test confirms that the converter correctly applies temperature conversions (K to °C) to each element in an xarray DataArray using real MPAS surface temperature data. The conversion accuracy is verified with precision validation to 2 decimal places using xarray testing utilities, which also confirm that the DataArray structure is preserved through the conversion process. These xarray conversion capabilities enable seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows while maintaining the self-describing data structure benefits that xarray provides.
 
         Parameters:
             mpas_surface_temp_data: Session fixture providing real MPAS surface temperature array.
@@ -136,21 +177,20 @@ class TestUnitConversion:
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
             return
-        
+
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_data = xr.DataArray(mpas_surface_temp_data[:subset_size])
-        
-        converted = UnitConverter.convert_units(temp_data, 'K', '°C')
+
+        converted = UnitConverter.convert_units(temp_data, "K", "°C")
         expected = xr.DataArray(mpas_surface_temp_data[:subset_size] - 273.15)
-        
+
         assert isinstance(converted, xr.DataArray)
         assert converted.shape == temp_data.shape
         xr.testing.assert_allclose(converted, expected, atol=0.01)
-    
-    
-    def test_unsupported_conversion(self: 'TestUnitConversion') -> None:
+
+    def test_unsupported_conversion(self: "TestUnitConversion") -> None:
         """
-        This test validates that when an unsupported unit conversion is requested (e.g., from 'invalid_unit' to 'another_invalid_unit'), the converter raises a ValueError with an appropriate error message. The test confirms that the converter correctly identifies when a conversion path is not defined in its internal logic and responds with a clear exception rather than failing silently or returning incorrect results. This error handling ensures that users are informed of invalid conversion requests and can take corrective action, preventing confusion and ensuring data integrity when working with MPAS model output. 
+        This test validates that when an unsupported unit conversion is requested (e.g., from 'invalid_unit' to 'another_invalid_unit'), the converter raises a ValueError with an appropriate error message. The test confirms that the converter correctly identifies when a conversion path is not defined in its internal logic and responds with a clear exception rather than failing silently or returning incorrect results. This error handling ensures that users are informed of invalid conversion requests and can take corrective action, preventing confusion and ensuring data integrity when working with MPAS model output.
 
         Parameters:
             None
@@ -159,12 +199,11 @@ class TestUnitConversion:
             None
         """
         with pytest.raises(ValueError):
-            UnitConverter.convert_units(10.0, 'invalid_unit', 'another_invalid_unit')
-    
-    
-    def test_display_unit_preferences(self: 'TestUnitConversion') -> None:
+            UnitConverter.convert_units(10.0, "invalid_unit", "another_invalid_unit")
+
+    def test_display_unit_preferences(self: "TestUnitConversion") -> None:
         """
-        This test validates the logic for determining preferred display units for specific variables based on their names and original units. The test confirms that the get_display_units method returns the expected preferred display units (e.g., '°C' for temperature variables originally in 'K', 'hPa' for pressure variables originally in 'Pa', 'g/kg' for moisture variables originally in 'kg/kg') based on predefined mappings. The test also confirms that when no specific conversion is defined for a variable, the method returns the original unit unchanged, ensuring that display preferences are applied only when appropriate and that unknown variables do not cause errors. This functionality allows MPAS model output to be displayed using commonly accepted units for different meteorological variables, improving readability and consistency in visualizations. 
+        This test validates the logic for determining preferred display units for specific variables based on their names and original units. The test confirms that the get_display_units method returns the expected preferred display units (e.g., '°C' for temperature variables originally in 'K', 'hPa' for pressure variables originally in 'Pa', 'g/kg' for moisture variables originally in 'kg/kg') based on predefined mappings. The test also confirms that when no specific conversion is defined for a variable, the method returns the original unit unchanged, ensuring that display preferences are applied only when appropriate and that unknown variables do not cause errors. This functionality allows MPAS model output to be displayed using commonly accepted units for different meteorological variables, improving readability and consistency in visualizations.
 
         Parameters:
             None
@@ -172,17 +211,20 @@ class TestUnitConversion:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('t2m', 'K') == '°C'
-        assert UnitConverter.get_display_units('mslp', 'Pa') == 'hPa'
-        assert UnitConverter.get_display_units('q2', 'kg/kg') == 'g/kg'
-        assert UnitConverter.get_display_units('rainnc', 'mm') == 'mm'
-        assert UnitConverter.get_display_units('u10', 'm/s') == 'm/s'
-        
-        assert UnitConverter.get_display_units('unknown_var', 'original_unit') == 'original_unit'
-    
-    def test_metadata_unit_conversion(self: 'TestUnitConversion') -> None:
+        assert UnitConverter.get_display_units("t2m", "K") == "°C"
+        assert UnitConverter.get_display_units("mslp", "Pa") == "hPa"
+        assert UnitConverter.get_display_units("q2", "kg/kg") == "g/kg"
+        assert UnitConverter.get_display_units("rainnc", "mm") == "mm"
+        assert UnitConverter.get_display_units("u10", "m/s") == "m/s"
+
+        assert (
+            UnitConverter.get_display_units("unknown_var", "original_unit")
+            == "original_unit"
+        )
+
+    def test_metadata_unit_conversion(self: "TestUnitConversion") -> None:
         """
-        This test validates that the unit conversion process correctly updates the metadata attributes of MPAS variables to reflect the new display units while preserving the original units for provenance. The test confirms that after applying unit conversions to variables like 't2m' and 'mslp', the metadata dictionary contains the updated 'units' field with the preferred display unit (e.g., '°C' for 't2m', 'hPa' for 'mslp') and an 'original_units' field that retains the original unit (e.g., 'K' for 't2m', 'Pa' for 'mslp'). This metadata management ensures that users can understand both the displayed units and the original data units, providing transparency and traceability in MPAS model output visualizations. 
+        This test validates that the unit conversion process correctly updates the metadata attributes of MPAS variables to reflect the new display units while preserving the original units for provenance. The test confirms that after applying unit conversions to variables like 't2m' and 'mslp', the metadata dictionary contains the updated 'units' field with the preferred display unit (e.g., '°C' for 't2m', 'hPa' for 'mslp') and an 'original_units' field that retains the original unit (e.g., 'K' for 't2m', 'Pa' for 'mslp'). This metadata management ensures that users can understand both the displayed units and the original data units, providing transparency and traceability in MPAS model output visualizations.
 
         Parameters:
             None
@@ -190,22 +232,23 @@ class TestUnitConversion:
         Returns:
             None
         """
-        metadata = MPASFileMetadata.get_2d_variable_metadata('t2m')
+        metadata = MPASFileMetadata.get_2d_variable_metadata("t2m")
 
-        assert metadata['units'] == '°C'
-        assert metadata.get('original_units') == 'K'
-        assert metadata['long_name'] == '2-meter Temperature'
-        
-        metadata = MPASFileMetadata.get_2d_variable_metadata('mslp')
-        
-        assert metadata['units'] == 'hPa'
-        assert metadata.get('original_units') == 'Pa'
-        assert 'Pressure' in metadata['long_name']
-    
-    def test_convert_data_for_display(self: 'TestUnitConversion', 
-                                      mpas_surface_temp_data: np.ndarray) -> None:
+        assert metadata["units"] == "°C"
+        assert metadata.get("original_units") == "K"
+        assert metadata["long_name"] == "2-meter Temperature"
+
+        metadata = MPASFileMetadata.get_2d_variable_metadata("mslp")
+
+        assert metadata["units"] == "hPa"
+        assert metadata.get("original_units") == "Pa"
+        assert "Pressure" in metadata["long_name"]
+
+    def test_convert_data_for_display(
+        self: "TestUnitConversion", mpas_surface_temp_data: np.ndarray
+    ) -> None:
         """
-        This test validates the end-to-end functionality of the convert_data_for_display method, which applies unit conversions to data arrays while also updating metadata for display purposes. The test confirms that when converting a variable like 't2m' from 'K' to '°C', the method returns a converted data array with values correctly transformed (input values minus 273.15) and metadata that reflects the new display units ('°C') while retaining the original units ('K') for provenance. The test uses real MPAS surface temperature data to verify conversion accuracy with precision validation to 2 decimal places and checks that the converted values are within a reasonable physical range for surface temperatures. This comprehensive test ensures that the convert_data_for_display method functions correctly in a realistic scenario, enabling seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows. 
+        This test validates the end-to-end functionality of the convert_data_for_display method, which applies unit conversions to data arrays while also updating metadata for display purposes. The test confirms that when converting a variable like 't2m' from 'K' to '°C', the method returns a converted data array with values correctly transformed (input values minus 273.15) and metadata that reflects the new display units ('°C') while retaining the original units ('K') for provenance. The test uses real MPAS surface temperature data to verify conversion accuracy with precision validation to 2 decimal places and checks that the converted values are within a reasonable physical range for surface temperatures. This comprehensive test ensures that the convert_data_for_display method functions correctly in a realistic scenario, enabling seamless unit transformations on MPAS model output data arrays for visualization and analysis workflows.
 
         Parameters:
             mpas_surface_temp_data: Session fixture providing real MPAS surface temperature array.
@@ -216,15 +259,17 @@ class TestUnitConversion:
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
             return
-        
+
         subset_size = min(50, len(mpas_surface_temp_data))
 
         temp_data = xr.DataArray(
             mpas_surface_temp_data[:subset_size],
-            attrs={'units': 'K', 'long_name': '2-meter Temperature'}
+            attrs={"units": "K", "long_name": "2-meter Temperature"},
         )
-        
-        converted_data, metadata = UnitConverter.convert_data_for_display(temp_data, 't2m', temp_data)        
+
+        converted_data, metadata = UnitConverter.convert_data_for_display(
+            temp_data, "t2m", temp_data
+        )
         expected_values = mpas_surface_temp_data[:subset_size] - 273.15
 
         if isinstance(converted_data, xr.DataArray):
@@ -233,18 +278,20 @@ class TestUnitConversion:
             result_values = np.asarray(converted_data)
 
         np.testing.assert_array_almost_equal(result_values, expected_values, decimal=2)
-        
-        assert metadata['units'] == '°C'
-        assert metadata.get('original_units') == 'K'
+
+        assert metadata["units"] == "°C"
+        assert metadata.get("original_units") == "K"
         assert np.all(result_values >= -80.0) and np.all(result_values <= 60.0)
 
 
 class TestDisplayUnitPreferencesExtended:
-    """ Extended tests for get_display_units covering substring matching and edge cases. """
+    """Extended tests for get_display_units covering substring matching and edge cases."""
 
-    def test_exact_match_temperature(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_exact_match_temperature(
+        self: "TestDisplayUnitPreferencesExtended",
+    ) -> None:
         """
-        This test validates that the get_display_units method returns the preferred display units for temperature variables based on exact variable name matches. The test confirms that variables like 't2m', 'temperature', 'tsk', and 'sst' with original units of 'K' are correctly identified as temperature variables and return '°C' as the preferred display unit. This ensures that MPAS model output containing these common temperature variable names will be displayed using the widely accepted Celsius scale, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences. 
+        This test validates that the get_display_units method returns the preferred display units for temperature variables based on exact variable name matches. The test confirms that variables like 't2m', 'temperature', 'tsk', and 'sst' with original units of 'K' are correctly identified as temperature variables and return '°C' as the preferred display unit. This ensures that MPAS model output containing these common temperature variable names will be displayed using the widely accepted Celsius scale, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -252,14 +299,14 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('t2m', 'K') == '°C'
-        assert UnitConverter.get_display_units('temperature', 'K') == '°C'
-        assert UnitConverter.get_display_units('tsk', 'K') == '°C'
-        assert UnitConverter.get_display_units('sst', 'K') == '°C'
+        assert UnitConverter.get_display_units("t2m", "K") == "°C"
+        assert UnitConverter.get_display_units("temperature", "K") == "°C"
+        assert UnitConverter.get_display_units("tsk", "K") == "°C"
+        assert UnitConverter.get_display_units("sst", "K") == "°C"
 
-    def test_exact_match_pressure(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_exact_match_pressure(self: "TestDisplayUnitPreferencesExtended") -> None:
         """
-        This test validates that the get_display_units method returns the preferred display units for pressure variables based on exact variable name matches. The test confirms that variables like 'mslp', 'psfc', and 'slp' with original units of 'Pa' are correctly identified as pressure variables and return 'hPa' as the preferred display unit. This ensures that MPAS model output containing these common pressure variable names will be displayed using the widely accepted hectopascal scale, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences. 
+        This test validates that the get_display_units method returns the preferred display units for pressure variables based on exact variable name matches. The test confirms that variables like 'mslp', 'psfc', and 'slp' with original units of 'Pa' are correctly identified as pressure variables and return 'hPa' as the preferred display unit. This ensures that MPAS model output containing these common pressure variable names will be displayed using the widely accepted hectopascal scale, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -267,13 +314,13 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('mslp', 'Pa') == 'hPa'
-        assert UnitConverter.get_display_units('psfc', 'Pa') == 'hPa'
-        assert UnitConverter.get_display_units('slp', 'Pa') == 'hPa'
+        assert UnitConverter.get_display_units("mslp", "Pa") == "hPa"
+        assert UnitConverter.get_display_units("psfc", "Pa") == "hPa"
+        assert UnitConverter.get_display_units("slp", "Pa") == "hPa"
 
-    def test_exact_match_wind(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_exact_match_wind(self: "TestDisplayUnitPreferencesExtended") -> None:
         """
-        This test validates that the get_display_units method returns the preferred display units for wind speed variables based on exact variable name matches. The test confirms that variables like 'u10' and 'wind_speed' with original units of 'm/s' are correctly identified as wind speed variables and return 'm/s' as the preferred display unit, indicating that no conversion is needed for these specific variable names. This ensures that MPAS model output containing these common wind speed variable names will be displayed using their original units, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences. 
+        This test validates that the get_display_units method returns the preferred display units for wind speed variables based on exact variable name matches. The test confirms that variables like 'u10' and 'wind_speed' with original units of 'm/s' are correctly identified as wind speed variables and return 'm/s' as the preferred display unit, indicating that no conversion is needed for these specific variable names. This ensures that MPAS model output containing these common wind speed variable names will be displayed using their original units, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -281,12 +328,12 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('u10', 'm/s') == 'm/s'
-        assert UnitConverter.get_display_units('wind_speed', 'm/s') == 'm/s'
+        assert UnitConverter.get_display_units("u10", "m/s") == "m/s"
+        assert UnitConverter.get_display_units("wind_speed", "m/s") == "m/s"
 
-    def test_exact_match_moisture(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_exact_match_moisture(self: "TestDisplayUnitPreferencesExtended") -> None:
         """
-        This test validates that the get_display_units method returns the preferred display units for moisture variables based on exact variable name matches. The test confirms that variables like 'q2', 'qv', and 'relhum' with original units of 'kg/kg' or '%' are correctly identified as moisture variables and return 'g/kg' or '%' as the preferred display unit, respectively. This ensures that MPAS model output containing these common moisture variable names will be displayed using widely accepted units for humidity, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences. 
+        This test validates that the get_display_units method returns the preferred display units for moisture variables based on exact variable name matches. The test confirms that variables like 'q2', 'qv', and 'relhum' with original units of 'kg/kg' or '%' are correctly identified as moisture variables and return 'g/kg' or '%' as the preferred display unit, respectively. This ensures that MPAS model output containing these common moisture variable names will be displayed using widely accepted units for humidity, improving readability and consistency in visualizations. The test also confirms that this exact matching logic takes precedence over any substring matching, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -294,12 +341,12 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('qv', 'kg/kg') == 'g/kg'
-        assert UnitConverter.get_display_units('relhum', '%') == '%'
+        assert UnitConverter.get_display_units("qv", "kg/kg") == "g/kg"
+        assert UnitConverter.get_display_units("relhum", "%") == "%"
 
-    def test_substring_match(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_substring_match(self: "TestDisplayUnitPreferencesExtended") -> None:
         """
-        This test validates that the get_display_units method can return preferred display units based on substring matches in variable names when exact matches are not found. The test confirms that variables containing substrings like 'theta' and 'pressure' will return preferred display units of '°C' and 'hPa', respectively, even if the full variable name does not exactly match predefined preferences. This substring matching logic allows for flexible handling of MPAS model output variables that may have varying naming conventions while still applying appropriate display unit preferences based on recognizable patterns. The test also confirms that this substring matching is applied only when no exact match is found, ensuring that specific variable names are correctly handled according to defined preferences. 
+        This test validates that the get_display_units method can return preferred display units based on substring matches in variable names when exact matches are not found. The test confirms that variables containing substrings like 'theta' and 'pressure' will return preferred display units of '°C' and 'hPa', respectively, even if the full variable name does not exactly match predefined preferences. This substring matching logic allows for flexible handling of MPAS model output variables that may have varying naming conventions while still applying appropriate display unit preferences based on recognizable patterns. The test also confirms that this substring matching is applied only when no exact match is found, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -307,12 +354,14 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('theta_base', 'K') == '°C'
-        assert UnitConverter.get_display_units('surface_pressure_field', 'Pa') == 'hPa'
+        assert UnitConverter.get_display_units("theta_base", "K") == "°C"
+        assert UnitConverter.get_display_units("surface_pressure_field", "Pa") == "hPa"
 
-    def test_no_conversion_available(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_no_conversion_available(
+        self: "TestDisplayUnitPreferencesExtended",
+    ) -> None:
         """
-        This test validates that when the get_display_units method is called for a variable and original unit combination that does not have a defined preferred display unit or conversion path, it returns the original unit unchanged. The test confirms that for variables like 't2m' with an unrecognized original unit (e.g., 'foo'), the method will return 'foo' as the display unit since no conversion to a preferred unit (e.g., '°C') is possible. This behavior ensures that the method can gracefully handle cases where no specific display preferences are defined without causing errors or returning incorrect units, allowing for flexible handling of MPAS model output with varying unit specifications. The test also confirms that this fallback logic is applied only when no exact or substring matches are found, ensuring that specific variable names are correctly handled according to defined preferences when applicable. 
+        This test validates that when the get_display_units method is called for a variable and original unit combination that does not have a defined preferred display unit or conversion path, it returns the original unit unchanged. The test confirms that for variables like 't2m' with an unrecognized original unit (e.g., 'foo'), the method will return 'foo' as the display unit since no conversion to a preferred unit (e.g., '°C') is possible. This behavior ensures that the method can gracefully handle cases where no specific display preferences are defined without causing errors or returning incorrect units, allowing for flexible handling of MPAS model output with varying unit specifications. The test also confirms that this fallback logic is applied only when no exact or substring matches are found, ensuring that specific variable names are correctly handled according to defined preferences when applicable.
 
         Parameters:
             None
@@ -320,12 +369,14 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        result = UnitConverter.get_display_units('t2m', 'foo')
-        assert result == '°C' 
+        result = UnitConverter.get_display_units("t2m", "foo")
+        assert result == "°C"
 
-    def test_same_unit_already_preferred(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_same_unit_already_preferred(
+        self: "TestDisplayUnitPreferencesExtended",
+    ) -> None:
         """
-        This test validates that when the get_display_units method is called for a variable and original unit combination that already matches the preferred display unit, it returns the original unit unchanged. The test confirms that for variables like 't2m' with an original unit of '°C', the method will return '°C' as the display unit since it already matches the preferred unit for temperature variables. This behavior ensures that the method does not perform unnecessary conversions or modifications when the original units are already suitable for display, allowing for efficient handling of MPAS model output without introducing unintended changes to units. The test also confirms that this logic is applied only when an exact match is found, ensuring that specific variable names are correctly handled according to defined preferences when applicable. 
+        This test validates that when the get_display_units method is called for a variable and original unit combination that already matches the preferred display unit, it returns the original unit unchanged. The test confirms that for variables like 't2m' with an original unit of '°C', the method will return '°C' as the display unit since it already matches the preferred unit for temperature variables. This behavior ensures that the method does not perform unnecessary conversions or modifications when the original units are already suitable for display, allowing for efficient handling of MPAS model output without introducing unintended changes to units. The test also confirms that this logic is applied only when an exact match is found, ensuring that specific variable names are correctly handled according to defined preferences when applicable.
 
         Parameters:
             None
@@ -333,12 +384,14 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('t2m', '°C') == '°C'
-        assert UnitConverter.get_display_units('mslp', 'hPa') == 'hPa'
+        assert UnitConverter.get_display_units("t2m", "°C") == "°C"
+        assert UnitConverter.get_display_units("mslp", "hPa") == "hPa"
 
-    def test_unknown_variable_returns_current(self: 'TestDisplayUnitPreferencesExtended') -> None:
+    def test_unknown_variable_returns_current(
+        self: "TestDisplayUnitPreferencesExtended",
+    ) -> None:
         """
-        This test validates that when the get_display_units method is called for a variable name that does not match any known preferences and has an unrecognized original unit, it returns the original unit unchanged. The test confirms that for a completely unknown variable (e.g., 'completely_unknown_var') with an unrecognized original unit (e.g., 'kg/m^3'), the method will return 'kg/m^3' as the display unit since no conversion to a preferred unit is possible. This behavior ensures that the method can gracefully handle cases where no specific display preferences are defined without causing errors or returning incorrect units, allowing for flexible handling of MPAS model output with varying variable names and unit specifications. The test also confirms that this fallback logic is applied only when no exact or substring matches are found, ensuring that specific variable names are correctly handled according to defined preferences when applicable. 
+        This test validates that when the get_display_units method is called for a variable name that does not match any known preferences and has an unrecognized original unit, it returns the original unit unchanged. The test confirms that for a completely unknown variable (e.g., 'completely_unknown_var') with an unrecognized original unit (e.g., 'kg/m^3'), the method will return 'kg/m^3' as the display unit since no conversion to a preferred unit is possible. This behavior ensures that the method can gracefully handle cases where no specific display preferences are defined without causing errors or returning incorrect units, allowing for flexible handling of MPAS model output with varying variable names and unit specifications. The test also confirms that this fallback logic is applied only when no exact or substring matches are found, ensuring that specific variable names are correctly handled according to defined preferences when applicable.
 
         Parameters:
             None
@@ -346,15 +399,20 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units('completely_unknown_var', 'kg/m^3') == 'kg/m^3'
+        assert (
+            UnitConverter.get_display_units("completely_unknown_var", "kg/m^3")
+            == "kg/m^3"
+        )
 
 
 class TestConvertDataForDisplayExtended:
-    """ Extended tests for convert_data_for_display edge cases. """
+    """Extended tests for convert_data_for_display edge cases."""
 
-    def test_conversion_failure_returns_original(self: 'TestConvertDataForDisplayExtended') -> None:
+    def test_conversion_failure_returns_original(
+        self: "TestConvertDataForDisplayExtended",
+    ) -> None:
         """
-        This test validates that when the convert_data_for_display method is called for a variable and original unit combination that has a defined preferred display unit but the actual conversion fails (e.g., due to an unsupported original unit), the method returns the original data unchanged along with metadata that indicates the original units. The test confirms that for a variable like 'pressure' with an original unit of 'exotic_unit' that cannot be converted to the preferred display unit (e.g., 'hPa'), the method will return the input data directly without modification and include metadata that retains 'exotic_unit' as the original units. This behavior ensures that the method can gracefully handle conversion failures without causing errors or returning incorrect data, allowing for flexible handling of MPAS model output with varying unit specifications while still providing transparency about the original data units in the metadata. The test also confirms that this fallback logic is applied only when a conversion failure occurs, ensuring that successful conversions still return modified data and updated metadata as expected. 
+        This test validates that when the convert_data_for_display method is called for a variable and original unit combination that has a defined preferred display unit but the actual conversion fails (e.g., due to an unsupported original unit), the method returns the original data unchanged along with metadata that indicates the original units. The test confirms that for a variable like 'pressure' with an original unit of 'exotic_unit' that cannot be converted to the preferred display unit (e.g., 'hPa'), the method will return the input data directly without modification and include metadata that retains 'exotic_unit' as the original units. This behavior ensures that the method can gracefully handle conversion failures without causing errors or returning incorrect data, allowing for flexible handling of MPAS model output with varying unit specifications while still providing transparency about the original data units in the metadata. The test also confirms that this fallback logic is applied only when a conversion failure occurs, ensuring that successful conversions still return modified data and updated metadata as expected.
 
         Parameters:
             None
@@ -364,15 +422,15 @@ class TestConvertDataForDisplayExtended:
         """
         data = xr.DataArray(
             np.array([300.0, 301.0, 302.0]),
-            attrs={'units': 'exotic_unit', 'long_name': 'Test Variable'}
+            attrs={"units": "exotic_unit", "long_name": "Test Variable"},
         )
 
-        _, metadata = UnitConverter.convert_data_for_display(data, 'pressure', data)
-        assert metadata['original_units'] == 'exotic_unit'
+        _, metadata = UnitConverter.convert_data_for_display(data, "pressure", data)
+        assert metadata["original_units"] == "exotic_unit"
 
-    def test_no_unit_attribute(self: 'TestConvertDataForDisplayExtended') -> None:
+    def test_no_unit_attribute(self: "TestConvertDataForDisplayExtended") -> None:
         """
-        This test validates that when the convert_data_for_display method is called for a variable that does not have a 'units' attribute in its metadata, it can still perform conversions based on the variable name and original data type, and it updates the metadata to include the new display units while retaining the original units as None. The test confirms that for a variable like 't2m' with no 'units' attribute, the method will attempt to determine the preferred display units based on the variable name and return converted data accordingly, while also updating the metadata to include 'units' with the preferred display unit (e.g., '°C') and 'original_units' set to None. This behavior ensures that the method can handle cases where unit information is missing from the input data without causing errors, allowing for flexible handling of MPAS model output while still providing useful metadata about display units. The test also confirms that this logic is applied only when the 'units' attribute is missing, ensuring that existing unit information is preserved when available. 
+        This test validates that when the convert_data_for_display method is called for a variable that does not have a 'units' attribute in its metadata, it can still perform conversions based on the variable name and original data type, and it updates the metadata to include the new display units while retaining the original units as None. The test confirms that for a variable like 't2m' with no 'units' attribute, the method will attempt to determine the preferred display units based on the variable name and return converted data accordingly, while also updating the metadata to include 'units' with the preferred display unit (e.g., '°C') and 'original_units' set to None. This behavior ensures that the method can handle cases where unit information is missing from the input data without causing errors, allowing for flexible handling of MPAS model output while still providing useful metadata about display units. The test also confirms that this logic is applied only when the 'units' attribute is missing, ensuring that existing unit information is preserved when available.
 
         Parameters:
             None
@@ -381,6 +439,6 @@ class TestConvertDataForDisplayExtended:
             None
         """
         data = xr.DataArray(np.array([280.0, 290.0, 300.0]))
-        _, metadata = UnitConverter.convert_data_for_display(data, 't2m', data)
-        assert 'units' in metadata
-        assert 'original_units' in metadata
+        _, metadata = UnitConverter.convert_data_for_display(data, "t2m", data)
+        assert "units" in metadata
+        assert "original_units" in metadata

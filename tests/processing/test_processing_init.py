@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Tests for mpasdiag.processing package __init__.py
 
@@ -10,6 +12,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 import sys
 import importlib
 from unittest.mock import patch
@@ -17,7 +20,7 @@ from unittest.mock import patch
 
 def test_remapping_import_fallback_sets_none() -> None:
     """
-    This test verifies that when the remapping submodule is unavailable, the mpasdiag.processing package correctly sets the _REMAPPING_AVAILABLE flag to False and all remapping-related symbols to None. It uses unittest.mock.patch.dict to simulate the ImportError scenario by temporarily removing the remapping module from sys.modules. The test then reloads the processing package and asserts that the expected attributes are set to None, confirming that the fallback logic in __init__.py is functioning as intended. 
+    This test verifies that when the remapping submodule is unavailable, the mpasdiag.processing package correctly sets the _REMAPPING_AVAILABLE flag to False and all remapping-related symbols to None. It uses unittest.mock.patch.dict to simulate the ImportError scenario by temporarily removing the remapping module from sys.modules. The test then reloads the processing package and asserts that the expected attributes are set to None, confirming that the fallback logic in __init__.py is functioning as intended.
 
     Parameters:
         None
@@ -27,7 +30,7 @@ def test_remapping_import_fallback_sets_none() -> None:
     """
     import mpasdiag.processing as proc_pkg
 
-    with patch.dict(sys.modules, {'mpasdiag.processing.remapping': None}):
+    with patch.dict(sys.modules, {"mpasdiag.processing.remapping": None}):
         importlib.reload(proc_pkg)
 
         assert proc_pkg._REMAPPING_AVAILABLE is False

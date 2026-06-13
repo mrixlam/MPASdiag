@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPAS Diagnostics Package
@@ -17,4 +19,9 @@ from mpasdiag.diagnostics.wind import WindDiagnostics
 from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
 
-__all__ = ['PrecipitationDiagnostics', 'WindDiagnostics', 'SoundingDiagnostics', 'MoistureTransportDiagnostics']
+__all__ = [
+    "PrecipitationDiagnostics",
+    "WindDiagnostics",
+    "SoundingDiagnostics",
+    "MoistureTransportDiagnostics",
+]

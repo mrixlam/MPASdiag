@@ -825,6 +825,42 @@ python -m pytest tests/ -n auto
      --lat-min -10 --lat-max 10 --lon-min 90 --lon-max 120
    ```
 
+### Parallel execution on HPC systems
+
+MPASdiag parallelizes batch plotting over timesteps: one MPI rank (or pool
+worker) renders one timestep at a time. Scaling is therefore bounded by the
+number of timesteps, and per-rank efficiency depends on each rank not fighting
+its neighbors for cores and filesystem bandwidth.
+
+1. **Pin per-rank thread pools.** `MPASParallelManager` automatically pins dask
+   to the synchronous scheduler and caps BLAS threads to
+   `cores_per_node // ranks_per_node` on every rank (override with
+   `MPASDIAG_WORKER_THREADS=<n>`). Export the standard thread variables in the
+   job script as well so they apply from the very first import:
+   ```bash
+   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
+   ```
+
+2. **Bind ranks to cores** so the OS cannot migrate them onto each other:
+   ```bash
+   # Open MPI / Derecho cray-mpich
+   mpiexec -n 16 --bind-to core python examples/benchmark.py
+   # PBS: request exclusive nodes for trustworthy benchmarks
+   #PBS -l select=1:ncpus=128:mpiprocs=16
+   ```
+
+3. **Do not request more ranks than ~half the timestep count.** With 30
+   timesteps, ranks beyond 15 sit idle for the tail of every batch (the manager
+   logs a granularity notice when this happens).
+
+4. **Benchmark before and after changes** with repeated trials, then compare:
+   ```bash
+   mpiexec -n 16 python examples/benchmark.py --trials 3
+   python examples/analyze_benchmarks.py output/benchmarks/benchmark_results_*.csv
+   ```
+   The analyzer reports speedup, parallel efficiency, rank imbalance, and flags
+   anti-scaling configurations.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -942,13 +978,15 @@ logger = get_logger(__name__)                         # in each module
 
 ## Contributing
 
-We welcome contributions! Please see our contributing guidelines:
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines, including development setup, code style, and the pull request process. In short:
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature-name`)
 3. Make your changes with tests
 4. Run the test suite (`python -m pytest`)
 5. Submit a pull request
+
+All participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ### Development Setup
 

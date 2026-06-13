@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "MPASdiag: Data Processing, Visualization and Analysis Toolkit for MPAS from Native Unstructured Mesh"
+abstract: >-
+  MPASdiag is a Python package for the diagnostic analysis and visualization of
+  Model for Prediction Across Scales (MPAS) output on unstructured meshes. It
+  provides 2D and 3D diagnostics, remapping, parallel batch processing, and
+  publication-quality plotting, with a command-line interface.
+type: software
+authors:
+  - given-names: Mohammad Rubaiat
+    family-names: Islam
+    email: mrislam@ucar.edu
+    affiliation: "Mesoscale & Microscale Meteorology Laboratory, NSF NCAR"
+  - given-names: Zhiquan
+    family-names: Liu
+    affiliation: "Mesoscale & Microscale Meteorology Laboratory, NSF NCAR"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19486544
+    description: "Zenodo archive"
+doi: 10.5281/zenodo.19486544
+version: 1.0.0
+date-released: "2026-06-12"
+license: MIT
+repository-code: "https://github.com/mrixlam/MPASdiag"
+url: "https://github.com/mrixlam/MPASdiag"
+keywords:
+  - MPAS
+  - atmospheric modeling
+  - unstructured mesh
+  - precipitation analysis
+  - visualization
+  - meteorology
+  - weather prediction

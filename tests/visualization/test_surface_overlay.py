@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Surface Overlay Tests
 
-This module contains unit tests for the surface overlay functionality in the `MPASSurfacePlotter`. The tests cover successful overlay rendering, error propagation for invalid configurations, and handling of edge cases such as multidimensional overlay data and all-NaN overlays. The tests utilize real MPAS coordinate and data fixtures to ensure realistic conditions and validate the integration of overlay features with the main surface plotting logic. 
+This module contains unit tests for the surface overlay functionality in the `MPASSurfacePlotter`. The tests cover successful overlay rendering, error propagation for invalid configurations, and handling of edge cases such as multidimensional overlay data and all-NaN overlays. The tests utilize real MPAS coordinate and data fixtures to ensure realistic conditions and validate the integration of overlay features with the main surface plotting logic.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -16,7 +18,8 @@ import sys
 import pytest
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from unittest.mock import MagicMock, patch
@@ -25,17 +28,19 @@ from mpasdiag.visualization.surface import MPASSurfacePlotter
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.visualization.surface import SurfaceMapStyle
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 class TestWindOverlay:
-    """ Tests for wind overlay functionality. """
-    
+    """Tests for wind overlay functionality."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestWindOverlay', 
-                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
-                     mpas_surface_temp_data: np.ndarray, 
-                     mpas_wind_data: tuple[np.ndarray, np.ndarray]) -> None:
+    def setup_method(
+        self: "TestWindOverlay",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_surface_temp_data: np.ndarray,
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+    ) -> None:
         """
         This fixture initializes the test environment for wind overlay tests. It prepares an `MPASSurfacePlotter` instance and loads real MPAS coordinate, surface temperature, and wind data to be used in the overlay tests. The fixture also computes the extent bounds from the coordinate data for use in plotting.
 
@@ -47,27 +52,33 @@ class TestWindOverlay:
         Returns:
             None
         """
-        if mpas_coordinates is None or mpas_surface_temp_data is None or mpas_wind_data is None:
+        if (
+            mpas_coordinates is None
+            or mpas_surface_temp_data is None
+            or mpas_wind_data is None
+        ):
             pytest.skip("MPAS data not available")
             return
-        
+
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:50]
         self.lat = lat_full[:50]
-        
+
         self.data = mpas_surface_temp_data[:50]
-        
+
         u_data, v_data = mpas_wind_data
         self.u_data = u_data[:50]
         self.v_data = v_data[:50]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_wind_overlay_success(self: 'TestWindOverlay') -> None:
+
+    def test_wind_overlay_success(self: "TestWindOverlay") -> None:
         """
         This test verifies that a valid wind overlay is added to the surface map without errors. It mocks the `MPASWindPlotter` to ensure that the `add_wind_overlay` method is called when a proper wind overlay configuration is provided. The test asserts that the plotting function returns a Figure and that the overlay method is invoked as expected.
 
@@ -78,29 +89,29 @@ class TestWindOverlay:
             None
         """
         wind_config = {
-            'u_data': self.u_data,
-            'v_data': self.v_data,
-            'plot_type': 'arrows'
+            "u_data": self.u_data,
+            "v_data": self.v_data,
+            "plot_type": "arrows",
         }
-        
-        with patch('mpasdiag.visualization.surface.MPASWindPlotter') as mock_wind:
+
+        with patch("mpasdiag.visualization.surface.MPASWindPlotter") as mock_wind:
             mock_wind_instance = MagicMock()
             mock_wind.return_value = mock_wind_instance
-            
+
             fig, _ = self.plotter.create_surface_map(
-                         self.lon,
-                         self.lat,
-                         self.data,
-                         't2m',
-                         GeographicBounds(*self.extent_bounds),
-                         style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
-                     )
-            
+                self.lon,
+                self.lat,
+                self.data,
+                "t2m",
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type="scatter", wind_overlay=wind_config),
+            )
+
             mock_wind_instance.add_wind_overlay.assert_called_once()
-        
+
         plt.close(fig)
-    
-    def test_wind_overlay_value_error(self: 'TestWindOverlay') -> None:
+
+    def test_wind_overlay_value_error(self: "TestWindOverlay") -> None:
         """
         This test confirms that providing an invalid wind overlay configuration raises a `ValueError`. By mocking the `MPASWindPlotter` to raise a `ValueError` when `add_wind_overlay` is called with an invalid configuration, the test asserts that the expected exception is raised by the plotting function, indicating proper error handling for misuse of the wind overlay feature.
 
@@ -110,24 +121,28 @@ class TestWindOverlay:
         Returns:
             None
         """
-        wind_config = {'invalid': 'config'}
-        
-        with patch('mpasdiag.visualization.surface.MPASWindPlotter') as mock_wind:
+        wind_config = {"invalid": "config"}
+
+        with patch("mpasdiag.visualization.surface.MPASWindPlotter") as mock_wind:
             mock_wind_instance = MagicMock()
             mock_wind.return_value = mock_wind_instance
-            mock_wind_instance.add_wind_overlay.side_effect = ValueError("Invalid wind config")
-            
+            mock_wind_instance.add_wind_overlay.side_effect = ValueError(
+                "Invalid wind config"
+            )
+
             with pytest.raises(ValueError):
                 self.plotter.create_surface_map(
                     self.lon,
                     self.lat,
                     self.data,
-                    't2m',
+                    "t2m",
                     GeographicBounds(*self.extent_bounds),
-                    style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
+                    style=SurfaceMapStyle(
+                        plot_type="scatter", wind_overlay=wind_config
+                    ),
                 )
-    
-    def test_wind_overlay_other_exception(self: 'TestWindOverlay') -> None:
+
+    def test_wind_overlay_other_exception(self: "TestWindOverlay") -> None:
         """
         This test ensures that unexpected exceptions raised during wind overlay processing are handled gracefully by the plotter. By mocking the `MPASWindPlotter` to raise a generic `RuntimeError` when `add_wind_overlay` is called, the test asserts that the plotting function does not crash but instead returns a Figure while printing a warning about the overlay failure. This verifies that the plotter can continue to function even when the overlay logic encounters unforeseen issues.
 
@@ -137,34 +152,38 @@ class TestWindOverlay:
         Returns:
             None
         """
-        wind_config = {'u_data': self.u_data, 'v_data': self.v_data}
-        
-        with patch('mpasdiag.visualization.surface.MPASWindPlotter') as mock_wind:
+        wind_config = {"u_data": self.u_data, "v_data": self.v_data}
+
+        with patch("mpasdiag.visualization.surface.MPASWindPlotter") as mock_wind:
             mock_wind_instance = MagicMock()
             mock_wind.return_value = mock_wind_instance
-            mock_wind_instance.add_wind_overlay.side_effect = RuntimeError("Wind overlay failed")
-            
+            mock_wind_instance.add_wind_overlay.side_effect = RuntimeError(
+                "Wind overlay failed"
+            )
+
             fig, _ = self.plotter.create_surface_map(
-                         self.lon,
-                         self.lat,
-                         self.data,
-                         't2m',
-                         GeographicBounds(*self.extent_bounds),
-                         style=SurfaceMapStyle(plot_type='scatter', wind_overlay=wind_config),
-                     )
-            
+                self.lon,
+                self.lat,
+                self.data,
+                "t2m",
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type="scatter", wind_overlay=wind_config),
+            )
+
             assert isinstance(fig, Figure)
-        
+
         plt.close(fig)
 
 
 class TestSurfaceOverlay:
-    """ Tests for surface overlay functionality. """
-    
+    """Tests for surface overlay functionality."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestSurfaceOverlay', 
-                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
-                     mpas_surface_temp_data: np.ndarray) -> None:
+    def setup_method(
+        self: "TestSurfaceOverlay",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This fixture initializes the test environment for surface overlay tests. It prepares an `MPASSurfacePlotter` instance and loads real MPAS coordinate and surface temperature data to be used in the overlay tests. The fixture also computes the extent bounds from the coordinate data for use in plotting.
 
@@ -178,20 +197,22 @@ class TestSurfaceOverlay:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:50]
         self.lat = lat_full[:50]
-        
+
         self.data = mpas_surface_temp_data[:50]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_surface_overlay_success(self: 'TestSurfaceOverlay') -> None:
+
+    def test_surface_overlay_success(self: "TestSurfaceOverlay") -> None:
         """
         This test verifies that a valid surface overlay is added to the surface map without errors. It constructs a realistic contour overlay configuration using the real MPAS data and asserts that the plotting function returns a Figure instance, indicating that the overlay was processed successfully and integrated with the main surface plot.
 
@@ -202,25 +223,25 @@ class TestSurfaceOverlay:
             None
         """
         surface_config = {
-            'data': self.data * 3.5,  
-            'var_name': 'pressure',
-            'plot_type': 'contour',
-            'levels': [950, 1000, 1050]
+            "data": self.data * 3.5,
+            "var_name": "pressure",
+            "plot_type": "contour",
+            "levels": [950, 1000, 1050],
         }
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_surface_overlay_value_error(self: 'TestSurfaceOverlay') -> None:
+
+    def test_surface_overlay_value_error(self: "TestSurfaceOverlay") -> None:
         """
         This test confirms that providing an invalid surface overlay configuration raises a `ValueError`. By constructing a surface overlay configuration with an unsupported `plot_type` and asserting that the plotting function raises a `ValueError`, the test verifies that the plotter properly validates overlay configurations and surfaces errors when they are misused.
 
@@ -230,22 +251,21 @@ class TestSurfaceOverlay:
         Returns:
             None
         """
-        surface_config = {
-            'data': self.data,
-            'plot_type': 'invalid_type'
-        }
-        
+        surface_config = {"data": self.data, "plot_type": "invalid_type"}
+
         with pytest.raises(ValueError):
             self.plotter.create_surface_map(
                 self.lon,
                 self.lat,
                 self.data,
-                't2m',
+                "t2m",
                 GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                style=SurfaceMapStyle(
+                    plot_type="scatter", surface_overlay=surface_config
+                ),
             )
-    
-    def test_surface_overlay_other_exception(self: 'TestSurfaceOverlay') -> None:
+
+    def test_surface_overlay_other_exception(self: "TestSurfaceOverlay") -> None:
         """
         This test ensures that unexpected exceptions raised during surface overlay processing are handled gracefully by the plotter. By mocking the internal overlay processing to raise a generic `RuntimeError`, the test asserts that the plotting function does not crash but instead returns a Figure while printing a warning about the overlay failure. This verifies that the plotter can continue to function even when the overlay logic encounters unforeseen issues.
 
@@ -255,28 +275,30 @@ class TestSurfaceOverlay:
         Returns:
             None
         """
-        surface_config = {'data': None}
-        
+        surface_config = {"data": None}
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
 class TestSurfaceOverlayMethod:
-    """ Tests for _add_surface_overlay method. """
-    
+    """Tests for _add_surface_overlay method."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestSurfaceOverlayMethod', 
-                     mpas_coordinates: tuple[np.ndarray, np.ndarray], 
-                     mpas_surface_temp_data: np.ndarray) -> None:
+    def setup_method(
+        self: "TestSurfaceOverlayMethod",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This fixture initializes the test environment for `_add_surface_overlay` method tests. It prepares an `MPASSurfacePlotter` instance and loads real MPAS coordinate and surface temperature data to be used in testing the internal overlay processing logic. The fixture also computes the extent bounds from the coordinate data for use in plotting.
 
@@ -289,20 +311,22 @@ class TestSurfaceOverlayMethod:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return 
-        
+            return
+
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:50]
         self.lat = lat_full[:50]
         self.temp_data = mpas_surface_temp_data[:50]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_overlay_invalid_plot_type(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_invalid_plot_type(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test confirms that providing an unsupported `plot_type` in the surface overlay configuration raises a `ValueError`. By constructing a surface overlay configuration with an invalid `plot_type` and asserting that the internal `_add_surface_overlay` method raises a `ValueError`, the test verifies that the method properly validates the overlay configuration and surfaces errors when unsupported plot types are specified.
 
@@ -312,23 +336,24 @@ class TestSurfaceOverlayMethod:
         Returns:
             None
         """
-        surface_config = {
-            'data': self.temp_data,
-            'plot_type': 'invalid'
-        }
-        
+        surface_config = {"data": self.temp_data, "plot_type": "invalid"}
+
         with pytest.raises(ValueError) as exc_info:
             self.plotter.create_surface_map(
                 self.lon,
                 self.lat,
                 self.temp_data,
-                't2m',
+                "t2m",
                 GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
+                style=SurfaceMapStyle(
+                    plot_type="scatter", surface_overlay=surface_config
+                ),
             )
-        assert 'Unsupported surface overlay plot_type' in str(exc_info.value)
-    
-    def test_overlay_multidimensional_with_level_index(self: 'TestSurfaceOverlayMethod') -> None:
+        assert "Unsupported surface overlay plot_type" in str(exc_info.value)
+
+    def test_overlay_multidimensional_with_level_index(
+        self: "TestSurfaceOverlayMethod",
+    ) -> None:
         """
         This test verifies that the surface overlay method can handle multidimensional overlay data when a valid `level_index` is provided. By creating a 2D overlay dataset and specifying a `level_index`, the test asserts that the overlay is processed correctly and that a Figure is returned, indicating successful rendering of the specified level from the multidimensional data.
 
@@ -338,27 +363,29 @@ class TestSurfaceOverlayMethod:
         Returns:
             None
         """
-        overlay_data = np.tile(self.temp_data, (10, 1)).T  
-        
+        overlay_data = np.tile(self.temp_data, (10, 1)).T
+
         surface_config = {
-            'data': overlay_data,
-            'plot_type': 'contour',
-            'level_index': 5
+            "data": overlay_data,
+            "plot_type": "contour",
+            "level_index": 5,
         }
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_multidimensional_no_level_index(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_multidimensional_no_level_index(
+        self: "TestSurfaceOverlayMethod",
+    ) -> None:
         """
         This test confirms that when multidimensional overlay data is provided without a `level_index`, the method defaults to using the first level (index 0) and still produces a Figure. By creating a 2D overlay dataset and omitting the `level_index`, the test asserts that the method handles this case gracefully and returns a Figure, indicating that it defaulted to the first level of the data.
 
@@ -368,26 +395,23 @@ class TestSurfaceOverlayMethod:
         Returns:
             None
         """
-        overlay_data = np.tile(self.temp_data, (10, 1)).T  
-        
-        surface_config = {
-            'data': overlay_data,
-            'plot_type': 'contour'
-        }
-        
+        overlay_data = np.tile(self.temp_data, (10, 1)).T
+
+        surface_config = {"data": overlay_data, "plot_type": "contour"}
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_no_valid_data(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_no_valid_data(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test ensures that when the overlay data contains no valid (non-NaN) values, the method handles this edge case without crashing and still returns a Figure. By creating an overlay dataset filled with NaN values, the test asserts that the method does not fail but instead prints a warning and returns a Figure, indicating that it can handle cases where the overlay data is effectively empty.
 
@@ -398,25 +422,22 @@ class TestSurfaceOverlayMethod:
             None
         """
         overlay_data = np.full(50, np.nan)
-        
-        surface_config = {
-            'data': overlay_data,
-            'plot_type': 'contour'
-        }
-        
+
+        surface_config = {"data": overlay_data, "plot_type": "contour"}
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_contour_with_levels(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_contour_with_levels(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test verifies that a contour overlay with specified levels and alpha transparency renders correctly and returns a Figure. By providing a realistic contour overlay configuration with levels and alpha settings, the test asserts that the overlay is processed without errors and that a Figure is returned, indicating successful rendering of the contour overlay with the specified parameters.
 
@@ -427,27 +448,27 @@ class TestSurfaceOverlayMethod:
             None
         """
         surface_config = {
-            'data': self.temp_data * 3.5,  
-            'plot_type': 'contour',
-            'levels': [950, 1000, 1050],
-            'colors': 'red',
-            'linewidth': 2.0,
-            'alpha': 0.8
+            "data": self.temp_data * 3.5,
+            "plot_type": "contour",
+            "levels": [950, 1000, 1050],
+            "colors": "red",
+            "linewidth": 2.0,
+            "alpha": 0.8,
         }
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_contour_with_labels(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_contour_with_labels(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test confirms that a contour overlay with `add_labels=True` renders correctly and returns a Figure. By providing a contour overlay configuration that includes the `add_labels` option, the test asserts that the method processes this configuration without errors and that a Figure is returned, indicating successful rendering of the contour overlay with labels.
 
@@ -458,24 +479,24 @@ class TestSurfaceOverlayMethod:
             None
         """
         surface_config = {
-            'data': self.temp_data * 20,  
-            'plot_type': 'contour',
-            'add_labels': True
+            "data": self.temp_data * 20,
+            "plot_type": "contour",
+            "add_labels": True,
         }
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_contourf_with_levels(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_contourf_with_levels(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test verifies that a filled contour overlay with specified levels and alpha transparency renders correctly and returns a Figure. By providing a realistic filled contour overlay configuration with levels and alpha settings, the test asserts that the overlay is processed without errors and that a Figure is returned, indicating successful rendering of the filled contour overlay with the specified parameters.
 
@@ -486,25 +507,25 @@ class TestSurfaceOverlayMethod:
             None
         """
         surface_config = {
-            'data': self.temp_data * 3.5,  
-            'plot_type': 'contourf',
-            'levels': [950, 1000, 1050],
-            'alpha': 0.5
+            "data": self.temp_data * 3.5,
+            "plot_type": "contourf",
+            "levels": [950, 1000, 1050],
+            "alpha": 0.5,
         }
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_overlay_contourf_without_levels(self: 'TestSurfaceOverlayMethod') -> None:
+
+    def test_overlay_contourf_without_levels(self: "TestSurfaceOverlayMethod") -> None:
         """
         This test confirms that a filled contour overlay without specified levels renders correctly and returns a Figure. By providing a filled contour overlay configuration that omits the `levels` parameter, the test asserts that the method processes this configuration without errors and that a Figure is returned, indicating successful rendering of the filled contour overlay with automatically determined levels.
 
@@ -514,31 +535,30 @@ class TestSurfaceOverlayMethod:
         Returns:
             None
         """
-        surface_config = {
-            'data': self.temp_data * 3.5,  
-            'plot_type': 'contourf'
-        }
-        
+        surface_config = {"data": self.temp_data * 3.5, "plot_type": "contourf"}
+
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.temp_data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='scatter', surface_overlay=surface_config),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.temp_data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
 class TestInterpolation:
-    """ Tests for grid interpolation. """
-    
+    """Tests for grid interpolation."""
+
     @pytest.fixture(autouse=True)
-    def setup_method(self: 'TestInterpolation', 
-                     mpas_coordinates: tuple[np.ndarray, np.ndarray],
-                     mpas_surface_temp_data: np.ndarray) -> None:
+    def setup_method(
+        self: "TestInterpolation",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_surface_temp_data: np.ndarray,
+    ) -> None:
         """
         This fixture initializes the test environment for interpolation tests. It prepares an `MPASSurfacePlotter` instance and loads real MPAS coordinate and surface temperature data to be used in testing the interpolation functionality of the surface plotting. The fixture also computes the extent bounds from the coordinate data for use in plotting.
 
@@ -552,20 +572,24 @@ class TestInterpolation:
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
             return
-        
+
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
         self.lon = lon_full[:100]
         self.lat = lat_full[:100]
-        
+
         self.data = mpas_surface_temp_data[:100]
-        
+
         self.extent_bounds = (
-            float(self.lon.min()), float(self.lon.max()),
-            float(self.lat.min()), float(self.lat.max())
+            float(self.lon.min()),
+            float(self.lon.max()),
+            float(self.lat.min()),
+            float(self.lat.max()),
         )
-    
-    def test_interpolation_with_grid_resolution_float(self: 'TestInterpolation') -> None:
+
+    def test_interpolation_with_grid_resolution_float(
+        self: "TestInterpolation",
+    ) -> None:
         """
         This test verifies that the interpolation helper correctly processes a float `grid_resolution` value representing angular resolution in degrees. By providing a valid float grid resolution, the test asserts that the interpolation is performed and that a Figure is returned, indicating successful rendering of the surface map with the specified interpolation settings.
 
@@ -576,18 +600,18 @@ class TestInterpolation:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='contourf', grid_resolution=0.5),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="contourf", grid_resolution=0.5),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_interpolation_invalid_grid_resolution(self: 'TestInterpolation') -> None:
+
+    def test_interpolation_invalid_grid_resolution(self: "TestInterpolation") -> None:
         """
         This test confirms that providing an invalid `grid_resolution` value (e.g., a negative number) raises a `ValueError`. By asserting that the plotting function raises a `ValueError` when an invalid grid resolution is provided, the test verifies that the interpolation helper properly validates the `grid_resolution` parameter and surfaces errors when it is misused.
 
@@ -602,12 +626,12 @@ class TestInterpolation:
                 self.lon,
                 self.lat,
                 self.data,
-                't2m',
+                "t2m",
                 GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type='contourf', grid_resolution=-0.5),
+                style=SurfaceMapStyle(plot_type="contourf", grid_resolution=-0.5),
             )
-    
-    def test_interpolation_with_fixed_resolution(self: 'TestInterpolation') -> None:
+
+    def test_interpolation_with_fixed_resolution(self: "TestInterpolation") -> None:
         """
         This test verifies that the interpolation helper can process a fixed grid resolution specified as an integer number of points. By providing a valid integer grid resolution, the test asserts that the interpolation is performed and that a Figure is returned, indicating successful rendering of the surface map with the specified fixed grid resolution.
 
@@ -618,18 +642,18 @@ class TestInterpolation:
             None
         """
         fig, _ = self.plotter.create_surface_map(
-                     self.lon,
-                     self.lat,
-                     self.data,
-                     't2m',
-                     GeographicBounds(*self.extent_bounds),
-                     style=SurfaceMapStyle(plot_type='contourf', grid_resolution=50),
-                 )
-        
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="contourf", grid_resolution=50),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
-    
-    def test_interpolation_adaptive_resolution(self: 'TestInterpolation') -> None:
+
+    def test_interpolation_adaptive_resolution(self: "TestInterpolation") -> None:
         """
         This test confirms that the interpolation helper can handle an adaptive grid resolution scenario where the input data is sparse. By providing a small subset of the real MPAS data, the test asserts that the interpolation is performed and that a Figure is returned, indicating successful rendering of the surface map with adaptive resolution based on the provided data.
 
@@ -644,22 +668,24 @@ class TestInterpolation:
         data = self.data[:20]
 
         extent_bounds = (
-            float(lon.min()), float(lon.max()),
-            float(lat.min()), float(lat.max())
+            float(lon.min()),
+            float(lon.max()),
+            float(lat.min()),
+            float(lat.max()),
         )
-        
+
         fig, _ = self.plotter.create_surface_map(
-                     lon,
-                     lat,
-                     data,
-                     't2m',
-                     GeographicBounds(*extent_bounds),
-                     style=SurfaceMapStyle(plot_type='contourf'),
-                 )
-        
+            lon,
+            lat,
+            data,
+            "t2m",
+            GeographicBounds(*extent_bounds),
+            style=SurfaceMapStyle(plot_type="contourf"),
+        )
+
         assert isinstance(fig, Figure)
         plt.close(fig)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

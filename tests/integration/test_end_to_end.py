@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Full-Stack End-to-End Integration Tests
 
-This module contains comprehensive end-to-end tests that validate the entire MPASdiag processing and visualization pipeline on real MPAS data. Each test covers a complete workflow for a specific analysis type (precipitation, surface fields, wind, vertical cross-sections), starting from configuration and data loading, through diagnostics computation and coordinate extraction, to rendering and saving a figure. The tests assert that intermediate data fields are valid and that the final rendered figures are successfully saved to disk. 
+This module contains comprehensive end-to-end tests that validate the entire MPASdiag processing and visualization pipeline on real MPAS data. Each test covers a complete workflow for a specific analysis type (precipitation, surface fields, wind, vertical cross-sections), starting from configuration and data loading, through diagnostics computation and coordinate extraction, to rendering and saving a figure. The tests assert that intermediate data fields are valid and that the final rendered figures are successfully saved to disk.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -10,6 +12,7 @@ Email: mrislam@ucar.edu
 Date: June 2026
 Version: 1.0.0
 """
+
 from pathlib import Path
 
 import numpy as np
@@ -36,7 +39,6 @@ from mpasdiag.visualization.cross_section import (
 
 from tests.test_data_helpers import get_mpas_data_paths
 from tests.integration.conftest import CARTOPY_AVAILABLE, bounds_from_coords
-
 
 pytestmark = [
     pytest.mark.integration,
@@ -80,17 +82,19 @@ def _assert_saved(output_path: Path) -> None:
 
 @pytest.mark.skipif(not CARTOPY_AVAILABLE, reason="Cartopy not available")
 class TestEndToEnd:
-    """ Full config-to-figure pipeline tests for each analysis type using real MPAS data. """
+    """Full config-to-figure pipeline tests for each analysis type using real MPAS data."""
 
-    def test_precipitation_end_to_end(self: "TestEndToEnd", 
-                                      data_paths: dict, 
-                                      output_dir: Path,) -> None:
+    def test_precipitation_end_to_end(
+        self: "TestEndToEnd",
+        data_paths: dict,
+        output_dir: Path,
+    ) -> None:
         """
-        This test validates the full precipitation diagnostics and rendering pipeline on real 2D diagnostic data. It computes the precipitation accumulation difference at the first time step, extracts the corresponding longitude and latitude coordinates, and renders a scatter plot of the precipitation field on the unstructured mesh. The test asserts that the computed accumulation values are finite and that the number of longitude points matches the number of data values. Finally, it saves the rendered figure as a PNG file and asserts that the file was successfully created. 
+        This test validates the full precipitation diagnostics and rendering pipeline on real 2D diagnostic data. It computes the precipitation accumulation difference at the first time step, extracts the corresponding longitude and latitude coordinates, and renders a scatter plot of the precipitation field on the unstructured mesh. The test asserts that the computed accumulation values are finite and that the number of longitude points matches the number of data values. Finally, it saves the rendered figure as a PNG file and asserts that the file was successfully created.
 
         Parameters:
             data_paths (dict): Resolved MPAS data paths.
-            output_dir (Path): Temporary directory for saved figures.   
+            output_dir (Path): Temporary directory for saved figures.
 
         Returns:
             None
@@ -143,9 +147,11 @@ class TestEndToEnd:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_precipitation_end_to_end_with_remap(self: "TestEndToEnd", 
-                                                 data_paths: dict, 
-                                                 output_dir: Path,) -> None:
+    def test_precipitation_end_to_end_with_remap(
+        self: "TestEndToEnd",
+        data_paths: dict,
+        output_dir: Path,
+    ) -> None:
         """
         This test validates the full precipitation diagnostics and rendering pipeline on real 2D diagnostic data, including the optional remapping step. It computes the precipitation accumulation difference at the first time step, extracts the corresponding longitude and latitude coordinates, and then remaps the accumulation field from the unstructured mesh to a regular lat-lon grid using nearest-neighbor interpolation. The test asserts that the remapped field contains coordinate variables for longitude and latitude. Finally, it renders a scatter plot of the remapped precipitation field and saves it as a PNG file, asserting that the file was successfully created.
 
@@ -200,9 +206,11 @@ class TestEndToEnd:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_surface_end_to_end(self: "TestEndToEnd", 
-                                data_paths: dict, 
-                                output_dir: Path,) -> None:
+    def test_surface_end_to_end(
+        self: "TestEndToEnd",
+        data_paths: dict,
+        output_dir: Path,
+    ) -> None:
         """
         This test validates the full surface diagnostics and rendering pipeline on real 2D diagnostic data. It loads the 2D dataset, extracts the specified surface variable (e.g., 2-meter temperature) at the first time step, and retrieves the corresponding longitude and latitude coordinates. The test asserts that the extracted variable values are finite and that the number of longitude points matches the number of data values. Finally, it renders a scatter plot of the surface field and saves it as a PNG file, asserting that the file was successfully created.
 
@@ -253,9 +261,11 @@ class TestEndToEnd:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_wind_end_to_end(self: "TestEndToEnd", 
-                             data_paths: dict, 
-                             output_dir: Path,) -> None:
+    def test_wind_end_to_end(
+        self: "TestEndToEnd",
+        data_paths: dict,
+        output_dir: Path,
+    ) -> None:
         """
         This test validates the full wind diagnostics and rendering pipeline on real 2D diagnostic data. It loads the 2D dataset, extracts the specified wind components (e.g., u10 and v10) at the first time step, and retrieves the corresponding longitude and latitude coordinates. The test asserts that the extracted wind component values are finite and that the number of longitude points matches the number of data values. Finally, it renders a wind plot (e.g., barbs) of the wind field and saves it as a PNG file, asserting that the file was successfully created.
 
@@ -317,9 +327,11 @@ class TestEndToEnd:
         plotter.close_plot()
         _assert_saved(out.with_suffix(".png"))
 
-    def test_cross_section_end_to_end(self: "TestEndToEnd", 
-                                      data_paths: dict, 
-                                      output_dir: Path,) -> None:
+    def test_cross_section_end_to_end(
+        self: "TestEndToEnd",
+        data_paths: dict,
+        output_dir: Path,
+    ) -> None:
         """
         This test validates the full vertical cross-section diagnostics and rendering pipeline on real 3D diagnostic data. It loads the 3D dataset, extracts the specified variable (e.g., potential temperature) along a defined vertical cross-section between two geographic points, and retrieves the corresponding longitude, latitude, and vertical coordinate values. The test asserts that the extracted variable values are finite and that the number of longitude points matches the number of data values. Finally, it renders a contour plot of the vertical cross-section and saves it as a PNG file, asserting that the file was successfully created.
 

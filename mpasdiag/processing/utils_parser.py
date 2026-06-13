@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Core Processing Module: Command-Line Argument Parser Utilities
 
-This module provides factory methods for creating and configuring command-line argument parsers tailored to different MPAS diagnostic analysis workflows, including general precipitation analysis, surface variable plotting, wind vector visualization, and vertical cross-section plotting. Each parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. Additionally, methods are provided to convert parsed command-line arguments from argparse.Namespace to the MPASConfig data structure used throughout MPASdiag workflows, ensuring consistent configuration handling regardless of input source. 
+This module provides factory methods for creating and configuring command-line argument parsers tailored to different MPAS diagnostic analysis workflows, including general precipitation analysis, surface variable plotting, wind vector visualization, and vertical cross-section plotting. Each parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. Additionally, methods are provided to convert parsed command-line arguments from argparse.Namespace to the MPASConfig data structure used throughout MPASdiag workflows, ensuring consistent configuration handling regardless of input source.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -17,22 +19,22 @@ import textwrap
 
 from .utils_config import MPASConfig
 
-_BATCH_MODE_HELP = 'Process all time steps in batch mode'
+_BATCH_MODE_HELP = "Process all time steps in batch mode"
 
 
 class ArgumentParser:
-    """ Command-line argument parser factory utilities for MPAS analysis workflows with pre-configured parsers for different diagnostic types. """
-    
+    """Command-line argument parser factory utilities for MPAS analysis workflows with pre-configured parsers for different diagnostic types."""
+
     @staticmethod
     def create_parser() -> argparse.ArgumentParser:
         """
-        This factory method creates and configures a command-line argument parser for general MPAS diagnostic analysis, with options for input/output control, spatial extent configuration, variable selection, visualization settings, processing flags, and output formatting. The parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for MPASdiag workflows, with comprehensive options for customizing analysis parameters and output generation. 
+        This factory method creates and configures a command-line argument parser for general MPAS diagnostic analysis, with options for input/output control, spatial extent configuration, variable selection, visualization settings, processing flags, and output formatting. The parser is organized into logical groups for improved help message readability and includes detailed descriptions and examples in the epilog to guide users in constructing valid command-line invocations for various MPAS diagnostic analyses. The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for MPASdiag workflows, with comprehensive options for customizing analysis parameters and output generation.
 
         Parameters:
             None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance with groups for input/output, spatial extent, variable selection, visualization settings, processing flags, and output control, along with detailed examples in the epilog. 
+            argparse.ArgumentParser: Configured ArgumentParser instance with groups for input/output, spatial extent, variable selection, visualization settings, processing flags, and output control, along with detailed examples in the epilog.
         """
         parser = argparse.ArgumentParser(
             description="MPAS Data Analysis and Visualization Tool",
@@ -50,134 +52,190 @@ Examples:
   
   # Use configuration file
   mpasdiag --config config.yaml
-            """
+            """,
         )
-        
-        input_output_group = parser.add_argument_group('Input/Output')
-        input_output_group.add_argument('--grid-file', type=str, required=False,
-                             help='Path to MPAS grid file')
-        input_output_group.add_argument('--data-dir', type=str, required=False,
-                             help='Directory containing diagnostic files')
-        input_output_group.add_argument('--output-dir', type=str, default='./output',
-                             help='Output directory for plots and results')
-        input_output_group.add_argument('--config', type=str,
-                             help='Configuration file path (YAML format)')
-        
-        spatial_group = parser.add_argument_group('Spatial Extent')
-        spatial_group.add_argument('--lat-min', type=float, default=-9.60,
-                                  help='Minimum latitude')
-        spatial_group.add_argument('--lat-max', type=float, default=12.20,
-                                  help='Maximum latitude')
-        spatial_group.add_argument('--lon-min', type=float, default=91.00,
-                                  help='Minimum longitude')
-        spatial_group.add_argument('--lon-max', type=float, default=113.00,
-                                  help='Maximum longitude')
-        
-        var_group = parser.add_argument_group('Variables')
-        var_group.add_argument('--var', '--variable', type=str, default='rainnc',
-                              choices=['rainc', 'rainnc', 'total'],
-                              help='Precipitation variable to analyze')
-        var_group.add_argument('--accum', '--accumulation', type=str, default='a01h',
-                              help='Accumulation period (e.g., a01h, a24h)')
-        
-        viz_group = parser.add_argument_group('Visualization')
-        viz_group.add_argument('--colormap', type=str, default='default',
-                              help='Colormap for plots')
-        viz_group.add_argument('--dpi', type=int, default=100,
-                              help='Output resolution (DPI) - default: 100, use 300+ for publication quality')
-        viz_group.add_argument('--figure-size', type=float, nargs=2, 
-                              default=[10.0, 12.0], metavar=('WIDTH', 'HEIGHT'),
-                              help='Figure size in inches')
-        viz_group.add_argument('--formats', type=str, nargs='+', 
-                              default=['png'], choices=['png', 'pdf', 'svg', 'eps'],
-                              help='Output formats')
-        viz_group.add_argument('--clim-min', type=float,
-                              help='Minimum color limit')
-        viz_group.add_argument('--clim-max', type=float,
-                              help='Maximum color limit')
-        
-        proc_group = parser.add_argument_group('Processing')
-        proc_group.add_argument('--data-type', type=str, default='uxarray',
-                               choices=['uxarray', 'xarray'],
-                               help='Data processing backend')
-        proc_group.add_argument('--batch-all', action='store_true',
-                               help=_BATCH_MODE_HELP)
-        proc_group.add_argument('--time-index', type=int,
-                               help='Specific time index to process')
-        proc_group.add_argument('--parallel', action='store_true',
-                               help='Enable parallel processing')
-        
-        output_group = parser.add_argument_group('Output Control')
-        output_group.add_argument('--verbose', '-v', action='store_true', default=True,
-                                 help='Enable verbose output (shortcut for --log-level DEBUG)')
-        output_group.add_argument('--quiet', '-q', action='store_true',
-                                 help='Suppress output messages (shortcut for --log-level ERROR)')
-        output_group.add_argument('--log-file', type=str,
-                                 help='Log file path')
-        output_group.add_argument('--log-level', type=str, default=None,
-                                 choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                                 help='Logging severity threshold (overrides --verbose/--quiet)')
+
+        input_output_group = parser.add_argument_group("Input/Output")
+        input_output_group.add_argument(
+            "--grid-file", type=str, required=False, help="Path to MPAS grid file"
+        )
+        input_output_group.add_argument(
+            "--data-dir",
+            type=str,
+            required=False,
+            help="Directory containing diagnostic files",
+        )
+        input_output_group.add_argument(
+            "--output-dir",
+            type=str,
+            default="./output",
+            help="Output directory for plots and results",
+        )
+        input_output_group.add_argument(
+            "--config", type=str, help="Configuration file path (YAML format)"
+        )
+
+        spatial_group = parser.add_argument_group("Spatial Extent")
+        spatial_group.add_argument(
+            "--lat-min", type=float, default=-9.60, help="Minimum latitude"
+        )
+        spatial_group.add_argument(
+            "--lat-max", type=float, default=12.20, help="Maximum latitude"
+        )
+        spatial_group.add_argument(
+            "--lon-min", type=float, default=91.00, help="Minimum longitude"
+        )
+        spatial_group.add_argument(
+            "--lon-max", type=float, default=113.00, help="Maximum longitude"
+        )
+
+        var_group = parser.add_argument_group("Variables")
+        var_group.add_argument(
+            "--var",
+            "--variable",
+            type=str,
+            default="rainnc",
+            choices=["rainc", "rainnc", "total"],
+            help="Precipitation variable to analyze",
+        )
+        var_group.add_argument(
+            "--accum",
+            "--accumulation",
+            type=str,
+            default="a01h",
+            help="Accumulation period (e.g., a01h, a24h)",
+        )
+
+        viz_group = parser.add_argument_group("Visualization")
+        viz_group.add_argument(
+            "--colormap", type=str, default="default", help="Colormap for plots"
+        )
+        viz_group.add_argument(
+            "--dpi",
+            type=int,
+            default=100,
+            help="Output resolution (DPI) - default: 100, use 300+ for publication quality",
+        )
+        viz_group.add_argument(
+            "--figure-size",
+            type=float,
+            nargs=2,
+            default=[10.0, 12.0],
+            metavar=("WIDTH", "HEIGHT"),
+            help="Figure size in inches",
+        )
+        viz_group.add_argument(
+            "--formats",
+            type=str,
+            nargs="+",
+            default=["png"],
+            choices=["png", "pdf", "svg", "eps"],
+            help="Output formats",
+        )
+        viz_group.add_argument("--clim-min", type=float, help="Minimum color limit")
+        viz_group.add_argument("--clim-max", type=float, help="Maximum color limit")
+
+        proc_group = parser.add_argument_group("Processing")
+        proc_group.add_argument(
+            "--data-type",
+            type=str,
+            default="uxarray",
+            choices=["uxarray", "xarray"],
+            help="Data processing backend",
+        )
+        proc_group.add_argument(
+            "--batch-all", action="store_true", help=_BATCH_MODE_HELP
+        )
+        proc_group.add_argument(
+            "--time-index", type=int, help="Specific time index to process"
+        )
+        proc_group.add_argument(
+            "--parallel", action="store_true", help="Enable parallel processing"
+        )
+
+        output_group = parser.add_argument_group("Output Control")
+        output_group.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            default=True,
+            help="Enable verbose output (shortcut for --log-level DEBUG)",
+        )
+        output_group.add_argument(
+            "--quiet",
+            "-q",
+            action="store_true",
+            help="Suppress output messages (shortcut for --log-level ERROR)",
+        )
+        output_group.add_argument("--log-file", type=str, help="Log file path")
+        output_group.add_argument(
+            "--log-level",
+            type=str,
+            default=None,
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            help="Logging severity threshold (overrides --verbose/--quiet)",
+        )
 
         return parser
-    
+
     @staticmethod
     def parse_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes for general MPAS diagnostic analysis. It extracts values for grid file, data directory, output directory, spatial extent, variable selection, accumulation period, colormap, figure size, DPI, output formats, color limits, data processing backend, batch mode flag, time index, parallel processing flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for general MPAS analysis are transferred to the MPASConfig object for use in various diagnostic workflows. 
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes for general MPAS diagnostic analysis. It extracts values for grid file, data directory, output directory, spatial extent, variable selection, accumulation period, colormap, figure size, DPI, output formats, color limits, data processing backend, batch mode flag, time index, parallel processing flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for general MPAS analysis are transferred to the MPASConfig object for use in various diagnostic workflows.
 
         Parameters:
-            args (argparse.Namespace): Parsed command-line arguments returned from create_parser().parse_args() with general analysis options. 
+            args (argparse.Namespace): Parsed command-line arguments returned from create_parser().parse_args() with general analysis options.
 
         Returns:
-            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS diagnostic analysis workflows. 
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS diagnostic analysis workflows.
         """
         config_dict = {}
-        
+
         arg_mapping = {
-            'grid_file': 'grid_file',
-            'data_dir': 'data_dir',
-            'output_dir': 'output_dir',
-            'lat_min': 'lat_min',
-            'lat_max': 'lat_max',
-            'lon_min': 'lon_min',
-            'lon_max': 'lon_max',
-            'var': 'variable',
-            'accum': 'accumulation_period',
-            'time_index': 'time_index',
-            'colormap': 'colormap',
-            'dpi': 'dpi',
-            'formats': 'output_formats',
-            'batch_all': 'batch_mode',
-            'verbose': 'verbose',
-            'quiet': 'quiet',
-            'log_level': 'log_level',
-            'log_file': 'log_file',
-            'parallel': 'parallel',
+            "grid_file": "grid_file",
+            "data_dir": "data_dir",
+            "output_dir": "output_dir",
+            "lat_min": "lat_min",
+            "lat_max": "lat_max",
+            "lon_min": "lon_min",
+            "lon_max": "lon_max",
+            "var": "variable",
+            "accum": "accumulation_period",
+            "time_index": "time_index",
+            "colormap": "colormap",
+            "dpi": "dpi",
+            "formats": "output_formats",
+            "batch_all": "batch_mode",
+            "verbose": "verbose",
+            "quiet": "quiet",
+            "log_level": "log_level",
+            "log_file": "log_file",
+            "parallel": "parallel",
         }
-        
+
         for arg_name, config_attr in arg_mapping.items():
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
-        
-        if hasattr(args, 'figure_size') and args.figure_size:
-            config_dict['figure_width'] = args.figure_size[0]
-            config_dict['figure_height'] = args.figure_size[1]
-        
-        if hasattr(args, 'data_type') and args.data_type == 'xarray':
-            config_dict['use_pure_xarray'] = True
-        
+
+        if hasattr(args, "figure_size") and args.figure_size:
+            config_dict["figure_width"] = args.figure_size[0]
+            config_dict["figure_height"] = args.figure_size[1]
+
+        if hasattr(args, "data_type") and args.data_type == "xarray":
+            config_dict["use_pure_xarray"] = True
+
         return MPASConfig(**config_dict)
-    
+
     @staticmethod
     def create_surface_parser() -> argparse.ArgumentParser:
         """
-        This factory method creates and configures a command-line argument parser specifically for MPAS surface variable plotting, with options tailored for visualizing surface fields such as temperature, pressure, humidity, and wind speed. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection, plot settings (plot type, colormap, title), spatial extent configuration, color limit controls, output options (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating surface variable plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various surface variable visualization scenarios. 
+        This factory method creates and configures a command-line argument parser specifically for MPAS surface variable plotting, with options tailored for visualizing surface fields such as temperature, pressure, humidity, and wind speed. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection, plot settings (plot type, colormap, title), spatial extent configuration, color limit controls, output options (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating surface variable plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various surface variable visualization scenarios.
 
         Parameters:
             None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for surface variable plotting with options for variable selection, plot type, colormap, spatial extent, color limits, and output control, along with detailed examples in the epilog. 
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for surface variable plotting with options for variable selection, plot type, colormap, spatial extent, color limits, and output control, along with detailed examples in the epilog.
         """
         parser = argparse.ArgumentParser(
             description="MPAS Surface Variable Plotting Tool",
@@ -195,145 +253,216 @@ Examples:
   
   # Sea level pressure for specific time
   mpasdiag surface --grid-file grid.nc --data-dir ./data --variable mslp --plot-type contour --time-index 24 --output mslp_analysis
-            """
+            """,
         )
-        
-        required_group = parser.add_argument_group('Required')
-        required_group.add_argument('--grid-file', type=str, required=True,
-                                   help='MPAS grid file')
-        required_group.add_argument('--data-dir', type=str, required=True,
-                                   help='Directory containing MPAS diagnostic files')
-        
-        var_group = parser.add_argument_group('Variable')
-        var_group.add_argument('--variable', '--var', type=str, required=True,
-                              help='Variable name to plot (e.g., t2m, surface_pressure, q2, u10, etc.)')
-        var_group.add_argument('--time-index', type=int, default=0,
-                              help='Time index to plot (default: 0)')
-        
-        plot_group = parser.add_argument_group('Plot Settings')
-        plot_group.add_argument('--plot-type', type=str, default='scatter',
-                               choices=['scatter', 'contour'],
-                               help='Plot type: scatter (points) or contour (interpolated)')
-        plot_group.add_argument('--colormap', type=str, default='default',
-                               help='Colormap name (default: auto-selected based on variable)')
-        plot_group.add_argument('--title', type=str,
-                               help='Custom plot title (default: auto-generated)')
-        
-        spatial_group = parser.add_argument_group('Spatial Extent')
-        spatial_group.add_argument('--lat-min', type=float, default=-9.60,
-                                  help='Minimum latitude (default: -9.60)')
-        spatial_group.add_argument('--lat-max', type=float, default=12.20,
-                                  help='Maximum latitude (default: 12.20)')
-        spatial_group.add_argument('--lon-min', type=float, default=91.00,
-                                  help='Minimum longitude (default: 91.00)')
-        spatial_group.add_argument('--lon-max', type=float, default=113.00,
-                                  help='Maximum longitude (default: 113.00)')
-        
-        color_group = parser.add_argument_group('Color Settings')
-        color_group.add_argument('--clim-min', type=float,
-                                help='Minimum color limit')
-        color_group.add_argument('--clim-max', type=float,
-                                help='Maximum color limit')
-        
-        output_group = parser.add_argument_group('Output')
-        output_group.add_argument('--output', '-o', type=str,
-                                 help='Output filename (without extension)')
-        output_group.add_argument('--output-dir', type=str, default='.',
-                                 help='Output directory (default: current directory)')
-        output_group.add_argument('--dpi', type=int, default=100,
-                                 help='Output resolution (DPI) - default: 100, use 300+ for publication quality')
-        output_group.add_argument('--figure-size', type=float, nargs=2,
-                                 default=[10.0, 12.0], metavar=('WIDTH', 'HEIGHT'),
-                                 help='Figure size in inches (default: 10.0 12.0)')
-        output_group.add_argument('--formats', type=str, nargs='+',
-                                 default=['png'], choices=['png', 'pdf', 'svg', 'eps'],
-                                 help='Output formats (default: png)')
-        
-        proc_group = parser.add_argument_group('Processing')
-        proc_group.add_argument('--verbose', '-v', action='store_true',
-                                help='Enable verbose output (shortcut for --log-level DEBUG)')
-        proc_group.add_argument('--quiet', '-q', action='store_true',
-                                help='Suppress output messages (shortcut for --log-level ERROR)')
-        proc_group.add_argument('--log-level', type=str, default=None,
-                                choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                                help='Logging severity threshold (overrides --verbose/--quiet)')
-        proc_group.add_argument('--log-file', type=str,
-                                help='Log file path')
-        proc_group.add_argument('--batch-all', action='store_true',
-                                help=_BATCH_MODE_HELP)
-        proc_group.add_argument('--grid-resolution', type=int,
-                                help='Grid resolution (number of points per axis) for contour interpolation. If not set, an adaptive heuristic is used (default: adaptive)')
-        proc_group.add_argument('--grid-resolution-deg', type=float,
-                                help='Grid resolution in degrees (e.g., 0.1 for 0.1° × 0.1° grid). If set, takes precedence over --grid-resolution')
+
+        required_group = parser.add_argument_group("Required")
+        required_group.add_argument(
+            "--grid-file", type=str, required=True, help="MPAS grid file"
+        )
+        required_group.add_argument(
+            "--data-dir",
+            type=str,
+            required=True,
+            help="Directory containing MPAS diagnostic files",
+        )
+
+        var_group = parser.add_argument_group("Variable")
+        var_group.add_argument(
+            "--variable",
+            "--var",
+            type=str,
+            required=True,
+            help="Variable name to plot (e.g., t2m, surface_pressure, q2, u10, etc.)",
+        )
+        var_group.add_argument(
+            "--time-index", type=int, default=0, help="Time index to plot (default: 0)"
+        )
+
+        plot_group = parser.add_argument_group("Plot Settings")
+        plot_group.add_argument(
+            "--plot-type",
+            type=str,
+            default="scatter",
+            choices=["scatter", "contour"],
+            help="Plot type: scatter (points) or contour (interpolated)",
+        )
+        plot_group.add_argument(
+            "--colormap",
+            type=str,
+            default="default",
+            help="Colormap name (default: auto-selected based on variable)",
+        )
+        plot_group.add_argument(
+            "--title", type=str, help="Custom plot title (default: auto-generated)"
+        )
+
+        spatial_group = parser.add_argument_group("Spatial Extent")
+        spatial_group.add_argument(
+            "--lat-min",
+            type=float,
+            default=-9.60,
+            help="Minimum latitude (default: -9.60)",
+        )
+        spatial_group.add_argument(
+            "--lat-max",
+            type=float,
+            default=12.20,
+            help="Maximum latitude (default: 12.20)",
+        )
+        spatial_group.add_argument(
+            "--lon-min",
+            type=float,
+            default=91.00,
+            help="Minimum longitude (default: 91.00)",
+        )
+        spatial_group.add_argument(
+            "--lon-max",
+            type=float,
+            default=113.00,
+            help="Maximum longitude (default: 113.00)",
+        )
+
+        color_group = parser.add_argument_group("Color Settings")
+        color_group.add_argument("--clim-min", type=float, help="Minimum color limit")
+        color_group.add_argument("--clim-max", type=float, help="Maximum color limit")
+
+        output_group = parser.add_argument_group("Output")
+        output_group.add_argument(
+            "--output", "-o", type=str, help="Output filename (without extension)"
+        )
+        output_group.add_argument(
+            "--output-dir",
+            type=str,
+            default=".",
+            help="Output directory (default: current directory)",
+        )
+        output_group.add_argument(
+            "--dpi",
+            type=int,
+            default=100,
+            help="Output resolution (DPI) - default: 100, use 300+ for publication quality",
+        )
+        output_group.add_argument(
+            "--figure-size",
+            type=float,
+            nargs=2,
+            default=[10.0, 12.0],
+            metavar=("WIDTH", "HEIGHT"),
+            help="Figure size in inches (default: 10.0 12.0)",
+        )
+        output_group.add_argument(
+            "--formats",
+            type=str,
+            nargs="+",
+            default=["png"],
+            choices=["png", "pdf", "svg", "eps"],
+            help="Output formats (default: png)",
+        )
+
+        proc_group = parser.add_argument_group("Processing")
+        proc_group.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Enable verbose output (shortcut for --log-level DEBUG)",
+        )
+        proc_group.add_argument(
+            "--quiet",
+            "-q",
+            action="store_true",
+            help="Suppress output messages (shortcut for --log-level ERROR)",
+        )
+        proc_group.add_argument(
+            "--log-level",
+            type=str,
+            default=None,
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            help="Logging severity threshold (overrides --verbose/--quiet)",
+        )
+        proc_group.add_argument("--log-file", type=str, help="Log file path")
+        proc_group.add_argument(
+            "--batch-all", action="store_true", help=_BATCH_MODE_HELP
+        )
+        proc_group.add_argument(
+            "--grid-resolution",
+            type=int,
+            help="Grid resolution (number of points per axis) for contour interpolation. If not set, an adaptive heuristic is used (default: adaptive)",
+        )
+        proc_group.add_argument(
+            "--grid-resolution-deg",
+            type=float,
+            help="Grid resolution in degrees (e.g., 0.1 for 0.1° × 0.1° grid). If set, takes precedence over --grid-resolution",
+        )
 
         return parser
-    
+
     @staticmethod
     def parse_surface_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for surface variable plotting. It extracts values for grid file, data directory, variable name, time index, plot type, colormap, title, spatial extent, color limits, grid resolution for contour interpolation, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for surface variable plotting are transferred to the MPASConfig object for use in MPAS surface diagnostic visualization workflows. 
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for surface variable plotting. It extracts values for grid file, data directory, variable name, time index, plot type, colormap, title, spatial extent, color limits, grid resolution for contour interpolation, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for surface variable plotting are transferred to the MPASConfig object for use in MPAS surface diagnostic visualization workflows.
 
-        Parameters: 
-            args (argparse.Namespace): Parsed command-line arguments returned from create_surface_parser().parse_args() with surface plotting options. 
+        Parameters:
+            args (argparse.Namespace): Parsed command-line arguments returned from create_surface_parser().parse_args() with surface plotting options.
 
         Returns:
-            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS surface variable plotting workflows. 
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS surface variable plotting workflows.
         """
         config_dict = {}
-        
+
         arg_mapping = {
-            'grid_file': 'grid_file',
-            'data_dir': 'data_dir', 
-            'output_dir': 'output_dir',
-            'variable': 'variable',
-            'time_index': 'time_index',
-            'plot_type': 'plot_type',
-            'colormap': 'colormap',
-            'title': 'title',
-            'lat_min': 'lat_min',
-            'lat_max': 'lat_max',
-            'lon_min': 'lon_min',
-            'lon_max': 'lon_max',
-            'clim_min': 'clim_min',
-            'clim_max': 'clim_max',
-            'grid_resolution': 'grid_resolution',
-            'output': 'output',
-            'dpi': 'dpi',
-            'formats': 'output_formats',
-            'verbose': 'verbose',
-            'quiet': 'quiet',
-            'log_level': 'log_level',
-            'log_file': 'log_file',
+            "grid_file": "grid_file",
+            "data_dir": "data_dir",
+            "output_dir": "output_dir",
+            "variable": "variable",
+            "time_index": "time_index",
+            "plot_type": "plot_type",
+            "colormap": "colormap",
+            "title": "title",
+            "lat_min": "lat_min",
+            "lat_max": "lat_max",
+            "lon_min": "lon_min",
+            "lon_max": "lon_max",
+            "clim_min": "clim_min",
+            "clim_max": "clim_max",
+            "grid_resolution": "grid_resolution",
+            "output": "output",
+            "dpi": "dpi",
+            "formats": "output_formats",
+            "verbose": "verbose",
+            "quiet": "quiet",
+            "log_level": "log_level",
+            "log_file": "log_file",
         }
 
         for arg_name, config_attr in arg_mapping.items():
             if hasattr(args, arg_name) and getattr(args, arg_name) is not None:
                 config_dict[config_attr] = getattr(args, arg_name)
 
-        if hasattr(args, 'batch_all') and args.batch_all:
-            config_dict['batch_mode'] = True
-        
-        if hasattr(args, 'figure_size') and args.figure_size:
-            config_dict['figure_size'] = tuple(args.figure_size)
-        
-        if 'plot_type' not in config_dict:
-            config_dict['plot_type'] = 'scatter'
+        if hasattr(args, "batch_all") and args.batch_all:
+            config_dict["batch_mode"] = True
 
-        if 'time_index' not in config_dict:
-            config_dict['time_index'] = 0
-        
+        if hasattr(args, "figure_size") and args.figure_size:
+            config_dict["figure_size"] = tuple(args.figure_size)
+
+        if "plot_type" not in config_dict:
+            config_dict["plot_type"] = "scatter"
+
+        if "time_index" not in config_dict:
+            config_dict["time_index"] = 0
+
         return MPASConfig(**config_dict)
 
     @staticmethod
     def create_wind_parser() -> argparse.ArgumentParser:
         """
-        This factory method creates and configures a command-line argument parser specifically for MPAS wind vector plotting, with options tailored for visualizing wind fields using barbs or arrows. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection for U and V components, plot settings (plot type, subsampling, scaling), background shading options, spatial extent configuration, output control (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating wind vector plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various wind visualization scenarios. 
+        This factory method creates and configures a command-line argument parser specifically for MPAS wind vector plotting, with options tailored for visualizing wind fields using barbs or arrows. The parser includes organized argument groups for required inputs (grid file and data directory), variable selection for U and V components, plot settings (plot type, subsampling, scaling), background shading options, spatial extent configuration, output control (filename, directory, formats), and processing flags (verbose, batch mode). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating wind vector plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various wind visualization scenarios.
 
         Parameters:
             None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for wind vector plotting with options for variable selection, plot type, subsampling, scaling, background shading, spatial extent, and output control, along with detailed examples in the epilog. 
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for wind vector plotting with options for variable selection, plot type, subsampling, scaling, background shading, spatial extent, and output control, along with detailed examples in the epilog.
         """
         parser = argparse.ArgumentParser(
             description="Generate MPAS wind vector plots with barbs or arrows",
@@ -348,73 +477,145 @@ Examples:
 
               # Custom extent and subsampling
               mpasdiag wind --grid-file /path/to/grid.nc --data-dir /path/to/data --u-variable u10 --v-variable v10 --extent -105 -95 35 45 --subsample 3
-            """)
+            """),
         )
-        
+
         parser.add_argument("--grid_file", help="Path to MPAS grid file (.nc)")
-        parser.add_argument("--data_dir", help="Path to directory containing MPAS data files")
-        
-        parser.add_argument("--u-variable", default="u10", 
-                          help="U-component wind variable name (default: u10)")
-        parser.add_argument("--v-variable", default="v10",
-                          help="V-component wind variable name (default: v10)")
-        parser.add_argument("--wind-level", default="surface",
-                          help="Wind level description for labeling (default: surface)")
-        
-        parser.add_argument("--wind-plot-type", choices=["barbs", "arrows"], default="barbs",
-                  help="Wind vector representation type (default: barbs)")
-        parser.add_argument("--subsample", type=int, default=0, dest="subsample_factor",
-                  help="Subsample factor for wind vectors (plot every Nth point, default: 0 => auto)")
-        parser.add_argument("--wind-scale", type=float, default=None,
-                          help="Scale factor for wind vectors (auto-determined if not specified)")
-        
-        parser.add_argument("--show-background", action="store_true",
-                          help="Show background wind speed as filled contours")
-        parser.add_argument("--background-colormap", default="viridis",
-                          help="Colormap for background wind speed (default: viridis)")
-        
-        parser.add_argument("--time-index", type=int, default=0,
-                          help="Time index to plot (0-based, default: 0)")
-        
-        parser.add_argument("--extent", nargs=4, type=float, metavar=("LON_MIN", "LON_MAX", "LAT_MIN", "LAT_MAX"),
-                          help="Map extent [lon_min lon_max lat_min lat_max] (default: auto from data)")
-        
-        parser.add_argument("--output", "-o", help="Output file path (without extension)")
-        parser.add_argument("--output-dir", default=".", help="Output directory (default: current directory)")
-        parser.add_argument("--output-formats", nargs="+", default=["png"], 
-                          choices=["png", "pdf", "svg", "jpg"],
-                          help="Output format(s) (default: png)")
-        
+        parser.add_argument(
+            "--data_dir", help="Path to directory containing MPAS data files"
+        )
+
+        parser.add_argument(
+            "--u-variable",
+            default="u10",
+            help="U-component wind variable name (default: u10)",
+        )
+        parser.add_argument(
+            "--v-variable",
+            default="v10",
+            help="V-component wind variable name (default: v10)",
+        )
+        parser.add_argument(
+            "--wind-level",
+            default="surface",
+            help="Wind level description for labeling (default: surface)",
+        )
+
+        parser.add_argument(
+            "--wind-plot-type",
+            choices=["barbs", "arrows"],
+            default="barbs",
+            help="Wind vector representation type (default: barbs)",
+        )
+        parser.add_argument(
+            "--subsample",
+            type=int,
+            default=0,
+            dest="subsample_factor",
+            help="Subsample factor for wind vectors (plot every Nth point, default: 0 => auto)",
+        )
+        parser.add_argument(
+            "--wind-scale",
+            type=float,
+            default=None,
+            help="Scale factor for wind vectors (auto-determined if not specified)",
+        )
+
+        parser.add_argument(
+            "--show-background",
+            action="store_true",
+            help="Show background wind speed as filled contours",
+        )
+        parser.add_argument(
+            "--background-colormap",
+            default="viridis",
+            help="Colormap for background wind speed (default: viridis)",
+        )
+
+        parser.add_argument(
+            "--time-index",
+            type=int,
+            default=0,
+            help="Time index to plot (0-based, default: 0)",
+        )
+
+        parser.add_argument(
+            "--extent",
+            nargs=4,
+            type=float,
+            metavar=("LON_MIN", "LON_MAX", "LAT_MIN", "LAT_MAX"),
+            help="Map extent [lon_min lon_max lat_min lat_max] (default: auto from data)",
+        )
+
+        parser.add_argument(
+            "--output", "-o", help="Output file path (without extension)"
+        )
+        parser.add_argument(
+            "--output-dir",
+            default=".",
+            help="Output directory (default: current directory)",
+        )
+        parser.add_argument(
+            "--output-formats",
+            nargs="+",
+            default=["png"],
+            choices=["png", "pdf", "svg", "jpg"],
+            help="Output format(s) (default: png)",
+        )
+
         parser.add_argument("--title", help="Custom plot title")
-        parser.add_argument("--figure-size", nargs=2, type=float, default=[10, 13], metavar=("WIDTH", "HEIGHT"),
-                          help="Figure size in inches (default: 10 13)")
-        parser.add_argument("--dpi", type=int, default=100, 
-                          help="Output DPI - default: 100, use 300+ for publication quality")
-        
-        parser.add_argument("--verbose", "-v", action="store_true",
-                            help="Enable verbose output (shortcut for --log-level DEBUG)")
-        parser.add_argument("--quiet", "-q", action="store_true",
-                            help="Suppress output messages (shortcut for --log-level ERROR)")
-        parser.add_argument("--log-level", type=str, default=None,
-                            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                            help="Logging severity threshold (overrides --verbose/--quiet)")
+        parser.add_argument(
+            "--figure-size",
+            nargs=2,
+            type=float,
+            default=[10, 13],
+            metavar=("WIDTH", "HEIGHT"),
+            help="Figure size in inches (default: 10 13)",
+        )
+        parser.add_argument(
+            "--dpi",
+            type=int,
+            default=100,
+            help="Output DPI - default: 100, use 300+ for publication quality",
+        )
+
+        parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Enable verbose output (shortcut for --log-level DEBUG)",
+        )
+        parser.add_argument(
+            "--quiet",
+            "-q",
+            action="store_true",
+            help="Suppress output messages (shortcut for --log-level ERROR)",
+        )
+        parser.add_argument(
+            "--log-level",
+            type=str,
+            default=None,
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            help="Logging severity threshold (overrides --verbose/--quiet)",
+        )
         parser.add_argument("--log-file", type=str, help="Log file path")
-        proc_group = parser.add_argument_group('Processing')
-        proc_group.add_argument('--batch-all', action='store_true',
-                               help=_BATCH_MODE_HELP)
+        proc_group = parser.add_argument_group("Processing")
+        proc_group.add_argument(
+            "--batch-all", action="store_true", help=_BATCH_MODE_HELP
+        )
 
         return parser
 
     @staticmethod
     def create_crosssection_parser() -> argparse.ArgumentParser:
         """
-        This factory method creates and configures a command-line argument parser specifically for MPAS 3D vertical cross-section plotting, with options tailored for defining transect paths, selecting 3D variables, configuring vertical coordinate systems, controlling interpolation resolution, and customizing visualization styling. The parser includes organized argument groups for required inputs (grid file and data directory), transect definition (start/end coordinates), cross-section parameters (time index, vertical coordinate, number of points, max height), visualization options (plot type, colormap, levels, colorbar extension), and output control (filename, directory, formats). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating vertical cross-section plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various cross-section visualization scenarios. 
+        This factory method creates and configures a command-line argument parser specifically for MPAS 3D vertical cross-section plotting, with options tailored for defining transect paths, selecting 3D variables, configuring vertical coordinate systems, controlling interpolation resolution, and customizing visualization styling. The parser includes organized argument groups for required inputs (grid file and data directory), transect definition (start/end coordinates), cross-section parameters (time index, vertical coordinate, number of points, max height), visualization options (plot type, colormap, levels, colorbar extension), and output control (filename, directory, formats). The returned ArgumentParser instance is designed to facilitate intuitive command-line interactions for generating vertical cross-section plots in MPASdiag workflows, with detailed examples provided in the epilog to guide users in constructing valid commands for various cross-section visualization scenarios.
 
         Parameters:
             None
 
         Returns:
-            argparse.ArgumentParser: Configured ArgumentParser instance specialized for vertical cross-section plotting with options for transect definition, variable selection, vertical coordinate configuration, visualization styling, and output control, along with detailed examples in the epilog. 
+            argparse.ArgumentParser: Configured ArgumentParser instance specialized for vertical cross-section plotting with options for transect definition, variable selection, vertical coordinate configuration, visualization styling, and output control, along with detailed examples in the epilog.
         """
         parser = argparse.ArgumentParser(
             description="Generate MPAS 3D vertical cross-section plots",
@@ -429,71 +630,145 @@ Examples:
 
               # Custom cross-section with model levels
               mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta --start-lon -100 --start-lat 30 --end-lon -90 --end-lat 50 --vertical-coord model_levels --colormap plasma
-            """)
+            """),
         )
-        
-        parser.add_argument("--grid-file", required=True,
-                          help="Path to MPAS grid/static file (.nc)")
-        parser.add_argument("--data-dir", required=True,
-                          help="Path to directory containing MPAS 3D output files (mpasout*.nc)")
-        parser.add_argument("--variable", required=True,
-                          help="3D atmospheric variable name (e.g., 'theta', 'uReconstructZonal', 'temperature')")
-        
-        path_group = parser.add_argument_group('Cross-section Path')
-        path_group.add_argument("--start-lon", type=float, required=True,
-                              help="Starting longitude in degrees")
-        path_group.add_argument("--start-lat", type=float, required=True,
-                              help="Starting latitude in degrees")
-        path_group.add_argument("--end-lon", type=float, required=True,
-                              help="Ending longitude in degrees")
-        path_group.add_argument("--end-lat", type=float, required=True,
-                              help="Ending latitude in degrees")
-        
-        crosssection_group = parser.add_argument_group('Cross-section Parameters')
-        crosssection_group.add_argument("--time-index", type=int, default=0,
-                              help="Time index to extract (default: 0)")
-        crosssection_group.add_argument("--vertical-coord", choices=["pressure", "modlev", "height"],
-                              default="pressure",
-                              help="Vertical coordinate system (default: pressure)")
-        crosssection_group.add_argument("--num-points", type=int, default=100,
-                              help="Number of interpolation points along cross-section (default: 100)")
-        crosssection_group.add_argument("--max-height", type=float,
-                              help="Maximum height in km for the vertical axis (default: auto)")
-        
-        viz_group = parser.add_argument_group('Visualization Options')
-        viz_group.add_argument("--plot-type", choices=["contourf", "contour", "pcolormesh"], 
-                             default="contourf",
-                             help="Plot type (default: contourf)")
-        viz_group.add_argument("--colormap", default="viridis",
-                             help="Matplotlib colormap name (default: viridis)")
-        viz_group.add_argument("--levels", type=float, nargs='+',
-                             help="Custom contour levels (space-separated)")
-        viz_group.add_argument("--extend", choices=["both", "min", "max", "neither"], 
-                             default="both",
-                             help="Colorbar extension (default: both)")
-        
-        parser.add_argument("--output", "-o", help="Output file path (without extension)")
-        parser.add_argument("--output-dir", default="./output",
-                          help="Output directory (default: ./output)")
-        parser.add_argument("--output-formats", nargs='+', default=['png'],
-                          choices=['png', 'pdf', 'svg', 'jpg', 'tiff'],
-                          help="Output formats (default: png)")
+
+        parser.add_argument(
+            "--grid-file", required=True, help="Path to MPAS grid/static file (.nc)"
+        )
+        parser.add_argument(
+            "--data-dir",
+            required=True,
+            help="Path to directory containing MPAS 3D output files (mpasout*.nc)",
+        )
+        parser.add_argument(
+            "--variable",
+            required=True,
+            help="3D atmospheric variable name (e.g., 'theta', 'uReconstructZonal', 'temperature')",
+        )
+
+        path_group = parser.add_argument_group("Cross-section Path")
+        path_group.add_argument(
+            "--start-lon",
+            type=float,
+            required=True,
+            help="Starting longitude in degrees",
+        )
+        path_group.add_argument(
+            "--start-lat",
+            type=float,
+            required=True,
+            help="Starting latitude in degrees",
+        )
+        path_group.add_argument(
+            "--end-lon", type=float, required=True, help="Ending longitude in degrees"
+        )
+        path_group.add_argument(
+            "--end-lat", type=float, required=True, help="Ending latitude in degrees"
+        )
+
+        crosssection_group = parser.add_argument_group("Cross-section Parameters")
+        crosssection_group.add_argument(
+            "--time-index",
+            type=int,
+            default=0,
+            help="Time index to extract (default: 0)",
+        )
+        crosssection_group.add_argument(
+            "--vertical-coord",
+            choices=["pressure", "modlev", "height"],
+            default="pressure",
+            help="Vertical coordinate system (default: pressure)",
+        )
+        crosssection_group.add_argument(
+            "--num-points",
+            type=int,
+            default=100,
+            help="Number of interpolation points along cross-section (default: 100)",
+        )
+        crosssection_group.add_argument(
+            "--max-height",
+            type=float,
+            help="Maximum height in km for the vertical axis (default: auto)",
+        )
+
+        viz_group = parser.add_argument_group("Visualization Options")
+        viz_group.add_argument(
+            "--plot-type",
+            choices=["contourf", "contour", "pcolormesh"],
+            default="contourf",
+            help="Plot type (default: contourf)",
+        )
+        viz_group.add_argument(
+            "--colormap",
+            default="viridis",
+            help="Matplotlib colormap name (default: viridis)",
+        )
+        viz_group.add_argument(
+            "--levels",
+            type=float,
+            nargs="+",
+            help="Custom contour levels (space-separated)",
+        )
+        viz_group.add_argument(
+            "--extend",
+            choices=["both", "min", "max", "neither"],
+            default="both",
+            help="Colorbar extension (default: both)",
+        )
+
+        parser.add_argument(
+            "--output", "-o", help="Output file path (without extension)"
+        )
+        parser.add_argument(
+            "--output-dir",
+            default="./output",
+            help="Output directory (default: ./output)",
+        )
+        parser.add_argument(
+            "--output-formats",
+            nargs="+",
+            default=["png"],
+            choices=["png", "pdf", "svg", "jpg", "tiff"],
+            help="Output formats (default: png)",
+        )
         parser.add_argument("--title", help="Custom plot title")
-        
-        figure_group = parser.add_argument_group('Figure Options')
-        figure_group.add_argument("--figure-size", nargs=2, type=float, default=[14, 8],
-                             metavar=("WIDTH", "HEIGHT"),
-                             help="Figure size in inches (default: 14 8)")
-        figure_group.add_argument("--dpi", type=int, default=100,
-                             help="Output DPI - default: 100, use 300+ for publication quality")
-        
-        parser.add_argument("--verbose", "-v", action="store_true",
-                          help="Enable verbose output (shortcut for --log-level DEBUG)")
-        parser.add_argument("--quiet", "-q", action="store_true",
-                          help="Suppress output messages (shortcut for --log-level ERROR)")
-        parser.add_argument("--log-level", type=str, default=None,
-                          choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-                          help="Logging severity threshold (overrides --verbose/--quiet)")
+
+        figure_group = parser.add_argument_group("Figure Options")
+        figure_group.add_argument(
+            "--figure-size",
+            nargs=2,
+            type=float,
+            default=[14, 8],
+            metavar=("WIDTH", "HEIGHT"),
+            help="Figure size in inches (default: 14 8)",
+        )
+        figure_group.add_argument(
+            "--dpi",
+            type=int,
+            default=100,
+            help="Output DPI - default: 100, use 300+ for publication quality",
+        )
+
+        parser.add_argument(
+            "--verbose",
+            "-v",
+            action="store_true",
+            help="Enable verbose output (shortcut for --log-level DEBUG)",
+        )
+        parser.add_argument(
+            "--quiet",
+            "-q",
+            action="store_true",
+            help="Suppress output messages (shortcut for --log-level ERROR)",
+        )
+        parser.add_argument(
+            "--log-level",
+            type=str,
+            default=None,
+            choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+            help="Logging severity threshold (overrides --verbose/--quiet)",
+        )
         parser.add_argument("--log-file", type=str, help="Log file path")
 
         return parser
@@ -501,13 +776,13 @@ Examples:
     @staticmethod
     def parse_wind_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for wind vector plotting. It extracts values for grid file, data directory, U and V variable names, wind level description, plot type (barbs or arrows), subsampling factor, scaling factor, background shading options, spatial extent, time index, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for wind vector plotting are transferred to the MPASConfig object for use in MPAS wind visualization workflows. 
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for wind vector plotting. It extracts values for grid file, data directory, U and V variable names, wind level description, plot type (barbs or arrows), subsampling factor, scaling factor, background shading options, spatial extent, time index, output control (filename, directory, formats), figure size, DPI, batch mode flag, and verbosity settings. The method handles default values and ensures that all relevant parameters for wind vector plotting are transferred to the MPASConfig object for use in MPAS wind visualization workflows.
 
         Parameters:
             args (argparse.Namespace): Parsed command-line arguments returned from create_wind_parser().parse_args() with wind plotting options.
 
         Returns:
-            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS wind vector plotting workflows. 
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS wind vector plotting workflows.
         """
         if args.extent:
             lon_min, lon_max, lat_min, lat_max = args.extent
@@ -516,7 +791,7 @@ Examples:
             lon_max = 180.0
             lat_min = -90.0
             lat_max = 90.0
-        
+
         config = MPASConfig(
             grid_file=args.grid_file,
             data_dir=args.data_dir,
@@ -539,17 +814,17 @@ Examples:
             title=args.title,
             figure_size=tuple(args.figure_size),
             dpi=args.dpi,
-            verbose=args.verbose
+            verbose=args.verbose,
         )
 
-        if getattr(args, 'quiet', False):
+        if getattr(args, "quiet", False):
             config.quiet = True
-        if getattr(args, 'log_level', None) is not None:
+        if getattr(args, "log_level", None) is not None:
             config.log_level = args.log_level
-        if getattr(args, 'log_file', None) is not None:
+        if getattr(args, "log_file", None) is not None:
             config.log_file = args.log_file
 
-        if hasattr(args, 'batch_all') and args.batch_all:
+        if hasattr(args, "batch_all") and args.batch_all:
             config.batch_mode = True
 
         return config
@@ -557,19 +832,19 @@ Examples:
     @staticmethod
     def parse_crosssection_args_to_config(args: argparse.Namespace) -> MPASConfig:
         """
-        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for vertical cross-section plotting. It extracts values for grid file, data directory, variable name, time index, vertical coordinate system, number of interpolation points, maximum height for vertical axis, plot type, colormap, contour levels, colorbar extension, output control (filename, directory, formats), figure size, DPI, and verbosity settings. The method handles default values and ensures that all relevant parameters for vertical cross-section plotting are transferred to the MPASConfig object for use in MPAS 3D transect visualization workflows. 
+        This method converts parsed command-line arguments from argparse.Namespace to an MPASConfig object, mapping argument names to configuration attributes specifically for vertical cross-section plotting. It extracts values for grid file, data directory, variable name, time index, vertical coordinate system, number of interpolation points, maximum height for vertical axis, plot type, colormap, contour levels, colorbar extension, output control (filename, directory, formats), figure size, DPI, and verbosity settings. The method handles default values and ensures that all relevant parameters for vertical cross-section plotting are transferred to the MPASConfig object for use in MPAS 3D transect visualization workflows.
 
         Parameters:
-            args (argparse.Namespace): Parsed command-line arguments returned from create_crosssection_parser().parse_args() with cross-section plotting options. 
+            args (argparse.Namespace): Parsed command-line arguments returned from create_crosssection_parser().parse_args() with cross-section plotting options.
 
         Returns:
-            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS vertical cross-section plotting workflows. 
+            MPASConfig: Configuration object populated with parameters from command-line arguments for use in MPAS vertical cross-section plotting workflows.
         """
         levels = None
 
-        if hasattr(args, 'levels') and args.levels:
+        if hasattr(args, "levels") and args.levels:
             levels = list(args.levels)
-        
+
         config = MPASConfig(
             grid_file=args.grid_file,
             data_dir=args.data_dir,
@@ -581,26 +856,26 @@ Examples:
             title=args.title,
             figure_size=tuple(args.figure_size),
             dpi=args.dpi,
-            verbose=args.verbose
+            verbose=args.verbose,
         )
-        
+
         config.start_lon = args.start_lon
         config.start_lat = args.start_lat
         config.end_lon = args.end_lon
         config.end_lat = args.end_lat
         config.vertical_coord = args.vertical_coord
         config.num_points = args.num_points
-        config.max_height = getattr(args, 'max_height', None)
+        config.max_height = getattr(args, "max_height", None)
         config.plot_type = args.plot_type
         config.colormap = args.colormap
         config.levels = levels
         config.extend = args.extend
 
-        if getattr(args, 'quiet', False):
+        if getattr(args, "quiet", False):
             config.quiet = True
-        if getattr(args, 'log_level', None) is not None:
+        if getattr(args, "log_level", None) is not None:
             config.log_level = args.log_level
-        if getattr(args, 'log_file', None) is not None:
+        if getattr(args, "log_file", None) is not None:
             config.log_file = args.log_file
 
         return config

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 """
 MPASdiag Test Suite: Tests for MPASdiag remapping functionality
 
@@ -10,6 +12,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules for testing
 import pytest
 import numpy as np
@@ -17,22 +20,19 @@ import xarray as xr
 from typing import Any
 from pathlib import Path
 
-from mpasdiag.processing.remapping import (
-    MPASRemapper,
-    remap_mpas_to_latlon
-)
-
+from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
 
 _RNG = np.random.default_rng(42)
 
 
 class TestWithRealMPASData:
-    """ Integration tests using actual MPAS data files. """
-    
-    def test_remap_mpas_to_latlon_with_real_data(self: 'TestWithRealMPASData', 
-                                                 mpas_test_data: Any) -> None:
+    """Integration tests using actual MPAS data files."""
+
+    def test_remap_mpas_to_latlon_with_real_data(
+        self: "TestWithRealMPASData", mpas_test_data: Any
+    ) -> None:
         """
-        This test verifies that the `remap_mpas_to_latlon` function can successfully remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then calls the remapping function. The assertions check that the output is an xarray DataArray and that it contains the expected longitude and latitude coordinates, confirming that the remapping process produces the expected structured output. 
+        This test verifies that the `remap_mpas_to_latlon` function can successfully remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then calls the remapping function. The assertions check that the output is an xarray DataArray and that it contains the expected longitude and latitude coordinates, confirming that the remapping process produces the expected structured output.
 
         Parameters:
             mpas_test_data (Any): Fixture returning an xarray Dataset.
@@ -40,30 +40,26 @@ class TestWithRealMPASData:
         Returns:
             None
         """
-        n_test = min(1000, len(mpas_test_data['lonCell']))
-        
-        lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test))
-        lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test))
-        
+        n_test = min(1000, len(mpas_test_data["lonCell"]))
+
+        lon = mpas_test_data["lonCell"].isel(nCells=slice(0, n_test))
+        lat = mpas_test_data["latCell"].isel(nCells=slice(0, n_test))
+
         data = _RNG.standard_normal(n_test)
-        
+
         result = remap_mpas_to_latlon(
-            data=data,
-            lon=lon,
-            lat=lat,
-            resolution=2.0,
-            method='nearest'
+            data=data, lon=lon, lat=lat, resolution=2.0, method="nearest"
         )
-        
+
         assert isinstance(result, xr.DataArray)
-        assert 'lon' in result.coords
-        assert 'lat' in result.coords
-    
-    def test_mpas_remapper_with_real_data(self: 'TestWithRealMPASData', 
-                                          mpas_test_data: Any, 
-                                          temp_weights_dir: Path) -> None:
+        assert "lon" in result.coords
+        assert "lat" in result.coords
+
+    def test_mpas_remapper_with_real_data(
+        self: "TestWithRealMPASData", mpas_test_data: Any, temp_weights_dir: Path
+    ) -> None:
         """
-        This test verifies that the `MPASRemapper` class can be used to remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test first extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then uses the `MPASRemapper` class to perform the remapping. The assertions check that the output is an xarray DataArray, confirming that the remapping process produces the expected structured output when using the class-based approach. 
+        This test verifies that the `MPASRemapper` class can be used to remap a synthetic dataset defined on a real MPAS grid to a regular lat-lon grid. The test first extracts a small subset of longitude and latitude data from the provided MPAS dataset, creates synthetic data values, and then uses the `MPASRemapper` class to perform the remapping. The assertions check that the output is an xarray DataArray, confirming that the remapping process produces the expected structured output when using the class-based approach.
 
         Parameters:
             mpas_test_data (Any): Fixture returning an xarray Dataset.
@@ -72,35 +68,34 @@ class TestWithRealMPASData:
         Returns:
             None
         """
-        n_test = min(500, len(mpas_test_data['lonCell']))
-        
-        lon = mpas_test_data['lonCell'].isel(nCells=slice(0, n_test)).values
-        lat = mpas_test_data['latCell'].isel(nCells=slice(0, n_test)).values
-        
+        n_test = min(500, len(mpas_test_data["lonCell"]))
+
+        lon = mpas_test_data["lonCell"].isel(nCells=slice(0, n_test)).values
+        lat = mpas_test_data["latCell"].isel(nCells=slice(0, n_test)).values
+
         data = _RNG.standard_normal(n_test)
-        
+
         data_array, grid_dataset = MPASRemapper.unstructured_to_structured_grid(
-            data=data,
-            lon=lon,
-            lat=lat,
-            intermediate_resolution=2.0
+            data=data, lon=lon, lat=lat, intermediate_resolution=2.0
         )
-        
-        remapper = MPASRemapper(method='nearest_s2d', weights_dir=temp_weights_dir, reuse_weights=False)
+
+        remapper = MPASRemapper(
+            method="nearest_s2d", weights_dir=temp_weights_dir, reuse_weights=False
+        )
         remapper.source_grid = grid_dataset
 
         remapper.create_target_grid(
             lon_min=np.degrees(lon.min()),
             lon_max=np.degrees(lon.max()),
             dlon=3.0,
-            dlat=3.0
+            dlat=3.0,
         )
 
-        remapper.build_regridder()        
+        remapper.build_regridder()
         result = remapper.remap(data_array)
-        
+
         assert isinstance(result, xr.DataArray)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

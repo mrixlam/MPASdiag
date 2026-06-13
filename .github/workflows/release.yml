@@ -1,0 +1,54 @@
+name: Publish to PyPI
+
+# Builds the distribution and publishes it to PyPI when a version tag is pushed.
+#
+# This workflow uses PyPI "Trusted Publishing" (OIDC) — no API token is stored
+# in the repository. Before the first release, configure a trusted publisher on
+# PyPI for this project:
+#   https://docs.pypi.org/trusted-publishers/
+#   Owner: mrixlam   Repository: MPASdiag
+#   Workflow: release.yml   Environment: pypi
+#
+# To cut a release:
+#   1. Bump the version in pyproject.toml and mpasdiag/__init__.py
+#   2. Update CHANGELOG.md
+#   3. git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    name: Build and publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/mpasdiag
+    permissions:
+      id-token: write  # required for trusted publishing
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.11'
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade build twine
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Check distribution metadata
+        run: twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

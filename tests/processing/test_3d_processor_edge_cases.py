@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Tests for 3D Atmospheric Data Processing in MPASdiag
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load standard libraries
 import pytest
 import numpy as np
@@ -18,20 +21,21 @@ from unittest.mock import MagicMock, patch
 
 from tests.processing.mock_dataset_helpers import make_grid_getitem
 from tests.test_data_helpers import (
-    get_mpas_data_paths, 
-    check_mpas_data_available, 
-    load_mpas_3d_processor, 
-    assert_expected_public_methods
+    get_mpas_data_paths,
+    check_mpas_data_available,
+    load_mpas_3d_processor,
+    assert_expected_public_methods,
 )
 
 
 class TestExtract2DCoordinatesEdgeCases:
-    """ Test edge cases in extract_2d_coordinates_for_variable. """
-    
-    
-    def test_verbose_output_for_coordinate_extraction(self: 'TestExtract2DCoordinatesEdgeCases') -> None:
+    """Test edge cases in extract_2d_coordinates_for_variable."""
+
+    def test_verbose_output_for_coordinate_extraction(
+        self: "TestExtract2DCoordinatesEdgeCases",
+    ) -> None:
         """
-        This test checks that when the processor is initialized with `verbose=True`, the `extract_2d_coordinates_for_variable` method provides expected output information during coordinate extraction. By mocking the grid coordinates and ensuring that the returned longitude and latitude arrays have the correct sizes, the test validates that verbose mode does not interfere with the coordinate extraction process and that it provides useful feedback when enabled. 
+        This test checks that when the processor is initialized with `verbose=True`, the `extract_2d_coordinates_for_variable` method provides expected output information during coordinate extraction. By mocking the grid coordinates and ensuring that the returned longitude and latitude arrays have the correct sizes, the test validates that verbose mode does not interfere with the coordinate extraction process and that it provides useful feedback when enabled.
 
         Parameters:
             None
@@ -40,42 +44,45 @@ class TestExtract2DCoordinatesEdgeCases:
             None
         """
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        assert_expected_public_methods(MPAS3DProcessor, 'MPAS3DProcessor')
-        
-        with patch('os.path.exists', return_value=True):
-            processor = MPAS3DProcessor('test_grid.nc', verbose=True)  
-        
+
+        assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
+
+        with patch("os.path.exists", return_value=True):
+            processor = MPAS3DProcessor("test_grid.nc", verbose=True)
+
         mock_ds = MagicMock()
         mock_var = MagicMock()
-        mock_var.sizes = {'nCells': 100, 'nVertLevels': 55}
+        mock_var.sizes = {"nCells": 100, "nVertLevels": 55}
         mock_ds.__getitem__.return_value = mock_var
         mock_ds.__contains__.return_value = True
         processor.dataset = mock_ds
-        
+
         mock_grid = MagicMock()
-        mock_grid.coords = {'lonCell': True, 'latCell': True}
+        mock_grid.coords = {"lonCell": True, "latCell": True}
         mock_grid.data_vars = {}
-        
+
         lon_deg = np.linspace(-180, 180, 100)
         lat_deg = np.linspace(-90, 90, 100)
-        
+
         mock_grid.__getitem__.side_effect = make_grid_getitem(lon_deg, lat_deg)
-        
-        with patch('xarray.open_dataset') as mock_open:
+
+        with patch("xarray.open_dataset") as mock_open:
             mock_open.return_value.__enter__.return_value = mock_grid
-            
-            lon, lat = processor.extract_2d_coordinates_for_variable('theta')
-            
+
+            lon, lat = processor.extract_2d_coordinates_for_variable("theta")
+
             assert len(lon) == pytest.approx(100)
             assert len(lat) == pytest.approx(100)
 
 
 class TestLoad3DDataSpatialCoordinates:
-    """ Test spatial coordinate handling in load_3d_data. """
-    
-    def test_load_3d_data_xarray_adds_spatial_coords(self: 'TestLoad3DDataSpatialCoordinates') -> None:
+    """Test spatial coordinate handling in load_3d_data."""
+
+    def test_load_3d_data_xarray_adds_spatial_coords(
+        self: "TestLoad3DDataSpatialCoordinates",
+    ) -> None:
         """
-        This test verifies that the `load_3d_data` method can successfully load datasets using the xarray backend when the `use_pure_xarray` flag is set to True. The test checks that the processor's `dataset` attribute is populated with an xarray Dataset containing the expected data variables and that the `data_type` is correctly set to 'xarray'. If the test data is not available, the test will be skipped to avoid false failures. 
+        This test verifies that the `load_3d_data` method can successfully load datasets using the xarray backend when the `use_pure_xarray` flag is set to True. The test checks that the processor's `dataset` attribute is populated with an xarray Dataset containing the expected data variables and that the `data_type` is correctly set to 'xarray'. If the test data is not available, the test will be skipped to avoid false failures.
 
         Parameters:
             None
@@ -84,23 +91,28 @@ class TestLoad3DDataSpatialCoordinates:
             None
         """
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        assert_expected_public_methods(MPAS3DProcessor, 'MPAS3DProcessor')
+
+        assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
             return
 
         paths = get_mpas_data_paths()
-        processor = MPAS3DProcessor(str(paths['grid_file']), verbose=False)
-        
-        processor = processor.load_3d_data(str(paths['mpasout_dir']), use_pure_xarray=True)
-        
-        assert hasattr(processor.dataset, 'data_vars')
-        assert processor.data_type == 'xarray'
-    
-    def test_load_3d_data_uxarray_adds_spatial_coords(self: 'TestLoad3DDataSpatialCoordinates') -> None:
+        processor = MPAS3DProcessor(str(paths["grid_file"]), verbose=False)
+
+        processor = processor.load_3d_data(
+            str(paths["mpasout_dir"]), use_pure_xarray=True
+        )
+
+        assert hasattr(processor.dataset, "data_vars")
+        assert processor.data_type == "xarray"
+
+    def test_load_3d_data_uxarray_adds_spatial_coords(
+        self: "TestLoad3DDataSpatialCoordinates",
+    ) -> None:
         """
-        This test confirms that the `load_3d_data` method can successfully load datasets using the uxarray backend when the `use_pure_xarray` flag is set to False. The test checks that the processor's `dataset` attribute is populated with a dataset object containing the expected data variables and that the `data_type` is correctly set to 'uxarray'. If the test data is not available, the test will be skipped to avoid false failures. 
+        This test confirms that the `load_3d_data` method can successfully load datasets using the uxarray backend when the `use_pure_xarray` flag is set to False. The test checks that the processor's `dataset` attribute is populated with a dataset object containing the expected data variables and that the `data_type` is correctly set to 'uxarray'. If the test data is not available, the test will be skipped to avoid false failures.
 
         Parameters:
             None
@@ -109,27 +121,32 @@ class TestLoad3DDataSpatialCoordinates:
             None
         """
         from mpasdiag.processing.processors_3d import MPAS3DProcessor
-        assert_expected_public_methods(MPAS3DProcessor, 'MPAS3DProcessor')
+
+        assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
             return
-        
+
         paths = get_mpas_data_paths()
 
-        processor = MPAS3DProcessor(str(paths['grid_file']), verbose=False)        
-        processor = processor.load_3d_data(str(paths['mpasout_dir']), use_pure_xarray=False)
-        
+        processor = MPAS3DProcessor(str(paths["grid_file"]), verbose=False)
+        processor = processor.load_3d_data(
+            str(paths["mpasout_dir"]), use_pure_xarray=False
+        )
+
         assert processor.dataset is not None
-        assert processor.data_type in ['uxarray', 'xarray']
+        assert processor.data_type in ["uxarray", "xarray"]
 
 
 class TestGetAvailable3DVerbose:
-    """ Test verbose output in get_available_3d_variables. """
-    
-    def test_get_available_3d_variables_verbose_output(self: 'TestGetAvailable3DVerbose') -> None:
+    """Test verbose output in get_available_3d_variables."""
+
+    def test_get_available_3d_variables_verbose_output(
+        self: "TestGetAvailable3DVerbose",
+    ) -> None:
         """
-        This test checks that when the processor is initialized with `verbose=True`, the `get_available_3d_variables` method provides expected output information about the available 3D variables in the dataset. By ensuring that the method returns a non-empty list of variable names, the test validates that verbose mode does not interfere with the variable discovery process and that it provides useful feedback when enabled. If the test data is not available, the test will be skipped to avoid false failures. 
+        This test checks that when the processor is initialized with `verbose=True`, the `get_available_3d_variables` method provides expected output information about the available 3D variables in the dataset. By ensuring that the method returns a non-empty list of variable names, the test validates that verbose mode does not interfere with the variable discovery process and that it provides useful feedback when enabled. If the test data is not available, the test will be skipped to avoid false failures.
 
         Parameters:
             None
@@ -137,13 +154,13 @@ class TestGetAvailable3DVerbose:
         Returns:
             None
         """
-        
+
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
             return
-        
-        processor = load_mpas_3d_processor(verbose=True)        
+
+        processor = load_mpas_3d_processor(verbose=True)
         variables = processor.get_available_3d_variables()
-        
+
         assert isinstance(variables, list)
         assert len(variables) > 0

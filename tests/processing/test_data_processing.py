@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Tests for MPAS Data Processing Utilities and Processors
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: February 2026
 Version: 1.0.0
 """
+
 # Load necessary libraries and modules
 import os
 import sys
@@ -29,13 +32,13 @@ sys.path.insert(0, str(package_dir))
 
 
 class TestDataValidation:
-    """ Tests for data validation and filtering methods in MPAS2DProcessor. """
-    
-    def test_filter_by_spatial_extent(self: 'TestDataValidation', 
-                                      mock_mpas_mesh: Any, 
-                                      mock_mpas_2d_data: Any) -> None:
+    """Tests for data validation and filtering methods in MPAS2DProcessor."""
+
+    def test_filter_by_spatial_extent(
+        self: "TestDataValidation", mock_mpas_mesh: Any, mock_mpas_2d_data: Any
+    ) -> None:
         """
-        This test verifies that the filter_by_spatial_extent method correctly filters data based on specified geographic bounds. It uses real MPAS mesh data from the provided fixture to create a dataset with longitude and latitude coordinates. The test defines a smaller geographic extent within the bounds of the mesh and calls filter_by_spatial_extent with this extent. It then asserts that the returned mask is a boolean array of the correct length and that it correctly identifies which grid cells fall within the specified geographic bounds. This ensures that the method can accurately filter data for visualization or analysis based on spatial criteria. 
+        This test verifies that the filter_by_spatial_extent method correctly filters data based on specified geographic bounds. It uses real MPAS mesh data from the provided fixture to create a dataset with longitude and latitude coordinates. The test defines a smaller geographic extent within the bounds of the mesh and calls filter_by_spatial_extent with this extent. It then asserts that the returned mask is a boolean array of the correct length and that it correctly identifies which grid cells fall within the specified geographic bounds. This ensures that the method can accurately filter data for visualization or analysis based on spatial criteria.
 
         Parameters:
             mock_mpas_mesh: Fixture providing real MPAS mesh with coordinates.
@@ -44,16 +47,16 @@ class TestDataValidation:
         Returns:
             None
         """
-        grid_file = tempfile.NamedTemporaryFile(suffix='.nc', delete=False).name
+        grid_file = tempfile.NamedTemporaryFile(suffix=".nc", delete=False).name
 
         try:
-            mock_mpas_mesh.to_netcdf(grid_file)            
+            mock_mpas_mesh.to_netcdf(grid_file)
             processor = MPAS2DProcessor(grid_file, verbose=False)
-            assert_expected_public_methods(processor, 'MPAS2DProcessor')
-            
-            lon_rad = mock_mpas_mesh['lonCell'].values
-            lat_rad = mock_mpas_mesh['latCell'].values
-            
+            assert_expected_public_methods(processor, "MPAS2DProcessor")
+
+            lon_rad = mock_mpas_mesh["lonCell"].values
+            lat_rad = mock_mpas_mesh["latCell"].values
+
             if np.nanmax(np.abs(lon_rad)) <= 2 * np.pi + 1e-6:
                 lon = np.degrees(lon_rad)
             else:
@@ -63,26 +66,28 @@ class TestDataValidation:
                 lat = np.degrees(lat_rad)
             else:
                 lat = lat_rad
-            
+
             lon = ((lon + 180.0) % 360.0) - 180.0
-            
+
             n_cells = len(lon)
 
-            if 't2m' in mock_mpas_2d_data:
-                data_array = mock_mpas_2d_data['t2m'].isel(Time=0)
+            if "t2m" in mock_mpas_2d_data:
+                data_array = mock_mpas_2d_data["t2m"].isel(Time=0)
             else:
-                data_array = xr.DataArray(np.ones(n_cells), dims=['nCells'])
-            
-            ds = xr.Dataset({
-                'lonCell': (['nCells'], lon),
-                'latCell': (['nCells'], lat),
-            })
+                data_array = xr.DataArray(np.ones(n_cells), dims=["nCells"])
+
+            ds = xr.Dataset(
+                {
+                    "lonCell": (["nCells"], lon),
+                    "latCell": (["nCells"], lat),
+                }
+            )
 
             processor.dataset = ds
-            
+
             lon_min, lon_max = float(np.min(lon)), float(np.max(lon))
             lat_min, lat_max = float(np.min(lat)), float(np.max(lat))
-            
+
             lon_margin = (lon_max - lon_min) * 0.2
             lat_margin = (lat_max - lat_min) * 0.2
 
@@ -90,22 +95,26 @@ class TestDataValidation:
             test_lon_max = lon_max - lon_margin
             test_lat_min = lat_min + lat_margin
             test_lat_max = lat_max - lat_margin
-            
+
             _, mask = processor.filter_by_spatial_extent(
                 data_array, test_lon_min, test_lon_max, test_lat_min, test_lat_max
             )
-            
+
             assert mask.dtype == bool
             assert len(mask) == n_cells
-            
-            expected_mask = ((lon >= test_lon_min) & (lon <= test_lon_max) & 
-                           (lat >= test_lat_min) & (lat <= test_lat_max))
-            
+
+            expected_mask = (
+                (lon >= test_lon_min)
+                & (lon <= test_lon_max)
+                & (lat >= test_lat_min)
+                & (lat <= test_lat_max)
+            )
+
             np.testing.assert_array_equal(mask, expected_mask)
-            
+
         finally:
             os.unlink(grid_file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pytest.main([__file__])

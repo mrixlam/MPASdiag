@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPAS Analysis Processing Package
@@ -35,6 +37,7 @@ try:
         create_target_grid,
         dispatch_remap,
     )
+
     _REMAPPING_AVAILABLE = True
 except ImportError:
     _REMAPPING_AVAILABLE = False
@@ -46,25 +49,25 @@ except ImportError:
     dispatch_remap = None  # type: ignore[assignment]
 
 __all__ = [
-    'MPASBaseProcessor',
-    'MPAS2DProcessor', 
-    'MPAS3DProcessor',
-    'MPASFileMetadata',
-    'UnitConverter',
-    'MPASGeographicUtils',
-    'MPASDateTimeUtils',
-    'MPASConfig',
-    'MPASLogger',
-    'get_logger',
-    'FileManager',
-    'print_system_info',
-    'DataValidator',
-    'PerformanceMonitor',
-    'ArgumentParser',
-    'MPASRemapper',
-    'remap_mpas_to_latlon',
-    'remap_mpas_to_latlon_with_masking',
-    'build_remapped_valid_mask',
-    'create_target_grid',
-    'dispatch_remap',
+    "MPASBaseProcessor",
+    "MPAS2DProcessor",
+    "MPAS3DProcessor",
+    "MPASFileMetadata",
+    "UnitConverter",
+    "MPASGeographicUtils",
+    "MPASDateTimeUtils",
+    "MPASConfig",
+    "MPASLogger",
+    "get_logger",
+    "FileManager",
+    "print_system_info",
+    "DataValidator",
+    "PerformanceMonitor",
+    "ArgumentParser",
+    "MPASRemapper",
+    "remap_mpas_to_latlon",
+    "remap_mpas_to_latlon_with_masking",
+    "build_remapped_valid_mask",
+    "create_target_grid",
+    "dispatch_remap",
 ]

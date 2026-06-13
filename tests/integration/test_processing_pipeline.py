@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# SPDX-License-Identifier: MIT
 
 """
 MPASdiag Test Suite: Processing Layer Integration Tests
@@ -11,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: June 2026
 Version: 1.0.0
 """
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -25,15 +28,17 @@ from tests.integration.conftest import ESMPY_AVAILABLE
 @pytest.mark.integration
 @pytest.mark.requires_data
 class TestProcessingPipeline:
-    """ Cross-module integration tests for the MPASdiag processing layer using real MPAS data. """
+    """Cross-module integration tests for the MPASdiag processing layer using real MPAS data."""
 
-    def test_2d_load_extract_coordinates_and_variable(self: "TestProcessingPipeline", 
-                                                      real_2d_processor: MPAS2DProcessor,) -> None:
+    def test_2d_load_extract_coordinates_and_variable(
+        self: "TestProcessingPipeline",
+        real_2d_processor: MPAS2DProcessor,
+    ) -> None:
         """
-        This test exercises the core 2D processing pipeline: it loads a real MPAS 2D dataset, extracts the horizontal coordinates for a surface variable, and retrieves the variable data for a single time step. The test asserts that the expected variables are available, the coordinates are properly extracted and finite, and the variable data is a valid xarray DataArray containing finite values. 
+        This test exercises the core 2D processing pipeline: it loads a real MPAS 2D dataset, extracts the horizontal coordinates for a surface variable, and retrieves the variable data for a single time step. The test asserts that the expected variables are available, the coordinates are properly extracted and finite, and the variable data is a valid xarray DataArray containing finite values.
 
         Parameters:
-            real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with real MPAS data. 
+            real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with real MPAS data.
 
         Returns:
             None
@@ -53,8 +58,10 @@ class TestProcessingPipeline:
         assert np.isfinite(lat).all()
         assert np.isfinite(np.asarray(data.values)).any()
 
-    def test_2d_processor_time_dimension(self: "TestProcessingPipeline", 
-                                         real_2d_processor: MPAS2DProcessor,) -> None:
+    def test_2d_processor_time_dimension(
+        self: "TestProcessingPipeline",
+        real_2d_processor: MPAS2DProcessor,
+    ) -> None:
         """
         This test verifies that the 2D processor correctly identifies and handles the time dimension in the dataset. It asserts that the dataset contains a time dimension (either 'Time' or 'time') and that it has at least two time steps, ensuring that the processor can access temporal data for diagnostics that require time series analysis.
 
@@ -70,8 +77,10 @@ class TestProcessingPipeline:
         time_dim = "Time" if "Time" in dataset.dims else "time"
         assert dataset.sizes[time_dim] >= 2
 
-    def test_3d_load_levels_and_slice(self: "TestProcessingPipeline", 
-                                      real_3d_processor: MPAS3DProcessor,) -> None:
+    def test_3d_load_levels_and_slice(
+        self: "TestProcessingPipeline",
+        real_3d_processor: MPAS3DProcessor,
+    ) -> None:
         """
         This test exercises the core 3D processing pipeline: it loads a real MPAS 3D dataset, retrieves the available 3D variables, extracts the vertical levels for a chosen variable, and retrieves a surface-level slice of the variable data for a single time step. The test asserts that the expected 3D variable is available, that multiple vertical levels are present, and that the surface slice is a valid xarray DataArray containing finite values.
 
@@ -96,11 +105,13 @@ class TestProcessingPipeline:
         assert np.isfinite(np.asarray(surface_slice.values)).any()
 
     @pytest.mark.parametrize("method", ["nearest", "linear"])
-    def test_remap_unstructured_to_latlon_scipy(self: "TestProcessingPipeline", 
-                                                real_2d_processor: MPAS2DProcessor, 
-                                                method: str,) -> None:
+    def test_remap_unstructured_to_latlon_scipy(
+        self: "TestProcessingPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        method: str,
+    ) -> None:
         """
-        This test exercises the lightweight remapping path using SciPy's griddata to remap a real MPAS surface field (e.g., 2m temperature) from the unstructured MPAS grid to a regular lat-lon grid. It asserts that the remapped output is an xarray DataArray with the expected coordinate names and dimensions, and that a reasonable fraction of the remapped values are finite, indicating a successful interpolation. 
+        This test exercises the lightweight remapping path using SciPy's griddata to remap a real MPAS surface field (e.g., 2m temperature) from the unstructured MPAS grid to a regular lat-lon grid. It asserts that the remapped output is an xarray DataArray with the expected coordinate names and dimensions, and that a reasonable fraction of the remapped values are finite, indicating a successful interpolation.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with real MPAS data.
@@ -133,11 +144,13 @@ class TestProcessingPipeline:
         assert finite_fraction > 0.5
 
     @pytest.mark.skipif(not ESMPY_AVAILABLE, reason="xESMF/ESMPy not available")
-    def test_remap_with_mpas_remapper_xesmf(self: "TestProcessingPipeline",
-                                            real_2d_processor: MPAS2DProcessor,
-                                            tmp_path: object,) -> None:
+    def test_remap_with_mpas_remapper_xesmf(
+        self: "TestProcessingPipeline",
+        real_2d_processor: MPAS2DProcessor,
+        tmp_path: object,
+    ) -> None:
         """
-        This test exercises the remapping pipeline using the MPASRemapper class with xESMF as the backend to remap a real MPAS surface field from the unstructured grid to a regular lat-lon grid. It asserts that the remapped output is an xarray DataArray with the expected coordinate names and dimensions, and that the remapped values are finite, indicating a successful remapping. The test also verifies that weights are properly cached in the specified temporary directory. 
+        This test exercises the remapping pipeline using the MPASRemapper class with xESMF as the backend to remap a real MPAS surface field from the unstructured grid to a regular lat-lon grid. It asserts that the remapped output is an xarray DataArray with the expected coordinate names and dimensions, and that the remapped values are finite, indicating a successful remapping. The test also verifies that weights are properly cached in the specified temporary directory.
 
         Parameters:
             real_2d_processor (MPAS2DProcessor): Loaded 2D processor fixture with real MPAS data.
@@ -173,7 +186,7 @@ class TestProcessingPipeline:
             dlon=3.0,
             dlat=3.0,
         )
-        
+
         remapper.build_regridder()
         result = remapper.remap(data_array)
 
