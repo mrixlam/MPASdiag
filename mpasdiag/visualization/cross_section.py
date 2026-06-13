@@ -542,7 +542,6 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         title: Optional[str] = None,
         max_height: Optional[float] = None,
         style: Optional[CrossSectionStyle] = None,
-        precomputed_levels: Optional[Tuple[np.ndarray, str]] = None,
         **kwargs: Any,
     ) -> Tuple[Figure, Axes]:
         """
@@ -561,14 +560,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             title (Optional[str]): Title for the plot; if None, a default title is generated based on variable name and time information (default: None).
             max_height (Optional[float]): Maximum height in kilometers to display on the vertical axis; if None, full height range is shown based on data and vertical coordinate system (default: None).
             style (Optional[CrossSectionStyle]): Appearance settings (levels, colormap, extend, plot_type). If None, defaults are used.
-            precomputed_levels (Optional[Tuple[np.ndarray, str]]): Already-resolved (vertical_levels, vertical_coord_type) pair to reuse for this plot. Resolving pressure levels reads and reduces the FULL 3D pressure field, so batch callers resolve once per batch and pass the result here; every frame then shares a consistent vertical axis and skips that read. If None, levels are resolved from the dataset for this time index (default: None).
-            **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization.
+            **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization. May also include the advanced batch knob ``precomputed_levels`` (Optional[Tuple[np.ndarray, str]]): an already-resolved (vertical_levels, vertical_coord_type) pair to reuse for this plot. Resolving pressure levels reads and reduces the FULL 3D pressure field, so batch callers resolve once per batch and pass the result here; every frame then shares a consistent vertical axis and skips that read. If absent, levels are resolved from the dataset for this time index.
 
         Returns:
             Tuple[Figure, Axes]: Matplotlib figure and axes objects containing the generated vertical cross-section plot.
         """
         if style is None:
             style = CrossSectionStyle()
+
+        precomputed_levels: Optional[Tuple[np.ndarray, str]] = kwargs.pop(
+            "precomputed_levels", None
+        )
 
         levels = style.levels
         colormap = style.colormap

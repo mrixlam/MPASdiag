@@ -794,17 +794,17 @@ class TestInterpolateAllLevels:
         values[rng.random((N_TIME, N_CELLS, N_VERT)) < 0.2] = np.nan
         var_da = xr.DataArray(values, dims=["Time", "nCells", "nVertLevels"])
 
-        kwargs = dict(
-            vertical_levels=np.arange(N_VERT, dtype=float),
-            time_index=1,
-            time_dim="Time",
-            vert_dim="nVertLevels",
-            lon_coords=np.linspace(-100.0, -90.0, N_CELLS),
-            lat_coords=np.linspace(35.0, 45.0, N_CELLS),
-            path_lons=np.linspace(-99.0, -91.0, 5),
-            path_lats=np.linspace(36.0, 44.0, 5),
-            num_points=5,
-        )
+        kwargs = {
+            "vertical_levels": np.arange(N_VERT, dtype=float),
+            "time_index": 1,
+            "time_dim": "Time",
+            "vert_dim": "nVertLevels",
+            "lon_coords": np.linspace(-100.0, -90.0, N_CELLS),
+            "lat_coords": np.linspace(35.0, 45.0, N_CELLS),
+            "path_lons": np.linspace(-99.0, -91.0, 5),
+            "path_lats": np.linspace(36.0, 44.0, 5),
+            "num_points": 5,
+        }
 
         via_reduced = plotter._interpolate_all_levels(var_da, **kwargs)
 

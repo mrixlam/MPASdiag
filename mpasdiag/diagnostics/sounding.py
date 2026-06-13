@@ -35,6 +35,15 @@ _NEAREST_CELL_TREE_CACHE_MAX: int = 4
 _GRID_COORD_CACHE: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
 _GRID_COORD_CACHE_MAX: int = 4
 
+_SOUNDING_COORD_NAMES = [
+    "lonCell",
+    "longitude",
+    "lon",
+    "latCell",
+    "latitude",
+    "lat",
+]
+
 _mpcalc: Optional[ModuleType] = None
 _munits: Any = None
 
@@ -150,54 +159,17 @@ class SoundingDiagnostics:
             ds, time_dim, validated_time_index, cell_idx
         )
 
-        # Sort profiles from surface to top based on pressure
-        sort_idx = np.argsort(pressure_hpa)[::-1]
-
-        # Sort pressure profile from surface to top
-        pressure_hpa = pressure_hpa[sort_idx]
-
-        # Temperature is required, so sort it along with pressure
-        temperature_c = temperature_c[sort_idx]
-
-        # Dewpoint is optional, so only sort if it exists
-        dewpoint_c = dewpoint_c[sort_idx]
-
-        # u_kt is optional, so only sort if it exists
-        if u_kt is not None:
-            u_kt = u_kt[sort_idx]
-
-        # v_kt is optional, so only sort if it exists
-        if v_kt is not None:
-            v_kt = v_kt[sort_idx]
-
-        # Height is optional, so only sort if it exists
-        if height_m is not None:
-            height_m = height_m[sort_idx]
-
-        # Filter out any non-finite values from the profiles
-        valid = np.isfinite(pressure_hpa) & np.isfinite(temperature_c)
-
-        if not np.all(valid):
-            # Filter pressure only if it has valid values
-            pressure_hpa = pressure_hpa[valid]
-
-            # Filter temperature only if it has valid values
-            temperature_c = temperature_c[valid]
-
-            # Filter dewpoint only if it has valid values
-            dewpoint_c = dewpoint_c[valid]
-
-            # u_kt is optional, so only filter if it exists
-            if u_kt is not None:
-                u_kt = u_kt[valid]
-
-            # v_kt is optional, so only filter if it exists
-            if v_kt is not None:
-                v_kt = v_kt[valid]
-
-            # Height is optional, so only filter if it exists
-            if height_m is not None:
-                height_m = height_m[valid]
+        # Sort profiles surface-to-top and drop levels with non-finite P or T
+        (
+            pressure_hpa,
+            temperature_c,
+            dewpoint_c,
+            u_kt,
+            v_kt,
+            height_m,
+        ) = self._order_and_clean_profiles(
+            pressure_hpa, temperature_c, dewpoint_c, u_kt, v_kt, height_m
+        )
 
         # Print profile summary if verbose mode is enabled
         if self.verbose:
@@ -223,6 +195,72 @@ class SoundingDiagnostics:
             "cell_index": cell_idx,
             "time_index": validated_time_index,
         }
+
+    @staticmethod
+    def _order_and_clean_profiles(
+        pressure_hpa: np.ndarray,
+        temperature_c: np.ndarray,
+        dewpoint_c: np.ndarray,
+        u_kt: Optional[np.ndarray],
+        v_kt: Optional[np.ndarray],
+        height_m: Optional[np.ndarray],
+    ) -> Tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+    ]:
+        """
+        This function sorts the sounding profiles from surface to top by descending pressure and drops any levels with non-finite pressure or temperature values. It takes the pressure, temperature, dewpoint, wind, and height profiles as input, sorts them according to pressure, and then filters out any levels where pressure or temperature is not finite. The function ensures that all profiles remain aligned after sorting and filtering. This is important for accurate index calculations later on, as non-finite values can cause errors in the computations. The output is the cleaned and sorted profiles ready for further analysis. 
+
+        Parameters:
+            pressure_hpa (np.ndarray): Pressure profile in hPa.
+            temperature_c (np.ndarray): Temperature profile in °C.
+            dewpoint_c (np.ndarray): Dewpoint profile in °C.
+            u_kt (Optional[np.ndarray]): Zonal wind profile in knots, or None.
+            v_kt (Optional[np.ndarray]): Meridional wind profile in knots, or None.
+            height_m (Optional[np.ndarray]): Geometric height profile in m, or None.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]: The (pressure, temperature, dewpoint, u_wind, v_wind, height) profiles sorted surface-to-top with non-finite levels removed.
+        """
+
+        def _take(arr: Optional[np.ndarray], idx: np.ndarray) -> Optional[np.ndarray]:
+            """
+            This helper function takes an array and an index array, returning the indexed values if the array is not None, or None if the input array is None. This is used to apply the same sorting and filtering indices to the optional wind and height profiles without needing to check for their presence multiple times.
+
+            Parameters:
+                arr (Optional[np.ndarray]): The input array to index, or None.
+                idx (np.ndarray): The indices to take from the array.
+
+            Returns:
+                Optional[np.ndarray]: The indexed array if input is not None, otherwise None.
+            """
+            return arr[idx] if arr is not None else None
+
+        # Sort surface-to-top by descending pressure
+        sort_idx = np.argsort(pressure_hpa)[::-1]
+        pressure_hpa = pressure_hpa[sort_idx]
+        temperature_c = temperature_c[sort_idx]
+        dewpoint_c = dewpoint_c[sort_idx]
+        u_kt = _take(u_kt, sort_idx)
+        v_kt = _take(v_kt, sort_idx)
+        height_m = _take(height_m, sort_idx)
+
+        # Drop levels with non-finite pressure or temperature
+        valid = np.isfinite(pressure_hpa) & np.isfinite(temperature_c)
+
+        if not np.all(valid):
+            pressure_hpa = pressure_hpa[valid]
+            temperature_c = temperature_c[valid]
+            dewpoint_c = dewpoint_c[valid]
+            u_kt = _take(u_kt, valid)
+            v_kt = _take(v_kt, valid)
+            height_m = _take(height_m, valid)
+
+        return pressure_hpa, temperature_c, dewpoint_c, u_kt, v_kt, height_m
 
     def compute_dewpoint_from_mixing_ratio(
         self: "SoundingDiagnostics",
@@ -495,42 +533,15 @@ class SoundingDiagnostics:
         if cache_key is not None and cache_key in _GRID_COORD_CACHE:
             return _GRID_COORD_CACHE[cache_key]
 
-        # Only load lon/lat coordinate variables from the grid file
-        _SOUNDING_COORD_NAMES = [
-            "lonCell",
-            "longitude",
-            "lon",
-            "latCell",
-            "latitude",
-            "lat",
-        ]
-        open_kwargs: dict = {"decode_times": False}
-
-        try:
-            with xr.open_dataset(processor.grid_file, decode_times=False) as probe:
-                all_vars = list(probe.data_vars)
-            drop = [v for v in all_vars if v not in _SOUNDING_COORD_NAMES]
-            if drop:
-                open_kwargs["drop_variables"] = drop
-        except Exception:
-            pass
+        open_kwargs = self._coord_open_kwargs(processor.grid_file)
 
         with xr.open_dataset(processor.grid_file, **open_kwargs) as grid_ds:
-            # Check for common longitude variable names and extract the longitude array
-            for lon_name in ("lonCell", "longitude", "lon"):
-                if lon_name in grid_ds.coords or lon_name in grid_ds.data_vars:
-                    lon = grid_ds[lon_name].values.ravel()
-                    break
-            else:
-                raise ValueError("Cannot find longitude coordinate in grid file")
-
-            # Check for common latitude variable names and extract the latitude array
-            for lat_name in ("latCell", "latitude", "lat"):
-                if lat_name in grid_ds.coords or lat_name in grid_ds.data_vars:
-                    lat = grid_ds[lat_name].values.ravel()
-                    break
-            else:
-                raise ValueError("Cannot find latitude coordinate in grid file")
+            lon = self._select_coordinate(
+                grid_ds, ("lonCell", "longitude", "lon"), "longitude"
+            )
+            lat = self._select_coordinate(
+                grid_ds, ("latCell", "latitude", "lat"), "latitude"
+            )
 
         # Convert from radians to degrees if necessary
         if np.nanmax(np.abs(lat)) <= np.pi:
@@ -548,6 +559,50 @@ class SoundingDiagnostics:
 
         # Return the longitude and latitude arrays in degrees
         return lon, lat
+
+    @staticmethod
+    def _coord_open_kwargs(grid_file: Any) -> dict:
+        """
+        This helper function determines the appropriate keyword arguments to pass to xarray's open_dataset function when loading the grid file for coordinate extraction. It always disables time decoding since the grid file should not contain time coordinates, and it optionally drops non-coordinate variables if they are present in the grid dataset. This is done by opening the grid file in a temporary context, checking for the presence of coordinate variables, and constructing a list of variables to drop if they are not among the expected coordinate names. This can help reduce memory usage and speed up loading when the grid file contains many non-coordinate variables that are not needed for nearest-cell lookup. 
+
+        Parameters:
+            grid_file (Any): Path to the MPAS grid file to open.
+
+        Returns:
+            dict: Keyword arguments for xr.open_dataset (always disables time decoding, optionally drops non-coordinate variables).
+        """
+        open_kwargs: dict = {"decode_times": False}
+
+        try:
+            with xr.open_dataset(grid_file, decode_times=False) as probe:
+                all_vars = list(probe.data_vars)
+            drop = [v for v in all_vars if v not in _SOUNDING_COORD_NAMES]
+            if drop:
+                open_kwargs["drop_variables"] = drop
+        except Exception:
+            pass
+
+        return open_kwargs
+
+    @staticmethod
+    def _select_coordinate(
+        grid_ds: xr.Dataset, candidates: Tuple[str, ...], kind: str
+    ) -> np.ndarray:
+        """
+        This function selects the coordinate variable from the grid dataset by checking a list of candidate names in order. It looks for the candidate names in both the coordinates and data variables of the dataset, and returns the values of the first match as a 1D array. If none of the candidates are found, it raises a ValueError indicating that the specified coordinate could not be found in the grid file. This allows for flexible handling of different grid file conventions where longitude and latitude may be named differently. 
+
+        Parameters:
+            grid_ds (xr.Dataset): The opened grid dataset to search.
+            candidates (Tuple[str, ...]): Candidate variable names to try in order.
+            kind (str): Human-readable coordinate name ('longitude'/'latitude') for the error message.
+
+        Returns:
+            np.ndarray: The matched coordinate variable's values raveled to 1D.
+        """
+        for name in candidates:
+            if name in grid_ds.coords or name in grid_ds.data_vars:
+                return cast(np.ndarray, grid_ds[name].values.ravel())
+        raise ValueError(f"Cannot find {kind} coordinate in grid file")
 
     @staticmethod
     def _find_nearest_cell(

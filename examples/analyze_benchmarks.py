@@ -82,9 +82,76 @@ def aggregate_trials(rows: list[dict]) -> dict:
     return aggregated
 
 
+def _scaling_flags(rec: dict, width: int, category: str,
+                   prev_elapsed: float | None) -> list[str]:
+    """
+    This function derives the diagnostic flags for a single (worker count) record. It flags configurations where the number of workers meets or exceeds the number of files (tasks), data-load categories whose work is replicated across workers, and anti-scaling cases where adding workers made the run slower than the previous width. A missing-files flag is added when a compute category processed no files (a likely failure). 
+
+    Parameters:
+        rec: Aggregated record for one worker width with 'elapsed' and 'n_files'.
+        width: Worker count for this record.
+        category: Plotting category name (used to detect data-load replication).
+        prev_elapsed: Median elapsed time at the previous (smaller) width, or None.
+
+    Returns:
+        list[str]: Flag strings describing scaling anomalies for this record.
+    """
+    flags = []
+    is_data_load = 'data_load' in category
+    ranks_exceed_tasks = (not is_data_load
+                          and rec['n_files'] > 0 and width >= rec['n_files'])
+
+    if ranks_exceed_tasks:
+        flags.append(f"RANKS>=TASKS({rec['n_files']})")
+    elif is_data_load:
+        flags.append('REPLICATED')
+    elif prev_elapsed is not None and rec['elapsed'] > prev_elapsed * 1.05:
+        flags.append('ANTI-SCALING')
+
+    if rec['n_files'] == 0 and not is_data_load:
+        flags.append('NO-FILES(failed?)')
+
+    return flags
+
+
+def _print_category(experiment: str, category: str, by_width: dict) -> None:
+    """
+    This function prints the scaling report for a single (experiment, category) by worker count. It calculates speedup relative to the smallest worker count, parallel efficiency, and flags configurations where adding workers made the run slower (anti-scaling). It also flags cases where the number of workers exceeds the number of files (tasks) or when data loading is replicated across workers. The report includes a header with the baseline configuration and a table of worker counts, elapsed times, speedup, efficiency, imbalance, trial counts, and flags.
+
+    Parameters:
+        experiment: Experiment name for the table header.
+        category: Plotting category name for the table header.
+        by_width: Mapping {workers: record} for this (experiment, category).
+
+    Returns:
+        None
+    """
+    widths = sorted(by_width)
+    base_width = widths[0]
+    base = by_width[base_width]['elapsed']
+
+    print(f"\n{experiment} / {category}  (baseline: {base_width} worker(s), {base:.2f}s)")
+    print(f"  {'workers':>8} {'time (s)':>10} {'speedup':>8} {'efficiency':>11} "
+          f"{'imbalance':>10} {'trials':>7}  flags")
+
+    prev_elapsed = None
+
+    for width in widths:
+        rec = by_width[width]
+        speedup = base / rec['elapsed'] if rec['elapsed'] > 0 else float('inf')
+        ratio = width / base_width
+        efficiency = speedup / ratio if ratio > 0 else 1.0
+
+        flags = _scaling_flags(rec, width, category, prev_elapsed)
+
+        print(f"  {width:>8} {rec['elapsed']:>10.2f} {speedup:>7.2f}x {efficiency:>10.1%} "
+              f"{rec['imbalance']:>9.2f}x {rec['n_trials']:>7}  {' '.join(flags)}")
+        prev_elapsed = rec['elapsed']
+
+
 def print_report(aggregated: dict) -> None:
     """
-    This function takes the aggregated benchmark data and prints a report for each (experiment, category) showing how runtime scales with worker count. It calculates speedup relative to the smallest worker count, parallel efficiency, and flags configurations where adding workers made the run slower (anti-scaling). It also flags cases where the number of workers exceeds the number of files (tasks) or when data loading is replicated across workers. 
+    This function iterates over all (experiment, category) pairs in the aggregated results and prints the scaling report for each using _print_category. The output is sorted by experiment and category name for readability. 
 
     Parameters:
         aggregated: Output of aggregate_trials.
@@ -93,41 +160,7 @@ def print_report(aggregated: dict) -> None:
         None
     """
     for (experiment, category) in sorted(aggregated):
-        by_width = aggregated[(experiment, category)]
-        widths = sorted(by_width)
-        base_width = widths[0]
-        base = by_width[base_width]['elapsed']
-
-        print(f"\n{experiment} / {category}  (baseline: {base_width} worker(s), {base:.2f}s)")
-        print(f"  {'workers':>8} {'time (s)':>10} {'speedup':>8} {'efficiency':>11} "
-              f"{'imbalance':>10} {'trials':>7}  flags")
-
-        prev_elapsed = None
-
-        for width in widths:
-            rec = by_width[width]
-            speedup = base / rec['elapsed'] if rec['elapsed'] > 0 else float('inf')
-            ratio = width / base_width
-            efficiency = speedup / ratio if ratio > 0 else 1.0
-
-            flags = []
-            is_data_load = 'data_load' in category
-            ranks_exceed_tasks = (not is_data_load
-                                  and rec['n_files'] > 0 and width >= rec['n_files'])
-
-            if ranks_exceed_tasks:
-                flags.append(f"RANKS>=TASKS({rec['n_files']})")
-            elif is_data_load:
-                flags.append('REPLICATED')
-            elif prev_elapsed is not None and rec['elapsed'] > prev_elapsed * 1.05:
-                flags.append('ANTI-SCALING')
-
-            if rec['n_files'] == 0 and not is_data_load:
-                flags.append('NO-FILES(failed?)')
-
-            print(f"  {width:>8} {rec['elapsed']:>10.2f} {speedup:>7.2f}x {efficiency:>10.1%} "
-                  f"{rec['imbalance']:>9.2f}x {rec['n_trials']:>7}  {' '.join(flags)}")
-            prev_elapsed = rec['elapsed']
+        _print_category(experiment, category, aggregated[(experiment, category)])
 
 
 def main() -> None:

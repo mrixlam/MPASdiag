@@ -20,6 +20,10 @@ import textwrap
 from .utils_config import MPASConfig
 
 _BATCH_MODE_HELP = "Process all time steps in batch mode"
+_VERBOSE_HELP = "Enable verbose output (shortcut for --log-level DEBUG)"
+_QUIET_HELP = "Suppress output messages (shortcut for --log-level ERROR)"
+_LOG_FILE_HELP = "Log file path"
+_LOG_LEVEL_HELP = "Logging severity threshold (overrides --verbose/--quiet)"
 
 
 class ArgumentParser:
@@ -159,21 +163,21 @@ Examples:
             "-v",
             action="store_true",
             default=True,
-            help="Enable verbose output (shortcut for --log-level DEBUG)",
+            help=_VERBOSE_HELP,
         )
         output_group.add_argument(
             "--quiet",
             "-q",
             action="store_true",
-            help="Suppress output messages (shortcut for --log-level ERROR)",
+            help=_QUIET_HELP,
         )
-        output_group.add_argument("--log-file", type=str, help="Log file path")
+        output_group.add_argument("--log-file", type=str, help=_LOG_FILE_HELP)
         output_group.add_argument(
             "--log-level",
             type=str,
             default=None,
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-            help="Logging severity threshold (overrides --verbose/--quiet)",
+            help=_LOG_LEVEL_HELP,
         )
 
         return parser
@@ -365,22 +369,22 @@ Examples:
             "--verbose",
             "-v",
             action="store_true",
-            help="Enable verbose output (shortcut for --log-level DEBUG)",
+            help=_VERBOSE_HELP,
         )
         proc_group.add_argument(
             "--quiet",
             "-q",
             action="store_true",
-            help="Suppress output messages (shortcut for --log-level ERROR)",
+            help=_QUIET_HELP,
         )
         proc_group.add_argument(
             "--log-level",
             type=str,
             default=None,
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-            help="Logging severity threshold (overrides --verbose/--quiet)",
+            help=_LOG_LEVEL_HELP,
         )
-        proc_group.add_argument("--log-file", type=str, help="Log file path")
+        proc_group.add_argument("--log-file", type=str, help=_LOG_FILE_HELP)
         proc_group.add_argument(
             "--batch-all", action="store_true", help=_BATCH_MODE_HELP
         )
@@ -583,22 +587,22 @@ Examples:
             "--verbose",
             "-v",
             action="store_true",
-            help="Enable verbose output (shortcut for --log-level DEBUG)",
+            help=_VERBOSE_HELP,
         )
         parser.add_argument(
             "--quiet",
             "-q",
             action="store_true",
-            help="Suppress output messages (shortcut for --log-level ERROR)",
+            help=_QUIET_HELP,
         )
         parser.add_argument(
             "--log-level",
             type=str,
             default=None,
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-            help="Logging severity threshold (overrides --verbose/--quiet)",
+            help=_LOG_LEVEL_HELP,
         )
-        parser.add_argument("--log-file", type=str, help="Log file path")
+        parser.add_argument("--log-file", type=str, help=_LOG_FILE_HELP)
         proc_group = parser.add_argument_group("Processing")
         proc_group.add_argument(
             "--batch-all", action="store_true", help=_BATCH_MODE_HELP
@@ -754,22 +758,22 @@ Examples:
             "--verbose",
             "-v",
             action="store_true",
-            help="Enable verbose output (shortcut for --log-level DEBUG)",
+            help=_VERBOSE_HELP,
         )
         parser.add_argument(
             "--quiet",
             "-q",
             action="store_true",
-            help="Suppress output messages (shortcut for --log-level ERROR)",
+            help=_QUIET_HELP,
         )
         parser.add_argument(
             "--log-level",
             type=str,
             default=None,
             choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-            help="Logging severity threshold (overrides --verbose/--quiet)",
+            help=_LOG_LEVEL_HELP,
         )
-        parser.add_argument("--log-file", type=str, help="Log file path")
+        parser.add_argument("--log-file", type=str, help=_LOG_FILE_HELP)
 
         return parser
 

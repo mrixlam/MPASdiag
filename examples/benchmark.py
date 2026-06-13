@@ -618,6 +618,72 @@ def run_single_benchmark(plotter_name: str,
     return result
 
 
+def _record_load_times(exp_name: str,
+                       load_2d_time: float,
+                       load_3d_time: float,
+                       timestamp: str) -> list[dict]:
+    """
+    This function gathers the 2D and 3D data loading times across ranks and creates result records for these operations. It takes the experiment name, the loading times for 2D and 3D data on this rank, and a timestamp string. The function gathers the loading times from all ranks to rank 0, computes the maximum loading time across ranks (as the effective loading time), and on rank 0, it prints these times and creates result records for both 'data_load_2d' and 'data_load_3d' categories using the _make_result helper function. The function returns a list of these result records on rank 0, while other ranks return an empty list. 
+
+    Parameters:
+        exp_name: The name of the experiment these load times belong to.
+        load_2d_time: This rank's 2D data-loading time in seconds.
+        load_3d_time: This rank's 3D data-loading time in seconds.
+        timestamp: The run timestamp string shared across all records of a run.
+
+    Returns:
+        list[dict]: The 'data_load_2d'/'data_load_3d' result records on rank 0, else an empty list.
+    """
+    if COMM is not None:
+        load_2d_times = COMM.gather(load_2d_time, root=0) or [load_2d_time]
+        load_3d_times = COMM.gather(load_3d_time, root=0) or [load_3d_time]
+    else:
+        load_2d_times = [load_2d_time]
+        load_3d_times = [load_3d_time]
+
+    if RANK != 0:
+        return []
+
+    print(f"  2D load: {max(load_2d_times):.2f}s | 3D load: {max(load_3d_times):.2f}s")
+
+    records: list[dict] = []
+    for category, load_times in (('data_load_2d', load_2d_times),
+                                 ('data_load_3d', load_3d_times)):
+        records.append(_make_result(
+            exp_name, category, max(load_times), 0, timestamp,
+            elapsed_min=min(load_times),
+            elapsed_mean=sum(load_times) / len(load_times),
+        ))
+    return records
+
+
+def _run_trials(benchmarks: list,
+                exp_name: str,
+                timestamp: str,
+                trials: int) -> list[dict]:
+    """
+    This function runs the provided benchmarks for a specified number of trials, collecting the results. It takes a list of (name, callable) benchmark pairs, the experiment name, a timestamp string, and the number of trials to run. The function iterates over the number of trials, and for each trial, it iterates over the benchmarks, running each one with run_single_benchmark to get the result record. If there are multiple trials, it prints a status message indicating the current trial. The collected result records from all benchmarks and trials are returned as a list on rank 0, while other ranks return an empty list. 
+
+    Parameters:
+        benchmarks: List of (name, callable) benchmark pairs from build_benchmarks.
+        exp_name: The name of the experiment being benchmarked.
+        timestamp: The run timestamp string shared across all records of a run.
+        trials: Number of repetitions of each benchmark to run.
+
+    Returns:
+        list[dict]: The collected benchmark result records (empty on ranks other than rank 0).
+    """
+    records: list[dict] = []
+    for trial in range(1, trials + 1):
+        if RANK == 0 and trials > 1:
+            print(f"  --- Trial {trial}/{trials} ---")
+        for plotter_name, bench_fn in benchmarks:
+            result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp, trial)
+            if result is not None:
+                records.append(result)
+    return records
+
+
 def run_experiment(exp_name: str,
                    paths: dict,
                    use_parallel: bool,
@@ -652,32 +718,10 @@ def run_experiment(exp_name: str,
 
     processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(paths)
 
-    if COMM is not None:
-        load_2d_times = COMM.gather(load_2d_time, root=0) or [load_2d_time]
-        load_3d_times = COMM.gather(load_3d_time, root=0) or [load_3d_time]
-    else:
-        load_2d_times = [load_2d_time]
-        load_3d_times = [load_3d_time]
-
-    if RANK == 0:
-        print(f"  2D load: {max(load_2d_times):.2f}s | 3D load: {max(load_3d_times):.2f}s")
-        for category, load_times in (('data_load_2d', load_2d_times),
-                                     ('data_load_3d', load_3d_times)):
-            results.append(_make_result(
-                exp_name, category, max(load_times), 0, timestamp,
-                elapsed_min=min(load_times),
-                elapsed_mean=sum(load_times) / len(load_times),
-            ))
+    results.extend(_record_load_times(exp_name, load_2d_time, load_3d_time, timestamp))
 
     benchmarks = build_benchmarks(processor_2d, processor_3d, exp_out, use_parallel, n_workers)
-
-    for trial in range(1, trials + 1):
-        if RANK == 0 and trials > 1:
-            print(f"  --- Trial {trial}/{trials} ---")
-        for plotter_name, bench_fn in benchmarks:
-            result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp, trial)
-            if result is not None:
-                results.append(result)
+    results.extend(_run_trials(benchmarks, exp_name, timestamp, trials))
 
     del processor_2d, processor_3d
     gc.collect()

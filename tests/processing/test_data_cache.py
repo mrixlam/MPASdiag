@@ -73,10 +73,10 @@ class TestLoadVariableData:
             if (
                 "Time" in processor.dataset[vname].sizes
                 and "nCells" in processor.dataset[vname].sizes
+                and len(processor.dataset[vname].sizes) == 2
             ):
-                if len(processor.dataset[vname].sizes) == 2:
-                    var_name = vname
-                    break
+                var_name = vname
+                break
 
         if var_name:
             cache.load_variable_data(processor.dataset, var_name, time_index=0)

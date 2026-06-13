@@ -1860,6 +1860,105 @@ class ParallelCrossSectionProcessor:
         return created_files
 
     @staticmethod
+    def _build_cross_section_worker_kwargs(
+        mpas_3d_processor: "MPAS3DProcessor",
+        var_name: str,
+        start_point: Tuple[float, float],
+        end_point: Tuple[float, float],
+        output_dir: str,
+        vertical_coord: str,
+        num_points: int,
+        formats: List[str],
+        style: CrossSectionBatchStyle,
+        use_grid_reload: bool,
+    ) -> dict:
+        """
+        This helper function constructs the keyword arguments dictionary to be passed to the cross-section worker function based on whether workers will reload data from grid_file/data_dir or reuse the provided MPAS3DProcessor instance. It assembles the parameters shared by both execution modes, including cross-section endpoints, variable name, output settings, and styling options. Then, it conditionally adds either the grid_file/data_dir/variables for the reload approach or the processor object for direct reuse, ensuring that workers have the necessary information to perform their tasks based on the selected execution path. 
+
+        Parameters:
+            mpas_3d_processor (MPAS3DProcessor): The processor whose grid/data paths or object the workers use.
+            var_name (str): Name of the variable to plot in the cross-section.
+            start_point (Tuple[float, float]): Cross-section start as (longitude, latitude) in degrees.
+            end_point (Tuple[float, float]): Cross-section end as (longitude, latitude) in degrees.
+            output_dir (str): Directory where plot files will be saved.
+            vertical_coord (str): Vertical coordinate to use for the cross-section.
+            num_points (int): Number of points sampled along the cross-section line.
+            formats (List[str]): Output formats to save (e.g. ['png', 'pdf']).
+            style (CrossSectionBatchStyle): Appearance/file-naming settings (levels, colormap, file_prefix).
+            use_grid_reload (bool): Whether workers reload data from grid_file/data_dir instead of reusing the processor.
+
+        Returns:
+            dict: Worker keyword arguments for the selected execution path.
+        """
+        shared = {
+            "output_dir": output_dir,
+            "start_lat": start_point[1],
+            "start_lon": start_point[0],
+            "end_lat": end_point[1],
+            "end_lon": end_point[0],
+            "var_name": var_name,
+            "file_prefix": style.file_prefix,
+            "formats": formats,
+            "custom_title": None,
+            "colormap": style.colormap,
+            "levels": style.levels,
+            "vertical_coord": vertical_coord,
+            "num_points": num_points,
+        }
+
+        if use_grid_reload:
+            return {
+                **shared,
+                "grid_file": mpas_3d_processor.grid_file,
+                "data_dir": mpas_3d_processor.data_dir,
+                "variables": [var_name] + CROSS_SECTION_AUX_VARS,
+            }
+
+        return {**shared, "processor": mpas_3d_processor}
+
+    @staticmethod
+    def _log_cross_section_setup(
+        time_indices: List[int],
+        var_name: str,
+        start_point: Tuple[float, float],
+        end_point: Tuple[float, float],
+        vertical_coord: str,
+        max_height: Optional[float],
+        output_dir: str,
+    ) -> None:
+        """
+        This helper function logs the setup information for the vertical cross-section batch processing operation, including the number of time steps being processed, variable name, cross-section endpoints, vertical coordinate, maximum height (if set), and output directory. It provides a clear summary of the parameters that will be used for the parallel processing of cross-section plots, which can be helpful for debugging and tracking the execution of the batch operation. 
+
+        Parameters:
+            time_indices (List[int]): Time indices being processed (only the count is logged).
+            var_name (str): Name of the variable being plotted.
+            start_point (Tuple[float, float]): Cross-section start as (longitude, latitude) in degrees.
+            end_point (Tuple[float, float]): Cross-section end as (longitude, latitude) in degrees.
+            vertical_coord (str): Vertical coordinate used for the cross-section.
+            max_height (Optional[float]): Maximum height in km, logged only when set.
+            output_dir (str): Directory where plot files will be saved.
+
+        Returns:
+            None
+        """
+        logger.info(
+            "Creating vertical cross-section plots for %d time steps in parallel",
+            len(time_indices),
+        )
+        logger.info("Variable: %s", var_name)
+        logger.info(
+            "Cross-section from (%.2f, %.2f) to (%.2f, %.2f)",
+            start_point[0],
+            start_point[1],
+            end_point[0],
+            end_point[1],
+        )
+        logger.info("Vertical coordinate: %s", vertical_coord)
+        if max_height:
+            logger.info("Maximum height: %s km", max_height)
+        logger.info(_OUTDIR_MSG, output_dir)
+
+    @staticmethod
     def create_batch_cross_section_plots_parallel(
         mpas_3d_processor: "MPAS3DProcessor",
         var_name: str,
@@ -1899,10 +1998,6 @@ class ParallelCrossSectionProcessor:
         if style is None:
             style = CrossSectionBatchStyle()
 
-        levels = style.levels
-        colormap = style.colormap
-        file_prefix = style.file_prefix
-
         assert mpas_3d_processor.dataset is not None
         time_dim = "Time" if "Time" in mpas_3d_processor.dataset.sizes else "time"
         total_times = mpas_3d_processor.dataset.sizes[time_dim]
@@ -1927,42 +2022,18 @@ class ParallelCrossSectionProcessor:
                 "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
             )
 
-        if use_grid_reload:
-            worker_kwargs = {
-                "grid_file": mpas_3d_processor.grid_file,
-                "data_dir": mpas_3d_processor.data_dir,
-                "output_dir": output_dir,
-                "start_lat": start_point[1],
-                "start_lon": start_point[0],
-                "end_lat": end_point[1],
-                "end_lon": end_point[0],
-                "var_name": var_name,
-                "variables": [var_name] + CROSS_SECTION_AUX_VARS,
-                "file_prefix": file_prefix,
-                "formats": formats,
-                "custom_title": None,
-                "colormap": colormap,
-                "levels": levels,
-                "vertical_coord": vertical_coord,
-                "num_points": num_points,
-            }
-        else:
-            worker_kwargs = {
-                "processor": mpas_3d_processor,
-                "output_dir": output_dir,
-                "start_lat": start_point[1],
-                "start_lon": start_point[0],
-                "end_lat": end_point[1],
-                "end_lon": end_point[0],
-                "var_name": var_name,
-                "file_prefix": file_prefix,
-                "formats": formats,
-                "custom_title": None,
-                "colormap": colormap,
-                "levels": levels,
-                "vertical_coord": vertical_coord,
-                "num_points": num_points,
-            }
+        worker_kwargs = ParallelCrossSectionProcessor._build_cross_section_worker_kwargs(
+            mpas_3d_processor,
+            var_name,
+            start_point,
+            end_point,
+            output_dir,
+            vertical_coord,
+            num_points,
+            formats,
+            style,
+            use_grid_reload,
+        )
 
         if manager.is_master:
             try:
@@ -1985,22 +2056,15 @@ class ParallelCrossSectionProcessor:
         os.makedirs(output_dir, exist_ok=True)
 
         if manager.is_master:
-            logger.info(
-                "Creating vertical cross-section plots for %d time steps in parallel",
-                len(time_indices),
+            ParallelCrossSectionProcessor._log_cross_section_setup(
+                time_indices,
+                var_name,
+                start_point,
+                end_point,
+                vertical_coord,
+                max_height,
+                output_dir,
             )
-            logger.info("Variable: %s", var_name)
-            logger.info(
-                "Cross-section from (%.2f, %.2f) to (%.2f, %.2f)",
-                start_point[0],
-                start_point[1],
-                end_point[0],
-                end_point[1],
-            )
-            logger.info("Vertical coordinate: %s", vertical_coord)
-            if max_height:
-                logger.info("Maximum height: %s km", max_height)
-            logger.info(_OUTDIR_MSG, output_dir)
 
         seeded_key = (
             _seed_worker_processor_cache("3d", worker_kwargs, mpas_3d_processor)
