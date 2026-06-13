@@ -56,7 +56,7 @@ jobs:
         ls -lah "$GITHUB_WORKSPACE/logs/"
 
     - name: Set up Conda
-      uses: conda-incubator/setup-miniconda@d2e6a045a86077fb6cad6f5adf368e9076ddaa8d # v3.1.0
+      uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
       with:
         miniconda-version: "latest"
         python-version: ${{ matrix.python-version }}
