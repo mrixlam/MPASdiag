@@ -10,6 +10,11 @@ updates:
       - "github-actions"
     commit-message:
       prefix: "ci"
+    groups:
+      github-actions:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Keep Python dependencies up to date
   - package-ecosystem: "pip"

@@ -1873,7 +1873,7 @@ class ParallelCrossSectionProcessor:
         use_grid_reload: bool,
     ) -> dict:
         """
-        This helper function constructs the keyword arguments dictionary to be passed to the cross-section worker function based on whether workers will reload data from grid_file/data_dir or reuse the provided MPAS3DProcessor instance. It assembles the parameters shared by both execution modes, including cross-section endpoints, variable name, output settings, and styling options. Then, it conditionally adds either the grid_file/data_dir/variables for the reload approach or the processor object for direct reuse, ensuring that workers have the necessary information to perform their tasks based on the selected execution path. 
+        This helper function constructs the keyword arguments dictionary to be passed to the cross-section worker function based on whether workers will reload data from grid_file/data_dir or reuse the provided MPAS3DProcessor instance. It assembles the parameters shared by both execution modes, including cross-section endpoints, variable name, output settings, and styling options. Then, it conditionally adds either the grid_file/data_dir/variables for the reload approach or the processor object for direct reuse, ensuring that workers have the necessary information to perform their tasks based on the selected execution path.
 
         Parameters:
             mpas_3d_processor (MPAS3DProcessor): The processor whose grid/data paths or object the workers use.
@@ -1927,7 +1927,7 @@ class ParallelCrossSectionProcessor:
         output_dir: str,
     ) -> None:
         """
-        This helper function logs the setup information for the vertical cross-section batch processing operation, including the number of time steps being processed, variable name, cross-section endpoints, vertical coordinate, maximum height (if set), and output directory. It provides a clear summary of the parameters that will be used for the parallel processing of cross-section plots, which can be helpful for debugging and tracking the execution of the batch operation. 
+        This helper function logs the setup information for the vertical cross-section batch processing operation, including the number of time steps being processed, variable name, cross-section endpoints, vertical coordinate, maximum height (if set), and output directory. It provides a clear summary of the parameters that will be used for the parallel processing of cross-section plots, which can be helpful for debugging and tracking the execution of the batch operation.
 
         Parameters:
             time_indices (List[int]): Time indices being processed (only the count is logged).
@@ -2022,17 +2022,19 @@ class ParallelCrossSectionProcessor:
                 "or use multiprocessing mode instead (remove mpiexec, use --workers N)."
             )
 
-        worker_kwargs = ParallelCrossSectionProcessor._build_cross_section_worker_kwargs(
-            mpas_3d_processor,
-            var_name,
-            start_point,
-            end_point,
-            output_dir,
-            vertical_coord,
-            num_points,
-            formats,
-            style,
-            use_grid_reload,
+        worker_kwargs = (
+            ParallelCrossSectionProcessor._build_cross_section_worker_kwargs(
+                mpas_3d_processor,
+                var_name,
+                start_point,
+                end_point,
+                output_dir,
+                vertical_coord,
+                num_points,
+                formats,
+                style,
+                use_grid_reload,
+            )
         )
 
         if manager.is_master:

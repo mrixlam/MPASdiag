@@ -213,7 +213,7 @@ class SoundingDiagnostics:
         Optional[np.ndarray],
     ]:
         """
-        This function sorts the sounding profiles from surface to top by descending pressure and drops any levels with non-finite pressure or temperature values. It takes the pressure, temperature, dewpoint, wind, and height profiles as input, sorts them according to pressure, and then filters out any levels where pressure or temperature is not finite. The function ensures that all profiles remain aligned after sorting and filtering. This is important for accurate index calculations later on, as non-finite values can cause errors in the computations. The output is the cleaned and sorted profiles ready for further analysis. 
+        This function sorts the sounding profiles from surface to top by descending pressure and drops any levels with non-finite pressure or temperature values. It takes the pressure, temperature, dewpoint, wind, and height profiles as input, sorts them according to pressure, and then filters out any levels where pressure or temperature is not finite. The function ensures that all profiles remain aligned after sorting and filtering. This is important for accurate index calculations later on, as non-finite values can cause errors in the computations. The output is the cleaned and sorted profiles ready for further analysis.
 
         Parameters:
             pressure_hpa (np.ndarray): Pressure profile in hPa.
@@ -563,7 +563,7 @@ class SoundingDiagnostics:
     @staticmethod
     def _coord_open_kwargs(grid_file: Any) -> dict:
         """
-        This helper function determines the appropriate keyword arguments to pass to xarray's open_dataset function when loading the grid file for coordinate extraction. It always disables time decoding since the grid file should not contain time coordinates, and it optionally drops non-coordinate variables if they are present in the grid dataset. This is done by opening the grid file in a temporary context, checking for the presence of coordinate variables, and constructing a list of variables to drop if they are not among the expected coordinate names. This can help reduce memory usage and speed up loading when the grid file contains many non-coordinate variables that are not needed for nearest-cell lookup. 
+        This helper function determines the appropriate keyword arguments to pass to xarray's open_dataset function when loading the grid file for coordinate extraction. It always disables time decoding since the grid file should not contain time coordinates, and it optionally drops non-coordinate variables if they are present in the grid dataset. This is done by opening the grid file in a temporary context, checking for the presence of coordinate variables, and constructing a list of variables to drop if they are not among the expected coordinate names. This can help reduce memory usage and speed up loading when the grid file contains many non-coordinate variables that are not needed for nearest-cell lookup.
 
         Parameters:
             grid_file (Any): Path to the MPAS grid file to open.
@@ -589,7 +589,7 @@ class SoundingDiagnostics:
         grid_ds: xr.Dataset, candidates: Tuple[str, ...], kind: str
     ) -> np.ndarray:
         """
-        This function selects the coordinate variable from the grid dataset by checking a list of candidate names in order. It looks for the candidate names in both the coordinates and data variables of the dataset, and returns the values of the first match as a 1D array. If none of the candidates are found, it raises a ValueError indicating that the specified coordinate could not be found in the grid file. This allows for flexible handling of different grid file conventions where longitude and latitude may be named differently. 
+        This function selects the coordinate variable from the grid dataset by checking a list of candidate names in order. It looks for the candidate names in both the coordinates and data variables of the dataset, and returns the values of the first match as a 1D array. If none of the candidates are found, it raises a ValueError indicating that the specified coordinate could not be found in the grid file. This allows for flexible handling of different grid file conventions where longitude and latitude may be named differently.
 
         Parameters:
             grid_ds (xr.Dataset): The opened grid dataset to search.
