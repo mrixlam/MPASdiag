@@ -26,6 +26,7 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 
 from mpasdiag.processing.base import MPASBaseProcessor
+from mpasdiag.processing import clear_grid_cache
 
 
 def _make_proc(verbose: bool = False) -> MPASBaseProcessor:
@@ -942,33 +943,38 @@ class TestLoadGridFileProbeException:
         Returns:
             None
         """
+        clear_grid_cache()
         proc = _make_proc()
-        mock_ds = MagicMock()
-        mock_ds.variables = {"latCell": MagicMock()}
+
+        loaded = MagicMock()
+        loaded.variables = {"latCell": MagicMock()}
+        opened_cm = MagicMock()
+        opened_cm.__enter__.return_value.load.return_value = loaded
 
         call_n = [0]
 
         def side_effect(*args, **kwargs) -> xr.Dataset:
             """
-            This side effect function simulates the behavior of xarray.open_dataset for the _load_grid_file method. On the first call, it raises an exception to mimic a failure during the probe phase. On the second call, it returns a mock dataset that contains the necessary variable ('latCell') to allow the loading process to succeed. The call_n list is used to keep track of how many times the function has been called, ensuring that the exception is only raised on the first call and that the mock dataset is returned on subsequent calls.
+            This side effect function simulates the behavior of xarray.open_dataset for the _load_grid_file method. On the first call, it raises an exception to mimic a failure during the probe phase. On the second call, it returns a context-manager mock whose .load() yields the materialised dataset, allowing the loading process to succeed. The call_n list tracks the number of calls so that the exception is only raised on the first (probe) call and the dataset is returned on the second (actual load) call.
 
             Parameters:
                 *args: Positional arguments passed to the function (not used in this side effect).
                 **kwargs: Keyword arguments passed to the function (not used in this side effect).
 
             Returns:
-                xr.Dataset: A mock dataset returned on the second call, containing the necessary variable for loading.
+                xr.Dataset: A context-manager mock returned on the second call, whose .load() yields the dataset to be cached.
             """
             call_n[0] += 1
             if call_n[0] == 1:
                 raise OSError("probe failed")
-            return mock_ds
+            return opened_cm
 
         with patch("xarray.open_dataset", side_effect=side_effect):
             result = proc._load_grid_file(needed_vars=["latCell"])
 
-        assert result is mock_ds
+        assert result is loaded
         assert call_n[0] == 2
+        clear_grid_cache()
 
 
 class TestApplyCoordinateUpdates:

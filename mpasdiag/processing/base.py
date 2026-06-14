@@ -24,7 +24,8 @@ import pandas as pd
 import xarray as xr
 import uxarray as ux
 from datetime import datetime
-from typing import List, Tuple, Any, Optional, Dict, Union, cast
+from contextlib import contextmanager
+from typing import List, Tuple, Any, Optional, Dict, Union, Iterator, cast
 
 # Import relevant MPASdiag utilities and constants
 from .utils_datetime import MPASDateTimeUtils
@@ -46,6 +47,126 @@ warnings.filterwarnings(
 warnings.filterwarnings(
     "ignore", category=UserWarning, message=".*chunks.*degrade performance.*"
 )
+
+
+_GRID_DS_CACHE: Dict[Tuple[str, Optional[frozenset]], xr.Dataset] = {}
+_UXGRID_CACHE: Dict[str, Any] = {}
+_COLLECTIVE_GRID_LOAD_DEPTH = 0
+
+
+def clear_grid_cache() -> None:
+    """
+    This function clears the module-level caches for grid datasets and UXarray grid information. It is used to ensure that subsequent grid loads start from a clean state, which can be important for benchmarking or when the underlying grid files have changed. The function clears both the `_GRID_DS_CACHE`, which stores loaded grid datasets keyed by their file paths and variable sets, and the `_UXGRID_CACHE`, which stores UXarray grid information keyed by the absolute path of the grid file. By calling this function, users can ensure that any cached grid information is removed, forcing future loads to read from disk again and populate the caches anew.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
+    _GRID_DS_CACHE.clear()
+    _UXGRID_CACHE.clear()
+
+
+@contextmanager
+def collective_grid_load() -> Iterator[None]:
+    """
+    This context manager marks a region of code where a collective grid load is expected to occur, which allows the loading functions to safely attempt an MPI-based optimization that reads the grid file once per node and broadcasts it to other ranks. By entering this context, the global variable `_COLLECTIVE_GRID_LOAD_DEPTH` is incremented, signaling to the loading functions that they are within a collective load region. When exiting the context, the depth is decremented. This mechanism ensures that the MPI optimization is only attempted when it is safe to do so (i.e., when all ranks are expected to reach the collective load point), and it prevents unintended optimizations outside of this context.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
+    global _COLLECTIVE_GRID_LOAD_DEPTH
+    _COLLECTIVE_GRID_LOAD_DEPTH += 1
+    try:
+        yield
+    finally:
+        _COLLECTIVE_GRID_LOAD_DEPTH -= 1
+
+
+def _grid_bcast_enabled() -> bool:
+    """
+    This function checks whether the per-node broadcast optimization for grid loading is enabled based on the environment variable `MPASDIAG_GRID_BCAST`. By default, this optimization is enabled (i.e., the function returns True) unless the environment variable is set to a value that indicates it should be disabled, such as "0", "false", "no", or "off" (case-insensitive). This allows users to control whether the MPI-based optimization for grid loading is attempted, which can be useful for debugging, benchmarking, or in environments where MPI may not be available or performant.
+
+    Parameters:
+        None
+
+    Returns:
+        bool: True when the per-node broadcast should be attempted.
+    """
+    return os.environ.get("MPASDIAG_GRID_BCAST", "1").lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+def _get_node_comm() -> Tuple[Any, Any]:
+    """
+    This function attempts to create an MPI communicator for the current node to enable a per-node broadcast optimization for grid loading. It first checks if the collective grid load depth is greater than 0, which indicates that the code is within a collective load context. If not, it returns (None, None) to indicate that the optimization should not be attempted. It then checks if the optimization is enabled via the environment variable. If enabled, it tries to import mpi4py and create a communicator for the current node using `Split_type` with `MPI.COMM_TYPE_SHARED`. If any of these steps fail (e.g., mpi4py is not available, MPI is not properly configured, or the communicator cannot be created), it returns (None, None) to indicate that the optimization should not be attempted. If successful, it returns the world communicator and the node communicator for use in broadcasting grid information.
+
+    Parameters:
+        None
+
+    Returns:
+        Tuple[Any, Any]: A tuple containing the world communicator and the node communicator if the optimization can be attempted, or (None, None) if it cannot.
+    """
+    if _COLLECTIVE_GRID_LOAD_DEPTH <= 0:
+        return None, None
+
+    if not _grid_bcast_enabled():
+        return None, None
+
+    try:
+        from mpi4py import MPI
+    except Exception:
+        return None, None
+
+    comm = MPI.COMM_WORLD
+
+    if comm.Get_size() < 2:
+        return None, None
+
+    try:
+        node_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
+    except Exception:
+        node_comm = comm
+
+    return comm, node_comm
+
+
+def _load_shared(cache: dict, key: Any, reader: Any) -> Any:
+    """
+    This function implements a shared loading mechanism that attempts to read an object (e.g., grid information) using a provided reader function, while utilizing a module-level cache to avoid redundant reads. If the object identified by the key is already in the cache, it returns the cached object. If not, it attempts to read the object using the reader function. If MPI is available and a node communicator can be created, it performs the read on rank 0 of each node and broadcasts the result to other ranks on the same node to optimize performance and reduce contention when multiple ranks are loading the same grid information. If any step of this process fails (e.g., MPI is not available, the reader function raises an exception), it falls back to reading the object independently on each rank without broadcasting. Finally, it stores the loaded object in the cache under the specified key before returning it.
+
+    Parameters:
+        cache (dict): The module-level cache to read from and populate.
+        key (Any): Cache key identifying the grid object (e.g. the grid path).
+        reader (Any): Zero-argument callable that reads and returns the object.
+
+    Returns:
+        Any: The cached grid object for ``key``.
+    """
+    if key in cache:
+        return cache[key]
+
+    _, node_comm = _get_node_comm()
+
+    if node_comm is None:
+        obj = reader()
+    else:
+        try:
+            obj = reader() if node_comm.Get_rank() == 0 else None
+            obj = node_comm.bcast(obj, root=0)
+        except Exception:
+            obj = reader()
+
+    cache[key] = obj
+    return obj
 
 
 class MPASBaseProcessor:
@@ -227,6 +348,9 @@ class MPASBaseProcessor:
             "concat_dim": "Time",
             "chunks": open_chunks,
             "parallel": False,
+            "data_vars": "minimal",
+            "coords": "minimal",
+            "compat": "override",
         }
 
         # If a list of variables to drop is provided, include it in the kwargs
@@ -282,15 +406,29 @@ class MPASBaseProcessor:
         Returns:
             ux.UxDataset: A UXarray dataset that wraps the combined xarray.Dataset and includes the unstructured grid information extracted from the grid file, enabling advanced processing capabilities for MPAS datasets with unstructured grids.
         """
-        # Open the grid file using UXarray to extract the unstructured grid information
-        # Pass decode_times=False because MPAS grid files may use 'seconds since 0000-01-01'
-        # which is out of range for numpy, but the time variable is not needed for grid topology.
-        grid_ds = ux.open_dataset(
-            self.grid_file, data_files[0], grid_kwargs={"decode_times": False}
-        )
+        cache_key = os.path.abspath(self.grid_file)
 
-        # Extract the unstructured grid information from the opened grid dataset
-        grid_info = grid_ds.uxgrid
+        def _read() -> Any:
+            """
+            This inner function reads the grid file using UXarray to extract the unstructured grid information. It opens the grid file as a dataset with `decode_times` set to False to avoid issues with time decoding when reading the grid file, which typically does not contain time coordinates. It then attempts to access the `uxgrid` attribute of the opened dataset, which contains the unstructured grid metadata. If the `uxgrid` information cannot be extracted (i.e., if it is None), it raises a ValueError to indicate that the grid information could not be obtained from the dataset. If successful, it returns the extracted grid information for use in creating the UXarray dataset.
+
+            Parameters:
+                None
+
+            Returns:
+                Any: The unstructured grid information extracted from the grid file dataset, which is used to create the UXarray dataset.
+            """
+            grid_ds = ux.open_dataset(
+                self.grid_file, data_files[0], grid_kwargs={"decode_times": False}
+            )
+
+            grid_info = grid_ds.uxgrid
+
+            if grid_info is None:
+                raise ValueError("Could not extract uxgrid from dataset")
+            return grid_info
+
+        grid_info = _load_shared(_UXGRID_CACHE, cache_key, _read)
 
         # Raise a ValueError if the grid information could not be extracted from the dataset
         if grid_info is None:
@@ -876,19 +1014,41 @@ class MPASBaseProcessor:
         Returns:
             xr.Dataset: The xarray.Dataset loaded from the grid file, containing the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information.
         """
-        open_kwargs: Dict[str, Any] = {"decode_times": False}
+        cache_key = (
+            os.path.abspath(self.grid_file),
+            frozenset(needed_vars) if needed_vars is not None else None,
+        )
 
-        if needed_vars is not None:
-            try:
-                with xr.open_dataset(self.grid_file, decode_times=False) as probe_ds:
-                    all_grid_vars = list(probe_ds.data_vars)
-                variables_to_drop = [v for v in all_grid_vars if v not in needed_vars]
-                if variables_to_drop:
-                    open_kwargs["drop_variables"] = variables_to_drop
-            except Exception:
-                pass
+        def _read() -> xr.Dataset:
+            """
+            This inner function performs the actual reading of the grid file using xarray. It constructs the appropriate keyword arguments for `xr.open_dataset` based on whether a selective variable list (`needed_vars`) is provided. If `needed_vars` is specified, it first opens the grid file to probe for all available variables, then computes which variables should be dropped to retain only the needed variables, and includes that in the `drop_variables` argument to reduce memory usage. If `needed_vars` is None, it simply opens the grid file without dropping any variables. In both cases, it ensures that times are not decoded during loading. The function returns the loaded grid file dataset, which can be cached for future use based on the constructed cache key.
 
-        grid_file_ds = xr.open_dataset(self.grid_file, **open_kwargs)
+            Parameters:
+                None
+
+            Returns:
+                xr.Dataset: The xarray.Dataset loaded from the grid file, containing the unstructured grid metadata necessary for spatial coordinate extraction and mesh connectivity information, with variables filtered based on `needed_vars` if provided.
+            """
+            open_kwargs: Dict[str, Any] = {"decode_times": False}
+
+            if needed_vars is not None:
+                try:
+                    with xr.open_dataset(
+                        self.grid_file, decode_times=False
+                    ) as probe_ds:
+                        all_grid_vars = list(probe_ds.data_vars)
+                    variables_to_drop = [
+                        v for v in all_grid_vars if v not in needed_vars
+                    ]
+                    if variables_to_drop:
+                        open_kwargs["drop_variables"] = variables_to_drop
+                except Exception:
+                    pass
+
+            with xr.open_dataset(self.grid_file, **open_kwargs) as opened:
+                return opened.load()
+
+        grid_file_ds = _load_shared(_GRID_DS_CACHE, cache_key, _read)
 
         if self.verbose:
             logger.debug(
@@ -1022,12 +1182,12 @@ class MPASBaseProcessor:
             # Load the grid file dataset to access spatial variables and coordinate information
             grid_file_ds = self._load_grid_file(needed_vars=spatial_vars)
 
-            # Prepare coordinate mappings for dimensions that exist in the combined dataset to add index coordinates (e.g., nCells, nVertices) for easier indexing and plotting.
+            # Prepare coordinate mappings for dimensions
             coords_to_add = self._prepare_dimension_coordinates(
                 combined_ds, dimensions_to_add
             )
 
-            # Process spatial variables to add from the grid file, ensuring we only add those that are not already present in the combined dataset to avoid overwriting existing data variables.
+            # Process spatial variables to add from the grid file
             data_vars_to_add = self._prepare_spatial_variables(
                 grid_file_ds, combined_ds, spatial_vars
             )
@@ -1037,8 +1197,6 @@ class MPASBaseProcessor:
                 combined_ds, coords_to_add, data_vars_to_add
             )
 
-            # Close the grid file dataset to free resources
-            grid_file_ds.close()
         except Exception as coord_error:
             # Warn the user if spatial coordinates could not be added but continue processing with the original combined dataset
             if self.verbose:

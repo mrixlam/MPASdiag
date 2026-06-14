@@ -54,6 +54,7 @@ from mpasdiag.processing.processors_3d import MPAS3DProcessor
 from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
 from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
 
+from mpasdiag.processing import clear_grid_cache, collective_grid_load
 from mpasdiag.processing.parallel_wrappers import (
     ParallelPrecipitationProcessor,
     ParallelSurfaceProcessor,
@@ -128,6 +129,13 @@ WIND_CONFIG = {
     'subsample': -1,
     'grid_resolution': 0.1,
 }
+
+DIAG_VARIABLES = ['t2m', 'u10', 'v10', 'rainc', 'rainnc']
+
+MPASOUT_VARIABLES = [
+    'theta', 'qv', 'pressure_p', 'pressure_base',
+    'uReconstructZonal', 'uReconstructMeridional',
+]
 
 BENCHMARK_DIR = Path('../output/benchmarks')
 
@@ -426,17 +434,27 @@ def print_summary(results: list[dict],
     Returns:
         None
     """
-    hdr = f"{'Experiment':<12} {'Category':<20} {'Backend':>16} {'Width':>6} {'Time (s)':>10} {'Files':>6}"
+    hdr = (
+        f"{'Experiment':<12} {'Category':<20} {'Backend':>14} {'Width':>5} "
+        f"{'Max(s)':>9} {'Mean(s)':>9} {'Min(s)':>9} {'Files':>6}"
+    )
     sep = '-' * len(hdr)
     print(f"\n{sep}\n  Benchmark Summary\n{sep}")
     print(hdr)
     print(sep)
     for r in results:
         print(
-            f"{r['experiment']:<12} {r['category']:<20} {r['backend']:>16} {r['workers']:>6} "
-            f"{r['elapsed_s']:>10.2f} {r['n_files']:>6}"
+            f"{r['experiment']:<12} {r['category']:<20} {r['backend']:>14} {r['workers']:>5} "
+            f"{r['elapsed_s']:>9.2f} {r['elapsed_mean_s']:>9.2f} {r['elapsed_min_s']:>9.2f} "
+            f"{r['n_files']:>6}"
         )
     print(sep)
+    print(
+        "Note: Max/Mean/Min are across ranks. data_load_* rows measure the grid+metadata\n"
+        "      load that EVERY rank performs (Max = makespan); a large Max-vs-Min gap means\n"
+        "      shared-filesystem read contention, not parallel-load speedup. Compare against\n"
+        "      the data_load_*_solo single-reader baseline (run with --load-baseline)."
+    )
     print(f"Results saved to: {csv_path}\n")
 
 
@@ -504,31 +522,40 @@ def print_banner(mode_label: str,
     print("=" * 60)
 
 
-def load_experiment_data(paths: dict) -> tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]:
+def load_experiment_data(
+    paths: dict,
+    diag_variables: list[str] | None = None,
+    mpasout_variables: list[str] | None = None,
+) -> tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]:
     """
-    This function loads the 2D and 3D data for a single experiment using the provided paths. It creates instances of MPAS2DProcessor and MPAS3DProcessor, loads the respective data from the specified directories, and measures the time taken for each loading operation. The function prints status messages to the console indicating which data is being loaded, and it returns the loaded processors along with the elapsed times for loading the 2D and 3D data. The loading operations are performed sequentially, and the timing is done using time.perf_counter() for high-resolution timing. 
+    This function loads the 2D diagnostic data and 3D model output data for a single experiment, while measuring the elapsed time for each load. It takes a dictionary of paths for the grid file, 2D diagnostic data directory, and 3D model output directory, as well as optional lists of variables to load for the 2D and 3D data (which can speed up loading by only reading necessary variables). The function uses collective_grid_load to ensure that the grid is loaded in a coordinated way across MPI ranks, and it clears the shared grid cache before each load to ensure that the timing reflects a full load rather than a cache hit. The loaded MPAS2DProcessor and MPAS3DProcessor instances are returned along with the elapsed times for loading the 2D and 3D data.
 
     Parameters:
         paths: A dictionary containing the keys 'grid_file', 'diag_dir', and 'mpasout_dir' with the respective paths for the grid file, 2D diagnostic data directory, and 3D model output directory.
+        diag_variables: Optional list of 2D diagnostic variables to load; when provided, only these are read (all other data variables are dropped at open time), which is the dominant cost of the 2D load. None loads every variable.
+        mpasout_variables: Optional list of 3D model-output variables to load; when provided, only these are read. None loads every variable.
 
     Returns:
         tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]: A tuple containing the loaded MPAS2DProcessor, the loaded MPAS3DProcessor, the elapsed time in seconds for loading the 2D data, and the elapsed time in seconds for loading the 3D data.
     """
-    if RANK == 0:
-        print(f"  Loading 2D diagnostic data from {paths['diag_dir']} ...")
+    with collective_grid_load():
+        if RANK == 0:
+            print(f"  Loading 2D diagnostic data from {paths['diag_dir']} ...")
 
-    t_load = time.perf_counter()
-    processor_2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-    processor_2d.load_2d_data(paths['diag_dir'])
-    load_2d_time = time.perf_counter() - t_load
+        clear_grid_cache()
+        t_load = time.perf_counter()
+        processor_2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+        processor_2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
+        load_2d_time = time.perf_counter() - t_load
 
-    if RANK == 0:
-        print(f"  Loading 3D model output from {paths['mpasout_dir']} ...")
+        if RANK == 0:
+            print(f"  Loading 3D model output from {paths['mpasout_dir']} ...")
 
-    t_load = time.perf_counter()
-    processor_3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-    processor_3d.load_3d_data(paths['mpasout_dir'])
-    load_3d_time = time.perf_counter() - t_load
+        clear_grid_cache()
+        t_load = time.perf_counter()
+        processor_3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+        processor_3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
+        load_3d_time = time.perf_counter() - t_load
 
     return processor_2d, processor_3d, load_2d_time, load_3d_time
 
@@ -657,6 +684,63 @@ def _record_load_times(exp_name: str,
     return records
 
 
+def _record_solo_load_times(exp_name: str,
+                            paths: dict,
+                            timestamp: str,
+                            diag_variables: list[str] | None = None,
+                            mpasout_variables: list[str] | None = None) -> list[dict]:
+    """
+    This function measures the single-reader (uncontended) data-loading baseline for an experiment so that it can be compared against the concurrent data_load_2d/data_load_3d numbers, which every rank performs simultaneously. Only rank 0 loads the 2D and 3D datasets while all other ranks wait at a barrier, so the timing reflects loading without shared-filesystem read contention. The process-level grid cache is cleared before each of the 2D and 3D loads (so each is an independent cold read whose grid caching is separated from the timing) and again afterwards (so the subsequent real concurrent load is also cold and measured fairly). The discarded processors are garbage-collected immediately. The resulting records use the 'data_load_2d_solo' and 'data_load_3d_solo' categories and are returned only on rank 0; all other ranks return an empty list.
+
+    Parameters:
+        exp_name: The name of the experiment these baseline times belong to.
+        paths: A mapping with the keys 'grid_file', 'diag_dir', and 'mpasout_dir'.
+        timestamp: The run timestamp string shared across all records of a run.
+        diag_variables: Optional list of 2D diagnostic variables to load (mirrors the concurrent load so the baseline is comparable). None loads every variable.
+        mpasout_variables: Optional list of 3D model-output variables to load (mirrors the concurrent load). None loads every variable.
+
+    Returns:
+        list[dict]: The 'data_load_2d_solo'/'data_load_3d_solo' records on rank 0, else an empty list.
+    """
+    clear_grid_cache()
+
+    if COMM is not None:
+        COMM.Barrier()
+
+    load_2d_time = 0.0
+    load_3d_time = 0.0
+
+    if RANK == 0:
+        t0 = time.perf_counter()
+        proc2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=False)
+        proc2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
+        load_2d_time = time.perf_counter() - t0
+
+        clear_grid_cache()
+        t0 = time.perf_counter()
+        proc3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=False)
+        proc3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
+        load_3d_time = time.perf_counter() - t0
+
+        del proc2d, proc3d
+        gc.collect()
+
+    if COMM is not None:
+        COMM.Barrier()
+
+    clear_grid_cache()
+
+    if RANK != 0:
+        return []
+
+    print(f"  [solo baseline] 2D: {load_2d_time:.2f}s | 3D: {load_3d_time:.2f}s (rank 0 only)")
+
+    return [
+        _make_result(exp_name, 'data_load_2d_solo', load_2d_time, 0, timestamp),
+        _make_result(exp_name, 'data_load_3d_solo', load_3d_time, 0, timestamp),
+    ]
+
+
 def _run_trials(benchmarks: list,
                 exp_name: str,
                 timestamp: str,
@@ -689,7 +773,10 @@ def run_experiment(exp_name: str,
                    use_parallel: bool,
                    n_workers: int | None,
                    timestamp: str,
-                   trials: int = 1) -> list[dict]:
+                   trials: int = 1,
+                   load_baseline: bool = False,
+                   diag_variables: list[str] | None = None,
+                   mpasout_variables: list[str] | None = None) -> list[dict]:
     """
     This function runs a single experiment, which includes loading the data, running all benchmarks for that experiment, and collecting the results. It takes the experiment name, a dictionary of paths for loading the data, a boolean indicating whether to use parallel processing, the number of worker processes to use if parallel processing is enabled, and a timestamp string. The function first prints the experiment name on rank 0, creates an output directory for the experiment, and synchronises the ranks. It then loads the 2D and 3D data using the load_experiment_data helper function, which returns the loaded processors and the time taken for loading. The loading times are recorded as benchmark results. Next, it builds the list of benchmarks to run using the build_benchmarks helper function, which returns a list of (name, callable) pairs. The function then iterates over these benchmarks, running each one with run_single_benchmark to get the result record, which is collected into a list of results. Finally, it cleans up by deleting the processors and calling garbage collection before returning the list of results for this experiment.
 
@@ -699,6 +786,10 @@ def run_experiment(exp_name: str,
         use_parallel: Whether the batch plotting functions should run in parallel.
         n_workers: The number of worker processes to use when parallel, or None.
         timestamp: The run timestamp string shared across all records of a run.
+        trials: Number of repetitions of each plotting category to run.
+        load_baseline: When True, first time a single-reader load on rank 0 only (recorded as data_load_*_solo) as a contention-free baseline.
+        diag_variables: Optional list of 2D diagnostic variables to load; None loads every variable.
+        mpasout_variables: Optional list of 3D model-output variables to load; None loads every variable.
 
     Returns:
         list[dict]: The benchmark result records produced for this experiment (empty on ranks other than rank 0).
@@ -716,7 +807,14 @@ def run_experiment(exp_name: str,
     if COMM is not None:
         COMM.Barrier()
 
-    processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(paths)
+    if load_baseline:
+        results.extend(_record_solo_load_times(
+            exp_name, paths, timestamp, diag_variables, mpasout_variables,
+        ))
+
+    processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(
+        paths, diag_variables=diag_variables, mpasout_variables=mpasout_variables,
+    )
 
     results.extend(_record_load_times(exp_name, load_2d_time, load_3d_time, timestamp))
 
@@ -760,6 +858,18 @@ def parse_args() -> argparse.Namespace:
         help="Repetitions of each plotting category per experiment; report the "
              "spread across trials to separate real changes from filesystem "
              "noise (default: 1).",
+    )
+    parser.add_argument(
+        '--load-baseline', action='store_true',
+        help="Before the concurrent load, time a single-reader load on rank 0 "
+             "only (data_load_*_solo) as a contention-free baseline to compare "
+             "against the every-rank concurrent data_load_* numbers.",
+    )
+    parser.add_argument(
+        '--all-vars', action='store_true',
+        help="Load every 2D diagnostic variable instead of only the few the "
+             "plots need (the default). Use to measure how much selective "
+             "loading speeds up the 2D data load.",
     )
     args, _ = parser.parse_known_args()
     return args
@@ -827,9 +937,16 @@ def main() -> None:
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     all_results = []
 
+    diag_variables = None if args.all_vars else DIAG_VARIABLES
+    mpasout_variables = None if args.all_vars else MPASOUT_VARIABLES
+
     if RANK == 0:
         BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
         print_banner(mode_label, list(experiments.keys()))
+        if not args.all_vars:
+            print(f"  2D load: selective variables {diag_variables}")
+            print(f"  3D load: selective variables {mpasout_variables}")
+            print("  (pass --all-vars to load every variable instead)")
         if BACKEND == 'multiprocessing':
             print("  Note: the multiprocessing backend reloads data per worker "
                   "(esp. on macOS spawn).")
@@ -838,7 +955,10 @@ def main() -> None:
     for exp_name, paths in experiments.items():
         all_results.extend(
             run_experiment(exp_name, paths, use_parallel, n_workers, timestamp,
-                           trials=max(1, args.trials))
+                           trials=max(1, args.trials),
+                           load_baseline=args.load_baseline,
+                           diag_variables=diag_variables,
+                           mpasout_variables=mpasout_variables)
         )
 
     if RANK == 0:

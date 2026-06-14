@@ -14,7 +14,7 @@ Date: November 2025
 Version: 1.0.0
 """
 
-from .base import MPASBaseProcessor
+from .base import MPASBaseProcessor, clear_grid_cache, collective_grid_load
 from .processors_2d import MPAS2DProcessor
 from .processors_3d import MPAS3DProcessor
 from .utils_metadata import MPASFileMetadata
@@ -50,6 +50,8 @@ except ImportError:
 
 __all__ = [
     "MPASBaseProcessor",
+    "clear_grid_cache",
+    "collective_grid_load",
     "MPAS2DProcessor",
     "MPAS3DProcessor",
     "MPASFileMetadata",
