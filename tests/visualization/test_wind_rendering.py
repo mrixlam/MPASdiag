@@ -54,7 +54,9 @@ class TestRegridWindComponents:
     # ------------------ Test Linear Regridding Method ------------------
 
     def test_regrid_linear_method(
-        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch: pytest.MonkeyPatch
+        self: "TestRegridWindComponents",
+        plotter: "MPASWindPlotter",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that specifying `regrid_method='linear'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with linear interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a linear regridding of the input data. This ensures that users can rely on the linear regridding option to produce accurate results when visualizing wind vectors on a regular grid.
@@ -131,7 +133,9 @@ class TestRegridWindComponents:
     # ------------------ Test Nearest Regridding Method ------------------
 
     def test_regrid_nearest_method(
-        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch: pytest.MonkeyPatch
+        self: "TestRegridWindComponents",
+        plotter: "MPASWindPlotter",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that specifying `regrid_method='nearest'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with nearest-neighbor interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a nearest-neighbor regridding of the input data. This ensures that users can rely on the nearest regridding option to produce accurate results when visualizing wind vectors on a regular grid without smoothing.

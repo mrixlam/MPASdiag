@@ -352,7 +352,9 @@ class TestMainArgumentReorderingAdditional:
     """Test main() function argument reordering logic."""
 
     def test_main_with_global_flags_after_subcommand(
-        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: Path
+        self: "TestMainArgumentReorderingAdditional",
+        grid_file: str,
+        test_data_dir: Path,
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle global flags (like `--verbose`) appearing after the subcommand and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--verbose` flag after the subcommand and necessary arguments for a precipitation plot, the test checks that the CLI can reorder arguments as needed and execute without errors.
@@ -397,7 +399,9 @@ class TestMainArgumentReorderingAdditional:
             sys.argv = original_argv
 
     def test_main_with_log_file_argument(
-        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: Path
+        self: "TestMainArgumentReorderingAdditional",
+        grid_file: str,
+        test_data_dir: Path,
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle a `--log-file` argument appearing in the command line and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--log-file` flag along with necessary arguments for a precipitation plot, the test checks that the CLI can handle log file specification and that it executes without errors, creating the log file as expected.

@@ -34,9 +34,7 @@ _RNG = np.random.default_rng(42)
 class _DynamicStdoutHandler(logging.Handler):
     """Logging handler that writes formatted log records to stdout immediately."""
 
-    def emit(
-        self: "_DynamicStdoutHandler", record: logging.LogRecord
-    ) -> None:
+    def emit(self: "_DynamicStdoutHandler", record: logging.LogRecord) -> None:
         """
         This method formats the given log record and writes it to standard output, followed by a newline. It ensures that the output is flushed immediately so that log messages appear in real-time during test execution. If any exceptions occur during formatting or writing, they are handled gracefully by invoking the standard error handling mechanism of the logging framework.
 

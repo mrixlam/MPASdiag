@@ -795,6 +795,9 @@ class TestVisualizationIntegration:
 
         from mpasdiag import MPASPrecipitationPlotter
 
+        assert mpas_coordinates is not None
+        assert mpas_precip_data is not None
+
         plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=100)
         lon, lat = mpas_coordinates
 

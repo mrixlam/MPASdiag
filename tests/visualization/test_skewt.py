@@ -200,9 +200,7 @@ class TestCreateSkewTDiagram:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, _ = plotter.create_skewt_diagram(
-            p, t, td, u, v, indices=sample_indices
-        )
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v, indices=sample_indices)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -367,9 +365,7 @@ class TestEdgeCases:
             "el_pressure": None,
         }
 
-        fig, _ = plotter.create_skewt_diagram(
-            p, t, td, u, v, indices=indices
-        )
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v, indices=indices)
 
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -398,9 +394,7 @@ class TestIndicesTable:
             None
         """
         p, t, td, u, v = sample_profile
-        fig, _ = plotter.create_skewt_diagram(
-            p, t, td, u, v, indices=sample_indices
-        )
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v, indices=sample_indices)
         # Figure should have more than 1 axes (main plot + table)
         assert len(fig.get_axes()) >= 2
         plt.close(fig)
@@ -430,9 +424,7 @@ class TestIndicesTable:
             "sbcape": None,
             "k_index": 28.0,
         }
-        fig, _ = plotter.create_skewt_diagram(
-            p, t, td, u, v, indices=sparse
-        )
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v, indices=sparse)
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -458,9 +450,7 @@ class TestIndicesTable:
             ("cape", "cin", "lcl_pressure", "sbcape", "k_index", "bulk_shear_0_6km")
         )
 
-        fig, _ = plotter.create_skewt_diagram(
-            p, t, td, u, v, indices=indices
-        )
+        fig, _ = plotter.create_skewt_diagram(p, t, td, u, v, indices=indices)
 
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)

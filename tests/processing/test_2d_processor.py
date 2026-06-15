@@ -169,6 +169,7 @@ def _make_mock_2d_processor(**kwargs: Any) -> MPAS2DProcessor:
     Returns:
         MPAS2DProcessor: A mock instance of MPAS2DProcessor with specified attributes.
     """
+
     def _fake_init(self: Any, *a: Any, **kw: Any) -> None:
         self.verbose = kw.get("verbose", kwargs.get("verbose", False))
         self.dataset = None

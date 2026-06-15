@@ -375,9 +375,11 @@ def _patched_isfinite(arr: np.ndarray) -> "_ComputableMask":
     """
     return cast(
         _ComputableMask,
-        np.isfinite.__wrapped__(arr).view(_ComputableMask)
-        if hasattr(np.isfinite, "__wrapped__")
-        else np.array(np.isfinite(arr), dtype=bool).view(_ComputableMask),
+        (
+            np.isfinite.__wrapped__(arr).view(_ComputableMask)
+            if hasattr(np.isfinite, "__wrapped__")
+            else np.array(np.isfinite(arr), dtype=bool).view(_ComputableMask)
+        ),
     )
 
 
@@ -406,7 +408,10 @@ class TestFilterValidDataDask:
             Returns:
                 _ComputableMask: A boolean mask array.
             """
-            return cast(_ComputableMask, np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask))
+            return cast(
+                _ComputableMask,
+                np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask),
+            )
 
         lon = np.linspace(-95.0, -85.0, N_CELLS)
         lat = np.linspace(35.0, 45.0, N_CELLS)
@@ -452,7 +457,10 @@ class TestFilterValidDataDask:
             Returns:
                 _ComputableMask: A boolean mask array.
             """
-            return cast(_ComputableMask, np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask))
+            return cast(
+                _ComputableMask,
+                np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask),
+            )
 
         lon = np.linspace(-95.0, -85.0, N_CELLS)
         lat = np.linspace(35.0, 45.0, N_CELLS)

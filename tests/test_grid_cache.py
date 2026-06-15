@@ -241,7 +241,9 @@ def test_load_shared_falls_back_when_node_comm_raises(
     """
 
     class _BadComm:
-        def Get_rank(self: "_BadComm") -> int:
+        # NOSONAR: name must mirror the mpi4py Comm.Get_rank() API that
+        # base._load_shared() calls; renaming would break the call.
+        def Get_rank(self: "_BadComm") -> int:  # noqa: N802  # NOSONAR
             raise RuntimeError("boom")
 
     monkeypatch.setattr(base, "_get_node_comm", lambda: (None, _BadComm()))

@@ -280,9 +280,7 @@ class TestResolveVerticalDisplay:
         class _BadArray:
             """Simulates an array-like object that raises an exception when astype is called, but can still be converted to a numpy array using __array__."""
 
-            def astype(
-                self: "_BadArray", dtype: type
-            ) -> None:
+            def astype(self: "_BadArray", dtype: type) -> None:
                 """
                 This method simulates the behavior of an array-like object that raises a TypeError when an attempt is made to convert it to a specified dtype using astype. This is used to test the fallback mechanism in the _resolve_vertical_display method.
 
@@ -294,9 +292,7 @@ class TestResolveVerticalDisplay:
                 """
                 raise TypeError("cannot astype")
 
-            def __array__(
-                self: "_BadArray", dtype: "type | None" = None
-            ) -> np.ndarray:
+            def __array__(self: "_BadArray", dtype: "type | None" = None) -> np.ndarray:
                 """
                 This method allows the _BadArray class to be converted to a numpy array using np.asarray, even though it raises an exception when astype is called. It returns a numpy array of vertical coordinates that would be typical for pressure levels.
 

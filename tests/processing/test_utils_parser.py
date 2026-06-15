@@ -407,7 +407,9 @@ class TestParseSurfaceArgsToConfig:
         assert config.time_index == pytest.approx(0)
 
     def test_parse_surface_args_with_real_mpas_paths(
-        self: "TestParseSurfaceArgsToConfig", grid_file: Optional[str], test_data_dir: Path
+        self: "TestParseSurfaceArgsToConfig",
+        grid_file: Optional[str],
+        test_data_dir: Path,
     ) -> None:
         """
         This test performs an integration check by parsing surface plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_surface_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with surface-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for surface plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing.
