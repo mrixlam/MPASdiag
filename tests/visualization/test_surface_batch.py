@@ -33,8 +33,8 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter, create_surface_plot
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import MPASSurfacePlotter, create_surface_plot
+from mpasdiag import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -234,7 +234,6 @@ class TestHelperMethods:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -270,7 +269,6 @@ class TestConvenienceFunction:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -308,7 +306,6 @@ class TestConvenienceFunction:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]

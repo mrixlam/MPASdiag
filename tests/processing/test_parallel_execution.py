@@ -17,7 +17,7 @@ Version: 1.0.0
 import time
 import pytest
 import matplotlib.pyplot as plt
-from typing import List, Generator
+from typing import List, Generator, Any
 from unittest.mock import Mock, patch
 
 from mpasdiag.processing.parallel import (
@@ -71,7 +71,7 @@ class TestMultiprocessingExecution:
             None
         """
 
-        def simple_func(x):
+        def simple_func(x: int) -> int:
             return x * 2
 
         tasks = [1, 2, 3, 4, 5]
@@ -96,7 +96,7 @@ class TestMultiprocessingExecution:
             None
         """
 
-        def add_func(x, offset, multiplier=1):
+        def add_func(x: int, offset: int, multiplier: int = 1) -> int:
             return (x + offset) * multiplier
 
         tasks = [1, 2, 3]
@@ -119,7 +119,7 @@ class TestMultiprocessingExecution:
             None
         """
 
-        def failing_func(x):
+        def failing_func(x: int) -> int:
             if x == 3:
                 raise ValueError(f"Error on task {x}")
             return x * 2
@@ -149,7 +149,7 @@ class TestMultiprocessingExecution:
             None
         """
 
-        def simple_func(x):
+        def simple_func(x: int) -> int:
             time.sleep(0.01)
             return x * 2
 
@@ -236,7 +236,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task * 2
 
         with patch("sys.platform", "win32"):
@@ -263,7 +263,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task + 1
 
         with patch("sys.platform", "darwin"):
@@ -290,7 +290,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task**2
 
         with patch("sys.platform", "linux"):
@@ -317,7 +317,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         with patch("sys.platform", "linux"):
@@ -359,7 +359,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         with patch("sys.platform", "linux"):
@@ -371,7 +371,7 @@ class TestMultiprocessingMap:
             call_count = [0]
             original_get_context = __import__("multiprocessing").get_context
 
-            def failing_get_context(method):
+            def failing_get_context(method: str) -> Any:
                 call_count[0] += 1
                 if call_count[0] == 1:
                     raise RuntimeError("Fork failed")
@@ -406,7 +406,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         manager = MPASParallelManager(
@@ -444,7 +444,7 @@ class TestMultiprocessingMap:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         with patch("sys.platform", "win32"):
@@ -488,7 +488,7 @@ class TestSerialMap:
         manager = MPASParallelManager(backend="serial", verbose=True)
         assert_expected_public_methods(manager, "MPASParallelManager")
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task + 10
 
         import io
@@ -530,7 +530,7 @@ class TestSerialMapWithCollector:
         manager.collector = MPASResultCollector(mock_comm)
         assert_expected_public_methods(manager.collector, "MPASResultCollector")
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task * 2
 
         results = manager.parallel_map(simple_func, sample_tasks)
@@ -562,7 +562,7 @@ class TestSerialMapWithCollector:
         manager.collector = MPASResultCollector(mock_comm)
         assert_expected_public_methods(manager.collector, "MPASResultCollector")
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task + 5
 
         import io
@@ -596,7 +596,7 @@ class TestMultiprocessingBreakStatement:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task + 100
 
         manager = MPASParallelManager(
@@ -627,7 +627,7 @@ class TestMultiprocessingResultsNoneCheck:
             None
         """
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         manager = MPASParallelManager(
@@ -665,7 +665,7 @@ class TestSerialMapVerbosePath:
         manager.collector = MPASResultCollector(mock_comm)
         assert_expected_public_methods(manager, "MPASParallelManager")
 
-        def simple_func(task):
+        def simple_func(task: int) -> int:
             return task
 
         with patch.object(manager, "_print_statistics") as mock_print:

@@ -18,7 +18,7 @@ import matplotlib
 from pathlib import Path
 
 matplotlib.use("Agg")
-from typing import Any
+from typing import Any, cast
 import numpy as np
 import pytest
 import xarray as xr
@@ -26,13 +26,13 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.precipitation import (
+from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
     OverlayColorSpec,
     PrecipitationMapStyle,
 )
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import GeographicBounds
 
 N_CELLS = 20
 LON_MIN, LON_MAX = -100.0, -80.0
@@ -49,7 +49,7 @@ def _lon() -> np.ndarray:
     Returns:
         np.ndarray: A 1D array of longitude values from LON_MIN to LON_MAX with N_CELLS points.
     """
-    return np.linspace(LON_MIN, LON_MAX, N_CELLS)
+    return cast(np.ndarray, np.linspace(LON_MIN, LON_MAX, N_CELLS))
 
 
 def _lat() -> np.ndarray:
@@ -62,7 +62,7 @@ def _lat() -> np.ndarray:
     Returns:
         np.ndarray: A 1D array of latitude values from LAT_MIN to LAT_MAX with N_CELLS points.
     """
-    return np.linspace(LAT_MIN, LAT_MAX, N_CELLS)
+    return cast(np.ndarray, np.linspace(LAT_MIN, LAT_MAX, N_CELLS))
 
 
 def _precip(val: float = 2.0) -> np.ndarray:

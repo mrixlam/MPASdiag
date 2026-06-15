@@ -20,11 +20,11 @@ import pytest
 import numpy as np
 import xarray as xr
 from pathlib import Path
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, cast, Any
 
 # Load MPASdiag processing classes
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS2DProcessor
+from mpasdiag import MPAS3DProcessor
 
 EXPECTED_PUBLIC_METHODS = {
     "MPASBaseProcessor": [
@@ -247,7 +247,7 @@ def fake_render_factory(calls: dict) -> Callable[..., None]:
         Callable[..., None]: A callable accepting arbitrary args/kwargs that increments `calls['render']` each time it is invoked.
     """
 
-    def _fake_render(ax_arg, *args, **kwargs):
+    def _fake_render(ax_arg: Any, *args: Any, **kwargs: Any) -> Any:
         calls["render"] = calls.get("render", 0) + 1
 
     return _fake_render
@@ -332,7 +332,6 @@ def load_mpas_coords_from_processor(
 
     if grid_file is None:
         pytest.skip("MPAS grid file not available")
-        return
 
     proc = MPAS2DProcessor(grid_file, verbose=False)
 
@@ -397,12 +396,11 @@ def load_precip_from_diag(
         pytest.skip(
             f"No precipitation variable found in diag files. Available: {sorted(available)[:10]}"
         )
-        return
 
     da = proc.get_2d_variable_data(var_name, time_index=0)
     arr = da.values.ravel()[:n]
 
-    return arr
+    return cast(np.ndarray, arr)
 
 
 def load_surface_t2m_from_diag(
@@ -434,10 +432,9 @@ def load_surface_t2m_from_diag(
         pytest.skip(
             f"No surface temperature variable found in diag files. Available: {sorted(available)[:10]}"
         )
-        return
 
     da = proc.get_2d_variable_data(var_name, time_index=0)
-    return da.values.ravel()[:n]
+    return cast(np.ndarray, da.values.ravel()[:n])
 
 
 def load_wind_uv_from_diag(
@@ -468,7 +465,6 @@ def load_wind_uv_from_diag(
         pytest.skip(
             f"No suitable wind u/v variables found in diag files. Available: {sorted(available)[:10]}"
         )
-        return
 
     da_u = proc.get_2d_variable_data(u_name, time_index=0)
     da_v = proc.get_2d_variable_data(v_name, time_index=0)
@@ -502,13 +498,11 @@ def load_qv_3d_from_mpasout(
 
     if not data_dir.exists():
         pytest.skip(f"MPASOUT data directory not found: {data_dir}")
-        return
 
     grid_file = _grid_file_path()
 
     if grid_file is None:
         pytest.skip("MPAS grid file not available")
-        return
 
     proc3 = MPAS3DProcessor(grid_file, verbose=False)
     proc3.load_3d_data(str(data_dir))
@@ -522,10 +516,9 @@ def load_qv_3d_from_mpasout(
         pytest.skip(
             f"No 3D variable found in mpasout files. Available: {sorted(available)[:10]}"
         )
-        return
 
     da = proc3.get_3d_variable_data(var_name, level="surface", time_index=0)
-    return da.values.reshape((-1,))[:n]
+    return cast(np.ndarray, da.values.reshape((-1,))[:n])
 
 
 def get_mpas_data_paths() -> dict:
@@ -666,7 +659,6 @@ def get_real_mpas_coordinates(
 
     if grid_file is None:
         pytest.skip("MPAS grid file not available")
-        return
 
     grid_ds = xr.open_dataset(grid_file, decode_times=False)
 
@@ -717,4 +709,4 @@ def get_real_mpas_variable(
     else:
         da = processor.get_2d_variable_data(variable_name, time_index=time_index)
 
-    return da.values.ravel()
+    return cast(np.ndarray, da.values.ravel())

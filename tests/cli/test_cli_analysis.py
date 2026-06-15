@@ -16,6 +16,7 @@ Version: 1.0.0
 # Load pytest for test execution
 import os
 import pytest
+from pathlib import Path
 
 
 class TestAnalysisExecution:
@@ -31,8 +32,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -56,8 +57,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         from unittest.mock import patch
 
         cli = MPASUnifiedCLI()
@@ -86,8 +87,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         from unittest.mock import patch
 
         cli = MPASUnifiedCLI()
@@ -114,8 +115,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         from unittest.mock import patch
 
         cli = MPASUnifiedCLI()
@@ -142,8 +143,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         from unittest.mock import patch
 
         cli = MPASUnifiedCLI()
@@ -172,8 +173,8 @@ class TestAnalysisExecution:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         from unittest.mock import patch
 
         cli = MPASUnifiedCLI()
@@ -204,7 +205,7 @@ class TestSurfaceAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -240,7 +241,7 @@ class TestSurfaceAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -280,7 +281,7 @@ class TestWindAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -314,7 +315,7 @@ class TestWindAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -347,12 +348,11 @@ class TestWindAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -389,7 +389,7 @@ class TestCrossSectionAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -433,7 +433,7 @@ class TestCrossSectionAnalysis:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -471,7 +471,7 @@ class TestCrossSectionWorkflows:
     """Integration-style tests for cross-section analysis workflows using real data."""
 
     def test_cross_section_batch_mode_serial(
-        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: str
+        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test runs a cross-section analysis in batch mode without parallel processing. It sets up an `MPASConfig` with `batch_mode=True` and `parallel=False`, then calls `run_analysis` to validate that the method executes the batch workflow in serial mode and returns a boolean indicating the run attempted to execute.
@@ -484,12 +484,11 @@ class TestCrossSectionWorkflows:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "mpasout")
 
@@ -517,7 +516,7 @@ class TestCrossSectionWorkflows:
         assert isinstance(result, bool)
 
     def test_cross_section_batch_mode_parallel(
-        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: str
+        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test runs a cross-section analysis in batch mode with parallel processing. It sets up an `MPASConfig` with `batch_mode=True` and `parallel=True`, then calls `run_analysis` to validate that the method executes the batch workflow in parallel mode and returns a boolean indicating the run attempted to execute.
@@ -530,12 +529,11 @@ class TestCrossSectionWorkflows:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "mpasout")
 
@@ -564,7 +562,7 @@ class TestCrossSectionWorkflows:
         assert isinstance(result, bool)
 
     def test_cross_section_with_custom_output_path(
-        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: str
+        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test runs a cross-section analysis with a custom output path specified in the configuration. It sets up an `MPASConfig` with a custom `output` path and calls `run_analysis` to validate that the method accepts the custom output path and returns a boolean indicating the run attempted to execute.
@@ -577,12 +575,11 @@ class TestCrossSectionWorkflows:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "mpasout")
 
@@ -610,7 +607,7 @@ class TestCrossSectionWorkflows:
         assert isinstance(result, bool)
 
     def test_run_cross_section_analysis_with_real_data(
-        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: str
+        self: "TestCrossSectionWorkflows", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test runs a cross-section analysis using real MPAS data files. It sets up an `MPASConfig` with appropriate parameters for a cross-section analysis and calls `run_analysis` to validate that the method executes without errors and returns a boolean indicating the run attempted to execute. This test serves as an integration-style check to ensure that the CLI processing workflow can handle real data inputs end-to-end.
@@ -623,12 +620,11 @@ class TestCrossSectionWorkflows:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "mpasout")
 
@@ -667,13 +663,12 @@ class TestCrossSectionWorkflows:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)

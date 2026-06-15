@@ -366,9 +366,7 @@ class TestBroadcastWeightsInMemory:
             Returns:
                 dict: The metadata dictionary that was broadcast.
             """
-            if isinstance(data, dict):
-                received_meta.update(data)
-                return data
+            received_meta.update(data)
             return data
 
         mock_comm.bcast = mock_bcast

@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 from typing import Union
 from unittest.mock import Mock, patch
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -110,7 +110,6 @@ class TestVerticalLevelExtraction:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter(figsize=(10, 8), dpi=100)
@@ -225,7 +224,6 @@ class TestVerticalLevelExtraction:
 
         if var_3d is None:
             pytest.skip("No 3D variable found in dataset")
-            return
 
         fig, _ = plotter.create_vertical_cross_section(
             processor, var_3d, (0, 0), (90, 80), num_points=20
@@ -253,7 +251,6 @@ class TestVerticalToHeightConversion:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
@@ -350,7 +347,6 @@ class TestHeightCoordinates:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.processor = mpas_3d_processor

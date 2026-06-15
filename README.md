@@ -120,13 +120,10 @@ The package exposes a small, focused programmatic API in the `mpasdiag` package.
 
 #### Precipitation Analysis
 ```python
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+import mpasdiag as md
 
 # (1) Configure — set remap_engine and remap_method to control interpolation
-cfg = MPASConfig(
+cfg = md.MPASConfig(
     grid_file='data/grids/x1.10242.init.nc',
     data_dir='./data/u240k',
     output_dir='./output',
@@ -135,16 +132,16 @@ cfg = MPASConfig(
 )
 
 # (2) Load data
-proc = MPAS2DProcessor(cfg.grid_file)
+proc = md.MPAS2DProcessor(cfg.grid_file)
 proc.load_2d_data(cfg.data_dir)
 lon, lat = proc.extract_spatial_coordinates()
 
 # (3) Compute precipitation for a time index
-diag = PrecipitationDiagnostics(verbose=True)
+diag = md.PrecipitationDiagnostics(verbose=True)
 precip = diag.compute_precipitation_difference(proc.dataset, 0, var_name='total', accum_period='a01h', data_type=proc.data_type)
 
 # (4) Plot — pass config so the contourf path uses the configured remap engine/method
-plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
+plotter = md.MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
 fig, ax = plotter.create_precipitation_map(lon, lat, precip.values,
                                            cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max,
                                            title='Total precipitation', accum_period='a01h',
@@ -155,14 +152,11 @@ plotter.save_plot('./output/total_precipitation', formats=['png'])
 
 #### Complex Wind Plot (Wind Speed + Barbs Overlay)
 ```python
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
+import mpasdiag as md
 import numpy as np
 
 # (1) Configure — set remap_engine and remap_method to control interpolation
-cfg = MPASConfig(
+cfg = md.MPASConfig(
     grid_file='data/grids/x1.10242.init.nc',
     data_dir='./data/u240k',
     output_dir='./output',
@@ -175,7 +169,7 @@ cfg = MPASConfig(
 )
 
 # (2) Load data
-processor = MPAS2DProcessor(grid_file='data/grids/x1.10242.init.nc')
+processor = md.MPAS2DProcessor(grid_file='data/grids/x1.10242.init.nc')
 processor.load_2d_data('./data/u240k/diag')
 
 # (3) Extract wind components at time index 0
@@ -187,7 +181,7 @@ lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
 wind_speed = np.sqrt(u_data.values**2 + v_data.values**2)
 
 # (5) Create wind speed background with filled contours — pass config to control remapping
-surface_plotter = MPASSurfacePlotter(figsize=(14, 11), dpi=150)
+surface_plotter = md.MPASSurfacePlotter(figsize=(14, 11), dpi=150)
 fig, ax = surface_plotter.create_surface_map(
     lon=lon, lat=lat, data=wind_speed, var_name='wind_speed',
     lon_min=cfg.lon_min, lon_max=cfg.lon_max, lat_min=cfg.lat_min, lat_max=cfg.lat_max,
@@ -196,7 +190,7 @@ fig, ax = surface_plotter.create_surface_map(
 )
 
 # (6) Add wind barbs overlay — pass config so overlay remapping matches the base map
-wind_plotter = MPASWindPlotter()
+wind_plotter = md.MPASWindPlotter()
 wind_config = {
     'u_data': u_data.values,
     'v_data': v_data.values,
@@ -217,16 +211,14 @@ surface_plotter.save_plot('./output/wind_complex', formats=['png'])
 
 #### Skew-T Log-P Sounding (Thermodynamic Profile)
 ```python
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.visualization.skewt import MPASSkewTPlotter
+import mpasdiag as md
 
 # (1) Load 3D MPAS data
-processor = MPAS3DProcessor(grid_file='data/grids/x1.10242.static.nc', verbose=True)
+processor = md.MPAS3DProcessor(grid_file='data/grids/x1.10242.static.nc', verbose=True)
 processor.load_3d_data('./data/u240k/mpasout')
 
 # (2) Extract sounding profile at a target location (e.g., Singapore)
-diag = SoundingDiagnostics(verbose=True)
+diag = md.SoundingDiagnostics(verbose=True)
 profile = diag.extract_sounding_profile(processor, lon=103.82, lat=1.35, time_index=0)
 
 # (3) Compute comprehensive thermodynamic indices (CAPE, CIN, SRH, bulk shear, etc.)
@@ -237,7 +229,7 @@ indices = diag.compute_thermodynamic_indices(
 )
 
 # (4) Plot Skew-T Log-P diagram with parcel trace and indices table
-plotter = MPASSkewTPlotter(figsize=(9, 12), dpi=150)
+plotter = md.MPASSkewTPlotter(figsize=(9, 12), dpi=150)
 fig, ax = plotter.create_skewt_diagram(
     pressure=profile['pressure'], temperature=profile['temperature'],
     dewpoint=profile['dewpoint'], u_wind=profile.get('u_wind'),
@@ -250,14 +242,10 @@ fig.savefig('./output/skewt_singapore.png', bbox_inches='tight', dpi=150)
 #### Vertically Integrated Water Vapor Transport (IVT)
 ```python
 import numpy as np
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.processing.utils_config import MPASConfig
+import mpasdiag as md
 
 # (1) Load 3D MPAS data
-processor = MPAS3DProcessor(grid_file='data/grids/x1.10242.static.nc')
+processor = md.MPAS3DProcessor(grid_file='data/grids/x1.10242.static.nc')
 processor.load_3d_data('./data/u240k/mpasout')
 tindex = 0
 
@@ -269,7 +257,7 @@ pressure = (processor.dataset['pressure_p'].isel(Time=tindex) +
             processor.dataset['pressure_base'].isel(Time=tindex))
 
 # (3) Compute IWV, IVT_u, IVT_v, and total IVT magnitude
-diag   = MoistureTransportDiagnostics(verbose=True)
+diag   = md.MoistureTransportDiagnostics(verbose=True)
 result = diag.analyze_moisture_transport(qv, u_3d, v_3d, pressure)
 
 # (4) Extract 1-D arrays and plot IVT magnitude as shading with vector overlay
@@ -279,8 +267,8 @@ ivt_v   = result['ivt_v']['data'].values.flatten()
 lon, lat = processor.extract_2d_coordinates_for_variable('qv', result['ivt_u']['data'])
 
 # (5) Generate filled contour map for IVT magnitude
-cfg = MPASConfig(remap_engine='kdtree', remap_method='nearest')
-plotter = MPASSurfacePlotter(figsize=(12, 9), dpi=300)
+cfg = md.MPASConfig(remap_engine='kdtree', remap_method='nearest')
+plotter = md.MPASSurfacePlotter(figsize=(12, 9), dpi=300)
 
 fig, ax = plotter.create_surface_map(
     lon=lon, lat=lat, data=ivt_mag, var_name='ivt',
@@ -290,7 +278,7 @@ fig, ax = plotter.create_surface_map(
 )
 
 # (6) Generate vector maps for IVT components
-wind_plotter = MPASWindPlotter()
+wind_plotter = md.MPASWindPlotter()
 
 wind_plotter.add_wind_overlay(
     ax, lon, lat, {'u_data': ivt_u, 'v_data': ivt_v, 'plot_type': 'arrows',
@@ -557,8 +545,8 @@ mpasdiag precipitation --config config.yaml \
   --variable total --accumulation a06h --dpi 600
 
 # Load and save a config programmatically
-from mpasdiag.processing.utils_config import MPASConfig
-cfg = MPASConfig.load_from_file('config.yaml')
+import mpasdiag as md
+cfg = md.MPASConfig.load_from_file('config.yaml')
 cfg.dpi = 600
 cfg.save_to_file('config_high_res.yaml')
 ```
@@ -930,11 +918,11 @@ mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta \
 **Programmatic use.** If you call mpasdiag as a library, configure the logger once at the start of your script:
 
 ```python
-from mpasdiag.processing.utils_logger import MPASLogger, get_logger
+import mpasdiag as md
 import logging
 
-MPASLogger(level=logging.DEBUG, log_file="run.log")  # configure root once
-logger = get_logger(__name__)                         # in each module
+md.MPASLogger(level=logging.DEBUG, log_file="run.log")  # configure root once
+logger = md.get_logger(__name__)                         # in each module
 ```
 
 ### Getting Help
@@ -961,17 +949,13 @@ logger = get_logger(__name__)                         # in each module
 
 3. **Check system information**:
    ```python
-   # Import from the processing package
-   from mpasdiag.processing import print_system_info
-   print_system_info()
+   import mpasdiag as md
 
-   # Or import directly from the module
-   from mpasdiag.processing.utils_file import print_system_info
-   print_system_info()
+   # Module-level helper
+   md.print_system_info()
 
-   # Or use the class method directly
-   from mpasdiag.processing import FileManager
-   FileManager.print_system_info()
+   # Or via the FileManager class method
+   md.FileManager.print_system_info()
    ```
 
 4. **Enable verbose output for debugging**: see [Logging and verbosity](#logging-and-verbosity) above for `--log-level`, `--verbose`/`-v`, `--quiet`/`-q`, and `--log-file`.

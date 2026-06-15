@@ -23,7 +23,7 @@ import xarray as xr
 from typing import Any
 from pathlib import Path
 
-from mpasdiag.processing.remapping import (
+from mpasdiag import (
     MPASRemapper,
     ESMPY_AVAILABLE,
 )

@@ -29,11 +29,11 @@ import matplotlib.pyplot as plt
 from typing import Generator, Union
 from unittest.mock import Mock, patch
 
-from mpasdiag.visualization.cross_section import (
+from mpasdiag import (
     MPASVerticalCrossSectionPlotter,
     CrossSectionStyle,
 )
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

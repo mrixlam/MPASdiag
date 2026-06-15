@@ -31,10 +31,10 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from typing import Generator, Iterator
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+from mpasdiag import MPASSurfacePlotter
 from tests.test_data_helpers import load_mpas_coords_from_processor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import SurfaceMapStyle
+from mpasdiag import GeographicBounds
+from mpasdiag import SurfaceMapStyle
 
 package_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(package_dir))

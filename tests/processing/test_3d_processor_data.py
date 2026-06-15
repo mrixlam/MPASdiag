@@ -19,10 +19,10 @@ import os
 import sys
 import pytest
 import numpy as np
-from typing import Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 from tests.test_data_helpers import (
     get_mpas_data_paths,
     check_mpas_data_available,
@@ -123,8 +123,10 @@ def make_getitem_with_raise(raise_key: str, exc: Exception, default: Any = None)
 class TestLoad3DData:
     """Test 3D data loading."""
 
+    paths: "Dict[str, Any]"
+
     @classmethod
-    def setup_class(cls: "TestLoad3DData") -> None:
+    def setup_class(cls: "type[TestLoad3DData]") -> None:
         """
         This class-level setup method checks for the availability of MPAS test data and retrieves the necessary paths for testing. If the test data is not found, it skips all tests in this class. By storing the paths in a class variable, it allows individual test methods to access the required file paths without needing to perform redundant checks or retrievals, ensuring efficient use of resources during testing. This setup is crucial for tests that depend on loading actual MPAS output data to verify the functionality of the `load_3d_data` method.
 
@@ -136,7 +138,6 @@ class TestLoad3DData:
         """
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not found")
-            return
 
         cls.paths = get_mpas_data_paths()
 
@@ -208,8 +209,11 @@ class TestLoad3DData:
 class TestGetAvailable3DVariables:
     """Test 3D variable detection."""
 
+    paths: "Dict[str, Any]"
+    processor: Any
+
     @classmethod
-    def setup_class(cls: "TestGetAvailable3DVariables") -> None:
+    def setup_class(cls: "type[TestGetAvailable3DVariables]") -> None:
         """
         This class-level setup method checks for the availability of MPAS test data, retrieves the necessary paths, and initializes an `MPAS3DProcessor` instance with the loaded dataset. If the test data is not found, it skips all tests in this class. By storing the processor instance in a class variable, it allows individual test methods to access the initialized processor without needing to perform redundant checks or initializations, ensuring efficient use of resources during testing. This setup is crucial for tests that depend on having a loaded MPAS dataset to verify the functionality of the `get_available_3d_variables` method.
 
@@ -221,7 +225,6 @@ class TestGetAvailable3DVariables:
         """
         if not check_mpas_data_available():
             pytest.skip("MPAS test data not found")
-            return
 
         cls.paths = get_mpas_data_paths()
         cls.processor = load_mpas_3d_processor(verbose=False)
@@ -366,7 +369,6 @@ class TestGet3DVariableData:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         data = processor.get_3d_variable_data("theta", level=0, time_index=0)
@@ -389,7 +391,6 @@ class TestGet3DVariableData:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         nlevels = processor.dataset.sizes["nVertLevels"]
@@ -415,7 +416,6 @@ class TestGet3DVariableData:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
 

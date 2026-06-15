@@ -32,7 +32,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -70,7 +70,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -104,7 +104,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -141,7 +141,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -186,7 +186,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -230,7 +230,7 @@ class TestConfigurationMapping:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -273,12 +273,11 @@ class TestConfigurationAndValidation:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k")
         cli = MPASUnifiedCLI()
@@ -302,8 +301,8 @@ class TestConfigurationAndValidation:
             None
         """
 
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(data_dir="data/")
@@ -323,8 +322,8 @@ class TestConfigurationAndValidation:
             None
         """
 
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file="test.nc")
@@ -344,8 +343,8 @@ class TestConfigurationAndValidation:
             None
         """
 
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file="nonexistent.nc", data_dir="data/")
@@ -368,8 +367,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -397,8 +396,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(
@@ -425,8 +424,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(
@@ -453,8 +452,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -482,8 +481,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -508,8 +507,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -533,8 +532,8 @@ class TestValidateConfigEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -562,8 +561,8 @@ class TestValidateConfigDataDiscovery:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             mpasout_dir = Path(tmpdir) / "mpasout"
@@ -592,8 +591,8 @@ class TestValidateConfigDataDiscovery:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             nested_dir = Path(tmpdir) / "subdir" / "data"

@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 matplotlib.use("Agg")
 
-from mpasdiag.visualization.styling import MPASVisualizationStyle
+from mpasdiag import MPASVisualizationStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

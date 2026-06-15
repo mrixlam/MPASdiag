@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from typing import Iterator
 from mpasdiag.processing import base
-from mpasdiag.processing import clear_grid_cache, collective_grid_load
+from mpasdiag import clear_grid_cache, collective_grid_load
 
 
 @pytest.fixture(autouse=True)
@@ -188,7 +188,7 @@ def test_load_shared_cache_hit_skips_reader() -> None:
     sentinel = object()
     base._UXGRID_CACHE["k"] = sentinel
 
-    def reader():
+    def reader() -> object:
         raise AssertionError("reader must not run on a cache hit")
 
     assert base._load_shared(base._UXGRID_CACHE, "k", reader) is sentinel
@@ -267,7 +267,7 @@ def _load_two_processors() -> tuple[base.MPASBaseProcessor, base.MPASBaseProcess
         tuple[base.MPASBaseProcessor, base.MPASBaseProcessor]: Two loaded MPAS processors.
     """
     from tests.test_data_helpers import _grid_file_path
-    from mpasdiag.processing.processors_2d import MPAS2DProcessor
+    from mpasdiag import MPAS2DProcessor
     from pathlib import Path
 
     data_dir = Path(__file__).parent.parent / "data" / "u240k" / "diag"

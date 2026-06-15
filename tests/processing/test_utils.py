@@ -15,12 +15,13 @@ Version: 1.0.0
 """
 
 # Load necessary libraries and modules for testing
+from typing import Any
 import sys
 import pytest
 from pathlib import Path
 
-from mpasdiag.processing.utils_file import FileManager
-from mpasdiag.processing.utils_parser import ArgumentParser
+from mpasdiag import FileManager
+from mpasdiag import ArgumentParser
 
 package_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(package_dir))
@@ -31,7 +32,7 @@ format_file_size = file_manager.format_file_size
 create_output_filename = file_manager.create_output_filename
 
 
-def create_mock_memory_getter(available_bytes: int):
+def create_mock_memory_getter(available_bytes: int) -> Any:
     """
     This helper function creates a mock memory getter function that simulates available memory in bytes for testing purposes. It returns a lambda function that converts the provided byte value to gigabytes when called. This allows tests to simulate different memory availability scenarios without relying on actual system memory conditions.
 

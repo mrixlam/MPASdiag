@@ -23,8 +23,8 @@ matplotlib.use("Agg")
 from unittest.mock import patch
 import matplotlib.pyplot as plt
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.cross_section import (
+from mpasdiag import MPAS3DProcessor
+from mpasdiag import (
     MPASVerticalCrossSectionPlotter,
     CrossSectionStyle,
 )
@@ -67,7 +67,6 @@ class TestPlotTypeAndLabelingErrors:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.processor = mpas_3d_processor
         self.plotter = MPASVerticalCrossSectionPlotter()
@@ -170,7 +169,6 @@ class TestPlottingConfigurations:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.processor = mpas_3d_processor

@@ -17,6 +17,7 @@ Version: 1.0.0
 import numpy as np
 import pytest
 import xarray as xr
+from typing import cast
 from io import StringIO
 from unittest.mock import patch
 
@@ -24,7 +25,7 @@ from mpasdiag.diagnostics.moisture_transport import (
     MoistureTransportDiagnostics,
     _trapezoidal_column_integral,
 )
-from mpasdiag.processing.constants import NVERT_LEVELS_DIM
+from mpasdiag import NVERT_LEVELS_DIM
 
 N_CELLS = 8
 N_VERT = 6
@@ -419,8 +420,11 @@ class TestComputeIVTVerbose:
             tuple: A tuple containing the IVT_u and IVT_v DataArrays computed by the compute_ivt_components method.
         """
         diag = MoistureTransportDiagnostics(verbose=False)
-        return diag.compute_ivt_components(
-            specific_humidity, u_component, v_component, pressure
+        return cast(
+            tuple,
+            diag.compute_ivt_components(
+                specific_humidity, u_component, v_component, pressure
+            ),
         )
 
     def test_verbose_prints_ivt_range_and_mean(

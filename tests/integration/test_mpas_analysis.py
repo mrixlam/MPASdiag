@@ -28,17 +28,17 @@ except ImportError:
     GeoAxes = None
     CARTOPY_AVAILABLE = False
 
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.visualization.precipitation import (
+from mpasdiag import MPAS2DProcessor
+from mpasdiag import MPASVisualizer
+from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.processing.utils_parser import ArgumentParser
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.wind import WindPlotStyle
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import MPASWindPlotter
+from mpasdiag import ArgumentParser
+from mpasdiag import GeographicBounds
+from mpasdiag import WindPlotStyle
 
 
 class TestDataProcessing:
@@ -124,7 +124,7 @@ class TestDataProcessing:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+        from mpasdiag import PrecipitationDiagnostics
 
         processor = MPAS2DProcessor(mock_grid_file, verbose=False)
         processor.dataset = mock_dataset
@@ -235,7 +235,6 @@ class TestVisualization:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
-            return
 
         with patch("matplotlib.pyplot.figure") as mock_figure:
             mock_fig = Mock()
@@ -271,7 +270,6 @@ class TestVisualization:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
-            return
 
         with patch("matplotlib.pyplot.subplots") as mock_subplots:
             mock_fig = Mock()

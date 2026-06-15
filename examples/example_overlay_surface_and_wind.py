@@ -16,23 +16,19 @@ Version: 1.0.0
 import os
 
 # Load relevant MPASdiag modules 
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
-from mpasdiag.visualization.wind import MPASWindPlotter
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag/'
 gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS data
-processor = MPAS2DProcessor(grid_file=gridPath)
+processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Initialize Surface and Wind Plotter
-plotter = MPASSurfacePlotter(verbose=True, figsize=(14, 11), dpi=300)
-wind_plotter = MPASWindPlotter(figsize=(14, 11), dpi=300)
+plotter = md.MPASSurfacePlotter(verbose=True, figsize=(14, 11), dpi=300)
+wind_plotter = md.MPASWindPlotter(figsize=(14, 11), dpi=300)
 
 # Define variable names for 2-m temperature, mean sea level pressure, and 10-m wind components
 t_var = 't2m'
@@ -54,7 +50,7 @@ uwnd = processor.dataset[uwnd_var].isel(Time=tindex).values.flatten()
 vwnd = processor.dataset[vwnd_var].isel(Time=tindex).values.flatten()
 
 # Define plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Define map boundaries
 cfg.lon_min = -130.0
@@ -92,8 +88,8 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=temp,
     var_name=t_var,
-    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-    style=SurfaceMapStyle(
+    bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=md.SurfaceMapStyle(
         plot_type='contourf',
         grid_resolution=0.1,
         title=f'2-m temperature (filled contour), MSLP (contours), 10-m wind (arrows) | Valid Time: {valtime_str}',

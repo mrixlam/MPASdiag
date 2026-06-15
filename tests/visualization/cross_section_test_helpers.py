@@ -19,7 +19,7 @@ import pytest
 import numpy as np
 from typing import cast, Any
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPASVerticalCrossSectionPlotter
 
 TEST_DATA_DIR: str = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"

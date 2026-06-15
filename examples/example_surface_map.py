@@ -14,24 +14,21 @@ Date: March 2026
 Version: 1.0.0
 """
 # Load relevant MPASdiag modules 
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
 gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS data
-processor = MPAS2DProcessor(grid_file=gridPath)
+processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Define time index for surface variable extraction
 tindex = 1 
 
 # Initialize Surface Plotter
-plotter = MPASSurfacePlotter(verbose=True)
+plotter = md.MPASSurfacePlotter(verbose=True)
 
 # Extract surface variable at time index 0
 surface_var = processor.dataset['t2m'].isel(Time=tindex)
@@ -40,10 +37,10 @@ surface_var = processor.dataset['t2m'].isel(Time=tindex)
 lon, lat = processor.extract_2d_coordinates_for_variable('t2m', surface_var)
 
 # Define the surface plotter with desired figure size and resolution
-plotter = MPASSurfacePlotter(figsize=(12, 10), dpi=300)
+plotter = md.MPASSurfacePlotter(figsize=(12, 10), dpi=300)
 
 # Define plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Define map boundaries
 cfg.lon_min = -180.0
@@ -76,8 +73,8 @@ cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' 
 # Create scatter plot of 2-meter temperature
 fig, ax = plotter.create_surface_map(
   lon=lon, lat=lat, data=surface_var.values, var_name='t2m',
-  bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-  style=SurfaceMapStyle(plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}'),
+  bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+  style=md.SurfaceMapStyle(plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}'),
   data_array=surface_var, config=cfg)
 
 # Overlay cross-section transect lines

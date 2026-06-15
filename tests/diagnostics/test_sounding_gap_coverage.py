@@ -21,8 +21,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import SoundingDiagnostics
+from mpasdiag import MPAS3DProcessor
 
 try:
     from metpy.units import units
@@ -133,7 +133,7 @@ class _FakeCtxMgr:
         """
         return self._ds
 
-    def __exit__(self: "_FakeCtxMgr", *args: object) -> bool:
+    def __exit__(self: "_FakeCtxMgr", *args: object) -> None:
         """
         This method is called when the context manager is exited. It does not perform any cleanup or exception handling, and simply returns False to indicate that any exceptions that occurred should not be suppressed. This allows tests that use this context manager to verify that exceptions raised during the loading of the grid dataset are properly propagated and handled by the _load_grid_coordinates method, while still allowing the method to successfully extract coordinates from a valid dataset when no exceptions occur.
 
@@ -141,9 +141,9 @@ class _FakeCtxMgr:
             *args (object): The exception type, value, and traceback, if an exception occurred.
 
         Returns:
-            bool: False, indicating that exceptions should not be suppressed.
+            None: exceptions are not suppressed.
         """
-        return False
+        return None
 
 
 def _make_proc_with_grid(ds: xr.Dataset, grid_path: str) -> Mock:

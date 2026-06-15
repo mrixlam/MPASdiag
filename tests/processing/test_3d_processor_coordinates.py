@@ -21,7 +21,7 @@ import pytest
 from typing import Any
 from unittest.mock import MagicMock
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 from tests.test_data_helpers import (
     get_mpas_data_paths,
     check_mpas_data_available,
@@ -137,7 +137,6 @@ class TestPressureInterpolationVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
 
@@ -176,7 +175,6 @@ class TestPressureInterpolationVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
 
@@ -215,7 +213,6 @@ class TestPressureInterpolationVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
 
@@ -252,7 +249,6 @@ class TestPressureInterpolationVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
 
@@ -288,7 +284,6 @@ class TestUxarrayDataType:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         paths = get_mpas_data_paths()
         processor = MPAS3DProcessor(str(paths["grid_file"]), verbose=False)
@@ -331,7 +326,6 @@ class TestGetVerticalLevelsVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
 
@@ -372,7 +366,6 @@ class TestExtract2DCoordinatesDataArray:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
 
@@ -407,7 +400,6 @@ class TestPressureException:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
 

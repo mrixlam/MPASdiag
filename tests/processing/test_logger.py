@@ -199,7 +199,7 @@ def _resolve_log_level(args: argparse.Namespace) -> int:
         int: The resolved log level.
     """
     if getattr(args, "log_level", None):
-        return getattr(logging, args.log_level)
+        return int(getattr(logging, args.log_level))
     if getattr(args, "quiet", False):
         return logging.ERROR
     if getattr(args, "verbose", False):
@@ -217,7 +217,7 @@ def test_mpas_config_log_level_validation() -> None:
     Returns:
         None
     """
-    from mpasdiag.processing.utils_config import MPASConfig
+    from mpasdiag import MPASConfig
 
     cfg = MPASConfig(log_level="warning")
     assert cfg.log_level == "WARNING"

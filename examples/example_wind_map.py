@@ -14,17 +14,14 @@ Date: March 2026
 Version: 1.0.0
 """
 # Load relevant MPASdiag modules
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.wind import MPASWindPlotter, WindPlotStyle
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
 gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS data
-processor = MPAS2DProcessor(grid_file=gridPath)
+processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Define time index for wind variable extraction 
@@ -52,10 +49,10 @@ TRANSECTS = {
 lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
 
 # Define the wind plotter with desired figure size and resolution
-wind_plotter = MPASWindPlotter(figsize=(14, 11), dpi=300)
+wind_plotter = md.MPASWindPlotter(figsize=(14, 11), dpi=300)
 
 # Define plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Define map boundaries
 cfg.lon_min = -130.0
@@ -74,8 +71,8 @@ cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' 
 # Generate wind plot over CONUS with vectors represented as barbs
 fig, ax = wind_plotter.create_wind_plot(
     lon=lon, lat=lat, u_data=u_data.values, v_data=v_data.values,
-    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-    style=WindPlotStyle(
+    bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=md.WindPlotStyle(
         subsample=-1,
         plot_type='barbs',
         title=f'MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}',

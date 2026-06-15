@@ -24,8 +24,8 @@ from io import StringIO
 from typing import Generator
 from unittest.mock import patch
 
-from mpasdiag.processing.utils_file import FileManager
-from mpasdiag.processing.utils_config import MPASConfig
+from mpasdiag import FileManager
+from mpasdiag import MPASConfig
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -704,7 +704,7 @@ class TestModuleLevelPrintSystemInfo:
         Returns:
             None
         """
-        from mpasdiag.processing.utils_file import (
+        from mpasdiag import (
             print_system_info as module_print_info,
         )
 

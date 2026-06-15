@@ -18,11 +18,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from mpasdiag.diagnostics.wind import WindDiagnostics
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
+from mpasdiag import MPAS2DProcessor
+from mpasdiag import MPAS3DProcessor
+from mpasdiag import PrecipitationDiagnostics
+from mpasdiag import WindDiagnostics
+from mpasdiag import SoundingDiagnostics
 
 
 @pytest.mark.integration

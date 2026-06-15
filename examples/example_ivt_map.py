@@ -18,19 +18,14 @@ import os
 import numpy as np
 
 # Load relevant MPASdiag modules
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
-from mpasdiag.visualization.wind import MPASWindPlotter
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/mpasout'
 gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS 3D data
-processor = MPAS3DProcessor(grid_file=gridPath, verbose=True)
+processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
 processor.load_3d_data(dataDir)
 
 # Define model initialization time
@@ -56,7 +51,7 @@ u_3d = processor.dataset['uReconstructZonal'].isel(Time=tindex)
 v_3d = processor.dataset['uReconstructMeridional'].isel(Time=tindex)
 
 # Initialize moisture transport diagnostics and compute IWV, IVT_u, IVT_v, and IVT magnitude
-diag   = MoistureTransportDiagnostics(verbose=True)
+diag   = md.MoistureTransportDiagnostics(verbose=True)
 result = diag.analyze_moisture_transport(qv, u_3d, v_3d, pressure)
 
 # Extract 1-D IVT DataArrays (nCells) for magnitude and components
@@ -73,11 +68,11 @@ ivt_u   = ivt_u_da.values.flatten()
 ivt_v   = ivt_v_da.values.flatten()
 
 # Initialize Surface and Wind Plotters
-plotter      = MPASSurfacePlotter(verbose=True, figsize=(12, 9), dpi=300)
-wind_plotter = MPASWindPlotter(figsize=(12, 9), dpi=300)
+plotter      = md.MPASSurfacePlotter(verbose=True, figsize=(12, 9), dpi=300)
+wind_plotter = md.MPASWindPlotter(figsize=(12, 9), dpi=300)
 
 # Define plot configuration and map boundaries (global)
-cfg         = MPASConfig()
+cfg         = md.MPASConfig()
 cfg.lon_min =  -180.0
 cfg.lon_max =  180.0
 cfg.lat_min =  -90.0
@@ -117,8 +112,8 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=ivt_mag,
     var_name='ivt',
-    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-    style=SurfaceMapStyle(
+    bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=md.SurfaceMapStyle(
         plot_type='contourf',
         grid_resolution=0.1,
         levels=custom_levels,

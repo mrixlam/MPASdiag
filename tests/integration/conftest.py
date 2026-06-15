@@ -28,8 +28,8 @@ from tests.test_data_helpers import (  # noqa: E402
     load_mpas_2d_processor,
     load_mpas_3d_processor,
 )
-from mpasdiag.processing.processors_2d import MPAS2DProcessor  # noqa: E402
-from mpasdiag.processing.processors_3d import MPAS3DProcessor  # noqa: E402
+from mpasdiag import MPAS2DProcessor  # noqa: E402
+from mpasdiag import MPAS3DProcessor  # noqa: E402
 
 try:
     from cartopy.mpl.geoaxes import GeoAxes  # noqa: F401

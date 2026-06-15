@@ -24,11 +24,11 @@ matplotlib.use("Agg")
 from typing import Generator
 import matplotlib.pyplot as plt
 
-from mpasdiag.visualization.cross_section import (
+from mpasdiag import (
     MPASVerticalCrossSectionPlotter,
     CrossSectionStyle,
 )
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
     GRID_FILE,
@@ -68,7 +68,6 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.processor = mpas_3d_processor
         self.temp_dir = tempfile.mkdtemp()
@@ -187,7 +186,6 @@ class TestRealMPASDataIntegration:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         processor = mpas_3d_processor
 
@@ -228,7 +226,6 @@ class TestRealMPASDataIntegration:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         processor = mpas_3d_processor
 
@@ -264,7 +261,6 @@ class TestRealMPASDataIntegration:
         """
         if not os.path.exists(GRID_FILE) or not os.path.exists(MPASOUT_DIR):
             pytest.skip("Real MPAS data not available")
-            return
 
         processor = MPAS3DProcessor(grid_file=GRID_FILE)
         processor.load_3d_data(MPASOUT_DIR)

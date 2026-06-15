@@ -17,11 +17,7 @@ Version: 1.0.0
 import os
 
 # Load relevant MPASdiag modules 
-from mpasdiag.processing import MPAS2DProcessor
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag/'
@@ -31,15 +27,15 @@ gridPath = '../data/grids/x1.10242.static.nc'
 os.makedirs('./output', exist_ok=True)
 
 # Load unstructured MPAS data
-processor = MPAS2DProcessor(grid_file=gridPath)
+processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Define time index for surface variable extraction
 tindex = 1 
 
 # Initialize Surface and Wind Plotter
-plotter = MPASSurfacePlotter(verbose=True, figsize=(14, 13), dpi=300)
-wind_plotter = MPASWindPlotter(figsize=(14, 13), dpi=300)
+plotter = md.MPASSurfacePlotter(verbose=True, figsize=(14, 13), dpi=300)
+wind_plotter = md.MPASWindPlotter(figsize=(14, 13), dpi=300)
 
 # Define variable names for mean sea level pressure, specific humidity, and 10-m wind components
 pres_var = 'mslp'
@@ -58,7 +54,7 @@ vwnd = processor.dataset[vwnd_var].isel(Time=tindex).values.flatten()
 shum = processor.dataset[shum_var].isel(Time=tindex).values.flatten()
 
 # Define plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Define map boundaries
 cfg.lon_min = -130.0
@@ -96,8 +92,8 @@ fig, ax = plotter.create_surface_map(
     lat=lat,
     data=shum,
     var_name=shum_var,
-    bounds=GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-    style=SurfaceMapStyle(
+    bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=md.SurfaceMapStyle(
         plot_type='contourf',
         grid_resolution=0.1,
         title=f'2-m specific humidity (filled contour), MSLP (contours), 10-m wind (barbs) | Valid Time: {valtime_str}',

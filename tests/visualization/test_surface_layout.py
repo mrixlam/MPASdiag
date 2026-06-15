@@ -25,9 +25,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import SurfaceMapStyle
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import GeographicBounds
+from mpasdiag import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -53,7 +53,6 @@ class TestGlobalExtent:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
@@ -144,7 +143,6 @@ class TestTitleAndTimestamp:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates

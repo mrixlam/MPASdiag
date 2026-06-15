@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from mpasdiag.processing.data_cache import MPASDataCache
+from mpasdiag import MPASDataCache
 
 N_CELLS = 8
 N_VERT = 5

@@ -16,6 +16,7 @@ Version: 1.0.0
 
 import tempfile
 import pytest
+from typing import Any
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -25,8 +26,8 @@ from datetime import datetime
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.base import MPASBaseProcessor
-from mpasdiag.processing import clear_grid_cache
+from mpasdiag import MPASBaseProcessor
+from mpasdiag import clear_grid_cache
 
 
 def _make_proc(verbose: bool = False) -> MPASBaseProcessor:
@@ -425,7 +426,7 @@ class TestLoadDataSelectiveVariables:
         tmp_path: "Path",
         probe_ds: xr.Dataset,
         result_ds: xr.Dataset,
-    ) -> MagicMock:
+    ) -> Any:
         """
         This helper method sets up the necessary mocks for testing the _load_data method when a variables list is provided. It mocks the _discover_data_files, MPASDateTimeUtils.parse_file_datetimes, _prepare_chunking_config, and xarray.open_dataset methods to simulate the behavior of the _load_data method without relying on actual file I/O or dataset loading. The method returns a MagicMock object for the primary load attempt, which can be used in the test methods to assert calls and inspect arguments related to the selective loading logic.
 
@@ -953,7 +954,7 @@ class TestLoadGridFileProbeException:
 
         call_n = [0]
 
-        def side_effect(*args, **kwargs) -> xr.Dataset:
+        def side_effect(*args: Any, **kwargs: Any) -> xr.Dataset:
             """
             This side effect function simulates the behavior of xarray.open_dataset for the _load_grid_file method. On the first call, it raises an exception to mimic a failure during the probe phase. On the second call, it returns a context-manager mock whose .load() yields the materialised dataset, allowing the loading process to succeed. The call_n list tracks the number of calls so that the exception is only raised on the first (probe) call and the dataset is returned on the second (actual load) call.
 

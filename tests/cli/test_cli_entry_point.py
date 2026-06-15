@@ -30,7 +30,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -48,7 +48,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -70,7 +70,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -103,7 +103,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -135,7 +135,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -167,7 +167,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -207,7 +207,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -238,7 +238,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -270,7 +270,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -301,7 +301,7 @@ class TestUnifiedCLI:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()

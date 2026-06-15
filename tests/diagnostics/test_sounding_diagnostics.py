@@ -21,8 +21,8 @@ import xarray as xr
 from pathlib import Path
 from unittest.mock import Mock
 
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import SoundingDiagnostics
+from mpasdiag import MPAS3DProcessor
 
 
 @pytest.fixture
@@ -355,7 +355,7 @@ class TestExtractSoundingProfile:
             None
         """
         profile = diag.extract_sounding_profile(mock_processor, -100.0, 35.0)
-        u_max = np.nanmax(np.abs(profile["u_wind"]))
+        u_max = float(np.nanmax(np.abs(profile["u_wind"])))
         assert u_max > 1.0
         assert u_max < 100
 

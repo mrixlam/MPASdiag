@@ -43,7 +43,7 @@ class TestExtract2DCoordinatesEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        from mpasdiag import MPAS3DProcessor
 
         assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
 
@@ -90,13 +90,12 @@ class TestLoad3DDataSpatialCoordinates:
         Returns:
             None
         """
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        from mpasdiag import MPAS3DProcessor
 
         assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         paths = get_mpas_data_paths()
         processor = MPAS3DProcessor(str(paths["grid_file"]), verbose=False)
@@ -120,13 +119,12 @@ class TestLoad3DDataSpatialCoordinates:
         Returns:
             None
         """
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        from mpasdiag import MPAS3DProcessor
 
         assert_expected_public_methods(MPAS3DProcessor, "MPAS3DProcessor")
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         paths = get_mpas_data_paths()
 
@@ -157,7 +155,6 @@ class TestGetAvailable3DVerbose:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
         variables = processor.get_available_3d_variables()

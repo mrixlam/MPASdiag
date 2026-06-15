@@ -25,7 +25,7 @@ from typing import Any
 from pathlib import Path
 
 from tests.test_data_helpers import assert_expected_public_methods
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
+from mpasdiag import MPAS2DProcessor
 
 package_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(package_dir))

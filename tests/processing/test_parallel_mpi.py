@@ -66,7 +66,7 @@ class TestExecuteLocalTasks:
                 manager.comm = mock_comm
                 manager.set_error_policy("abort")
 
-                def failing_func(task):
+                def failing_func(task: int) -> int:
                     raise ValueError("Task failed")
 
                 local_tasks = [(0, "task1")]
@@ -90,7 +90,7 @@ class TestExecuteLocalTasks:
         assert_expected_public_methods(manager, "MPASParallelManager")
         manager.set_error_policy("continue")
 
-        def failing_func(task) -> int:
+        def failing_func(task: int) -> int:
             """
             This function simulates a task that fails for a specific input (task == 5) by raising a ValueError. For all other tasks, it simply returns the task value. This allows us to test the error handling and verbose output when a task fails under the 'continue' error policy. The test will check that the error message is printed for the failed task while other tasks continue to execute successfully.
 
@@ -102,7 +102,7 @@ class TestExecuteLocalTasks:
             """
             if task == 5:
                 raise ValueError(f"Task {task} failed")
-            return task
+            return int(task)
 
         local_tasks = [(i, task) for i, task in enumerate(sample_tasks)]
 
@@ -160,7 +160,7 @@ class TestMPIMapExecution:
                 manager.collector = MPASResultCollector(mock_comm)
                 assert_expected_public_methods(manager.collector, "MPASResultCollector")
 
-                def simple_func(task) -> int:
+                def simple_func(task: int) -> int:
                     """
                     This is a simple function that takes a task (in this case, an integer) and returns its doubled value. It is used as the mapping function in the `_mpi_map` test to verify that the MPI mapping logic correctly processes tasks and produces results. The function is straightforward and serves as a stand-in for more complex processing that might occur in real use cases, allowing us to focus on testing the MPI execution flow and verbose output.
 
@@ -170,7 +170,7 @@ class TestMPIMapExecution:
                     Returns:
                         The doubled value of the input task.
                     """
-                    return task * 2
+                    return int(task * 2)
 
                 import io
                 from contextlib import redirect_stdout
@@ -224,7 +224,7 @@ class TestMPIMapReturnValue:
                 assert_expected_public_methods(manager.collector, "MPASResultCollector")
                 assert_expected_public_methods(manager, "MPASParallelManager")
 
-                def simple_func(task) -> int:
+                def simple_func(task: int) -> int:
                     """
                     This is a simple function that takes a task (in this case, an integer) and returns its doubled value. It is used as the mapping function in the `_mpi_map` test to verify that the MPI mapping logic correctly processes tasks and produces results. The function is straightforward and serves as a stand-in for more complex processing that might occur in real use cases, allowing us to focus on testing the MPI execution flow and verbose output.
 
@@ -234,7 +234,7 @@ class TestMPIMapReturnValue:
                     Returns:
                         The doubled value of the input task.
                     """
-                    return task * 2
+                    return int(task * 2)
 
                 results = manager._mpi_map(simple_func, list(range(10)))
 

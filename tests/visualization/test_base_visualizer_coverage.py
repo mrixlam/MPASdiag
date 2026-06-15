@@ -28,8 +28,8 @@ from typing import Tuple
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
-from mpasdiag.visualization.base_visualizer import MPASVisualizer, WindPlotStyle
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import MPASVisualizer, WindPlotStyle
+from mpasdiag import GeographicBounds
 
 warnings.filterwarnings("ignore")
 
@@ -208,7 +208,7 @@ class TestCreateHistogram:
         data = np.random.default_rng(0).normal(0, 1, 100)
 
         bad_bins = Mock(spec=np.ndarray)
-        bad_bins.__class__ = np.ndarray
+        bad_bins.__class__ = np.ndarray  # type: ignore[assignment]
         bad_bins.tolist.side_effect = RuntimeError("tolist failed")
         bad_bins.__iter__ = Mock(return_value=iter([0.0, 0.5, 1.0, 1.5]))
         bad_bins.__len__ = Mock(return_value=4)
@@ -269,7 +269,7 @@ class TestConvertToNumpy:
             None
         """
         bad = MagicMock()
-        bad.__class__ = object
+        bad.__class__ = object  # type: ignore[assignment]
         bad.compute.side_effect = RuntimeError("compute failed")
 
         result = MPASVisualizer.convert_to_numpy(bad)

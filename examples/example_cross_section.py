@@ -18,9 +18,7 @@ import os
 import numpy as np
 
 # Load relevant MPASdiag modules
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter, CrossSectionStyle
+import mpasdiag as md
 
 # Specify the path to sample 3D output data and grid file
 dataDir  = '../data/u240k/mpasout'
@@ -38,7 +36,7 @@ init_time_str  = str(init_time).replace('-', '').replace('T', '')
 init_time_disp = str(init_time).replace('T', ' ') + ':00 UTC' 
 
 # Load unstructured MPAS 3D data
-processor = MPAS3DProcessor(grid_file=gridPath, verbose=True)
+processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
 processor.load_3d_data(dataDir)
 
 # Confirm the requested variable is available in the dataset
@@ -60,10 +58,10 @@ valtime_str  = str(valtime_np).replace('-', '').replace('T', '')
 valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'  
 
 # Plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Initialize the cross-section plotter
-plotter = MPASVerticalCrossSectionPlotter(figsize=(14, 8), dpi=300)
+plotter = md.MPASVerticalCrossSectionPlotter(figsize=(14, 8), dpi=300)
 
 # Create output directory if it does not already exist
 os.makedirs('./output', exist_ok=True)
@@ -87,7 +85,7 @@ fig, ax = plotter.create_vertical_cross_section(
               num_points=500,
               title=f'Potential Temperature (\u03b8) | Vertical Cross-Section '
         f'(Surface \u2013 10 km) | {valtime_disp}',
-              style=CrossSectionStyle(levels=custom_levels, colormap='YlGnBu', extend='both', plot_type='contourf'),
+              style=md.CrossSectionStyle(levels=custom_levels, colormap='YlGnBu', extend='both', plot_type='contourf'),
           )
 
 # Annotate the top-right corner with init time and valid time

@@ -20,7 +20,7 @@ import pytest
 from typing import Any, Dict
 from unittest.mock import patch
 
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
+from mpasdiag import MPAS2DProcessor
 from tests.test_data_helpers import (
     get_mpas_data_paths,
     check_mpas_data_available,
@@ -96,7 +96,6 @@ class TestExtract2DCoordinates:
         """
         if not mpas_data_available or mpas_2d_processor_diag is None:
             pytest.skip("MPAS test data not available")
-            return
 
         self.processor = mpas_2d_processor_diag
         self.paths = get_mpas_test_data_paths()
@@ -124,6 +123,8 @@ class TestExtract2DCoordinates:
 
 class TestLoad2DData:
     """Test complete data loading workflow with actual MPAS data."""
+
+    paths: Dict[str, Any]
 
     @classmethod
     def setup_class(cls: Any) -> None:
@@ -168,15 +169,12 @@ def _make_mock_2d_processor(**kwargs: Any) -> MPAS2DProcessor:
     Returns:
         MPAS2DProcessor: A mock instance of MPAS2DProcessor with specified attributes.
     """
-    with patch.object(
-        MPAS2DProcessor,
-        "__init__",
-        lambda self, *a, **kw: setattr(
-            self, "verbose", kw.get("verbose", kwargs.get("verbose", False))
-        )
-        or setattr(self, "dataset", None)
-        or setattr(self, "grid_file", "mock"),
-    ):
+    def _fake_init(self: Any, *a: Any, **kw: Any) -> None:
+        self.verbose = kw.get("verbose", kwargs.get("verbose", False))
+        self.dataset = None
+        self.grid_file = "mock"
+
+    with patch.object(MPAS2DProcessor, "__init__", _fake_init):
         proc = MPAS2DProcessor.__new__(MPAS2DProcessor)
         assert_expected_public_methods(proc, "MPAS2DProcessor")
         proc.verbose = kwargs.get("verbose", False)

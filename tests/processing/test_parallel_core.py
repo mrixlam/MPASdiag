@@ -18,7 +18,7 @@ Version: 1.0.0
 import time
 import pytest
 
-from mpasdiag.processing.parallel import MPASParallelManager
+from mpasdiag import MPASParallelManager
 
 from tests.test_data_helpers import assert_expected_public_methods
 

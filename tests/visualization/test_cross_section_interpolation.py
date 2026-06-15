@@ -22,8 +22,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -69,7 +69,6 @@ class TestInterpolationWithRealData:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         self.plotter = MPASVerticalCrossSectionPlotter()
         self.processor = mpas_3d_processor

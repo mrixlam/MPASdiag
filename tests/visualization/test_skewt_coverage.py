@@ -20,7 +20,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.skewt import MPASSkewTPlotter
+from mpasdiag import MPASSkewTPlotter
 
 PRESSURE = np.array([1000.0, 850.0, 700.0, 500.0, 300.0])
 TEMPERATURE = np.array([25.0, 15.0, 5.0, -10.0, -35.0])

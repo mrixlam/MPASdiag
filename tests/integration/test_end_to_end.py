@@ -18,21 +18,21 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.processing.remapping import remap_mpas_to_latlon
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from mpasdiag.diagnostics.wind import WindDiagnostics
-from mpasdiag.visualization.precipitation import (
+from mpasdiag import MPASConfig
+from mpasdiag import MPAS2DProcessor
+from mpasdiag import MPAS3DProcessor
+from mpasdiag import GeographicBounds
+from mpasdiag import remap_mpas_to_latlon
+from mpasdiag import PrecipitationDiagnostics
+from mpasdiag import WindDiagnostics
+from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
-from mpasdiag.visualization.surface import MPASSurfacePlotter, SurfaceMapStyle
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.visualization.base_visualizer import WindPlotStyle
-from mpasdiag.visualization.cross_section import (
+from mpasdiag import MPASSurfacePlotter, SurfaceMapStyle
+from mpasdiag import MPASWindPlotter
+from mpasdiag import WindPlotStyle
+from mpasdiag import (
     MPASVerticalCrossSectionPlotter,
     CrossSectionStyle,
 )

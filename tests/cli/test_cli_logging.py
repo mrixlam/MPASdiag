@@ -31,8 +31,8 @@ class TestLoggingSetup:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file="test.nc", data_dir="data/")
@@ -52,8 +52,8 @@ class TestLoggingSetup:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file="test.nc", data_dir="data/", verbose=True)
@@ -75,8 +75,8 @@ class TestLoggingSetup:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         config = MPASConfig(grid_file="test.nc", data_dir="data/", quiet=True)
@@ -102,8 +102,8 @@ class TestSetupLoggingEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
         import tempfile
 
         cli = MPASUnifiedCLI()

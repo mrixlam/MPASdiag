@@ -22,7 +22,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
+from mpasdiag import MPAS2DProcessor
 
 _RNG = np.random.default_rng(42)
 
@@ -914,7 +914,7 @@ class TestGet2DVariableData:
         """
         n = 10
         times = pd.date_range("2024-01-01", periods=3, freq="h")
-        data = np.arange(30, dtype=float).reshape(3, n)
+        data: np.ndarray = np.arange(30, dtype=float).reshape(3, n)
         mock_proc.data_type = "uxarray"
 
         mock_proc.dataset = xr.Dataset(

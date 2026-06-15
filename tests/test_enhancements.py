@@ -34,11 +34,11 @@ else:
     CARTOPY_AVAILABLE = False
 
 # Import MPASdiag modules for testing
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.processing.utils_metadata import MPASFileMetadata
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import MPASFileMetadata
 from tests.test_data_helpers import load_mpas_coords_from_processor
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import SurfaceMapStyle
+from mpasdiag import GeographicBounds
+from mpasdiag import SurfaceMapStyle
 
 
 class TestRefactoredFunctions:
@@ -120,7 +120,6 @@ class TestConditionalTimeDisplay:
         """
         if not CARTOPY_AVAILABLE:
             pytest.skip("Cartopy not available")
-            return
 
         self.surface_plotter = MPASSurfacePlotter(figsize=(10, 8), dpi=150)
         self.test_time = datetime(2024, 9, 17, 3, 0, 0)

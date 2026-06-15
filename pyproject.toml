@@ -130,6 +130,7 @@ known_first_party = ["mpasdiag"]
 
 [tool.ruff.lint.per-file-ignores]
 "examples/benchmark.py" = ["E402"]
+"mpasdiag/__init__.py" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -170,3 +171,8 @@ strict_equality = true
 show_error_codes = true
 ignore_missing_imports = true
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["pytest", "_pytest.*"]
+follow_imports = "normal"
+ignore_missing_imports = false

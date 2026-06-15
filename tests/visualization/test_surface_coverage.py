@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 import matplotlib
-from typing import Generator
+from typing import Generator, cast
 
 matplotlib.use("Agg")
 from pathlib import Path
@@ -28,8 +28,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import matplotlib.pyplot as plt
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import GeographicBounds
 
 N_CELLS = 8
 
@@ -360,7 +360,7 @@ class _ComputableMask(np.ndarray):
         Returns:
             np.ndarray: A boolean NumPy array.
         """
-        return np.array(self, dtype=bool)
+        return cast(np.ndarray, np.array(self, dtype=bool))
 
 
 def _patched_isfinite(arr: np.ndarray) -> "_ComputableMask":
@@ -373,10 +373,11 @@ def _patched_isfinite(arr: np.ndarray) -> "_ComputableMask":
     Returns:
         _ComputableMask: A boolean mask array.
     """
-    return (
+    return cast(
+        _ComputableMask,
         np.isfinite.__wrapped__(arr).view(_ComputableMask)
         if hasattr(np.isfinite, "__wrapped__")
-        else np.array(np.isfinite(arr), dtype=bool).view(_ComputableMask)
+        else np.array(np.isfinite(arr), dtype=bool).view(_ComputableMask),
     )
 
 
@@ -405,7 +406,7 @@ class TestFilterValidDataDask:
             Returns:
                 _ComputableMask: A boolean mask array.
             """
-            return np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask)
+            return cast(_ComputableMask, np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask))
 
         lon = np.linspace(-95.0, -85.0, N_CELLS)
         lat = np.linspace(35.0, 45.0, N_CELLS)
@@ -451,7 +452,7 @@ class TestFilterValidDataDask:
             Returns:
                 _ComputableMask: A boolean mask array.
             """
-            return np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask)
+            return cast(_ComputableMask, np.array(_real_isfinite(arr), dtype=bool).view(_ComputableMask))
 
         lon = np.linspace(-95.0, -85.0, N_CELLS)
         lat = np.linspace(35.0, 45.0, N_CELLS)
@@ -698,7 +699,7 @@ class TestPrepareOverlayData:
         overlay = np.ones(N_CELLS) * 5.0
         lon = np.linspace(-95.0, -85.0, N_CELLS)
         lat = np.linspace(35.0, 45.0, N_CELLS)
-        surface_config = {}
+        surface_config: dict = {}
 
         lon_v, _, _ = plotter._prepare_overlay_data(
             overlay, lon, lat, "unknown_var", surface_config

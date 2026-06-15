@@ -967,7 +967,7 @@ class TestResolveLevelIndex:
         with pytest.raises(ValueError, match="Invalid level specification"):
             diag_silent.compute_density_potential_temperature_from_dataset(
                 ds_3d,
-                level=[0, 1],  # type: ignore[arg-type]
+                level=[0, 1],
             )
 
     def test_pressure_level_without_pressure_vars_raises(

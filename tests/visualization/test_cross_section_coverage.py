@@ -14,6 +14,7 @@ Date: February 2026
 Version: 1.0.0
 """
 
+from typing import Any, cast
 import numpy as np
 import pytest
 import xarray as xr
@@ -24,8 +25,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, Mock, patch
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 N_CELLS = 5
 N_VERT = 10
@@ -280,7 +281,7 @@ class TestResolveVerticalDisplay:
             """Simulates an array-like object that raises an exception when astype is called, but can still be converted to a numpy array using __array__."""
 
             def astype(
-                self: "TestResolveVerticalDisplay._BadArray", dtype: type
+                self: "_BadArray", dtype: type
             ) -> None:
                 """
                 This method simulates the behavior of an array-like object that raises a TypeError when an attempt is made to convert it to a specified dtype using astype. This is used to test the fallback mechanism in the _resolve_vertical_display method.
@@ -294,7 +295,7 @@ class TestResolveVerticalDisplay:
                 raise TypeError("cannot astype")
 
             def __array__(
-                self: "TestResolveVerticalDisplay._BadArray", dtype: type = None
+                self: "_BadArray", dtype: "type | None" = None
             ) -> np.ndarray:
                 """
                 This method allows the _BadArray class to be converted to a numpy array using np.asarray, even though it raises an exception when astype is called. It returns a numpy array of vertical coordinates that would be typical for pressure levels.
@@ -305,9 +306,9 @@ class TestResolveVerticalDisplay:
                 Returns:
                     np.ndarray: A numpy array of vertical coordinates.
                 """
-                return np.array([50000.0, 70000.0, 100000.0])
+                return cast(np.ndarray, np.array([50000.0, 70000.0, 100000.0]))
 
-            def __len__(self: "TestResolveVerticalDisplay._BadArray") -> int:
+            def __len__(self: "_BadArray") -> int:
                 """
                 This method returns the length of the _BadArray, which is required for it to be treated as an array-like object. In this case, it returns 3, which corresponds to the number of vertical levels in the array returned by __array__.
 
@@ -1565,7 +1566,7 @@ class TestFormatCrossSectionAxes:
             call_count = [0]
             original = plotter.ax.set_ylim
 
-            def patched_set_ylim(*args):
+            def patched_set_ylim(*args: Any) -> Any:
                 call_count[0] += 1
                 if call_count[0] == 1:
                     raise RuntimeError("first ylim call failed")

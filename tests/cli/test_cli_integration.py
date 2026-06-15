@@ -32,7 +32,7 @@ class TestCLIIntegration:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
 
@@ -59,12 +59,11 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -97,12 +96,11 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -135,12 +133,11 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -175,12 +172,11 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -213,12 +209,11 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -255,11 +250,10 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         original_argv = sys.argv
@@ -301,11 +295,10 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         original_argv = sys.argv
@@ -349,11 +342,10 @@ class TestIntegrationWithRealData:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         original_argv = sys.argv

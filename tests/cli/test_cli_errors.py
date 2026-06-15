@@ -33,8 +33,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -64,8 +64,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -96,8 +96,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -129,12 +129,11 @@ class TestErrorHandlingAndExceptions:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -157,8 +156,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
 
@@ -184,8 +183,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         cli.logger = None
@@ -211,8 +210,8 @@ class TestErrorHandlingAndExceptions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         cli = MPASUnifiedCLI()
         cli.logger = Mock()

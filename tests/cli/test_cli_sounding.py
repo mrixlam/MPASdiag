@@ -15,10 +15,11 @@ Version: 1.0.0
 """
 
 # Load necessary libraries for testing
+from typing import cast
 import pytest
 import argparse
 
-from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+from mpasdiag import MPASUnifiedCLI
 
 
 @pytest.fixture
@@ -46,7 +47,7 @@ def parser(cli: "MPASUnifiedCLI") -> argparse.Namespace:
     Returns:
         argparse.Namespace: The argument parser created by the MPASUnifiedCLI instance.
     """
-    return cli.create_main_parser()
+    return cast(argparse.Namespace, cli.create_main_parser())
 
 
 class TestSoundingArgMapping:

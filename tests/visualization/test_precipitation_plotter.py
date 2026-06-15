@@ -28,18 +28,18 @@ import xarray as xr
 matplotlib.use("Agg")
 from io import StringIO
 import cartopy.crs as ccrs
-from typing import Generator
+from typing import Any, Generator
 from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from unittest.mock import Mock, MagicMock, patch
 
-from mpasdiag.visualization.precipitation import (
+from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -68,7 +68,6 @@ class TestUnitConversion:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -234,7 +233,6 @@ class TestContourfPlotting:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -409,7 +407,6 @@ class TestComparisonPlot:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -501,7 +498,6 @@ class TestSavePlot:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -545,7 +541,6 @@ class TestTimestampHandling:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -621,7 +616,6 @@ class TestEdgeCases:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASPrecipitationPlotter()
         lon_full, lat_full = mpas_coordinates
@@ -1201,7 +1195,7 @@ class TestTimeAnnotationSource:
         self.precip = np.linspace(1.0, 20.0, 20)
 
     @staticmethod
-    def _accumulation_text(ax: object) -> str:
+    def _accumulation_text(ax: Any) -> str:
         """
         This helper method searches the text artists in the given axes for an annotation that starts with 'Accumulation:' and returns its content. If no such annotation is found, it returns an empty string. This method is used in the tests to extract the accumulation annotation text for validation.
 
@@ -1214,7 +1208,7 @@ class TestTimeAnnotationSource:
         for txt in ax.texts:
             content = txt.get_text()
             if content.startswith("Accumulation:"):
-                return content
+                return str(content)
         return ""
 
     def test_metadata_drives_annotation_over_config(
@@ -1229,7 +1223,7 @@ class TestTimeAnnotationSource:
         Returns:
             None
         """
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASConfig
 
         times = pd.date_range("2024-09-16T22:00:00", periods=3, freq="1h")
         dataset = xr.Dataset(coords={"Time": ("Time", times)})
@@ -1428,7 +1422,7 @@ class TestResolveAccumulationTimes:
         Returns:
             None
         """
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASConfig
 
         times = pd.date_range("2024-09-16T22:00:00", periods=3, freq="1h")
         dataset = xr.Dataset(coords={"Time": ("Time", times)})

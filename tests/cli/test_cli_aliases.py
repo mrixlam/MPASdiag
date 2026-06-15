@@ -32,7 +32,7 @@ class TestCommandAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -61,7 +61,7 @@ class TestCommandAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -92,7 +92,7 @@ class TestCommandAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -121,7 +121,7 @@ class TestCommandAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -166,12 +166,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -199,12 +198,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -232,12 +230,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -265,12 +262,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -298,12 +294,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -333,12 +328,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -368,12 +362,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -400,12 +393,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -432,12 +424,11 @@ class TestAnalysisTypeAliases:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 

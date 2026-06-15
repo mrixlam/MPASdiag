@@ -19,7 +19,7 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 from tests.test_data_helpers import (
     check_mpas_data_available,
@@ -56,7 +56,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
 
@@ -107,7 +106,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         var_data = processor.get_3d_variable_data("theta", level=10, time_index=0)
@@ -133,7 +131,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         var_data = processor.get_3d_variable_data("theta", level=0, time_index=0)
@@ -159,7 +156,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         nlevels = processor.dataset.sizes["nVertLevels"]
@@ -189,7 +185,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         nlevels = processor.dataset.sizes["nVertLevels"]
@@ -220,7 +215,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         var_data = processor.get_3d_variable_data("theta", level=20, time_index=0)
@@ -250,7 +244,6 @@ class TestGet3DVariableDataPressureInterpolation:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=False)
         test_levels = [0, 10, 20, 30, 40]
@@ -284,7 +277,6 @@ class TestGet3DVariableDataAttributes:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
         var_data = processor.get_3d_variable_data("theta", level=10, time_index=0)
@@ -306,7 +298,6 @@ class TestGet3DVariableDataAttributes:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
         var_data = processor.get_3d_variable_data("theta", level=5, time_index=0)
@@ -419,7 +410,6 @@ class TestGetVerticalLevelsEdgeCases:
 
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
 
@@ -637,7 +627,6 @@ class TestGetVerticalLevelsEdgeCases:
         """
         if not check_mpas_data_available():
             pytest.skip("Test data not available")
-            return
 
         processor = load_mpas_3d_processor(verbose=True)
         levels = processor.get_vertical_levels(

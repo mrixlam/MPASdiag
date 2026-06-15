@@ -17,7 +17,7 @@ Version: 1.0.0
 import time
 import pytest
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from mpasdiag.processing.parallel import (
     MPASParallelManager,
@@ -47,7 +47,7 @@ class TestErrorHandling:
         manager.set_error_policy("collect")
         assert_expected_public_methods(manager, "MPASParallelManager")
 
-        def failing_func(x) -> int:
+        def failing_func(x: int) -> int:
             """
             This function simulates a task that fails for even inputs and succeeds for odd inputs. It raises a ValueError with a message indicating the input value when the input is even, and returns the input multiplied by 2 when the input is odd. This allows for testing of error collection in the manager, as it will produce a mix of successful and failed tasks based on the input values.
 
@@ -59,7 +59,7 @@ class TestErrorHandling:
             """
             if x % 2 == 0:
                 raise ValueError(f"Error on {x}")
-            return x * 2
+            return int(x * 2)
 
         tasks = [1, 2, 3, 4, 5]
         results = manager.parallel_map(failing_func, tasks)
@@ -83,7 +83,7 @@ class TestErrorHandling:
         manager.set_error_policy("continue")
         assert_expected_public_methods(manager, "MPASParallelManager")
 
-        def failing_func(x) -> int:
+        def failing_func(x: int) -> int:
             """
             This function simulates a task that fails for a specific input and succeeds for others. It raises a ValueError with a message indicating the input value when the input is 2, and returns the input multiplied by 2 for other inputs. This allows for testing of error continuation in the manager, as it will produce a mix of successful and failed tasks based on the input values.
 
@@ -95,7 +95,7 @@ class TestErrorHandling:
             """
             if x == 2:
                 raise ValueError("Error")
-            return x * 2
+            return int(x * 2)
 
         tasks = [1, 2, 3]
         results = manager.parallel_map(failing_func, tasks)
@@ -129,7 +129,7 @@ class TestErrorHandling:
             """
             raise ValueError("deliberate failure")
 
-        args = (0, 42, failing_func, "abort", (), {})
+        args: tuple = (0, 42, failing_func, "abort", (), {})
         with pytest.raises(ValueError, match="deliberate failure"):
             _multiprocessing_task_wrapper(args)
 
@@ -332,7 +332,7 @@ class TestParallelPlotFunctionModule:
             None
         """
 
-        def simple_plot(filepath, output_dir=None) -> str:
+        def simple_plot(filepath: str, output_dir: Optional[str] = None) -> str:
             """
             This function simulates a simple plotting operation for testing purposes. It takes a file path and an optional output directory, and returns a string indicating that the file has been plotted. This function is used in the test to verify that the `parallel_plot` function can execute a user-defined plotting function across multiple files in parallel without raising exceptions.
 
@@ -475,9 +475,8 @@ class TestParallelPlotFunctionAdditional:
         """
         if not mpas_output_files:
             pytest.skip("No MPAS output files available")
-            return
 
-        def mock_plot_function(filepath: str, output_dir: str = None) -> str:
+        def mock_plot_function(filepath: str, output_dir: Optional[str] = None) -> str:
             """
             This mock plotting function simulates the behavior of a real plotting function for testing purposes. It takes a file path and an optional output directory, asserts that the file exists, and returns a string indicating that the file has been plotted. This function is used in the test to verify that the `parallel_plot` function can execute a user-defined plotting function across multiple files in parallel without raising exceptions, while also ensuring that it correctly checks for the existence of input files.
 
@@ -515,7 +514,7 @@ class TestParallelPlotFunctionAdditional:
         """
         files = ["file1.nc", "file2.nc", "file3.nc"]
 
-        def failing_plot(filepath: str, param: str = None) -> str:
+        def failing_plot(filepath: str, param: Optional[str] = None) -> str:
             """
             This plotting function simulates a failure for a specific file and success for others. It raises a `ValueError` for "file2.nc" and returns a success message for other files. This function is used to test the error collection mechanism of the `parallel_plot` function.
 
@@ -553,7 +552,7 @@ class TestParallelPlotFunctionAdditional:
         """
         files = ["test1.nc", "test2.nc"]
 
-        def simple_plot(filepath: str, output_dir: str = None) -> str:
+        def simple_plot(filepath: str, output_dir: Optional[str] = None) -> str:
             """
             A simple plotting function that returns the filepath. Used to test `parallel_plot` behavior in worker processes.
 
@@ -587,7 +586,6 @@ class TestWithRealMPASData:
         """
         if not mpas_output_files:
             pytest.skip("No MPAS output files available")
-            return
 
         def load_mpas_file(filepath: str) -> dict:
             """
@@ -690,7 +688,7 @@ def simulate_workload() -> None:
     Returns:
         None
     """
-    from mpasdiag.processing.parallel import MPASParallelManager
+    from mpasdiag import MPASParallelManager
 
     def dummy_task(task_id: int) -> str:
         """

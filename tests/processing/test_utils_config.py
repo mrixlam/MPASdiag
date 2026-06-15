@@ -21,7 +21,7 @@ import pytest
 from io import StringIO
 from unittest.mock import patch, MagicMock
 
-from mpasdiag.processing.utils_config import MPASConfig
+from mpasdiag import MPASConfig
 
 
 class TestValidateSpatialExtent:
@@ -37,7 +37,7 @@ class TestValidateSpatialExtent:
         Returns:
             None
         """
-        config = MPASConfig(lat_min=None)  # type: ignore[arg-type]
+        config = MPASConfig(lat_min=None)
         assert config.lat_min is None
 
     def test_invalid_extent_raises_at_init(self: "TestValidateSpatialExtent") -> None:

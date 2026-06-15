@@ -30,16 +30,16 @@ from datetime import datetime, timedelta
 
 matplotlib.use("Agg")
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
-from mpasdiag.visualization.styling import MPASVisualizationStyle
-from mpasdiag.visualization.precipitation import (
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import MPASVisualizer
+from mpasdiag import MPASVisualizationStyle
+from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import SurfaceMapStyle
-from mpasdiag.visualization.wind import WindPlotStyle
+from mpasdiag import GeographicBounds
+from mpasdiag import SurfaceMapStyle
+from mpasdiag import WindPlotStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -58,7 +58,7 @@ def create_mock_create_map(plotter: Any) -> Any:
         Any: A mock `create_map` method that returns a simple figure and axes.
     """
 
-    def mock_create_map(*args, **kwargs) -> Any:
+    def mock_create_map(*args: Any, **kwargs: Any) -> Any:
         """
         This mock method simulates the behavior of the `create_map` method by creating a new matplotlib figure and axes, assigning the figure to the plotter's `_current_fig` attribute, and returning the figure and axes objects. This allows tests to verify that the `create_map` method is called and produces valid plotting objects without relying on actual map projection logic.
 
@@ -87,7 +87,7 @@ def create_mock_save_plot() -> Any:
         Any: A mock `save_plot` method that does nothing when called.
     """
 
-    def mock_save_plot(*args, **kwargs) -> None:
+    def mock_save_plot(*args: Any, **kwargs: Any) -> None:
         """
         This mock method simulates the behavior of the `save_plot` method by doing nothing when called. It allows tests to verify that the `save_plot` method is invoked without performing any file I/O operations, which is useful for testing the plotting workflow in isolation.
 
@@ -115,7 +115,7 @@ def create_mock_close_plot(plotter: Any) -> Any:
         Any: A mock `close_plot` method that closes all matplotlib figures when called.
     """
 
-    def mock_close_plot(*args, **kwargs) -> None:
+    def mock_close_plot(*args: Any, **kwargs: Any) -> None:
         """
         This mock method simulates the behavior of the `close_plot` method by closing all matplotlib figures when called. It allows tests to verify that the `close_plot` method is invoked without affecting other tests or leaving open figures, which helps maintain a clean testing environment and prevents resource leaks during automated testing.
 
@@ -170,7 +170,6 @@ class TestRealDataIntegration:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         processor = mpas_3d_processor
 
@@ -257,7 +256,6 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         n_points = 100
         lon, lat = mpas_coordinates[0][:n_points], mpas_coordinates[1][:n_points]
@@ -295,7 +293,6 @@ class TestMPASVisualizer:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         u, v = mpas_wind_data
         data = np.hypot(u, v)
@@ -330,7 +327,6 @@ class TestMPASVisualizer:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         start_time = datetime(2024, 1, 1)
         times = [start_time + timedelta(hours=i) for i in range(24)]
@@ -372,7 +368,6 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon, lat = mpas_coordinates
         u, _ = mpas_wind_data
@@ -409,7 +404,6 @@ class TestMPASVisualizer:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon, lat = mpas_coordinates
         u, _ = mpas_wind_data
@@ -459,7 +453,7 @@ class TestPrecipitationMapping:
         Returns:
             MPASPrecipitationPlotter: Precipitation plotter instance.
         """
-        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+        from mpasdiag import MPASPrecipitationPlotter
 
         return MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
 
@@ -479,7 +473,6 @@ class TestPrecipitationMapping:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         n_points = min(100, len(mpas_precip_data))
         lon, lat = mpas_coordinates[0][:n_points], mpas_coordinates[1][:n_points]
@@ -634,7 +627,6 @@ class TestBatchProcessing:
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("MPAS data not available")
-            return
 
         precip_plotter = MPASPrecipitationPlotter(figsize=(10, 8), dpi=100)
 
@@ -682,9 +674,8 @@ class TestVisualizationIntegration:
         """
         if mpas_2d_processor_diag is None or mpas_coordinates is None:
             pytest.skip("MPAS data not available")
-            return
 
-        from mpasdiag.visualization.surface import MPASSurfacePlotter
+        from mpasdiag import MPASSurfacePlotter
 
         plotter = MPASSurfacePlotter(figsize=(12, 8), dpi=100)
         lon, lat = mpas_coordinates
@@ -738,9 +729,8 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
-        from mpasdiag.visualization.wind import MPASWindPlotter
+        from mpasdiag import MPASWindPlotter
 
         plotter = MPASWindPlotter(figsize=(12, 8), dpi=100)
         lon, lat = mpas_coordinates
@@ -799,13 +789,11 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_precip_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         if tmp_path is None:
             pytest.skip("Temporary path not available")
-            return
 
-        from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
+        from mpasdiag import MPASPrecipitationPlotter
 
         plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=100)
         lon, lat = mpas_coordinates
@@ -852,9 +840,8 @@ class TestVisualizationIntegration:
         """
         if mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
-        from mpasdiag.visualization.styling import MPASVisualizationStyle
+        from mpasdiag import MPASVisualizationStyle
 
         u, v = mpas_wind_data
 
@@ -900,9 +887,8 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
-        from mpasdiag.visualization.surface import MPASSurfacePlotter
+        from mpasdiag import MPASSurfacePlotter
 
         plotter = MPASSurfacePlotter(figsize=(10, 8), dpi=100)
         lon, lat = mpas_coordinates
@@ -962,9 +948,8 @@ class TestVisualizationIntegration:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
-        from mpasdiag.visualization.surface import MPASSurfacePlotter
+        from mpasdiag import MPASSurfacePlotter
 
         lon, lat = mpas_coordinates
         u, v = mpas_wind_data

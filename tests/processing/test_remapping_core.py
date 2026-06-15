@@ -18,9 +18,9 @@ Version: 1.0.0
 import pytest
 import numpy as np
 import xarray as xr
-from mpasdiag.processing.remapping import remap_mpas_to_latlon
+from mpasdiag import remap_mpas_to_latlon
 from tests.test_data_helpers import load_mpas_coords_from_processor
-from mpasdiag.processing.remapping import ESMPY_AVAILABLE
+from mpasdiag import ESMPY_AVAILABLE
 
 REMAPPING_AVAILABLE = True
 
@@ -42,7 +42,7 @@ class TestKDTreeRemapping:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon
+        from mpasdiag import remap_mpas_to_latlon
 
         self.remap_func = remap_mpas_to_latlon
         self.n_cells = 1000
@@ -184,8 +184,8 @@ class TestKDTreeRemapping:
         Returns:
             None
         """
-        original_min = np.min(self.mpas_data)
-        original_max = np.max(self.mpas_data)
+        original_min = float(np.min(self.mpas_data))
+        original_max = float(np.max(self.mpas_data))
 
         remapped = self.remap_func(
             data=self.mpas_data,
@@ -569,7 +569,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         n = 300
         lon_rad = _RNG.uniform(-2.0, -1.5, n)
@@ -600,7 +600,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         n = 300
         lon_deg = _RNG.uniform(-110, -100, n)
@@ -631,7 +631,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         n = 300
         lon_deg = _RNG.uniform(-110, -100, n)
@@ -670,7 +670,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         n = 300
         lon_deg = _RNG.uniform(240, 280, n)
@@ -710,7 +710,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         n = 300
         lon_deg = _RNG.uniform(-120, -80, n)
@@ -750,7 +750,7 @@ class TestRemappingCoverageGaps:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         lon1d = np.arange(0.0, 360.0, 4.0)
         lat1d = np.arange(-60.0, 61.0, 4.0)
@@ -920,7 +920,7 @@ class TestDispatchRemap:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import dispatch_remap
+        from mpasdiag import dispatch_remap
 
         config = self._make_config("kdtree", "nearest")
         result = dispatch_remap(
@@ -949,7 +949,7 @@ class TestDispatchRemap:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import dispatch_remap
+        from mpasdiag import dispatch_remap
 
         config = self._make_config("kdtree", "linear")
         result = dispatch_remap(
@@ -977,7 +977,7 @@ class TestDispatchRemap:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import dispatch_remap
+        from mpasdiag import dispatch_remap
 
         config = self._make_config("kdtree", "nearest")
         resolution = 1.0
@@ -1011,7 +1011,7 @@ class TestDispatchRemap:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import dispatch_remap
+        from mpasdiag import dispatch_remap
 
         n = small_dataset.sizes["nCells"]
         data_np = np.random.default_rng(3).uniform(0, 5, n)
@@ -1045,7 +1045,7 @@ class TestMPASConfigRemapValidation:
         Returns:
             None
         """
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASConfig
 
         cfg = MPASConfig(remap_engine="kdtree", remap_method=method)
         assert cfg.remap_method == method
@@ -1073,7 +1073,7 @@ class TestMPASConfigRemapValidation:
         Returns:
             None
         """
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASConfig
 
         cfg = MPASConfig(remap_engine="esmf", remap_method=method)
         assert cfg.remap_method == method
@@ -1152,7 +1152,7 @@ class TestRemapWithMaskingConfigRouting:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         result = remap_mpas_to_latlon_with_masking(
             data,
@@ -1183,7 +1183,7 @@ class TestRemapWithMaskingConfigRouting:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         config = self._make_config("kdtree", "nearest")
 
@@ -1216,7 +1216,7 @@ class TestRemapWithMaskingConfigRouting:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         config = self._make_config("kdtree", "linear")
 
@@ -1252,7 +1252,7 @@ class TestRemapWithMaskingConfigRouting:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         config = self._make_config("esmf", "bilinear")
         if ESMPY_AVAILABLE:
@@ -1295,7 +1295,7 @@ class TestRemapWithMaskingConfigRouting:
         Returns:
             None
         """
-        from mpasdiag.processing.remapping import remap_mpas_to_latlon_with_masking
+        from mpasdiag import remap_mpas_to_latlon_with_masking
 
         config = self._make_config("kdtree", "nearest")
 

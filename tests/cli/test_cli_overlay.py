@@ -36,12 +36,11 @@ class TestOverlayAndCompositeAnalysis:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -74,12 +73,11 @@ class TestOverlayAndCompositeAnalysis:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -112,12 +110,11 @@ class TestOverlayAndCompositeAnalysis:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
         cli = MPASUnifiedCLI()
@@ -150,12 +147,11 @@ class TestOverlayTypePaths:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
 
@@ -186,13 +182,12 @@ class TestOverlayWithLogger:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)
@@ -220,13 +215,12 @@ class TestOverlayWithLogger:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)
@@ -254,13 +248,12 @@ class TestOverlayWithLogger:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         if not os.path.exists("data/grids/x1.10242.static.nc"):
             pytest.skip("Test data not available")
-            return
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)

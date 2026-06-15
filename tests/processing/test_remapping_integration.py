@@ -20,7 +20,7 @@ import xarray as xr
 from typing import Any
 from pathlib import Path
 
-from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
+from mpasdiag import MPASRemapper, remap_mpas_to_latlon
 
 _RNG = np.random.default_rng(42)
 

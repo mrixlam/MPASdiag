@@ -14,22 +14,18 @@ Date: March 2026
 Version: 1.0.0
 """
 # Load relevant MPASdiag modules 
-from mpasdiag.processing.utils_config import MPASConfig
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter, PrecipitationRenderStyle
-from mpasdiag.processing.utils_geog import GeographicBounds
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/diag'
 gridPath = '../data/grids/x1.10242.static.nc'
 
 # Load unstructured MPAS data
-processor = MPAS2DProcessor(grid_file=gridPath)
+processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Initialize Precipitation Diagnostics
-diag = PrecipitationDiagnostics(verbose=True)
+diag = md.PrecipitationDiagnostics(verbose=True)
 
 # Define time index for precipitation difference calculation
 tindex = 1 
@@ -43,10 +39,10 @@ precip = diag.compute_precipitation_difference(
 lon, lat = processor.extract_2d_coordinates_for_variable('total', precip)
 
 # Define the precipitation plotter with desired figure size and resolution
-plotter = MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
+plotter = md.MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
 
 # Define plot configuration
-cfg = MPASConfig()
+cfg = md.MPASConfig()
 
 # Wire the time index so the accumulation annotation tracks the selected time step
 cfg.time_index = tindex
@@ -84,12 +80,12 @@ fig, ax = plotter.create_precipitation_map(
               lon,
               lat,
               precip.values,
-              GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+              md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
               accum_period='a01h',
               data_array=precip,
               dataset=processor.dataset,
               config=cfg,
-              style=PrecipitationRenderStyle(title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}', plot_type='contourf', grid_resolution=1.0),
+              style=md.PrecipitationRenderStyle(title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}', plot_type='contourf', grid_resolution=1.0),
           )
 
 # Overlay cross-section transect lines

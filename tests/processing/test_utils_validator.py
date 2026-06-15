@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from typing import Tuple
 
-from mpasdiag.processing.utils_validator import DataValidator
+from mpasdiag import DataValidator
 
 
 class TestValidateCoordinates:

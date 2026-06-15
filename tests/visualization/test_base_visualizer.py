@@ -32,8 +32,8 @@ import cartopy.crs as ccrs
 from cartopy.mpl.geoaxes import GeoAxes
 from unittest.mock import patch
 
-from mpasdiag.processing.base import MPASBaseProcessor
-from mpasdiag.visualization.base_visualizer import (
+from mpasdiag import MPASBaseProcessor
+from mpasdiag import (
     MPASVisualizer,
     WindPlotStyle,
     TransectLineStyle,
@@ -42,7 +42,7 @@ from tests.test_data_helpers import (
     load_mpas_coords_from_processor,
     assert_expected_public_methods,
 )
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import GeographicBounds
 
 warnings.filterwarnings("ignore")
 
@@ -210,7 +210,7 @@ class TestDataLoadingStrategies:
         Returns:
             None
         """
-        from mpasdiag.processing.processors_3d import MPAS3DProcessor
+        from mpasdiag import MPAS3DProcessor
 
         processor = MPAS3DProcessor(GRID_FILE, verbose=True)
         assert_expected_public_methods(processor, "MPAS3DProcessor")
@@ -282,8 +282,8 @@ class TestEdgeCasesAndErrorHandling:
         Returns:
             None
         """
-        times = []
-        values = []
+        times: list = []
+        values: list = []
 
         fig, _ = self.visualizer.create_time_series_plot(times, values)
         assert fig is not None

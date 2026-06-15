@@ -28,8 +28,8 @@ import matplotlib.pyplot as plt
 from typing import Union
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 

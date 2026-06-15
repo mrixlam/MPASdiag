@@ -24,8 +24,8 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
     GRID_FILE,
@@ -69,7 +69,6 @@ class TestAxisFormattingFinal:
             or not os.path.exists(MPASOUT_DIR)
         ):
             pytest.skip("Real MPAS data not available")
-            return
 
         self.plotter = MPASVerticalCrossSectionPlotter()
 

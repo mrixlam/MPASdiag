@@ -20,9 +20,9 @@ import pytest
 import xarray as xr
 from datetime import datetime
 from io import StringIO
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
-from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
+from mpasdiag import MPASDateTimeUtils
 
 
 @pytest.fixture
@@ -70,7 +70,7 @@ def no_time_dataset() -> xr.Dataset:
 
 
 @pytest.fixture
-def strftime_time_mock():
+def strftime_time_mock() -> MagicMock:
     """
     This fixture creates a MagicMock dataset that simulates a Time coordinate containing a single pandas Timestamp. The Time coordinate is mocked to have a length of 1 and its values return a list containing a single pd.Timestamp. This is used for testing the _extract_time_str method to ensure that it correctly uses the strftime method when the time value is a pandas Timestamp, allowing us to verify that the method can handle pandas Timestamps and produce correctly formatted time strings.
 
@@ -307,7 +307,7 @@ class TestExtractTimeStr:
         assert result is None
 
     def test_timestamp_uses_strftime_path(
-        self: "TestExtractTimeStr", strftime_time_mock
+        self: "TestExtractTimeStr", strftime_time_mock: MagicMock
     ) -> None:
         """
         This test verifies that the _extract_time_str method correctly uses the strftime method to extract a time string when the time value is a pandas Timestamp. The test checks that when the Time coordinate contains a pandas Timestamp, the method calls strftime on the timestamp to format it into the expected time string, confirming that it can handle pandas Timestamps and produce correctly formatted time strings for use in filenames or logging.
@@ -555,7 +555,7 @@ class TestGetTimeRange:
             None
         """
         with pytest.raises(ValueError, match="cannot be None"):
-            MPASDateTimeUtils.get_time_range(None)  # type: ignore[arg-type]
+            MPASDateTimeUtils.get_time_range(None)
 
     def test_no_time_coord_raises(
         self: "TestGetTimeRange", no_time_dataset: xr.Dataset
@@ -763,7 +763,7 @@ class TestGetTimeBounds:
         Returns:
             None
         """
-        result = MPASDateTimeUtils.get_time_bounds(None, 0)  # type: ignore[arg-type]
+        result = MPASDateTimeUtils.get_time_bounds(None, 0)
         assert result == (None, None)
 
     def test_no_bounds_variable_returns_none_none(
@@ -837,7 +837,7 @@ class TestCalculateTimeDelta:
             None
         """
         with pytest.raises(ValueError):
-            MPASDateTimeUtils.calculate_time_delta(None)  # type: ignore[arg-type]
+            MPASDateTimeUtils.calculate_time_delta(None)
 
     def test_no_time_coord_raises(
         self: "TestCalculateTimeDelta", no_time_dataset: xr.Dataset

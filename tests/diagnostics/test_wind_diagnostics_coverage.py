@@ -20,7 +20,7 @@ import xarray as xr
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.diagnostics.wind import WindDiagnostics
+from mpasdiag import WindDiagnostics
 
 N_CELLS = 5
 N_VERT = 10
@@ -369,7 +369,7 @@ class TestComputeLevelIndex:
         """
         diag = WindDiagnostics(verbose=False)
         with pytest.raises(ValueError, match="Invalid level specification"):
-            diag._compute_level_index(ds_3d, "u", None, "Time", 0)  # type: ignore[arg-type]
+            diag._compute_level_index(ds_3d, "u", None, "Time", 0)
 
     def test_list_type_level_raises(
         self: "TestComputeLevelIndex", ds_3d: xr.Dataset
@@ -385,7 +385,7 @@ class TestComputeLevelIndex:
         """
         diag = WindDiagnostics(verbose=False)
         with pytest.raises(ValueError, match="Invalid level specification"):
-            diag._compute_level_index(ds_3d, "u", [85000.0], "Time", 0)  # type: ignore[arg-type]
+            diag._compute_level_index(ds_3d, "u", [85000.0], "Time", 0)
 
     def test_float_level_triggers_pressure_lookup(
         self: "TestComputeLevelIndex", ds_3d_no_pressure: xr.Dataset
@@ -421,7 +421,7 @@ class TestGet2DWindComponentsNoneDataset:
         """
         diag = WindDiagnostics(verbose=False)
         with pytest.raises(RuntimeError, match="No dataset provided"):
-            diag.get_2d_wind_components(None, "u10", "v10", time_index=0)  # type: ignore[arg-type]
+            diag.get_2d_wind_components(None, "u10", "v10", time_index=0)
 
 
 class TestGet2DWindComponentsMissingVars:

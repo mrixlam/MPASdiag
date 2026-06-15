@@ -27,7 +27,7 @@ from typing import Any
 from io import StringIO
 from unittest.mock import patch
 
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+from mpasdiag import PrecipitationDiagnostics
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -50,7 +50,6 @@ class TestComputePrecipitationDifference:
         """
         if mpas_2d_processor_diag is None:
             pytest.skip("MPAS data not available")
-            return
 
         return mpas_2d_processor_diag.dataset
 

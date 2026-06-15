@@ -26,7 +26,7 @@ import matplotlib.figure
 import matplotlib.pyplot as plt
 from typing import Mapping, Optional
 
-from mpasdiag.visualization.skewt import MPASSkewTPlotter
+from mpasdiag import MPASSkewTPlotter
 
 
 @pytest.fixture
@@ -202,7 +202,7 @@ class TestCreateSkewTDiagram:
         p, t, td, u, v = sample_profile
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices
-        )  # type: ignore
+        )
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -229,7 +229,7 @@ class TestCreateSkewTDiagram:
 
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices, show_parcel=True
-        )  # type: ignore
+        )
 
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -369,7 +369,7 @@ class TestEdgeCases:
 
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=indices
-        )  # type: ignore
+        )
 
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
@@ -400,7 +400,7 @@ class TestIndicesTable:
         p, t, td, u, v = sample_profile
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sample_indices
-        )  # type: ignore
+        )
         # Figure should have more than 1 axes (main plot + table)
         assert len(fig.get_axes()) >= 2
         plt.close(fig)
@@ -432,7 +432,7 @@ class TestIndicesTable:
         }
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=sparse
-        )  # type: ignore
+        )
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)
 
@@ -460,7 +460,7 @@ class TestIndicesTable:
 
         fig, _ = plotter.create_skewt_diagram(
             p, t, td, u, v, indices=indices
-        )  # type: ignore
+        )
 
         assert isinstance(fig, matplotlib.figure.Figure)
         plt.close(fig)

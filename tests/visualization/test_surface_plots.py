@@ -26,9 +26,9 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.surface import SurfaceMapStyle
+from mpasdiag import MPASSurfacePlotter
+from mpasdiag import GeographicBounds
+from mpasdiag import SurfaceMapStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -57,7 +57,6 @@ class TestPlotTypes:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
@@ -271,7 +270,6 @@ class TestColormapHandling:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates
@@ -529,7 +527,6 @@ class TestColorbarMethod:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         lon_full, lat_full = mpas_coordinates
         lon = lon_full[:50]
@@ -607,7 +604,6 @@ class TestContourPlotting:
         """
         if mpas_coordinates is None or mpas_surface_temp_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.plotter = MPASSurfacePlotter()
         lon_full, lat_full = mpas_coordinates

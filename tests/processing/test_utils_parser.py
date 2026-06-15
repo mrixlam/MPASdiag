@@ -15,10 +15,12 @@ Version: 1.0.0
 """
 
 # Load necessary libraries and modules for testing
+from typing import Optional, cast
 import pytest
 import argparse
-from mpasdiag.processing.utils_parser import ArgumentParser
-from mpasdiag.processing.utils_config import MPASConfig
+from pathlib import Path
+from mpasdiag import ArgumentParser
+from mpasdiag import MPASConfig
 
 
 class TestCreateParser:
@@ -150,7 +152,7 @@ class TestParseArgsToConfig:
         assert not (hasattr(config, "use_pure_xarray") and config.use_pure_xarray)
 
     def test_parse_args_with_real_mpas_paths(
-        self: "TestParseArgsToConfig", grid_file, test_data_dir
+        self: "TestParseArgsToConfig", grid_file: Optional[str], test_data_dir: Path
     ) -> None:
         """
         This test performs an integration check by parsing arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values. This test ensures that the argument parsing and config conversion logic works as expected in a realistic scenario where users provide valid MPAS file paths for processing.
@@ -164,7 +166,6 @@ class TestParseArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -406,7 +407,7 @@ class TestParseSurfaceArgsToConfig:
         assert config.time_index == pytest.approx(0)
 
     def test_parse_surface_args_with_real_mpas_paths(
-        self: "TestParseSurfaceArgsToConfig", grid_file, test_data_dir
+        self: "TestParseSurfaceArgsToConfig", grid_file: Optional[str], test_data_dir: Path
     ) -> None:
         """
         This test performs an integration check by parsing surface plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_surface_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with surface-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for surface plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing.
@@ -420,7 +421,6 @@ class TestParseSurfaceArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -682,7 +682,7 @@ class TestParseWindArgsToConfig:
         assert config.batch_mode is True
 
     def test_parse_wind_args_with_real_mpas_paths(
-        self: "TestParseWindArgsToConfig", grid_file: str, test_data_dir: str
+        self: "TestParseWindArgsToConfig", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test performs an integration check by parsing wind plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_wind_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with wind-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for wind plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing.
@@ -696,7 +696,6 @@ class TestParseWindArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -1053,7 +1052,7 @@ class TestParseCrosssectionArgsToConfig:
         assert config.max_height is None
 
     def test_parse_crosssection_args_with_real_mpas_paths(
-        self: "TestParseCrosssectionArgsToConfig", grid_file: str, test_data_dir: str
+        self: "TestParseCrosssectionArgsToConfig", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test performs an integration check by parsing cross-section plotting arguments that include real MPAS grid file and data directory paths provided by session fixtures. It verifies that the `parse_crosssection_args_to_config` method can handle actual file system paths and correctly populate the configuration object with these values, along with cross-section-specific plotting parameters. This test ensures that the argument parsing and config conversion logic for cross-section plotting works as expected in a realistic scenario where users provide valid MPAS file paths for processing.
@@ -1067,7 +1066,6 @@ class TestParseCrosssectionArgsToConfig:
         """
         if grid_file is None:
             pytest.skip("MPAS grid file not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "mpasout")
 
@@ -1112,7 +1110,7 @@ class TestRemapEngineMethodCLIArgs:
 
     def _parse(
         self: "TestRemapEngineMethodCLIArgs", subcommand: str, extra_args: list
-    ) -> object:
+    ) -> argparse.Namespace:
         """
         This helper method creates a main parser using the `MPASUnifiedCLI` class and parses a set of command-line arguments for a given subcommand. It constructs the argument list by combining the specified subcommand with a base set of required arguments (such as grid file, data directory, and spatial bounds) and any additional arguments provided in `extra_args`. The method then returns the parsed namespace object containing all the command-line arguments, which can be used in tests to verify that remap engine and method options are correctly parsed for different subcommands.
 
@@ -1123,7 +1121,7 @@ class TestRemapEngineMethodCLIArgs:
         Returns:
             object: The parsed namespace object containing the command-line arguments.
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -1142,7 +1140,7 @@ class TestRemapEngineMethodCLIArgs:
             "40",
         ]
         argv = [subcommand] + base + extra_args
-        return parser.parse_args(argv)
+        return cast(argparse.Namespace, parser.parse_args(argv))
 
     def test_precipitation_default_engine(self: "TestRemapEngineMethodCLIArgs") -> None:
         """
@@ -1251,7 +1249,7 @@ class TestRemapEngineMethodCLIArgs:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()

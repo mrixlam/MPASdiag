@@ -17,9 +17,7 @@ Version: 1.0.0
 from pathlib import Path
 
 # Load relevant MPASdiag modules 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.visualization.skewt import MPASSkewTPlotter
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/mpasout'
@@ -35,11 +33,11 @@ lat = 3.772
 time = 0  
 
 # Load unstructured MPAS 3D data 
-processor = MPAS3DProcessor(grid_file=gridPath, verbose=True)
+processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
 processor.load_3d_data(dataDir)
 
 # Initialize Sounding Diagnostics
-diagnostics = SoundingDiagnostics(verbose=True)
+diagnostics = md.SoundingDiagnostics(verbose=True)
 
 # Extract sounding profile at the specified location and time 
 profile = diagnostics.extract_sounding_profile(
@@ -66,7 +64,7 @@ indices = diagnostics.compute_thermodynamic_indices(
 )
 
 # Define the Skew-T plotter with desired figure size and resolution
-plotter = MPASSkewTPlotter(figsize=(9, 12), dpi=150, verbose=True)
+plotter = md.MPASSkewTPlotter(figsize=(9, 12), dpi=150, verbose=True)
 
 # Format station coordinates for figure title
 latstr = f"{abs(station_lat):.2f}{'N' if station_lat >= 0 else 'S'}"

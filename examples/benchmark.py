@@ -41,31 +41,13 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from multiprocessing import cpu_count
-from typing import Callable
+from typing import Callable, Optional, Any
 
 # Load relevant MPASdiag modules
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.visualization.skewt import MPASSkewTPlotter
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.visualization.surface import MPASSurfacePlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.precipitation import MPASPrecipitationPlotter
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-
-from mpasdiag.processing import clear_grid_cache, collective_grid_load
-from mpasdiag.processing.parallel_wrappers import (
-    ParallelPrecipitationProcessor,
-    ParallelSurfaceProcessor,
-    ParallelWindProcessor,
-    ParallelCrossSectionProcessor,
-    ParallelSkewTProcessor,
-    SurfaceBatchStyle,
-    WindBatchStyle,
-)
+import mpasdiag as md
 
 
+COMM: Optional[Any]
 try:
     from mpi4py import MPI
     COMM = MPI.COMM_WORLD
@@ -140,7 +122,7 @@ MPASOUT_VARIABLES = [
 BENCHMARK_DIR = Path('../output/benchmarks')
 
 
-def run_benchmark_precipitation(processor_2d: MPAS2DProcessor, 
+def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor, 
                                 out_dir: str, 
                                 use_parallel: bool, 
                                 n_workers: int) -> tuple[float, int]:
@@ -161,9 +143,9 @@ def run_benchmark_precipitation(processor_2d: MPAS2DProcessor,
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
+        created = md.ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='total',
             accum_period='a01h',
@@ -172,10 +154,10 @@ def run_benchmark_precipitation(processor_2d: MPAS2DProcessor,
             n_processes=n_workers,
         ) or []
     else:
-        plotter = MPASPrecipitationPlotter(figsize=(12, 12), dpi=100)
+        plotter = md.MPASPrecipitationPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_precipitation_maps(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='total',
             accum_period='a01h',
@@ -186,7 +168,7 @@ def run_benchmark_precipitation(processor_2d: MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_surface(processor_2d: MPAS2DProcessor, 
+def run_benchmark_surface(processor_2d: md.MPAS2DProcessor, 
                           out_dir: str, 
                           use_parallel: bool, 
                           n_workers: int) -> tuple[float, int]:
@@ -207,20 +189,20 @@ def run_benchmark_surface(processor_2d: MPAS2DProcessor,
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
+        created = md.ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='t2m',
             grid_resolution=WIND_CONFIG['grid_resolution'],
             n_processes=n_workers,
-            style=SurfaceBatchStyle(plot_type='scatter'),
+            style=md.SurfaceBatchStyle(plot_type='scatter'),
         ) or []
     else:
-        plotter = MPASSurfacePlotter(figsize=(12, 12), dpi=100)
+        plotter = md.MPASSurfacePlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_surface_maps(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             var_name='t2m',
             plot_type='scatter',
@@ -230,7 +212,7 @@ def run_benchmark_surface(processor_2d: MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_wind(processor_2d: MPAS2DProcessor, 
+def run_benchmark_wind(processor_2d: md.MPAS2DProcessor, 
                        out_dir: str, 
                        use_parallel: bool, 
                        n_workers: int) -> tuple[float, int]:
@@ -252,24 +234,24 @@ def run_benchmark_wind(processor_2d: MPAS2DProcessor,
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = ParallelWindProcessor.create_batch_wind_plots_parallel(
+        created = md.ParallelWindProcessor.create_batch_wind_plots_parallel(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             u_variable=cfg['u_variable'],
             v_variable=cfg['v_variable'],
             n_processes=n_workers,
-            style=WindBatchStyle(
+            style=md.WindBatchStyle(
                 plot_type=cfg['plot_type'],
                 subsample=cfg['subsample'],
                 grid_resolution=cfg['grid_resolution'],
             ),
         ) or []
     else:
-        plotter = MPASWindPlotter(figsize=(12, 12), dpi=100)
+        plotter = md.MPASWindPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_wind_plots(
             processor_2d, plot_dir,
-            GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
+            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
                              SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
             u_variable=cfg['u_variable'],
             v_variable=cfg['v_variable'],
@@ -281,7 +263,7 @@ def run_benchmark_wind(processor_2d: MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_cross_section(processor_3d: MPAS3DProcessor, 
+def run_benchmark_cross_section(processor_3d: md.MPAS3DProcessor, 
                                 out_dir: str, 
                                 use_parallel: bool, 
                                 n_workers: int) -> tuple[float, int]:
@@ -303,7 +285,7 @@ def run_benchmark_cross_section(processor_3d: MPAS3DProcessor,
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
+        created = md.ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
             processor_3d,
             var_name=cfg['variable'],
             start_point=cfg['start_point'],
@@ -314,7 +296,7 @@ def run_benchmark_cross_section(processor_3d: MPAS3DProcessor,
             n_processes=n_workers,
         ) or []
     else:
-        plotter = MPASVerticalCrossSectionPlotter(figsize=(14, 12), dpi=100)
+        plotter = md.MPASVerticalCrossSectionPlotter(figsize=(14, 12), dpi=100)
         created = plotter.create_batch_cross_section_plots(
             processor_3d, plot_dir,
             var_name=cfg['variable'],
@@ -327,7 +309,7 @@ def run_benchmark_cross_section(processor_3d: MPAS3DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_skewt(processor_3d: MPAS3DProcessor,
+def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
                         out_dir: str,
                         use_parallel: bool,
                         n_workers: int) -> tuple[float, int]:
@@ -349,15 +331,15 @@ def run_benchmark_skewt(processor_3d: MPAS3DProcessor,
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+        created = md.ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
             processor_3d, plot_dir,
             lon=cfg['lon'],
             lat=cfg['lat'],
             n_processes=n_workers,
         ) or []
     else:
-        diag = SoundingDiagnostics(verbose=False)
-        plotter = MPASSkewTPlotter(figsize=(9, 12), dpi=100, verbose=False)
+        diag = md.SoundingDiagnostics(verbose=False)
+        plotter = md.MPASSkewTPlotter(figsize=(9, 12), dpi=100, verbose=False)
 
         time_dim = 'Time' if 'Time' in processor_3d.dataset.dims else 'time'
         n_times = processor_3d.dataset.sizes.get(time_dim, 1)
@@ -526,7 +508,7 @@ def load_experiment_data(
     paths: dict,
     diag_variables: list[str] | None = None,
     mpasout_variables: list[str] | None = None,
-) -> tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]:
+) -> tuple[md.MPAS2DProcessor, md.MPAS3DProcessor, float, float]:
     """
     This function loads the 2D diagnostic data and 3D model output data for a single experiment, while measuring the elapsed time for each load. It takes a dictionary of paths for the grid file, 2D diagnostic data directory, and 3D model output directory, as well as optional lists of variables to load for the 2D and 3D data (which can speed up loading by only reading necessary variables). The function uses collective_grid_load to ensure that the grid is loaded in a coordinated way across MPI ranks, and it clears the shared grid cache before each load to ensure that the timing reflects a full load rather than a cache hit. The loaded MPAS2DProcessor and MPAS3DProcessor instances are returned along with the elapsed times for loading the 2D and 3D data.
 
@@ -538,30 +520,30 @@ def load_experiment_data(
     Returns:
         tuple[MPAS2DProcessor, MPAS3DProcessor, float, float]: A tuple containing the loaded MPAS2DProcessor, the loaded MPAS3DProcessor, the elapsed time in seconds for loading the 2D data, and the elapsed time in seconds for loading the 3D data.
     """
-    with collective_grid_load():
+    with md.collective_grid_load():
         if RANK == 0:
             print(f"  Loading 2D diagnostic data from {paths['diag_dir']} ...")
 
-        clear_grid_cache()
+        md.clear_grid_cache()
         t_load = time.perf_counter()
-        processor_2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+        processor_2d = md.MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
         processor_2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
         load_2d_time = time.perf_counter() - t_load
 
         if RANK == 0:
             print(f"  Loading 3D model output from {paths['mpasout_dir']} ...")
 
-        clear_grid_cache()
+        md.clear_grid_cache()
         t_load = time.perf_counter()
-        processor_3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
+        processor_3d = md.MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
         processor_3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
         load_3d_time = time.perf_counter() - t_load
 
     return processor_2d, processor_3d, load_2d_time, load_3d_time
 
 
-def build_benchmarks(processor_2d: MPAS2DProcessor,
-                     processor_3d: MPAS3DProcessor,
+def build_benchmarks(processor_2d: md.MPAS2DProcessor,
+                     processor_3d: md.MPAS3DProcessor,
                      exp_out: str,
                      use_parallel: bool,
                      n_workers: int | None) -> list[tuple[str, Callable[[], tuple[float, int]]]]:
@@ -702,7 +684,7 @@ def _record_solo_load_times(exp_name: str,
     Returns:
         list[dict]: The 'data_load_2d_solo'/'data_load_3d_solo' records on rank 0, else an empty list.
     """
-    clear_grid_cache()
+    md.clear_grid_cache()
 
     if COMM is not None:
         COMM.Barrier()
@@ -712,13 +694,13 @@ def _record_solo_load_times(exp_name: str,
 
     if RANK == 0:
         t0 = time.perf_counter()
-        proc2d = MPAS2DProcessor(grid_file=paths['grid_file'], verbose=False)
+        proc2d = md.MPAS2DProcessor(grid_file=paths['grid_file'], verbose=False)
         proc2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
         load_2d_time = time.perf_counter() - t0
 
-        clear_grid_cache()
+        md.clear_grid_cache()
         t0 = time.perf_counter()
-        proc3d = MPAS3DProcessor(grid_file=paths['grid_file'], verbose=False)
+        proc3d = md.MPAS3DProcessor(grid_file=paths['grid_file'], verbose=False)
         proc3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
         load_3d_time = time.perf_counter() - t0
 
@@ -728,7 +710,7 @@ def _record_solo_load_times(exp_name: str,
     if COMM is not None:
         COMM.Barrier()
 
-    clear_grid_cache()
+    md.clear_grid_cache()
 
     if RANK != 0:
         return []

@@ -24,8 +24,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from typing import Generator, Any
 
-from mpasdiag.visualization.cross_section import MPASVerticalCrossSectionPlotter
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPASVerticalCrossSectionPlotter
+from mpasdiag import MPAS3DProcessor
 
 from tests.visualization.cross_section_test_helpers import (
     check_great_circle_path,
@@ -46,7 +46,7 @@ def test_great_circle_path_generation() -> None:
 
 
 def failing_on_first_call(
-    self: MPASVerticalCrossSectionPlotter, *args, **kwargs
+    self: MPASVerticalCrossSectionPlotter, *args: Any, **kwargs: Any
 ) -> Any:
     """
     This helper function simulates a failure on the first call to create_vertical_cross_section by raising an exception, while allowing subsequent calls to succeed. It uses an instance attribute to track the number of times it has been called and raises an exception only on the first call. On subsequent calls, it checks for the presence of the original create_vertical_cross_section method (which should have been saved before patching) and calls it with the provided arguments. If the original method is not found, it raises a RuntimeError. This function is designed to test the batch processing function's ability to handle exceptions gracefully without crashing the entire batch process.
@@ -107,7 +107,6 @@ class TestBatchProcessing:
         """
         if self.processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         paths = [((-110, 35), (-90, 45)), ((-110, 40), (-90, 40))]
 
@@ -140,7 +139,6 @@ class TestBatchProcessingFinal:
         """
         if mpas_3d_processor is None:
             pytest.skip("MPAS data not available")
-            return
 
         self.processor = mpas_3d_processor
         self.temp_dir = tempfile.mkdtemp()

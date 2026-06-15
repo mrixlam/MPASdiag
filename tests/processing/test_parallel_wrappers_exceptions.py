@@ -23,7 +23,7 @@ from pathlib import Path
 from contextlib import redirect_stdout
 from unittest.mock import Mock
 
-from mpasdiag.processing.parallel import TaskResult
+from mpasdiag import TaskResult
 from mpasdiag.processing.parallel_wrappers import (
     _precipitation_worker,
     _surface_worker,

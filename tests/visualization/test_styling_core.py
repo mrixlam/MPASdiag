@@ -15,6 +15,7 @@ Version: 1.0.0
 """
 
 # Load standard libraries
+from typing import Any
 import os
 import sys
 import pytest
@@ -25,7 +26,7 @@ matplotlib.use("Agg")
 import matplotlib.colors as mcolors
 
 
-from mpasdiag.visualization.styling import MPASVisualizationStyle
+from mpasdiag import MPASVisualizationStyle
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -112,7 +113,7 @@ class TestGetVariableStyle:
 
     def test_get_variable_style_with_data_array(
         self: "TestGetVariableStyle",
-        mpas_coordinates,
+        mpas_coordinates: Any,
         mpas_wind_data: tuple[xr.DataArray, xr.DataArray],
     ) -> None:
         """
@@ -127,7 +128,6 @@ class TestGetVariableStyle:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         u, _ = mpas_wind_data
         vals = u.copy()

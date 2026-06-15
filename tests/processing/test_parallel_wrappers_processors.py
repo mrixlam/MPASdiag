@@ -26,7 +26,7 @@ from typing import List, Generator
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from mpasdiag.processing.parallel import ParallelStats, TaskResult, MPASParallelManager
+from mpasdiag import ParallelStats, TaskResult, MPASParallelManager
 from mpasdiag.processing.parallel_wrappers import (
     _process_parallel_results,
     ParallelPrecipitationProcessor,
@@ -37,7 +37,7 @@ from mpasdiag.processing.parallel_wrappers import (
     WindBatchStyle,
 )
 from tests.test_data_helpers import assert_expected_public_methods
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import GeographicBounds
 
 TEST_DATA_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
@@ -1472,7 +1472,7 @@ class TestParallelCrossSectionProcessorEdgeCases:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel import TaskResult as TR
+        from mpasdiag import TaskResult as TR
 
         results = [
             TR(task_id=0, success=True, result={"error": "plot failed", "files": []}),

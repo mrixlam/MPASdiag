@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from mpasdiag.processing.utils_metadata import MPASFileMetadata
+from mpasdiag import MPASFileMetadata
 
 
 class TestGetVariableMetadataStandardNameFallback:

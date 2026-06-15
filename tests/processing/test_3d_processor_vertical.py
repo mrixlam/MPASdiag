@@ -20,7 +20,7 @@ import numpy as np
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 from tests.test_data_helpers import (
     load_mpas_3d_processor,

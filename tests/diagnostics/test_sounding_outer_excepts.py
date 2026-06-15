@@ -20,8 +20,8 @@ import xarray as xr
 from pathlib import Path
 from unittest.mock import Mock
 
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import SoundingDiagnostics
+from mpasdiag import MPAS3DProcessor
 
 try:
     from metpy.units import units

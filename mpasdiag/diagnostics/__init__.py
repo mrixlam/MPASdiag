@@ -18,10 +18,12 @@ from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
 from mpasdiag.diagnostics.wind import WindDiagnostics
 from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
+from mpasdiag.diagnostics.thermodynamic import ThermodynamicDiagnostics
 
 __all__ = [
     "PrecipitationDiagnostics",
     "WindDiagnostics",
     "SoundingDiagnostics",
     "MoistureTransportDiagnostics",
+    "ThermodynamicDiagnostics",
 ]

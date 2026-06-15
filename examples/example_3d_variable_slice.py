@@ -17,8 +17,7 @@ Version: 1.0.0
 import os
 
 # Load relevant MPASdiag modules
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.visualization.surface import MPASSurfacePlotter
+import mpasdiag as md
 
 # Specify the path to sample data and grid file
 dataDir = '../data/u240k/mpasout'
@@ -34,7 +33,7 @@ level_index = 12
 tindex = 1
 
 # Load unstructured MPAS 3D data
-processor = MPAS3DProcessor(grid_file=gridPath, verbose=True)
+processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
 processor.load_3d_data(dataDir)
 
 # Verify the requested variable is available in the dataset
@@ -57,7 +56,7 @@ valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 # -------------- Generate the horizontal slice map --------------------------
 
 # plot_3d_variable_slice selects the given model level
-plotter = MPASSurfacePlotter(verbose=True, figsize=(16, 10), dpi=300)
+plotter = md.MPASSurfacePlotter(verbose=True, figsize=(16, 10), dpi=300)
 
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {

@@ -27,8 +27,8 @@ import matplotlib
 matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import MPASWindPlotter
+from mpasdiag import GeographicBounds
 from tests.test_data_helpers import fake_render_factory
 
 
@@ -57,7 +57,7 @@ class TestAddWindOverlay:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that the `add_wind_overlay` method can successfully add a wind overlay to existing axes using real MPAS longitude, latitude, and wind component data with basic parameters. The test patches the internal rendering method to confirm that it is called during the overlay addition process. It checks that the render method is invoked, indicating that the overlay was processed for rendering. This ensures that users can add wind overlays with real MPAS data and that the internal rendering logic is invoked as expected when adding overlays.
@@ -74,7 +74,6 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -115,7 +114,7 @@ class TestAddWindOverlay:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when 3D wind component data is provided to `add_wind_overlay` along with a specified `level_index`, the method correctly extracts the specified vertical level from the 3D data and adds the wind overlay to the existing axes without errors. The test uses real MPAS longitude, latitude, and 3D wind component data to create a realistic scenario for handling 3D inputs. It checks that the internal rendering method is called, confirming that the overlay was processed for rendering after extracting the specified level. This ensures that users can add wind overlays using 3D datasets by specifying a level index, and that the internal logic correctly handles the extraction of the appropriate level for rendering.
@@ -132,7 +131,6 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -182,7 +180,7 @@ class TestAddWindOverlay:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when 3D wind component data is provided to `add_wind_overlay` without a specified `level_index`, the method defaults to using the topmost vertical level from the 3D data for the overlay, and successfully adds it to the existing axes without errors. The test uses real MPAS longitude, latitude, and 3D wind component data to create a realistic scenario for handling 3D inputs with default level selection. It checks that the internal rendering method is called, confirming that the overlay was processed for rendering after selecting the default level. This ensures that users can add wind overlays using 3D datasets without needing to specify a level index, and that the internal logic correctly defaults to an appropriate level for rendering when none is specified.
@@ -199,7 +197,6 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -244,7 +241,7 @@ class TestAddWindOverlay:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `grid_resolution` is specified in the wind configuration passed to `add_wind_overlay`, the method successfully performs regridding of the input wind data onto a regular grid defined by the specified resolution and bounding box, and adds the regridded overlay to the existing axes without errors. The test uses real MPAS longitude, latitude, and wind component data to create a realistic scenario for regridding. It checks that the internal regridding method is called with the correct parameters, and that the internal rendering method is called with the outputs from the regridding process. This ensures that users can add wind overlays with regridded data by specifying a grid resolution and bounding box, and that the internal logic correctly applies the regridding process before rendering the overlay.
@@ -261,7 +258,6 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -373,7 +369,6 @@ class TestAddWindOverlay:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -408,7 +403,7 @@ class TestAddWindOverlay:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `subsample=-1` is specified in the wind configuration passed to `add_wind_overlay` along with the required bounding box parameters, the method automatically calculates an appropriate subsampling factor based on the density of the input data and the specified bounding box, and successfully adds the subsampled wind overlay to the existing axes without errors. The test uses real MPAS longitude, latitude, and wind component data to create a realistic scenario for automatic subsampling. It checks that the internal rendering method is called, confirming that the overlay was processed for rendering after automatic subsampling was applied. This ensures that users can add wind overlays with automatic subsampling by setting `subsample=-1` and providing bounding box parameters, and that the internal logic correctly calculates the subsampling factor and applies it before rendering the overlay.
@@ -424,7 +419,6 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -467,7 +461,6 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -491,7 +484,7 @@ class TestAddWindOverlay:
         self: "TestAddWindOverlay",
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when 1D coordinate and wind component arrays are provided to `add_wind_overlay` but all values are NaN, the method does not attempt to render any wind vectors and handles the empty data gracefully without errors. The test uses real MPAS longitude and latitude arrays but injects NaN values for the wind components to create a scenario of empty data. It checks that the internal rendering method is not called, confirming that the method correctly identifies that there is no valid data to render and skips the rendering process. This ensures that users can add wind overlays with empty or invalid data without encountering errors, and that the internal logic correctly handles cases where there are no valid wind vectors to render.
@@ -506,7 +499,6 @@ class TestAddWindOverlay:
         """
         if mpas_coordinates is None:
             pytest.skip("MPAS data not available")
-            return
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -533,7 +525,7 @@ class TestAddWindOverlay:
     # ------------------ Test Wind Overlay Addition with Empty 2D Data ------------------
 
     def test_add_wind_overlay_empty_data_2d(
-        self: "TestAddWindOverlay", plotter: "MPASWindPlotter", monkeypatch
+        self: "TestAddWindOverlay", plotter: "MPASWindPlotter", monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """
         This test verifies that when 2D coordinate and wind component arrays are provided to `add_wind_overlay` but all values are NaN, the method does not attempt to render any wind vectors and handles the empty data gracefully without errors. The test creates synthetic 2D longitude and latitude grids filled with NaN values, as well as 2D wind component arrays filled with NaN values, to simulate a scenario of empty data. It checks that the internal rendering method is not called, confirming that the method correctly identifies that there is no valid data to render and skips the rendering process. This ensures that users can add wind overlays with empty or invalid 2D data without encountering errors, and that the internal logic correctly handles cases where there are no valid wind vectors to render in a gridded format.
@@ -632,7 +624,6 @@ class TestCreateBatchWindPlots:
         # Skip if MPAS data fixtures are not available
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
-            return
 
         # Import pandas and xarray here since they are only needed for this test and to avoid unnecessary imports if MPAS data is not available
         import pandas as pd

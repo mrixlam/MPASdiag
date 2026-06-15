@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from mpasdiag.processing.utils_geog import MPASGeographicUtils
+from mpasdiag import MPASGeographicUtils
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ class TestExtractSpatialCoordinates:
             None
         """
         with pytest.raises(ValueError, match="Dataset cannot be None"):
-            MPASGeographicUtils.extract_spatial_coordinates(None)  # type: ignore[arg-type]
+            MPASGeographicUtils.extract_spatial_coordinates(None)
 
     def test_missing_coords_raises(self: "TestExtractSpatialCoordinates") -> None:
         """

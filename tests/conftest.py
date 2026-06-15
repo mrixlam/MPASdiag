@@ -36,7 +36,7 @@ class _DynamicStdoutHandler(logging.Handler):
 
     def emit(
         self: "_DynamicStdoutHandler", record: logging.LogRecord
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """
         This method formats the given log record and writes it to standard output, followed by a newline. It ensures that the output is flushed immediately so that log messages appear in real-time during test execution. If any exceptions occur during formatting or writing, they are handled gracefully by invoking the standard error handling mechanism of the logging framework.
 
@@ -171,7 +171,7 @@ def mpas_3d_processor() -> Optional[Any]:
         Optional[MPAS3DProcessor]: Initialized processor with loaded 3D data or None if data is unavailable.
     """
     try:
-        from mpasdiag.processing import MPAS3DProcessor
+        from mpasdiag import MPAS3DProcessor
         from tests.test_data_helpers import _grid_file_path
 
         data_dir = Path(__file__).parent.parent / "data" / "u240k" / "mpasout"
@@ -494,7 +494,7 @@ def _build_3d_ds_synthetic(mock_mpas_mesh: xr.Dataset, n_cells: int) -> xr.Datas
 
 @pytest.fixture
 def mock_mpas_3d_data(
-    mock_mpas_mesh: xr.Dataset, mpas_3d_processor: Optional[object]
+    mock_mpas_mesh: xr.Dataset, mpas_3d_processor: Optional[Any]
 ) -> xr.Dataset:
     """
     This fixture provides real MPAS 3D data from mpasout files when available, which includes theta, pressure, w, and other 3D fields. Since uReconstructZonal and uReconstructMeridional were removed from mpasout files to save space, synthetic wind components are added for tests that require them. For actual wind testing, use mock_mpas_2d_data which has real u10/v10 from diag files.
@@ -516,7 +516,7 @@ def mock_mpas_3d_data(
 
 @pytest.fixture
 def mock_mpas_2d_data(
-    mock_mpas_mesh: xr.Dataset, mpas_2d_processor_diag: Optional[object]
+    mock_mpas_mesh: xr.Dataset, mpas_2d_processor_diag: Optional[Any]
 ) -> xr.Dataset:
     """
     This fixture provides real MPAS 2D diagnostic data from diag files when available, which includes surface variables like t2m, rainnc, u10, v10. Falls back to synthetic data only when real data is unavailable. Uses diag files (not mpasout) for optimal 2D diagnostic coverage.
@@ -800,7 +800,7 @@ def variable_names(request: Any) -> str:
     Returns:
         str: The selected variable name for this test case.
     """
-    return request.param
+    return str(request.param)
 
 
 @pytest.fixture(params=[0, 1, 2])
@@ -814,7 +814,7 @@ def time_indices(request: Any) -> int:
     Returns:
         int: The time index value for this parametrized test instance.
     """
-    return request.param
+    return int(request.param)
 
 
 @pytest.fixture(params=[100, 200, 500, 850, 1000])
@@ -828,7 +828,7 @@ def pressure_levels(request: Any) -> int:
     Returns:
         int: The selected pressure level in hPa for this test case.
     """
-    return request.param
+    return int(request.param)
 
 
 def assert_valid_dataset(ds: xr.Dataset) -> None:

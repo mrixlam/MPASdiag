@@ -14,6 +14,7 @@ Date: February 2026
 Version: 1.0.0
 """
 
+from typing import cast
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,7 +23,7 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 
 @pytest.fixture
@@ -103,7 +104,7 @@ def _mean_p_ascending() -> np.ndarray:
     Returns:
         np.ndarray: A 1D array of mean pressure values in ascending order.
     """
-    return np.array([50000.0, 70000.0, 85000.0, 100000.0])
+    return cast(np.ndarray, np.array([50000.0, 70000.0, 85000.0, 100000.0]))
 
 
 class TestDetectSpatialDimDefault:
@@ -895,7 +896,7 @@ class TestResolveLevelIndexInvalidType:
         """
         proc.dataset = _make_3d_ds()
         with pytest.raises(ValueError, match="Invalid level specification"):
-            proc._resolve_level_index("theta", [1, 2], "Time", 0)  # type: ignore[arg-type]
+            proc._resolve_level_index("theta", [1, 2], "Time", 0)
 
 
 class TestSetLevelAttrs:
@@ -920,7 +921,7 @@ class TestSetLevelAttrs:
 
         no_attrs_obj = NoAttrs()
         ds = _make_3d_ds()
-        proc._set_level_attrs(no_attrs_obj, 0, 0, ds, "Time", 0, "nVertLevels")  # type: ignore[arg-type]
+        proc._set_level_attrs(no_attrs_obj, 0, 0, ds, "Time", 0, "nVertLevels")
         assert not hasattr(no_attrs_obj, "selected_level")
 
     def test_float_level_with_pressure_adds_actual_pressure_attr(
@@ -1268,7 +1269,7 @@ class TestExtractNumpyByIndex:
         Returns:
             None
         """
-        arr = np.arange(60, dtype=float).reshape(5, 4, 3)
+        arr: np.ndarray = np.arange(60, dtype=float).reshape(5, 4, 3)
         result = MPAS3DProcessor._extract_numpy_by_index(arr, 1)
         expected = arr[:, 1, -1]
         assert np.allclose(result, expected)

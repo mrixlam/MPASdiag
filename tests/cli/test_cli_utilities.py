@@ -30,7 +30,7 @@ class TestMappingFunctions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -69,9 +69,9 @@ class TestUtilityFunctions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)
@@ -92,9 +92,9 @@ class TestUtilityFunctions:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-        from mpasdiag.processing.utils_config import MPASConfig
-        from mpasdiag.processing.utils_logger import MPASLogger
+        from mpasdiag import MPASUnifiedCLI
+        from mpasdiag import MPASConfig
+        from mpasdiag import MPASLogger
 
         cli = MPASUnifiedCLI()
         cli.logger = MPASLogger("test", verbose=True)

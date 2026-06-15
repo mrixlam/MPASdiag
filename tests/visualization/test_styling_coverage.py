@@ -26,7 +26,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.styling import MPASVisualizationStyle
+from mpasdiag import MPASVisualizationStyle
 
 _RNG = np.random.default_rng(42)
 

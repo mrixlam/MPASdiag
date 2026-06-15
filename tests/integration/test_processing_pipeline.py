@@ -18,9 +18,9 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from mpasdiag.processing.processors_2d import MPAS2DProcessor
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
-from mpasdiag.processing.remapping import MPASRemapper, remap_mpas_to_latlon
+from mpasdiag import MPAS2DProcessor
+from mpasdiag import MPAS3DProcessor
+from mpasdiag import MPASRemapper, remap_mpas_to_latlon
 
 from tests.integration.conftest import ESMPY_AVAILABLE
 

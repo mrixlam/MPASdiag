@@ -24,8 +24,8 @@ import xarray as xr
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.visualization.wind import MPASWindPlotter
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import MPASWindPlotter
+from mpasdiag import GeographicBounds
 
 N_CELLS = 10
 

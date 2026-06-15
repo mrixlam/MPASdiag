@@ -21,7 +21,7 @@ import xarray as xr
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+from mpasdiag import PrecipitationDiagnostics
 
 
 @pytest.fixture
@@ -143,7 +143,7 @@ class TestComputePrecipitationDifference:
             None
         """
         with pytest.raises(ValueError, match="Dataset not provided"):
-            diag.compute_precipitation_difference(None, 0)  # type: ignore[arg-type]
+            diag.compute_precipitation_difference(None, 0)
 
     def test_time_index_out_of_bounds_raises(
         self: "TestComputePrecipitationDifference",

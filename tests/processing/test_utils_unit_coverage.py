@@ -19,8 +19,8 @@ import pytest
 import xarray as xr
 from unittest.mock import patch
 
-from mpasdiag.processing.utils_unit import UnitConverter
-from mpasdiag.processing.constants import HPA, PA, KELVIN
+from mpasdiag import UnitConverter
+from mpasdiag import HPA, PA, KELVIN
 
 
 class TestConvertUnitsNoOp:

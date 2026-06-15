@@ -24,7 +24,7 @@ from contextlib import redirect_stdout
 from typing import Dict, Optional
 from unittest.mock import Mock, MagicMock, patch
 
-from mpasdiag.processing.parallel import ParallelStats, TaskResult
+from mpasdiag import ParallelStats, TaskResult
 from mpasdiag.processing.parallel_wrappers import (
     _precipitation_worker,
     _surface_worker,
@@ -38,9 +38,9 @@ from mpasdiag.processing.parallel_wrappers import (
     ParallelCrossSectionProcessor,
     ParallelSkewTProcessor,
 )
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 from tests.test_data_helpers import assert_expected_public_methods
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag import GeographicBounds
 
 TEST_DATA_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data"
@@ -814,7 +814,7 @@ class TestAutoBatchProcessor:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        from mpasdiag import auto_batch_processor
 
         assert auto_batch_processor(True) is True
 
@@ -828,7 +828,7 @@ class TestAutoBatchProcessor:
         Returns:
             None
         """
-        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        from mpasdiag import auto_batch_processor
 
         assert auto_batch_processor(False) is False
 
@@ -843,7 +843,7 @@ class TestAutoBatchProcessor:
             None
         """
         import sys
-        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        from mpasdiag import auto_batch_processor
 
         with patch.dict(sys.modules, {"mpi4py": None, "mpi4py.MPI": None}):
             result = auto_batch_processor(None)
@@ -860,7 +860,7 @@ class TestAutoBatchProcessor:
             None
         """
         import sys
-        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        from mpasdiag import auto_batch_processor
 
         mock_comm = MagicMock()
         mock_comm.Get_size.return_value = 1
@@ -885,7 +885,7 @@ class TestAutoBatchProcessor:
             None
         """
         import sys
-        from mpasdiag.processing.parallel_wrappers import auto_batch_processor
+        from mpasdiag import auto_batch_processor
 
         mock_comm = MagicMock()
         mock_comm.Get_size.return_value = 4

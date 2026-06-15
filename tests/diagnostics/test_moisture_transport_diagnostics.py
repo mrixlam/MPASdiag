@@ -27,8 +27,8 @@ from typing import Dict
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from mpasdiag.diagnostics.moisture_transport import MoistureTransportDiagnostics
-from mpasdiag.processing.constants import GRAVITY
+from mpasdiag import MoistureTransportDiagnostics
+from mpasdiag import GRAVITY
 
 
 @pytest.fixture

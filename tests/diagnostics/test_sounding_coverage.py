@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Optional
 from unittest.mock import Mock
 
-from mpasdiag.diagnostics.sounding import SoundingDiagnostics
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import SoundingDiagnostics
+from mpasdiag import MPAS3DProcessor
 
 try:
     from metpy.units import units
@@ -255,7 +255,7 @@ class TestNonFiniteFiltering:
     """Tests for the filtering of non-finite pressure levels in the extract_sounding_profile method."""
 
     def test_nan_pressure_levels_are_filtered(
-        self: "TestNonFiniteFiltering", tmp_path: str
+        self: "TestNonFiniteFiltering", tmp_path: Path
     ) -> None:
         """
         This test verifies that when the pressure profile extracted in the extract_sounding_profile method contains NaN values, these non-finite levels are filtered out from the resulting sounding profile. It checks that when a synthetic dataset is created with NaN values injected into the pressure profile, the resulting profile returned by extract_sounding_profile contains only finite pressure values and that the length of the profile is reduced accordingly. This ensures that users receive a cleaned sounding profile without non-finite pressure levels, which could otherwise lead to errors or misleading results in subsequent analysis of the sounding data.
@@ -274,7 +274,7 @@ class TestNonFiniteFiltering:
         assert len(profile["pressure"]) < 10
 
     def test_wind_and_height_also_filtered(
-        self: "TestNonFiniteFiltering", tmp_path: str
+        self: "TestNonFiniteFiltering", tmp_path: Path
     ) -> None:
         """
         This test verifies that when the pressure profile contains NaN values and is filtered in the extract_sounding_profile method, the corresponding wind and height profiles are also filtered to maintain consistent indexing across all profile variables. It checks that when a synthetic dataset is created with NaN values injected into the pressure profile, the resulting u_wind, v_wind, and height profiles returned by extract_sounding_profile contain only finite values and have the same length as the filtered pressure profile. This ensures that users receive consistent and aligned profiles for pressure, wind, and height after non-finite levels are removed, allowing for accurate analysis of the sounding data without mismatched indices.
@@ -308,7 +308,7 @@ class TestExtractSoundingProfileWithComponents:
     """Tests for the extract_sounding_profile method when the dataset contains pressure components."""
 
     def test_pressure_components_dataset_works_end_to_end(
-        self: "TestExtractSoundingProfileWithComponents", tmp_path: str
+        self: "TestExtractSoundingProfileWithComponents", tmp_path: Path
     ) -> None:
         """
         This test verifies that when the dataset contains pressure components (e.g., 'components' variable), the extract_sounding_profile method can successfully extract a sounding profile end-to-end, including pressure, temperature, dewpoint, wind, and height profiles. It checks that when a synthetic dataset is created with pressure components and the necessary variables for temperature, dewpoint, wind, and height, the method returns a profile with finite pressure values and valid wind and height profiles. This ensures that users can obtain a complete sounding profile from datasets that use pressure components, which is a common format in MPAS output, and that the method can handle the necessary conversions and extractions to produce a consistent profile for analysis.
@@ -340,7 +340,7 @@ class TestExtractSoundingProfileWithComponents:
         assert profile["height"] is not None
 
     def test_potential_temperature_conversion_in_full_pipeline(
-        self: "TestExtractSoundingProfileWithComponents", tmp_path: str
+        self: "TestExtractSoundingProfileWithComponents", tmp_path: Path
     ) -> None:
         """
         This test verifies that when the dataset contains potential temperature ('theta') as the temperature variable and pressure components, the extract_sounding_profile method correctly converts potential temperature to actual temperature in the full extraction pipeline. It checks that when a synthetic dataset is created with 'theta' as the temperature variable and pressure components, the resulting temperature profile in the extracted sounding profile is in a physically reasonable range for Celsius temperatures. This ensures that the method can handle datasets with potential temperature and perform the necessary conversions to produce a valid temperature profile for sounding diagnostics, even when using pressure components.

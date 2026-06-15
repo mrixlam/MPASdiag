@@ -20,7 +20,7 @@ import xarray as xr
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.processors_3d import MPAS3DProcessor
+from mpasdiag import MPAS3DProcessor
 
 
 def _make_processor(verbose: bool = False) -> MPAS3DProcessor:

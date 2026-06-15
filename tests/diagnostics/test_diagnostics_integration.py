@@ -24,7 +24,7 @@ import xarray as xr
 matplotlib.use("Agg")
 from typing import Any
 
-from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+from mpasdiag import PrecipitationDiagnostics
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -47,8 +47,8 @@ class TestDiagnosticsIntegration:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
-        from mpasdiag.diagnostics.precipitation import PrecipitationDiagnostics
+        from mpasdiag import WindDiagnostics
+        from mpasdiag import PrecipitationDiagnostics
 
         wind_diag = WindDiagnostics(verbose=False)
         precip_diag = PrecipitationDiagnostics(verbose=False)
@@ -155,7 +155,7 @@ class TestIntegrationWithRealData:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         n_cells = 200
         n_time = 24
@@ -197,7 +197,7 @@ class TestIntegrationWithRealData:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         n_cells = 100
         n_vert_levels = 20

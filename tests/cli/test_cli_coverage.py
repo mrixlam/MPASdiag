@@ -13,6 +13,7 @@ Date: April 2026
 Version: 1.0.0
 """
 
+from typing import Any
 import sys
 import argparse
 import pytest
@@ -20,8 +21,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from mpasdiag.processing.cli_unified import MPASUnifiedCLI
-from mpasdiag.processing.utils_config import MPASConfig
+from mpasdiag import MPASUnifiedCLI
+from mpasdiag import MPASConfig
 
 
 def _make_profile() -> dict:
@@ -724,7 +725,7 @@ class TestParseArgsWithReorderingFallback:
         fallback_ns = argparse.Namespace()
         call_n = [0]
 
-        def side_effect(*args, **kwargs) -> argparse.Namespace:
+        def side_effect(*args: Any, **kwargs: Any) -> argparse.Namespace:
             """
             This side effect function simulates the behavior of parser.parse_args for testing the fallback mechanism in _parse_args_with_reordering. On the first call, it raises a ValueError to trigger the except branch. On subsequent calls, it returns a predefined fallback namespace. This allows the test to verify that the method correctly handles the exception and returns the fallback result as expected.
 
@@ -806,7 +807,7 @@ class TestModuleLevelMain:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import main as cli_module_main
+        from mpasdiag import main as cli_module_main
 
         with patch.object(MPASUnifiedCLI, "main", return_value=0) as mock_main:
             result = cli_module_main()

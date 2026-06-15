@@ -19,7 +19,7 @@ from .processors_2d import MPAS2DProcessor
 from .processors_3d import MPAS3DProcessor
 from .utils_metadata import MPASFileMetadata
 from .utils_unit import UnitConverter
-from .utils_geog import MPASGeographicUtils
+from .utils_geog import MPASGeographicUtils, GeographicBounds
 from .utils_datetime import MPASDateTimeUtils
 from .utils_config import MPASConfig
 from .utils_logger import MPASLogger, get_logger
@@ -27,6 +27,14 @@ from .utils_file import FileManager, print_system_info
 from .utils_validator import DataValidator
 from .utils_monitor import PerformanceMonitor
 from .utils_parser import ArgumentParser
+from .data_cache import MPASDataCache, CachedVariable
+from .parallel import (
+    MPASParallelManager,
+    TaskResult,
+    ParallelStats,
+    LoadBalanceStrategy,
+    ErrorPolicy,
+)
 
 try:
     from .remapping import (
@@ -57,6 +65,7 @@ __all__ = [
     "MPASFileMetadata",
     "UnitConverter",
     "MPASGeographicUtils",
+    "GeographicBounds",
     "MPASDateTimeUtils",
     "MPASConfig",
     "MPASLogger",
@@ -66,6 +75,13 @@ __all__ = [
     "DataValidator",
     "PerformanceMonitor",
     "ArgumentParser",
+    "MPASDataCache",
+    "CachedVariable",
+    "MPASParallelManager",
+    "TaskResult",
+    "ParallelStats",
+    "LoadBalanceStrategy",
+    "ErrorPolicy",
     "MPASRemapper",
     "remap_mpas_to_latlon",
     "remap_mpas_to_latlon_with_masking",

@@ -29,7 +29,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from mpasdiag.diagnostics.wind import WindDiagnostics
+from mpasdiag import WindDiagnostics
 
 _RNG = np.random.default_rng(42)
 
@@ -49,7 +49,7 @@ class TestWindDiagnostics:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=False)
         u = mock_mpas_2d_data["u10"].isel(Time=0).compute()
@@ -137,7 +137,7 @@ class TestAnalyzeWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         u, v, _ = sample_wind_components
         diag = WindDiagnostics(verbose=False)
@@ -171,7 +171,7 @@ class TestAnalyzeWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         u, v, w = sample_wind_components
         diag = WindDiagnostics(verbose=False)
@@ -199,7 +199,7 @@ class TestAnalyzeWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         u, v, _ = sample_wind_components
         diag = WindDiagnostics(verbose=True)
@@ -234,7 +234,7 @@ class TestAnalyzeWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         u, v, w = sample_wind_components
         diag = WindDiagnostics(verbose=True)
@@ -293,7 +293,7 @@ class TestComputeWindShear:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         u_upper, v_upper, u_lower, v_lower = sample_wind_levels
 
@@ -331,7 +331,7 @@ class TestGet3DWindComponents:
         w_data = _RNG.standard_normal((n_time, n_vert_levels, n_cells)) * 0.5
 
         pressure_p = _RNG.random((n_time, n_vert_levels, n_cells)) * 10000 + 50000
-        pressure_base = np.ones((n_time, n_vert_levels, n_cells)) * 50000
+        pressure_base: np.ndarray = np.ones((n_time, n_vert_levels, n_cells)) * 50000
 
         ds = xr.Dataset(
             {
@@ -357,7 +357,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=False)
 
@@ -389,7 +389,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=True)
         captured_output = StringIO()
@@ -420,7 +420,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=False)
 
@@ -447,7 +447,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=False)
 
@@ -474,7 +474,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=True)
 
@@ -505,7 +505,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=True)
 
@@ -538,7 +538,7 @@ class TestGet3DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         diag = WindDiagnostics(verbose=False)
 
@@ -598,7 +598,7 @@ class TestGet2DWindComponents:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         ds = xr.Dataset(
             {
@@ -642,7 +642,7 @@ class TestEdgeCasesAndErrorPaths:
         Returns:
             None
         """
-        from mpasdiag.diagnostics.wind import WindDiagnostics
+        from mpasdiag import WindDiagnostics
 
         n_cells = 30
         n_vert_levels = 10

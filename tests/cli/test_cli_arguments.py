@@ -19,6 +19,7 @@ import sys
 import yaml
 import pytest
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 
@@ -35,7 +36,7 @@ class TestArgumentParsing:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -69,7 +70,7 @@ class TestArgumentParsing:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         parser = cli.create_main_parser()
@@ -109,7 +110,7 @@ class TestMainFunctionAndArgumentHandling:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             config_data = {
@@ -160,7 +161,7 @@ class TestMainFunctionAndArgumentHandling:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
 
@@ -182,7 +183,7 @@ class TestMainFunctionAndArgumentHandling:
                     assert result == pytest.approx(0)
 
     def test_main_with_direct_args(
-        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: str
+        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test runs `MPASUnifiedCLI.main()` with a direct set of command-line arguments simulating a typical user invocation for a surface plot. It sets `sys.argv` to include necessary flags and arguments, then calls `main()` to ensure it processes the arguments correctly and returns a zero exit code on success. This test verifies that the CLI can handle a straightforward command-line invocation without relying on config files or global flags.
@@ -195,11 +196,10 @@ class TestMainFunctionAndArgumentHandling:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -231,7 +231,7 @@ class TestMainFunctionAndArgumentHandling:
             sys.argv = original_argv
 
     def test_main_with_verbose_flag(
-        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: str
+        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test verifies that when `MPASUnifiedCLI.main()` is invoked with the `--verbose` flag, it processes the arguments correctly and returns a zero exit code on success. By setting `sys.argv` to include the `--verbose` flag along with necessary arguments for a precipitation plot, the test checks that the CLI can handle verbose mode and that it executes without errors, returning the expected exit code.
@@ -244,11 +244,10 @@ class TestMainFunctionAndArgumentHandling:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -289,7 +288,7 @@ class TestMainFunctionAndArgumentHandling:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         original_argv = sys.argv
@@ -324,7 +323,7 @@ class TestMainFunctionAndArgumentHandling:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
         original_argv = sys.argv
@@ -353,7 +352,7 @@ class TestMainArgumentReorderingAdditional:
     """Test main() function argument reordering logic."""
 
     def test_main_with_global_flags_after_subcommand(
-        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: str
+        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle global flags (like `--verbose`) appearing after the subcommand and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--verbose` flag after the subcommand and necessary arguments for a precipitation plot, the test checks that the CLI can reorder arguments as needed and execute without errors.
@@ -366,11 +365,10 @@ class TestMainArgumentReorderingAdditional:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
         original_argv = sys.argv
@@ -399,7 +397,7 @@ class TestMainArgumentReorderingAdditional:
             sys.argv = original_argv
 
     def test_main_with_log_file_argument(
-        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: str
+        self: "TestMainArgumentReorderingAdditional", grid_file: str, test_data_dir: Path
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle a `--log-file` argument appearing in the command line and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--log-file` flag along with necessary arguments for a precipitation plot, the test checks that the CLI can handle log file specification and that it executes without errors, creating the log file as expected.
@@ -412,12 +410,11 @@ class TestMainArgumentReorderingAdditional:
             None
         """
         import pytest
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
         import tempfile
 
         if grid_file is None:
             pytest.skip("Test data files not available")
-            return
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
@@ -470,7 +467,7 @@ class TestMainArgumentReorderingUnifiedFinal:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
         import tempfile
         import yaml
 
@@ -513,7 +510,7 @@ class TestMainArgumentReorderingUnifiedFinal:
         Returns:
             None
         """
-        from mpasdiag.processing.cli_unified import MPASUnifiedCLI
+        from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
 

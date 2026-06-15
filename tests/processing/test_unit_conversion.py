@@ -18,8 +18,8 @@ Version: 1.0.0
 import pytest
 import numpy as np
 import xarray as xr
-from mpasdiag.processing.utils_unit import UnitConverter
-from mpasdiag.processing.utils_metadata import MPASFileMetadata
+from mpasdiag import UnitConverter
+from mpasdiag import MPASFileMetadata
 
 
 class TestUnitConversion:
@@ -148,7 +148,6 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
-            return
 
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_array = mpas_surface_temp_data[:subset_size]
@@ -176,7 +175,6 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
-            return
 
         subset_size = min(50, len(mpas_surface_temp_data))
         temp_data = xr.DataArray(mpas_surface_temp_data[:subset_size])
@@ -258,7 +256,6 @@ class TestUnitConversion:
         """
         if mpas_surface_temp_data is None:
             pytest.skip("MPAS surface temperature data not available")
-            return
 
         subset_size = min(50, len(mpas_surface_temp_data))
 

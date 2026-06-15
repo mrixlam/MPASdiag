@@ -20,7 +20,7 @@ import numpy as np
 import xarray as xr
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
-from mpasdiag.processing.remapping import remap_mpas_to_latlon
+from mpasdiag import remap_mpas_to_latlon
 
 
 class TestEdgeCasesAndErrorHandling:
@@ -68,8 +68,8 @@ class TestEdgeCasesAndErrorHandling:
         umax = u.max()
         data = 10.0 + 20.0 * (u - umin) / (umax - umin + 1e-12)
 
-        original_min = np.min(data)
-        original_max = np.max(data)
+        original_min = float(np.min(data))
+        original_max = float(np.max(data))
 
         remapped = remap_mpas_to_latlon(
             data=data, lon=lon, lat=lat, resolution=20.0, method="nearest"

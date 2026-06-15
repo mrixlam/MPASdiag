@@ -26,11 +26,11 @@ matplotlib.use("Agg")
 from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
 from cartopy.mpl.geoaxes import GeoAxes
-from mpasdiag.visualization.wind import MPASWindPlotter
+from mpasdiag import MPASWindPlotter
 from tests.visualization.wind_test_helpers import require_wind_fixtures
 from tests.test_data_helpers import fake_render_factory
-from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.wind import WindPlotStyle
+from mpasdiag import GeographicBounds
+from mpasdiag import WindPlotStyle
 
 
 class TestRegridWindComponents:
@@ -54,7 +54,7 @@ class TestRegridWindComponents:
     # ------------------ Test Linear Regridding Method ------------------
 
     def test_regrid_linear_method(
-        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch
+        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """
         This test verifies that specifying `regrid_method='linear'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with linear interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a linear regridding of the input data. This ensures that users can rely on the linear regridding option to produce accurate results when visualizing wind vectors on a regular grid.
@@ -75,7 +75,6 @@ class TestRegridWindComponents:
         # Skip test if grid file is not available
         if not grid_file.exists():
             pytest.skip(f"MPAS grid file not found: {grid_file}")
-            return
 
         # Load MPAS grid data
         ds = xr.open_dataset(grid_file, decode_times=False)
@@ -132,7 +131,7 @@ class TestRegridWindComponents:
     # ------------------ Test Nearest Regridding Method ------------------
 
     def test_regrid_nearest_method(
-        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch
+        self: "TestRegridWindComponents", plotter: "MPASWindPlotter", monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """
         This test verifies that specifying `regrid_method='nearest'` forwards the method parameter to the remapping utility for both U and V components, and that the outputs are consistent with nearest-neighbor interpolation. The test uses real MPAS grid data to create a realistic scenario for regridding, and checks that the output longitude, latitude, and wind component arrays have the expected shapes, dtypes, and values corresponding to a nearest-neighbor regridding of the input data. This ensures that users can rely on the nearest regridding option to produce accurate results when visualizing wind vectors on a regular grid without smoothing.
@@ -153,7 +152,6 @@ class TestRegridWindComponents:
         # Skip test if grid file is not available
         if not grid_file.exists():
             pytest.skip(f"MPAS grid file not found: {grid_file}")
-            return
 
         # Load MPAS grid data
         ds = xr.open_dataset(grid_file, decode_times=False)
@@ -232,7 +230,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that the `create_wind_plot` method can successfully create a wind plot using real MPAS longitude, latitude, and wind component data with basic parameters. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully. This ensures that users can create wind plots with real MPAS data and that the internal rendering logic is invoked as expected.
@@ -291,7 +289,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `subsample=-1` is passed to `create_wind_plot`, the method automatically calculates an appropriate subsampling factor based on the input data size and successfully creates a wind plot. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully with automatic subsampling. This ensures that users can rely on the automatic subsampling feature to create wind plots without needing to manually specify a subsampling factor, even when working with larger MPAS datasets.
@@ -350,7 +348,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when global longitude and latitude extents are passed to `create_wind_plot`, the method successfully creates a wind plot with the specified global extent. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, and that the GeoAxes has the expected global extent set. This ensures that users can create wind plots with global coverage by specifying appropriate longitude and latitude limits, and that the internal logic correctly applies these limits to the plot.
@@ -418,7 +416,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when a custom `title` string is passed to `create_wind_plot`, the method successfully creates a wind plot and includes the custom title in the axes title. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, and that the custom title appears in the axes title string. This ensures that users can customize the title of their wind plots by passing a specific string, and that the internal logic correctly incorporates this title into the plot.
@@ -483,7 +481,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when a `time_stamp` is passed to `create_wind_plot`, the method successfully creates a wind plot and includes the formatted timestamp in the axes title. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, and that the timestamp appears in the axes title string in the expected format (e.g., "YYYY-MM-DD HH:MM"). This ensures that users can include temporal information in their wind plots by passing a specific timestamp, and that the internal logic correctly formats and incorporates this timestamp into the plot title.
@@ -543,7 +541,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `level_info` is passed to `create_wind_plot`, the method successfully creates a wind plot and includes the level information in the axes title. The test patches the internal rendering method to confirm that it is called during the plot creation process. It checks that the returned figure and axes objects are not None, and that the level information appears in the axes title string. This ensures that users can include vertical level information (e.g., pressure level) in their wind plots by passing a specific string, and that the internal logic correctly incorporates this information into the plot title.
@@ -603,7 +601,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `grid_resolution` is specified in `create_wind_plot`, the method successfully performs regridding of the input wind data onto a regular grid and creates a wind plot with the regridded data. The test uses real MPAS longitude, latitude, and wind component data to create a realistic scenario for regridding. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully with regridding. This ensures that users can create wind plots with regridded data by specifying a grid resolution, and that the internal logic correctly applies the regridding process before rendering the plot.
@@ -665,7 +663,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `plot_type='streamlines'` is passed to `create_wind_plot` without an explicit `grid_resolution`, the method automatically enables regridding of the input wind data onto a regular grid suitable for streamlining, and successfully creates a wind plot with the regridded data. The test uses real MPAS longitude, latitude, and wind component data to create a realistic scenario for automatic regridding. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully with automatic regridding for streamlines. This ensures that users can create streamline plots without needing to manually specify a grid resolution, and that the internal logic correctly applies automatic regridding when streamlines are requested.
@@ -726,7 +724,7 @@ class TestCreateWindPlot:
         plotter: "MPASWindPlotter",
         mpas_coordinates: tuple[np.ndarray, np.ndarray],
         mpas_wind_data: tuple[np.ndarray, np.ndarray],
-        monkeypatch,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when 2D gridded longitude, latitude, and wind component arrays are passed to `create_wind_plot`, the method successfully creates a wind plot without errors. The test uses real MPAS grid data to create a realistic scenario for 2D gridded inputs. It checks that the returned figure and axes objects are not None, indicating that the plot was created successfully with 2D gridded data. This ensures that users can create wind plots using 2D gridded datasets (e.g., from regridding or structured grids) without encountering issues, and that the internal logic correctly handles gridded inputs for plotting.
