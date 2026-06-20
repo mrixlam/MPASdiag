@@ -4,7 +4,7 @@
 """
 MPASdiag Example VI: Overlaying MSLP contours and 10-m wind vectors on a 2D surface map of 2-m temperature
 
-This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours and 10-meter wind vectors. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours and wind vectors are overlaid as arrows. Note that the same plot can be generated with wind vectors represented as barbs by changing the plot_type argument in the add_wind_overlay method. 
+This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours and 10-meter wind vectors. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours and wind vectors are overlaid as arrows. Note that the same plot can be generated with wind vectors represented as barbs by changing the plot_type argument in the add_wind_overlay method.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -15,7 +15,7 @@ Version: 1.0.0
 # Load standard libraries
 import os
 
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -37,7 +37,7 @@ uwnd_var = 'u10'
 vwnd_var = 'v10'
 
 # Define time index for surface variable extraction
-tindex = 1 
+tindex = 1
 
 # Extract 2D coordinates and variable data for the surface plot
 surface_var = processor.dataset[t_var].isel(Time=tindex)
@@ -56,19 +56,19 @@ cfg = md.MPASConfig()
 cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 20.0
-cfg.lat_max = 60.0 
+cfg.lat_max = 60.0
 
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 
@@ -76,7 +76,7 @@ TRANSECTS = {
 valtime = processor.dataset['Time'][tindex].values
 valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
 
-# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting. 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
 cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
 cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
@@ -116,8 +116,8 @@ mslp_config = {
 }
 
 # Add MSLP contours as an overlay on the existing surface map
-plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
-                            lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
+plotter.add_surface_overlay(ax, lon, lat, mslp_config,
+                            lon_min=cfg.lon_min, lon_max=cfg.lon_max,
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max)
 
 # -------------- Overlay: 10-m wind vectors at 0.1° resolution --------------

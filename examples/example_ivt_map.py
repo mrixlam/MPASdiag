@@ -5,7 +5,7 @@
 """
 MPASdiag Example IX: Vertically Integrated Water Vapor Transport (IVT) Map
 
-This example demonstrates how to calculate and visualize the vertically integrated water vapor transport (IVT) from MPAS 3D output data. The example uses sample MPAS output data and grid files to illustrate the process of loading 3D data, calculating IVT by integrating specific humidity and wind components over the vertical dimension, and generating a map of IVT at the surface level. The output is saved as a PNG file in the ./output directory. 
+This example demonstrates how to calculate and visualize the vertically integrated water vapor transport (IVT) from MPAS 3D output data. The example uses sample MPAS output data and grid files to illustrate the process of loading 3D data, calculating IVT by integrating specific humidity and wind components over the vertical dimension, and generating a map of IVT at the surface level. The output is saved as a PNG file in the ./output directory.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -30,8 +30,8 @@ processor.load_3d_data(dataDir)
 
 # Define model initialization time
 init_time      = np.datetime64('2024-09-17T00', 'h')
-init_time_str  = str(init_time).replace('-', '').replace('T', '')  
-init_time_disp = str(init_time).replace('T', ' ') + ':00 UTC'   
+init_time_str  = str(init_time).replace('-', '').replace('T', '')
+init_time_disp = str(init_time).replace('T', ' ') + ':00 UTC'
 
 # Define time index for variable extraction
 tindex = 0
@@ -55,11 +55,11 @@ diag   = md.MoistureTransportDiagnostics(verbose=True)
 result = diag.analyze_moisture_transport(qv, u_3d, v_3d, pressure)
 
 # Extract 1-D IVT DataArrays (nCells) for magnitude and components
-ivt_da   = result['ivt']['data']  
-ivt_u_da = result['ivt_u']['data'] 
-ivt_v_da = result['ivt_v']['data'] 
+ivt_da   = result['ivt']['data']
+ivt_u_da = result['ivt_u']['data']
+ivt_v_da = result['ivt_v']['data']
 
-# Extract 2-D longitude and latitude coordinates for the variable used in IVT calculation 
+# Extract 2-D longitude and latitude coordinates for the variable used in IVT calculation
 lon, lat = processor.extract_2d_coordinates_for_variable('qv', ivt_u_da)
 
 # Now convert IVT data to 1-D numpy arrays for plotting
@@ -81,14 +81,14 @@ cfg.lat_max =   90.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 
@@ -96,12 +96,12 @@ TRANSECTS = {
 valtime     = processor.dataset['Time'][tindex].values
 valtime_np   = valtime.astype('datetime64[h]')
 valtime_str = str(valtime_np).replace('-', '')
-valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'  
+valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'
 
 # Define custom contour levels
 custom_levels = [250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000]
 
-# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting. 
+# Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
 cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
 cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
@@ -142,7 +142,7 @@ Q = wind_plotter.add_wind_overlay(
     lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg,
 )
 
-# Specify a reference IVT magnitude for the quiver key 
+# Specify a reference IVT magnitude for the quiver key
 ivt_ref_magnitude = 250  # kg m⁻¹ s⁻¹
 
 # Add a quiver key to the plot to indicate the reference IVT magnitude for the arrows

@@ -5,7 +5,7 @@
 """
 MPASdiag Example II: Global Surface Map as Scatter Plot
 
-This example demonstrates how to extract a surface variable from MPAS 2D model output and plot it as a surface map. We will extract 2-meter temperature (t2m) at a specified time index (0-based) of the dataset and visualize it using a scatter plot over a specified geographic region (e.g. GLOBAL). Note that the same variable can also be visualized as a filled contour plot by changing the plot_type argument in the create_surface_map method. 
+This example demonstrates how to extract a surface variable from MPAS 2D model output and plot it as a surface map. We will extract 2-meter temperature (t2m) at a specified time index (0-based) of the dataset and visualize it using a scatter plot over a specified geographic region (e.g. GLOBAL). Note that the same variable can also be visualized as a filled contour plot by changing the plot_type argument in the create_surface_map method.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -13,7 +13,7 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -25,7 +25,7 @@ processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Define time index for surface variable extraction
-tindex = 1 
+tindex = 1
 
 # Initialize Surface Plotter
 plotter = md.MPASSurfacePlotter(verbose=True)
@@ -51,14 +51,14 @@ cfg.lat_max = 90.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 

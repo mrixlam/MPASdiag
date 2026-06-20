@@ -5,9 +5,9 @@
 """
 MPASdiag Benchmark: Batch Plotter Runtime with MPI Support
 
-This script benchmarks the runtime of MPASdiag's batch plotting functions for various plot types (precipitation, surface, wind, cross-section, skew-T) across different MPAS model resolutions. It supports both serial and parallel execution using MPI (via mpi4py). The results are saved to a CSV file and printed in a summary table.  
+This script benchmarks the runtime of MPASdiag's batch plotting functions for various plot types (precipitation, surface, wind, cross-section, skew-T) across different MPAS model resolutions. It supports both serial and parallel execution using MPI (via mpi4py). The results are saved to a CSV file and printed in a summary table.
 
-Usage: 
+Usage:
     # Serial baseline (single process):
     python benchmark.py --serial
 
@@ -122,12 +122,12 @@ MPASOUT_VARIABLES = [
 BENCHMARK_DIR = Path('../output/benchmarks')
 
 
-def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor, 
-                                out_dir: str, 
-                                use_parallel: bool, 
+def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor,
+                                out_dir: str,
+                                use_parallel: bool,
                                 n_workers: int) -> tuple[float, int]:
     """
-    This function benchmarks the batch precipitation map creation. It creates a directory for precipitation plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. 
+    This function benchmarks the batch precipitation map creation. It creates a directory for precipitation plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
     Parameters:
         processor_2d: An instance of MPAS2DProcessor with loaded 2D diagnostic data.
@@ -168,12 +168,12 @@ def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_surface(processor_2d: md.MPAS2DProcessor, 
-                          out_dir: str, 
-                          use_parallel: bool, 
+def run_benchmark_surface(processor_2d: md.MPAS2DProcessor,
+                          out_dir: str,
+                          use_parallel: bool,
                           n_workers: int) -> tuple[float, int]:
     """
-    This function benchmarks the batch surface map creation. It creates a directory for surface plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. 
+    This function benchmarks the batch surface map creation. It creates a directory for surface plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
     Parameters:
         processor_2d: An instance of MPAS2DProcessor with loaded 2D diagnostic data.
@@ -212,12 +212,12 @@ def run_benchmark_surface(processor_2d: md.MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_wind(processor_2d: md.MPAS2DProcessor, 
-                       out_dir: str, 
-                       use_parallel: bool, 
+def run_benchmark_wind(processor_2d: md.MPAS2DProcessor,
+                       out_dir: str,
+                       use_parallel: bool,
                        n_workers: int) -> tuple[float, int]:
     """
-    This function benchmarks the batch wind map creation. It creates a directory for wind plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. 
+    This function benchmarks the batch wind map creation. It creates a directory for wind plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
     Parameters:
         processor_2d: An instance of MPAS2DProcessor with loaded 2D diagnostic data.
@@ -263,12 +263,12 @@ def run_benchmark_wind(processor_2d: md.MPAS2DProcessor,
     return elapsed, len(created)
 
 
-def run_benchmark_cross_section(processor_3d: md.MPAS3DProcessor, 
-                                out_dir: str, 
-                                use_parallel: bool, 
+def run_benchmark_cross_section(processor_3d: md.MPAS3DProcessor,
+                                out_dir: str,
+                                use_parallel: bool,
                                 n_workers: int) -> tuple[float, int]:
     """
-    This function benchmarks the batch vertical cross-section plot creation. It creates a directory for cross-section plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. 
+    This function benchmarks the batch vertical cross-section plot creation. It creates a directory for cross-section plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
     Parameters:
         processor_3d: An instance of MPAS3DProcessor with loaded 3D diagnostic data.
@@ -383,10 +383,10 @@ def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
     return elapsed, len(created)
 
 
-def write_csv(results: list[dict], 
+def write_csv(results: list[dict],
               csv_path: str) -> None:
     """
-    This function writes the benchmark results to a CSV file. It takes a list of dictionaries, where each dictionary contains the results of a single benchmark (including experiment name, category, number of MPI ranks, elapsed time in seconds, number of files created, and timestamp), and the path to the CSV file where the results should be saved. The function uses Python's built-in csv module to write the data to the specified CSV file, including a header row with the field names. 
+    This function writes the benchmark results to a CSV file. It takes a list of dictionaries, where each dictionary contains the results of a single benchmark (including experiment name, category, number of MPI ranks, elapsed time in seconds, number of files created, and timestamp), and the path to the CSV file where the results should be saved. The function uses Python's built-in csv module to write the data to the specified CSV file, including a header row with the field names.
 
     Parameters:
         results: A list of dictionaries containing benchmark results.
@@ -404,10 +404,10 @@ def write_csv(results: list[dict],
         writer.writerows(results)
 
 
-def print_summary(results: list[dict], 
+def print_summary(results: list[dict],
                   csv_path: str) -> None:
     """
-    This function prints a summary of the benchmark results to the console. It takes a list of dictionaries containing the benchmark results and the path to the CSV file where the results are saved. The function formats and prints a table summarizing the experiment name, category, number of MPI ranks, elapsed time in seconds, and number of files created for each benchmark. It also prints a separator line before and after the table for better readability, and at the end, it prints the path to the CSV file where the results are stored. 
+    This function prints a summary of the benchmark results to the console. It takes a list of dictionaries containing the benchmark results and the path to the CSV file where the results are saved. The function formats and prints a table summarizing the experiment name, category, number of MPI ranks, elapsed time in seconds, and number of files created for each benchmark. It also prints a separator line before and after the table for better readability, and at the end, it prints the path to the CSV file where the results are stored.
 
     Parameters:
         results: A list of dictionaries containing benchmark results.
@@ -576,7 +576,7 @@ def run_single_benchmark(plotter_name: str,
                          timestamp: str,
                          trial: int = 1) -> dict | None:
     """
-    This function runs a single benchmark and gathers the results across MPI ranks. It takes the benchmark category name, a zero-argument callable that executes the benchmark and returns (elapsed time, number of files), the experiment name, and a timestamp string. The function prints a status message indicating which benchmark is running, synchronises the ranks with a barrier, executes the benchmark function to get the timing and file count, and then gathers these results from all ranks to rank 0. On rank 0, it computes the maximum elapsed time across ranks (as the effective runtime) and the total number of files created, prints the results for this benchmark, and creates a result record dictionary using the _make_result helper function. The function returns this result record on rank 0, while other ranks return None. 
+    This function runs a single benchmark and gathers the results across MPI ranks. It takes the benchmark category name, a zero-argument callable that executes the benchmark and returns (elapsed time, number of files), the experiment name, and a timestamp string. The function prints a status message indicating which benchmark is running, synchronises the ranks with a barrier, executes the benchmark function to get the timing and file count, and then gathers these results from all ranks to rank 0. On rank 0, it computes the maximum elapsed time across ranks (as the effective runtime) and the total number of files created, prints the results for this benchmark, and creates a result record dictionary using the _make_result helper function. The function returns this result record on rank 0, while other ranks return None.
 
     Parameters:
         plotter_name: The benchmark category name (e.g. 'precipitation').
@@ -632,7 +632,7 @@ def _record_load_times(exp_name: str,
                        load_3d_time: float,
                        timestamp: str) -> list[dict]:
     """
-    This function gathers the 2D and 3D data loading times across ranks and creates result records for these operations. It takes the experiment name, the loading times for 2D and 3D data on this rank, and a timestamp string. The function gathers the loading times from all ranks to rank 0, computes the maximum loading time across ranks (as the effective loading time), and on rank 0, it prints these times and creates result records for both 'data_load_2d' and 'data_load_3d' categories using the _make_result helper function. The function returns a list of these result records on rank 0, while other ranks return an empty list. 
+    This function gathers the 2D and 3D data loading times across ranks and creates result records for these operations. It takes the experiment name, the loading times for 2D and 3D data on this rank, and a timestamp string. The function gathers the loading times from all ranks to rank 0, computes the maximum loading time across ranks (as the effective loading time), and on rank 0, it prints these times and creates result records for both 'data_load_2d' and 'data_load_3d' categories using the _make_result helper function. The function returns a list of these result records on rank 0, while other ranks return an empty list.
 
     Parameters:
         exp_name: The name of the experiment these load times belong to.
@@ -728,7 +728,7 @@ def _run_trials(benchmarks: list,
                 timestamp: str,
                 trials: int) -> list[dict]:
     """
-    This function runs the provided benchmarks for a specified number of trials, collecting the results. It takes a list of (name, callable) benchmark pairs, the experiment name, a timestamp string, and the number of trials to run. The function iterates over the number of trials, and for each trial, it iterates over the benchmarks, running each one with run_single_benchmark to get the result record. If there are multiple trials, it prints a status message indicating the current trial. The collected result records from all benchmarks and trials are returned as a list on rank 0, while other ranks return an empty list. 
+    This function runs the provided benchmarks for a specified number of trials, collecting the results. It takes a list of (name, callable) benchmark pairs, the experiment name, a timestamp string, and the number of trials to run. The function iterates over the number of trials, and for each trial, it iterates over the benchmarks, running each one with run_single_benchmark to get the result record. If there are multiple trials, it prints a status message indicating the current trial. The collected result records from all benchmarks and trials are returned as a list on rank 0, while other ranks return an empty list.
 
     Parameters:
         benchmarks: List of (name, callable) benchmark pairs from build_benchmarks.
@@ -873,15 +873,15 @@ def resolve_execution_mode(size: int,
     """
     if size > 1:
         return True, size, 'mpi', size
-    
+
     if serial:
         return False, None, 'serial', 1
-    
+
     resolved = workers if workers is not None else max(1, cpu_count() - 1)
 
     if resolved <= 1:
         return False, None, 'serial', 1
-    
+
     return True, resolved, 'multiprocessing', resolved
 
 
@@ -951,4 +951,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-

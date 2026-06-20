@@ -34,6 +34,4 @@ repos:
     hooks:
       - id: mypy
         files: ^mpasdiag/
-        # mypy is configured in pyproject.toml (ignore_missing_imports = true),
-        # so third-party stubs are not required here.
-        additional_dependencies: []
+        additional_dependencies: ['types-PyYAML']

@@ -47,13 +47,13 @@ class ArgumentParser:
 Examples:
   # Basic precipitation analysis
   mpasdiag --grid-file grid.nc --data-dir ./data --output-dir ./output
-  
+
   # Custom spatial extent
   mpasdiag --grid-file grid.nc --data-dir ./data --lat-min -10 --lat-max 15
-  
+
   # Batch processing
   mpasdiag --grid-file grid.nc --data-dir ./data --batch-all
-  
+
   # Use configuration file
   mpasdiag --config config.yaml
             """,
@@ -248,13 +248,13 @@ Examples:
 Examples:
   # Temperature scatter plot
   mpasdiag surface --grid-file grid.nc --data-dir ./data --variable t2m --plot-type scatter
-  
+
   # Pressure contour plot with custom extent
   mpasdiag surface --grid-file grid.nc --data-dir ./data --variable surface_pressure --plot-type contour --lat-min -10 --lat-max 15
-  
+
   # Wind speed with custom colormap
   mpasdiag surface --grid-file grid.nc --data-dir ./data --variable wspd10 --colormap plasma --time-index 12
-  
+
   # Sea level pressure for specific time
   mpasdiag surface --grid-file grid.nc --data-dir ./data --variable mslp --plot-type contour --time-index 24 --output mslp_analysis
             """,
@@ -471,7 +471,8 @@ Examples:
         parser = argparse.ArgumentParser(
             description="Generate MPAS wind vector plots with barbs or arrows",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Surface wind with barbs
               mpasdiag wind --grid-file /path/to/grid.nc --data-dir /path/to/data --u-variable u10 --v-variable v10
@@ -481,7 +482,8 @@ Examples:
 
               # Custom extent and subsampling
               mpasdiag wind --grid-file /path/to/grid.nc --data-dir /path/to/data --u-variable u10 --v-variable v10 --extent -105 -95 35 45 --subsample 3
-            """),
+            """
+            ),
         )
 
         parser.add_argument("--grid_file", help="Path to MPAS grid file (.nc)")
@@ -624,7 +626,8 @@ Examples:
         parser = argparse.ArgumentParser(
             description="Generate MPAS 3D vertical cross-section plots",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Temperature cross-section from Denver to Kansas City
               mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta --start-lon -105.0 --start-lat 39.7 --end-lon -94.6 --end-lat 39.1
@@ -634,7 +637,8 @@ Examples:
 
               # Custom cross-section with model levels
               mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta --start-lon -100 --start-lat 30 --end-lon -90 --end-lat 50 --vertical-coord model_levels --colormap plasma
-            """),
+            """
+            ),
         )
 
         parser.add_argument(

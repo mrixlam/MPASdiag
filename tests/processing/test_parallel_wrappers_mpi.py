@@ -1305,6 +1305,9 @@ class TestProcessorBranchCoverage:
         """
         This test verifies that _build_precipitation_worker_kwargs constructs default PrecipitationMapStyle and RemapConfig objects when none are supplied, exercising the default-argument branches of the helper, and returns grid-reload kwargs for a disk-backed processor.
 
+        Parameters:
+            None
+
         Returns:
             None
         """
@@ -1333,6 +1336,9 @@ class TestProcessorBranchCoverage:
     ) -> None:
         """
         This test verifies that _build_wind_worker_kwargs constructs a default WindBatchStyle and RemapConfig when none are supplied, exercising the default-argument branches of the helper, and returns grid-reload kwargs for a disk-backed processor.
+
+        Parameters:
+            None
 
         Returns:
             None

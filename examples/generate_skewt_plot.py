@@ -16,7 +16,7 @@ Version: 1.0.0
 # Load common libraries
 from pathlib import Path
 
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -30,16 +30,16 @@ plotDir.mkdir(parents=True, exist_ok=True)
 # Define target location and time index for sounding extraction
 lon = 103.212
 lat = 3.772
-time = 0  
+time = 0
 
-# Load unstructured MPAS 3D data 
+# Load unstructured MPAS 3D data
 processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
 processor.load_3d_data(dataDir)
 
 # Initialize Sounding Diagnostics
 diagnostics = md.SoundingDiagnostics(verbose=True)
 
-# Extract sounding profile at the specified location and time 
+# Extract sounding profile at the specified location and time
 profile = diagnostics.extract_sounding_profile(
     processor,
     lon=lon,
@@ -47,16 +47,16 @@ profile = diagnostics.extract_sounding_profile(
     time_index=time,
 )
 
-# Extract relevant variables from the profile for plotting 
-pressure    = profile['pressure']      
-temperature = profile['temperature'] 
-dewpoint    = profile['dewpoint']  
-u_wind      = profile.get('u_wind') 
-v_wind      = profile.get('v_wind')   
+# Extract relevant variables from the profile for plotting
+pressure    = profile['pressure']
+temperature = profile['temperature']
+dewpoint    = profile['dewpoint']
+u_wind      = profile.get('u_wind')
+v_wind      = profile.get('v_wind')
 station_lon = profile['station_lon']
 station_lat = profile['station_lat']
 
-# Compute thermodynamic indices for the sounding profile 
+# Compute thermodynamic indices for the sounding profile
 indices = diagnostics.compute_thermodynamic_indices(
     pressure, temperature, dewpoint,
     u_wind_kt=u_wind, v_wind_kt=v_wind,

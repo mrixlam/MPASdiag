@@ -106,7 +106,7 @@ The package exposes a small, focused programmatic API in the `mpasdiag` package.
 - `mpasdiag.diagnostics.wind.WindDiagnostics` — compute wind speed, direction, shear, and derived quantities
 - `mpasdiag.diagnostics.sounding.SoundingDiagnostics` — extract vertical sounding profiles from MPAS 3D output and compute comprehensive thermodynamic indices (CAPE, CIN, LI, K-Index, STP, SCP, SRH, bulk shear, precipitable water, wet-bulb zero, and more) using MetPy
 - `mpasdiag.diagnostics.moisture_transport.MoistureTransportDiagnostics` — compute vertically integrated water vapor (IWV) and vertically integrated water vapor transport (IVT) components using trapezoidal pressure-coordinate integration
-- `mpasdiag.diagnostics.thermodynamics.ThermodynamicDiagnostics` — compute potential temperature, equivalent potential temperature, wet-bulb temperature, and other thermodynamic variables 
+- `mpasdiag.diagnostics.thermodynamics.ThermodynamicDiagnostics` — compute potential temperature, equivalent potential temperature, wet-bulb temperature, and other thermodynamic variables
 
 #### Visualization
 - `mpasdiag.visualization.precipitation.MPASPrecipitationPlotter` — create professional precipitation accumulation maps
@@ -345,7 +345,7 @@ mpasdiag surface \
   --remap-engine kdtree --remap-method nearest --grid-resolution 0.1
 ```
 
-### Wind Vector Analysis  
+### Wind Vector Analysis
 ```bash
 # Wind barbs with KDTree linear component regridding
 mpasdiag wind \
@@ -384,19 +384,19 @@ mpasdiag wind \
 
 ### 3D Vertical Cross-Section Analysis
 ```bash
-# Cross section with pressure as vertical coordinate 
+# Cross section with pressure as vertical coordinate
 mpasdiag cross \
   --grid-file grid.nc --data-dir ./data \
   --variable theta --start-lon -105.0 --start-lat 39.7 \
   --end-lon -94.6 --end-lat 39.1 --vertical-coord pressure
 
-# Cross section with height as vertical coordinate 
+# Cross section with height as vertical coordinate
 mpasdiag cross \
   --grid-file grid.nc --data-dir ./data \
   --variable theta --start-lon -105.0 --start-lat 39.7 \
   --end-lon -94.6 --end-lat 39.1 --vertical-coord height
 
-# Cross section with model level as vertical coordinate 
+# Cross section with model level as vertical coordinate
 mpasdiag cross \
   --grid-file grid.nc --data-dir ./data \
   --variable theta --start-lon -105.0 --start-lat 39.7 \
@@ -524,7 +524,7 @@ output_formats:  ["png", "pdf"]
 # --- Remapping options (used by surface, wind, and precipitation contourf/contour plots) ---
 remap_engine: "kdtree"      # 'kdtree' (fast SciPy KDTree) or 'esmf' (ESMPy; requires esmpy)
 remap_method: "nearest"     # kdtree: 'nearest' | 'linear'
-                            # esmf:   'conservative' | 'nearest_s2d' | 'conservative_normed' | 
+                            # esmf:   'conservative' | 'nearest_s2d' | 'conservative_normed' |
 
 # --- Processing options ---
 use_pure_xarray: false           # Use xarray-only backend (skip UXarray)
@@ -931,7 +931,7 @@ logger = md.get_logger(__name__)                         # in each module
    ```bash
    # Main unified CLI help
    mpasdiag --help
-   
+
    # Specific analysis type help
    mpasdiag precipitation --help
    mpasdiag surface --help
@@ -1018,5 +1018,5 @@ If you use this package in your research, please cite:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.0.0
 **Last Updated**: June 06, 2026

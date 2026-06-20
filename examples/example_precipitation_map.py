@@ -5,7 +5,7 @@
 """
 MPASdiag Example III: Global Precipitation Map as Filled Contour Plot
 
-This example demonstrates how to compute total precipitation from MPAS 2D model output and plot it as a filled contour map. The example computes the 1-hour accumulated precipitation difference between time indices 0 and 1, which corresponds to the total precipitation over the first hour of the simulation. Note that the same variable can also be visualized as a scatter plot by changing the plot_type argument in the create_surface_map method. 
+This example demonstrates how to compute total precipitation from MPAS 2D model output and plot it as a filled contour map. The example computes the 1-hour accumulated precipitation difference between time indices 0 and 1, which corresponds to the total precipitation over the first hour of the simulation. Note that the same variable can also be visualized as a scatter plot by changing the plot_type argument in the create_surface_map method.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -13,7 +13,7 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -28,13 +28,13 @@ processor.load_2d_data(dataDir)
 diag = md.PrecipitationDiagnostics(verbose=True)
 
 # Define time index for precipitation difference calculation
-tindex = 1 
+tindex = 1
 
 # Extract precipitation difference at time index 1
 precip = diag.compute_precipitation_difference(
-  processor.dataset, tindex, var_name='total', accum_period='a01h', 
+  processor.dataset, tindex, var_name='total', accum_period='a01h',
   data_type=processor.data_type or 'xarray')
-  
+
 # Extract coordinates
 lon, lat = processor.extract_2d_coordinates_for_variable('total', precip)
 
@@ -56,14 +56,14 @@ cfg.lat_max = 90.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 

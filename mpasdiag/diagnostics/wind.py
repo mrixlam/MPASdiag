@@ -826,8 +826,7 @@ class WindDiagnostics:
             p_top (float): Top pressure of the layer in Pascals (default: 50000 Pa, i.e., 500 hPa).
 
         Returns:
-            Tuple[float, float]: (u_storm, v_storm) storm motion components
-                in m s-1, positive eastward and northward respectively.
+            Tuple[float, float]: (u_storm, v_storm) storm motion components in m s-1, positive eastward and northward respectively.
         """
         # Get the raw dataset from the processor
         ds_raw = processor._get_plain_dataset(processor.dataset)

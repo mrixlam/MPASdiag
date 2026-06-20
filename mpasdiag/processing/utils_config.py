@@ -15,12 +15,45 @@ Version: 1.0.0
 """
 
 import yaml
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 
 from .utils_logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _validate_config_path(
+    filepath: str,
+    base_dir: Optional[str],
+    *,
+    must_exist: bool,
+) -> Path:
+    """
+    Resolve a user-supplied config path and confirm it is a YAML file contained within the trusted base directory before any filesystem access. Config paths can originate from CLI arguments, so this guards against path-traversal escapes (e.g. '../../etc/passwd' or absolute paths outside the working tree).
+
+    Parameters:
+        filepath (str): Raw config path supplied by the caller (relative or absolute).
+        base_dir (Optional[str]): Directory the path must stay within. Defaults to the current working directory when None.
+        must_exist (bool): When True (loading), require the path to be an existing regular file.
+
+    Returns:
+        Path: The resolved, validated absolute path.
+    """
+    base = (Path(base_dir) if base_dir else Path.cwd()).resolve()
+    resolved = (base / filepath).resolve()
+
+    if not resolved.is_relative_to(base):
+        raise ValueError(f"Refusing to access config path outside '{base}': {filepath}")
+
+    if resolved.suffix.lower() not in (".yaml", ".yml"):
+        raise ValueError(f"Config file must be a .yaml or .yml file: {filepath}")
+
+    if must_exist and not resolved.is_file():
+        raise FileNotFoundError(f"Configuration file not found: {filepath}")
+
+    return resolved
 
 
 @dataclass
@@ -261,35 +294,44 @@ class MPASConfig:
             config_dict["figure_size"] = tuple(config_dict["figure_size"])
         return cls(**config_dict)
 
-    def save_to_file(self: "MPASConfig", filepath: str) -> None:
+    def save_to_file(
+        self: "MPASConfig", filepath: str, base_dir: Optional[str] = None
+    ) -> None:
         """
         This method saves the current configuration parameters of the MPASConfig instance to a YAML file at the specified filepath. It first converts the configuration to a dictionary format using the to_dict method, which also handles any necessary conversions (such as tuples to lists). Then, it opens the specified file in write mode and uses the yaml.dump function to write the configuration dictionary to the file in a human-readable format with proper indentation. After successfully saving the configuration, it prints a confirmation message indicating where the configuration has been saved. This method allows users to easily export their current configuration settings for later use or sharing with others.
 
         Parameters:
-            filepath (str): Absolute or relative path to YAML file where configuration should be saved.
+            filepath (str): Path to YAML file where configuration should be saved. May be absolute or relative, but must resolve inside base_dir.
+            base_dir (Optional[str]): Trusted directory the path must stay within. Defaults to the current working directory.
 
         Returns:
             None
         """
+        safe_path = _validate_config_path(filepath, base_dir, must_exist=False)
         config_dict = self.to_dict()
 
-        with open(filepath, "w") as yaml_file:
+        with open(safe_path, "w") as yaml_file:
             yaml.dump(config_dict, yaml_file, default_flow_style=False, indent=2)
 
-        logger.info("Configuration saved to: %s", filepath)
+        logger.info("Configuration saved to: %s", safe_path)
 
     @classmethod
-    def load_from_file(cls: type["MPASConfig"], filepath: str) -> "MPASConfig":
+    def load_from_file(
+        cls: type["MPASConfig"], filepath: str, base_dir: Optional[str] = None
+    ) -> "MPASConfig":
         """
         This class method loads configuration parameters from a specified YAML file and creates an instance of MPASConfig with those parameters. It opens the YAML file in read mode and uses the yaml.safe_load function to parse the contents of the file into a dictionary. Then, it calls the from_dict class method to convert the loaded dictionary into an MPASConfig instance, which will be initialized with the parameters from the file. This method allows users to easily load previously saved configurations or configurations shared by others, ensuring that all parameters are correctly set up for use in analysis and plotting operations.
 
         Parameters:
-            filepath (str): Absolute or relative path to YAML file containing configuration parameters.
+            filepath (str): Path to YAML file containing configuration parameters. May be absolute or relative, but must resolve inside base_dir.
+            base_dir (Optional[str]): Trusted directory the path must stay within. Defaults to the current working directory.
 
         Returns:
             MPASConfig: An instance of MPASConfig initialized with parameters loaded from the specified YAML file.
         """
-        with open(filepath, "r") as yaml_file:
+        safe_path = _validate_config_path(filepath, base_dir, must_exist=True)
+
+        with open(safe_path, "r") as yaml_file:
             config_dict = yaml.safe_load(yaml_file)
 
         return cls.from_dict(config_dict)

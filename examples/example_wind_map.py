@@ -24,8 +24,8 @@ gridPath = '../data/grids/x1.10242.static.nc'
 processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
-# Define time index for wind variable extraction 
-tindex = 1 
+# Define time index for wind variable extraction
+tindex = 1
 
 # Extract wind components at time index 1
 u_data = processor.get_2d_variable_data('u10', tindex)
@@ -34,14 +34,14 @@ v_data = processor.get_2d_variable_data('v10', tindex)
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 

@@ -21,12 +21,38 @@ import csv
 import glob
 import sys
 from collections import defaultdict
+from pathlib import Path
 from statistics import median
+
+
+def _validate_csv_path(path: str, base: Path | None = None) -> Path:
+    """
+    Resolve a user-supplied path and confirm it is a .csv file located inside the
+    allowed base directory before any filesystem access. CSV paths come from CLI
+    arguments, so this guards against path-traversal escapes (e.g. '../../etc/passwd'
+    or absolute paths outside the working tree).
+
+    Parameters:
+        path: Raw path string from argv or glob expansion.
+        base: Directory the path must stay within. Defaults to the current working directory.
+
+    Returns:
+        Path: The resolved, validated absolute path.
+    """
+    base = (base or Path.cwd()).resolve()
+    resolved = Path(path).resolve()
+    if not resolved.is_relative_to(base):
+        sys.exit(f"Refusing to read '{path}': resolves outside allowed directory {base}")
+    if resolved.suffix.lower() != '.csv':
+        sys.exit(f"Refusing to read '{path}': not a .csv file")
+    if not resolved.is_file():
+        sys.exit(f"Refusing to read '{path}': not a regular file")
+    return resolved
 
 
 def load_results(paths: list[str]) -> list[dict]:
     """
-    This function reads benchmark CSV files and parses each row, converting 'workers', 'trial' to int and elapsed fields to float. It also handles optional columns for rank imbalance and file counts, defaulting to 1.0 imbalance and 0 files when not present. 
+    This function reads benchmark CSV files and parses each row, converting 'workers', 'trial' to int and elapsed fields to float. It also handles optional columns for rank imbalance and file counts, defaulting to 1.0 imbalance and 0 files when not present.
 
     Parameters:
         paths: CSV file paths produced by benchmark.py.
@@ -36,7 +62,8 @@ def load_results(paths: list[str]) -> list[dict]:
     """
     rows = []
     for path in paths:
-        with open(path, newline='') as fh:
+        safe_path = _validate_csv_path(path)
+        with open(safe_path, newline='') as fh:
             for row in csv.DictReader(fh):
                 row['workers'] = int(row.get('workers') or row.get('mpi_ranks') or 1)
                 row['trial'] = int(row.get('trial') or 1)
@@ -50,7 +77,7 @@ def load_results(paths: list[str]) -> list[dict]:
 
 def aggregate_trials(rows: list[dict]) -> dict:
     """
-    This function groups rows by (experiment, category) and worker count, then aggregates repeated trials by their median elapsed time and imbalance. The output is a nested dictionary mapping (experiment, category) -> {workers: record} where each record contains the median 'elapsed', 'imbalance', 'n_trials', and 'n_files' for that configuration. 
+    This function groups rows by (experiment, category) and worker count, then aggregates repeated trials by their median elapsed time and imbalance. The output is a nested dictionary mapping (experiment, category) -> {workers: record} where each record contains the median 'elapsed', 'imbalance', 'n_trials', and 'n_files' for that configuration.
 
     Parameters:
         rows: Parsed benchmark rows from load_results.
@@ -85,7 +112,7 @@ def aggregate_trials(rows: list[dict]) -> dict:
 def _scaling_flags(rec: dict, width: int, category: str,
                    prev_elapsed: float | None) -> list[str]:
     """
-    This function derives the diagnostic flags for a single (worker count) record. It flags configurations where the number of workers meets or exceeds the number of files (tasks), data-load categories whose work is replicated across workers, and anti-scaling cases where adding workers made the run slower than the previous width. A missing-files flag is added when a compute category processed no files (a likely failure). 
+    This function derives the diagnostic flags for a single (worker count) record. It flags configurations where the number of workers meets or exceeds the number of files (tasks), data-load categories whose work is replicated across workers, and anti-scaling cases where adding workers made the run slower than the previous width. A missing-files flag is added when a compute category processed no files (a likely failure).
 
     Parameters:
         rec: Aggregated record for one worker width with 'elapsed' and 'n_files'.
@@ -151,7 +178,7 @@ def _print_category(experiment: str, category: str, by_width: dict) -> None:
 
 def print_report(aggregated: dict) -> None:
     """
-    This function iterates over all (experiment, category) pairs in the aggregated results and prints the scaling report for each using _print_category. The output is sorted by experiment and category name for readability. 
+    This function iterates over all (experiment, category) pairs in the aggregated results and prints the scaling report for each using _print_category. The output is sorted by experiment and category name for readability.
 
     Parameters:
         aggregated: Output of aggregate_trials.
@@ -171,7 +198,7 @@ def main() -> None:
         sys.exit("No benchmark CSVs found. Pass paths or run from the results directory.")
 
     rows = load_results(paths)
-    
+
     print(f"Loaded {len(rows)} rows from {len(paths)} file(s)")
     print_report(aggregate_trials(rows))
 

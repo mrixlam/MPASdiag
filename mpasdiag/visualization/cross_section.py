@@ -151,8 +151,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         var_name: str,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
-        This internal method performs unit conversion and physical clipping on the data values for the specified variable. It retrieves the original units from the variable metadata and determines the appropriate display units using the UnitConverter utility. If a conversion is needed, it applies the conversion to the data values and updates the metadata accordingly. Additionally, if the variable is identified as a moisture variable (e.g., specific humidity, mixing ratio), it checks for any negative values in the data, which are physically invalid, and clips them to zero while issuing a warning with the count of negative values and their range. This method ensures that the data values are in the correct units for display and that any physically unrealistic values are handled appropriately before plotting.
-        Accepts np.ndarray, xr.DataArray, or float as input for data_values.
+        This internal method performs unit conversion and physical clipping on the data values for the specified variable. It retrieves the original units from the variable metadata and determines the appropriate display units using the UnitConverter utility. If a conversion is needed, it applies the conversion to the data values and updates the metadata accordingly. Additionally, if the variable is identified as a moisture variable (e.g., specific humidity, mixing ratio), it checks for any negative values in the data, which are physically invalid, and clips them to zero while issuing a warning with the count of negative values and their range. This method ensures that the data values are in the correct units for display and that any physically unrealistic values are handled appropriately before plotting. Accepts np.ndarray, xr.DataArray, or float as input for data_values.
 
         Parameters:
             data_values (Union[np.ndarray, xr.DataArray, float]): The data values to be processed.
@@ -716,7 +715,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             if vertical_coord not in ("pressure", "modlev"):
                 vertical_coord = "modlev"
 
-            vertical_levels = np.array(vertical_levels)
+            levels_arr = np.array(vertical_levels)
 
             logger.debug(
                 "_resolve_vertical_levels: return_pressure=%s", return_pressure
@@ -726,35 +725,35 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             )
             logger.debug(
                 "_resolve_vertical_levels: vertical_levels dtype=%s, shape=%s",
-                vertical_levels.dtype,
-                vertical_levels.shape,
+                levels_arr.dtype,
+                levels_arr.shape,
             )
             logger.debug(
                 "_resolve_vertical_levels: vertical_levels min=%.4f, max=%.4f",
-                float(np.nanmin(vertical_levels)),
-                float(np.nanmax(vertical_levels)),
+                float(np.nanmin(levels_arr)),
+                float(np.nanmax(levels_arr)),
             )
 
-            if len(vertical_levels) <= 60:
+            if len(levels_arr) <= 60:
                 logger.debug(
                     "_resolve_vertical_levels: all values (Pa if pressure): %s",
-                    vertical_levels,
+                    levels_arr,
                 )
             else:
                 logger.debug(
                     "_resolve_vertical_levels: first 5: %s, last 5: %s",
-                    vertical_levels[:5],
-                    vertical_levels[-5:],
+                    levels_arr[:5],
+                    levels_arr[-5:],
                 )
 
-            if np.issubdtype(vertical_levels.dtype, np.integer):
+            if np.issubdtype(levels_arr.dtype, np.integer):
                 vertical_coord = "modlev"
                 if self.fig is not None and self.verbose:
                     logger.info(
                         "Vertical levels appear to be integer indices; "
                         "switching vertical_coord to 'modlev'"
                     )
-            return vertical_levels, vertical_coord
+            return levels_arr, vertical_coord
         except Exception as e:
             logger.warning("Could not get vertical levels, using indices: %s", e)
             dataset = mpas_3d_processor.dataset

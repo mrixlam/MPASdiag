@@ -4,7 +4,7 @@
 """
 MPASdiag Example V: Overlaying MSLP contours on a 2D surface map of 2-m temperature
 
-This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours. Note that the same plot can be generated with different contour levels, colors, and line widths by modifying the mslp_config dictionary. 
+This example demonstrates how to create a surface map of 2-meter temperature from MPAS 2D model output and overlay it with mean sea level pressure (MSLP) contours. The example extracts the relevant variables at the first time index of the dataset and visualizes them over the CONUS region. The surface map of 2-m temperature is plotted as a filled contour, while MSLP is overlaid as contours. Note that the same plot can be generated with different contour levels, colors, and line widths by modifying the mslp_config dictionary.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -15,7 +15,7 @@ Version: 1.0.0
 # Load standard libraries
 import os
 
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -30,7 +30,7 @@ processor.load_2d_data(dataDir)
 plotter = md.MPASSurfacePlotter(verbose=True, figsize=(14, 11), dpi=300)
 
 # Define time index for surface variable extraction
-tindex = 1 
+tindex = 1
 
 # Define variable names for 2-m temperature and mean sea level pressure
 t_var = 't2m'
@@ -51,19 +51,19 @@ cfg = md.MPASConfig()
 cfg.lon_min = -130.0
 cfg.lon_max = -50.0
 cfg.lat_min = 20.0
-cfg.lat_max = 60.0 
+cfg.lat_max = 60.0
 
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 
@@ -111,8 +111,8 @@ print("Testing overlay with grid_resolution=0.1")
 print("="*60)
 
 # Add MSLP contours as an overlay on the existing surface map
-plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
-                            lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
+plotter.add_surface_overlay(ax, lon, lat, mslp_config,
+                            lon_min=cfg.lon_min, lon_max=cfg.lon_max,
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # Overlay cross-section transect lines

@@ -16,7 +16,7 @@ Version: 1.0.0
 # Load standard libraries
 import os
 
-# Load relevant MPASdiag modules 
+# Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
@@ -31,7 +31,7 @@ processor = md.MPAS2DProcessor(grid_file=gridPath)
 processor.load_2d_data(dataDir)
 
 # Define time index for surface variable extraction
-tindex = 1 
+tindex = 1
 
 # Initialize Surface and Wind Plotter
 plotter = md.MPASSurfacePlotter(verbose=True, figsize=(14, 13), dpi=300)
@@ -65,14 +65,14 @@ cfg.lat_max = 60.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A", 
-        "end": (-80.0,  50.0), "end_label": "B", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (-120.0, 30.0), "start_label": "A",
+        "end": (-80.0,  50.0), "end_label": "B",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "red"},
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C", 
-        "end": ( 45.0,  30.0), "end_label": "D", 
-        "xoffset": -1.0, "yoffset": 3.0, 
+        "start": (0.0,  0.0), "start_label": "C",
+        "end": ( 45.0,  30.0), "end_label": "D",
+        "xoffset": -1.0, "yoffset": 3.0,
         "color": "royalblue"},
 }
 
@@ -120,8 +120,8 @@ mslp_config = {
 }
 
 # Add MSLP contours as an overlay on the existing surface map
-plotter.add_surface_overlay(ax, lon, lat, mslp_config, 
-                            lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
+plotter.add_surface_overlay(ax, lon, lat, mslp_config,
+                            lon_min=cfg.lon_min, lon_max=cfg.lon_max,
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # -------------- Overlay: 10-m wind vectors at 0.1° resolution --------------
@@ -137,8 +137,8 @@ wind_config = {
 }
 
 # Add 10-m wind vectors as an overlay on the existing surface map
-wind_plotter.add_wind_overlay(ax, lon, lat, wind_config, 
-                            lon_min=cfg.lon_min, lon_max=cfg.lon_max, 
+wind_plotter.add_wind_overlay(ax, lon, lat, wind_config,
+                            lon_min=cfg.lon_min, lon_max=cfg.lon_max,
                             lat_min=cfg.lat_min, lat_max=cfg.lat_max, config=cfg)
 
 # Overlay cross-section transect lines

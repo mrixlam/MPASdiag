@@ -89,13 +89,14 @@ def _configure_worker_threads(n_threads: int = 1) -> None:
         pass
 
 
+MPI: Any = None
 try:
-    from mpi4py import MPI
+    from mpi4py import MPI as _MPI
 
+    MPI = _MPI
     MPI_AVAILABLE = True
 except ImportError:
     MPI_AVAILABLE = False
-    MPI = None  # type: ignore[assignment]
     warnings.warn(
         "mpi4py is not available. Parallel processing will use Python multiprocessing. "
         "To enable MPI parallelization, install mpi4py: pip install mpi4py",

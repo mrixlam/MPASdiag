@@ -24,32 +24,32 @@ jobs:
         # Set working directory explicitly
         cd $GITHUB_WORKSPACE
         pwd
-        
+
         # Create logs directory with absolute path
         mkdir -p "$GITHUB_WORKSPACE/logs"
         chmod 777 "$GITHUB_WORKSPACE/logs"
-        
+
         # Generate log file name
         TIMESTAMP=$(date +"%Y%m%dT%H%M")
         OS_NAME=$(echo "${{ matrix.os }}" | cut -d'-' -f1)
         OS_VER=$(echo "${{ matrix.os }}" | cut -d'-' -f2)
         PYTHON_VER=$(echo "${{ matrix.python-version }}" | tr -d '.')
         LOG_FILE="$GITHUB_WORKSPACE/logs/build_log_${OS_NAME}_${OS_VER}_python_${PYTHON_VER}_${TIMESTAMP}.txt"
-        
+
         # Save to environment
         echo "LOG_FILE=${LOG_FILE}" >> $GITHUB_ENV
-        
+
         # Create and verify log file
         touch "${LOG_FILE}"
         chmod 666 "${LOG_FILE}"
-        
+
         # Write initial content
         echo "Starting CI run at $(date)" | tee -a "${LOG_FILE}"
         echo "Working directory: $(pwd)" | tee -a "${LOG_FILE}"
         echo "OS: ${{ matrix.os }}" | tee -a "${LOG_FILE}"
         echo "Python: ${{ matrix.python-version }}" | tee -a "${LOG_FILE}"
         echo "========================================" | tee -a "${LOG_FILE}"
-        
+
         # Verify
         echo "Log file created at: ${LOG_FILE}"
         echo "Current directory structure:"
@@ -64,7 +64,7 @@ jobs:
         channel-priority: true
         activate-environment: mpasdiag
         auto-update-conda: true
-    
+
     - name: Display conda info
       shell: bash -l {0}
       run: |
@@ -80,7 +80,7 @@ jobs:
       run: |
         echo "=== Installing Dependencies ===" | tee -a "${LOG_FILE}"
         echo "Installing conda packages..." | tee -a "${LOG_FILE}"
-        conda install -y -c conda-forge numpy scipy xarray pandas matplotlib cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray metpy xesmf 2>&1 | tee -a "${LOG_FILE}"
+        conda install -y -c conda-forge numpy scipy xarray pandas "matplotlib<3.11" cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray metpy xesmf 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing test dependencies..." | tee -a "${LOG_FILE}"
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
@@ -94,7 +94,7 @@ jobs:
         echo "=== Final Package List ===" | tee -a "${LOG_FILE}"
         conda list 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
-    
+
     - name: Verify installation
       shell: bash -l {0}
       run: |
@@ -110,7 +110,7 @@ jobs:
         echo "Testing xesmf import..." | tee -a "${LOG_FILE}"
         python -c "import xesmf; print('xesmf imported successfully')" 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
-    
+
     - name: Lint with ruff
       shell: bash -l {0}
       run: |
@@ -142,7 +142,7 @@ jobs:
         echo "Test exit code: ${TEST_EXIT_CODE}" | tee -a "${LOG_FILE}"
         echo "CI run completed at $(date)" | tee -a "${LOG_FILE}"
         exit ${TEST_EXIT_CODE}
-    
+
     - name: Verify log files before upload
       if: always()
       shell: bash
@@ -166,7 +166,7 @@ jobs:
         else
           echo "✗ WARNING: Log file ${LOG_FILE} not found!"
         fi
-    
+
     - name: Prepare artifact name
       id: prepare_artifact_name
       if: always()
@@ -176,7 +176,7 @@ jobs:
         ARTIFACT_NAME="${ARTIFACT_NAME//./-}"
         echo "ARTIFACT_NAME=${ARTIFACT_NAME}" >> $GITHUB_ENV
         echo "name=${ARTIFACT_NAME}" >> $GITHUB_OUTPUT
-    
+
     - name: Upload logs
       if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4.4.3
@@ -186,7 +186,7 @@ jobs:
         retention-days: 30
         if-no-files-found: warn
       continue-on-error: true
-    
+
     - name: Verify coverage file exists
       if: always()
       shell: bash
@@ -202,7 +202,7 @@ jobs:
           echo "Files in current directory:"
           ls -lah
         fi
-    
+
     - name: Upload coverage to Codecov
       if: always()
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
@@ -218,21 +218,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-    
+
     - name: Set up Python
       uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
       with:
         python-version: '3.11'
-    
+
     - name: Install linting tools
       run: |
         pip install flake8 black ruff
-    
+
     - name: Run flake8
       run: |
         flake8 mpasdiag/ --count --select=E9,F63,F7,F82 --show-source --statistics
         flake8 mpasdiag/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    
+
     - name: Check code formatting with black
       run: |
         black --check mpasdiag/ tests/

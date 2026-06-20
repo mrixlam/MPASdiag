@@ -32,8 +32,8 @@ tindex = 1
 
 # Define model initialization time
 init_time      = np.datetime64('2024-09-17T00', 'h')
-init_time_str  = str(init_time).replace('-', '').replace('T', '')   
-init_time_disp = str(init_time).replace('T', ' ') + ':00 UTC' 
+init_time_str  = str(init_time).replace('-', '').replace('T', '')
+init_time_disp = str(init_time).replace('T', ' ') + ':00 UTC'
 
 # Load unstructured MPAS 3D data
 processor = md.MPAS3DProcessor(grid_file=gridPath, verbose=True)
@@ -54,8 +54,8 @@ end_point   = (-79.0, 44.0)
 # Extract valid time for this time index
 valtime      = processor.dataset['Time'][tindex].values
 valtime_np   = valtime.astype('datetime64[h]')
-valtime_str  = str(valtime_np).replace('-', '').replace('T', '') 
-valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'  
+valtime_str  = str(valtime_np).replace('-', '').replace('T', '')
+valtime_disp = str(valtime_np).replace('T', ' ') + ':00 UTC'
 
 # Plot configuration
 cfg = md.MPASConfig()

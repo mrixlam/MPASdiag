@@ -200,7 +200,7 @@ class TestSaveToFile:
         try:
             captured = StringIO()
             with patch("sys.stdout", new=captured):
-                config.save_to_file(filepath)
+                config.save_to_file(filepath, base_dir=os.path.dirname(filepath))
             assert "Configuration saved to" in captured.getvalue()
             with open(filepath) as f:
                 loaded = yaml.safe_load(f)
@@ -222,14 +222,79 @@ class TestSaveToFile:
         original = MPASConfig(variable="precip", chunk_size=50000, verbose=False)
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
             filepath = f.name
+        base_dir = os.path.dirname(filepath)
         try:
-            original.save_to_file(filepath)
-            reloaded = MPASConfig.load_from_file(filepath)
+            original.save_to_file(filepath, base_dir=base_dir)
+            reloaded = MPASConfig.load_from_file(filepath, base_dir=base_dir)
             assert reloaded.variable == original.variable
             assert reloaded.chunk_size == original.chunk_size
             assert reloaded.verbose == original.verbose
         finally:
             os.unlink(filepath)
+
+
+class TestConfigPathValidation:
+    """Tests that config file paths are validated against traversal escapes."""
+
+    def test_load_rejects_path_escaping_base_dir(
+        self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
+    ) -> None:
+        """
+        This test verifies that if a relative path is provided to MPASConfig.load_from_file that attempts to escape the specified base_dir (e.g., using '../..' to access parent directories), a ValueError should be raised with a message indicating that the path is outside the allowed base directory. This is important for security reasons, as it prevents users from inadvertently or maliciously accessing files outside of the intended configuration directory. The test attempts to load a configuration from a path that escapes the temporary base directory and checks that the appropriate exception is raised.
+
+        Parameters:
+            tmp_path (os.PathLike[str]): A temporary directory provided by pytest for testing.
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="outside"):
+            MPASConfig.load_from_file("../../etc/passwd", base_dir=str(tmp_path))
+
+    def test_load_rejects_absolute_path_outside_base_dir(
+        self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
+    ) -> None:
+        """
+        This test verifies that if an absolute path is provided to MPASConfig.load_from_file that is outside the specified base_dir, a ValueError should be raised with a message indicating that the path is outside the allowed base directory. This is important for security reasons, as it prevents users from inadvertently or maliciously accessing files outside of the intended configuration directory. The test attempts to load a configuration from an absolute path outside the temporary base directory and checks that the appropriate exception is raised.
+
+        Parameters:
+            tmp_path (os.PathLike[str]): A temporary directory provided by pytest for testing.
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="outside"):
+            MPASConfig.load_from_file("/etc/hosts", base_dir=str(tmp_path))
+
+    def test_save_rejects_non_yaml_suffix(
+        self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
+    ) -> None:
+        """
+        This test verifies that if a non-YAML file path is provided to MPASConfig.save_to_file, a ValueError should be raised with a message indicating that the file must have a YAML extension. This is important to prevent accidental overwriting of arbitrary files. The test attempts to save a configuration to a file with a non-YAML extension and checks that the appropriate exception is raised.
+
+        Parameters:
+            tmp_path (os.PathLike[str]): A temporary directory provided by pytest for testing.
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="yaml"):
+            MPASConfig().save_to_file("config.txt", base_dir=str(tmp_path))
+
+    def test_load_missing_file_raises_not_found(
+        self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
+    ) -> None:
+        """
+        This test verifies that if a valid in-base path is provided to MPASConfig.load_from_file but the file does not exist, a FileNotFoundError should be raised. This ensures that the method correctly handles cases where the specified configuration file is missing. The test attempts to load a configuration from a non-existent file within the temporary base directory and checks that the appropriate exception is raised.
+
+        Parameters:
+            tmp_path (os.PathLike[str]): A temporary directory provided by pytest for testing.
+
+        Returns:
+            None
+        """
+        with pytest.raises(FileNotFoundError):
+            MPASConfig.load_from_file("missing.yaml", base_dir=str(tmp_path))
 
 
 if __name__ == "__main__":

@@ -1016,10 +1016,12 @@ class MPASSurfacePlotter(MPASVisualizer):
             resolution_bounds (Optional[Tuple[float, float]]): Minimum and maximum allowable grid resolutions for adaptive interpolation.
             comm (Optional[Any]): Optional MPI communicator for parallel execution in distributed computing environments (default: None).
             config (Optional[dict]): Optional configuration dictionary for additional parameters.
+
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Interpolated longitude, latitude, and data arrays corresponding to the regular grid.
         """
-        return super()._interpolate_to_grid(
+        grid: Tuple[np.ndarray, np.ndarray, np.ndarray]
+        grid = super()._interpolate_to_grid(
             lon,
             lat,
             data,
@@ -1034,6 +1036,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             comm=comm,
             config=config,
         )
+        return grid
 
     def add_surface_overlay(
         self: "MPASSurfacePlotter",

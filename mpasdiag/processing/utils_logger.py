@@ -125,6 +125,9 @@ class MPASLogger:
             level (int): The logging level threshold. Defaults to logging.INFO.
             log_file (Optional[str]): Optional file path to write logs to. If None, no file handler is added. Defaults to None.
             verbose (bool): If True, adds a console handler that outputs to stdout. If False, no console handler is added. Defaults to True.
+
+        Returns:
+            None
         """
         global _configured
 

@@ -707,7 +707,6 @@ class SoundingDiagnostics:
 
         Returns:
             float: Distance between the two points in kilometers.
-
         """
         # Convert input coordinates from degrees to radians
         lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
