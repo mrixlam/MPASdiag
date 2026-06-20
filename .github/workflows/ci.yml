@@ -86,7 +86,7 @@ jobs:
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing ruff and mypy..." | tee -a "${LOG_FILE}"
-        pip install ruff mypy 2>&1 | tee -a "${LOG_FILE}"
+        pip install ruff==0.8.4 mypy 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
         pip install -e . 2>&1 | tee -a "${LOG_FILE}"
@@ -226,7 +226,8 @@ jobs:
 
     - name: Install linting tools
       run: |
-        pip install flake8 black ruff
+        # black/ruff pinned to match .pre-commit-config.yaml so CI agrees with local hooks
+        pip install flake8 black==24.10.0 ruff==0.8.4
 
     - name: Run flake8
       run: |
