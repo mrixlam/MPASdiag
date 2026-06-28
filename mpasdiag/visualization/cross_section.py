@@ -35,6 +35,7 @@ from ..processing.processors_3d import MPAS3DProcessor
 from ..processing.utils_unit import UnitConverter
 from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.utils_logger import get_logger
+from ..processing.utils_validator import DataValidator
 
 logger = get_logger(__name__)
 
@@ -593,6 +594,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             "render": 0.0,
             "save": 0.0,
         }
+
+        DataValidator.enforce_size_limits(
+            num_points=num_points, context="building the cross-section transect"
+        )
 
         cross_section_data = self._generate_cross_section_data(
             mpas_3d_processor,

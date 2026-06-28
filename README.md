@@ -1019,4 +1019,4 @@ If you use this package in your research, please cite:
 ---
 
 **Version**: 1.0.0
-**Last Updated**: June 06, 2026
+**Last Updated**: June 28, 2026

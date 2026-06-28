@@ -14,12 +14,95 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import os
 import numpy as np
 from typing import Dict, Any, Optional
+
+from .constants import (
+    MAX_SOURCE_CELLS,
+    MAX_TARGET_POINTS,
+    MAX_WEIGHTS_NNZ,
+    MAX_NUM_POINTS,
+)
 
 
 class DataValidator:
     """Data validation utilities for MPAS coordinate arrays and numerical data quality assurance with comprehensive sanity checking capabilities."""
+
+    @staticmethod
+    def _resolve_size_limit(env_var: str, default: int) -> int:
+        """
+        This method resolves the effective size limit for a given parameter by checking if an environment variable is set to override the compiled-in default. If the environment variable is set, it attempts to convert its value to an integer and checks if it is a positive integer. If the conversion fails or the value is not positive, a ValueError is raised. If the environment variable is not set, the method returns the default limit.
+
+        Parameters:
+            env_var (str): Name of the MPASDIAG_MAX_* environment variable that may override the compiled-in default.
+            default (int): Default limit from constants.py to use when the environment variable is unset.
+
+        Returns:
+            int: The effective positive integer limit.
+        """
+        raw = os.environ.get(env_var)
+        if raw is None:
+            return default
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(f"{env_var} must be a positive integer (got {raw!r})")
+        if value <= 0:
+            raise ValueError(f"{env_var} must be a positive integer (got {raw!r})")
+        return value
+
+    @staticmethod
+    def enforce_size_limits(
+        *,
+        n_src: Optional[int] = None,
+        n_tgt: Optional[int] = None,
+        nnz: Optional[int] = None,
+        num_points: Optional[int] = None,
+        context: str = "",
+    ) -> None:
+        """
+        This method enforces safety limits on various parameters related to MPAS data processing, such as the number of source mesh cells, target grid points, non-zero remap weight entries, and cross-section interpolation points. It checks if the provided values are negative or exceed their respective safety limits, which can be overridden by environment variables. If any value is invalid, a ValueError is raised with a descriptive message indicating the issue and suggesting how to raise the limit if the input is trusted.
+
+        Parameters:
+            n_src (Optional[int]): Number of source mesh cells / points, checked against MAX_SOURCE_CELLS (env MPASDIAG_MAX_SOURCE_CELLS).
+            n_tgt (Optional[int]): Number of target grid points, checked against MAX_TARGET_POINTS (env MPASDIAG_MAX_TARGET_POINTS).
+            nnz (Optional[int]): Number of non-zero remap weight entries, checked against MAX_WEIGHTS_NNZ (env MPASDIAG_MAX_WEIGHTS_NNZ).
+            num_points (Optional[int]): Number of cross-section interpolation points, checked against MAX_NUM_POINTS (env MPASDIAG_MAX_NUM_POINTS).
+            context (str): Optional short description of the operation, included in error messages for clarity.
+
+        Returns:
+            None
+        """
+        checks = (
+            (n_src, "MPASDIAG_MAX_SOURCE_CELLS", MAX_SOURCE_CELLS, "source grid cells"),
+            (
+                n_tgt,
+                "MPASDIAG_MAX_TARGET_POINTS",
+                MAX_TARGET_POINTS,
+                "target grid points",
+            ),
+            (nnz, "MPASDIAG_MAX_WEIGHTS_NNZ", MAX_WEIGHTS_NNZ, "remap weight entries"),
+            (
+                num_points,
+                "MPASDIAG_MAX_NUM_POINTS",
+                MAX_NUM_POINTS,
+                "cross-section points",
+            ),
+        )
+        where = f" while {context}" if context else ""
+        for value, env_var, default, label in checks:
+            if value is None:
+                continue
+            if value < 0:
+                raise ValueError(f"Invalid negative {label}: {value}")
+            limit = DataValidator._resolve_size_limit(env_var, default)
+            if value > limit:
+                raise ValueError(
+                    f"{label} ({int(value):,}) exceeds the safety limit "
+                    f"({limit:,}){where}. If this input is trusted, raise the "
+                    f"limit via the {env_var} environment variable."
+                )
 
     @staticmethod
     def validate_coordinates(lon: np.ndarray, lat: np.ndarray) -> bool:

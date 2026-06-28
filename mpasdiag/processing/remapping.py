@@ -22,6 +22,8 @@ from scipy.sparse import coo_matrix
 from typing import Any, Optional, Union, List, Tuple
 
 from .utils_logger import get_logger
+from .utils_validator import DataValidator
+from .utils_path import safe_resolve_within
 
 logger = get_logger(__name__)
 
@@ -227,6 +229,10 @@ class MPASRemapper:
         lon = np.arange(lon_min, lon_max + dlon / 2, dlon)
         lat = np.arange(lat_min, lat_max + dlat / 2, dlat)
 
+        DataValidator.enforce_size_limits(
+            n_tgt=len(lon) * len(lat), context="creating the target grid"
+        )
+
         target_grid = xr.Dataset(
             {
                 "lon": xr.DataArray(lon, dims=["lon"]),
@@ -335,14 +341,16 @@ class MPASRemapper:
         Returns:
             Optional[Path]: The resolved file path for caching weights, or None if caching is not configured.
         """
-        if self.weights_dir is not None and filename is None:
+        if self.weights_dir is None:
+            return None
+
+        if filename is None:
             src_shape = len(source_grid["lon"])
             tgt_shape = f"{len(target_grid['lon'])}x{len(target_grid['lat'])}"
             filename = f"weights_{self.method}_{src_shape}to{tgt_shape}.nc"
-        return (
-            self.weights_dir / filename
-            if self.weights_dir is not None and filename is not None
-            else None
+
+        return safe_resolve_within(
+            filename, self.weights_dir, allowed_suffixes=(".nc",)
         )
 
     def _try_load_cached_weights(
@@ -1244,23 +1252,59 @@ class MPASRemapper:
             Tuple[Any, Tuple[int, int], Optional[np.ndarray]]: A tuple containing the sparse weight matrix as a scipy.sparse.csr_matrix, the shape of the target grid as a tuple (n_lat, n_lon), and an optional array mapping mesh elements to their parent cells if it was included in the dataset.
         """
         ds = xr.open_dataset(path)
+        try:
+            row = ds["row"].values.astype(np.intp) - 1
+            col = ds["col"].values.astype(np.intp) - 1
+            vals = ds["S"].values.astype(np.float64)
 
-        row = ds["row"].values.astype(np.intp) - 1
-        col = ds["col"].values.astype(np.intp) - 1
-        vals = ds["S"].values.astype(np.float64)
+            n_src = int(ds.attrs["n_src"])
+            n_dst = int(ds.attrs["n_dst"])
 
-        n_src = int(ds.attrs["n_src"])
-        n_dst = int(ds.attrs["n_dst"])
+            tgt_shape = (int(ds.attrs["shape_tgt_lat"]), int(ds.attrs["shape_tgt_lon"]))
 
-        tgt_shape = (int(ds.attrs["shape_tgt_lat"]), int(ds.attrs["shape_tgt_lon"]))
+            cell_of_element: Optional[np.ndarray] = (
+                ds["cell_of_element"].values.astype(np.int64)
+                if "cell_of_element" in ds
+                else None
+            )
+        finally:
+            ds.close()
 
-        cell_of_element: Optional[np.ndarray] = (
-            ds["cell_of_element"].values.astype(np.int64)
-            if "cell_of_element" in ds
-            else None
+        nnz = int(vals.shape[0])
+
+        DataValidator.enforce_size_limits(
+            n_src=n_src,
+            n_tgt=n_dst,
+            nnz=nnz,
+            context=f"loading cached weights from {path.name}",
         )
 
-        ds.close()
+        if n_src <= 0 or n_dst <= 0:
+            raise ValueError(
+                f"Invalid weights cache '{path.name}': non-positive dimensions "
+                f"(n_src={n_src}, n_dst={n_dst})"
+            )
+
+        if tgt_shape[0] * tgt_shape[1] != n_dst:
+            raise ValueError(
+                f"Inconsistent weights cache '{path.name}': target shape "
+                f"{tgt_shape} does not match n_dst={n_dst}"
+            )
+
+        if not (row.shape[0] == col.shape[0] == vals.shape[0]):
+            raise ValueError(
+                f"Corrupt weights cache '{path.name}': row/col/value lengths "
+                f"differ ({row.shape[0]}, {col.shape[0]}, {vals.shape[0]})"
+            )
+
+        if nnz and (
+            row.min() < 0 or row.max() >= n_dst or col.min() < 0 or col.max() >= n_src
+        ):
+            raise ValueError(
+                f"Corrupt weights cache '{path.name}': row/col indices fall "
+                f"outside the declared ({n_dst}, {n_src}) matrix bounds"
+            )
+
         weight_matrix = coo_matrix((vals, (row, col)), shape=(n_dst, n_src)).tocsr()
         return weight_matrix, tgt_shape, cell_of_element
 

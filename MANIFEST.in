@@ -23,6 +23,7 @@ prune tests
 prune examples
 prune data
 prune output
+prune scripts
 prune .github
 
 # Exclude caches and compiled files

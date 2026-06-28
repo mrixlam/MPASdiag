@@ -20,6 +20,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 
 from .utils_logger import get_logger
+from .utils_path import safe_resolve_within
 
 logger = get_logger(__name__)
 
@@ -41,19 +42,12 @@ def _validate_config_path(
     Returns:
         Path: The resolved, validated absolute path.
     """
-    base = (Path(base_dir) if base_dir else Path.cwd()).resolve()
-    resolved = (base / filepath).resolve()
-
-    if not resolved.is_relative_to(base):
-        raise ValueError(f"Refusing to access config path outside '{base}': {filepath}")
-
-    if resolved.suffix.lower() not in (".yaml", ".yml"):
-        raise ValueError(f"Config file must be a .yaml or .yml file: {filepath}")
-
-    if must_exist and not resolved.is_file():
-        raise FileNotFoundError(f"Configuration file not found: {filepath}")
-
-    return resolved
+    return safe_resolve_within(
+        filepath,
+        base_dir,
+        allowed_suffixes=(".yaml", ".yml"),
+        must_exist=must_exist,
+    )
 
 
 @dataclass
