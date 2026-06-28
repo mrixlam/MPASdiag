@@ -30,7 +30,7 @@ jobs:
 
         # Create logs directory with absolute path
         mkdir -p "$GITHUB_WORKSPACE/logs"
-        chmod 777 "$GITHUB_WORKSPACE/logs"
+        chmod 755 "$GITHUB_WORKSPACE/logs"
 
         # Generate log file name
         TIMESTAMP=$(date +"%Y%m%dT%H%M")
@@ -44,7 +44,7 @@ jobs:
 
         # Create and verify log file
         touch "${LOG_FILE}"
-        chmod 666 "${LOG_FILE}"
+        chmod 644 "${LOG_FILE}"
 
         # Write initial content
         echo "Starting CI run at $(date)" | tee -a "${LOG_FILE}"
@@ -89,7 +89,10 @@ jobs:
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing ruff and mypy..." | tee -a "${LOG_FILE}"
-        pip install ruff==0.8.4 mypy 2>&1 | tee -a "${LOG_FILE}"
+        # mypy pinned to match .pre-commit-config.yaml so CI agrees with local
+        # hooks. Must be >= the dev floor (mypy>=1.15.0); older versions report
+        # false positives the codebase is not written against.
+        pip install ruff==0.8.4 mypy==2.1.0 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
         pip install -e . 2>&1 | tee -a "${LOG_FILE}"
@@ -244,3 +247,22 @@ jobs:
     - name: Lint with ruff
       run: |
         ruff check mpasdiag/ tests/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+    - name: Set up Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      with:
+        python-version: '3.11'
+
+    - name: Install security tooling
+      run: pip install bandit==1.8.0 pip-audit==2.7.3
+
+    - name: Static analysis with bandit
+      run: bandit -r mpasdiag/ -ll
+
+    - name: Audit dependencies for known vulnerabilities
+      run: pip-audit --progress-spinner=off || true

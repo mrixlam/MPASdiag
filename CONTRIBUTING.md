@@ -107,6 +107,7 @@ also enforced in CI, so please run them before pushing:
 ruff check mpasdiag/ tests/      # linting
 black --check mpasdiag/ tests/   # formatting (use `black mpasdiag/ tests/` to apply)
 mypy mpasdiag/                   # static type checking
+bandit -r mpasdiag/ -ll          # static security analysis
 ```
 
 Guidelines:
@@ -114,6 +115,10 @@ Guidelines:
 - Add type annotations to all new functions (mypy runs in strict-ish mode).
 - Write clear docstrings (NumPy style) for public functions and classes.
 - Keep changes consistent with the surrounding code.
+- **Never use `assert` for input validation or any security/correctness check.**
+  Python strips `assert` statements when run under `python -O`, so a validation
+  written as an assertion silently disappears. Use an explicit `raise` (e.g.
+  `ValueError`) instead. Reserve `assert` for internal invariants only.
 
 ## Testing
 

@@ -70,6 +70,15 @@ Rv_OVER_Rd = 1.608  # Ratio of gas constants: water vapour / dry air
 EPSILON_RD_RV = 0.622  # Ratio of molar masses: Rd / Rv
 
 # ---------------------------------------------------------------------------
+# Untrusted-input safety limits (security audit finding MPAS-001)
+# ---------------------------------------------------------------------------
+
+MAX_SOURCE_CELLS = 500_000_000  # source mesh cells / points
+MAX_TARGET_POINTS = 500_000_000  # target lat-lon grid points (n_lat * n_lon)
+MAX_WEIGHTS_NNZ = 2_000_000_000  # non-zero remap weight entries
+MAX_NUM_POINTS = 1_000_000  # interpolation points along a cross-section transect
+
+# ---------------------------------------------------------------------------
 # Dimension names
 # ---------------------------------------------------------------------------
 

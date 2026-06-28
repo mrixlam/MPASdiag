@@ -30,8 +30,16 @@ repos:
         files: ^(mpasdiag|tests)/
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+    rev: v2.1.0
     hooks:
       - id: mypy
         files: ^mpasdiag/
         additional_dependencies: ['types-PyYAML']
+
+  # Static security analysis (security audit finding MPAS-004).
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.0
+    hooks:
+      - id: bandit
+        args: ['-ll']
+        files: ^mpasdiag/
