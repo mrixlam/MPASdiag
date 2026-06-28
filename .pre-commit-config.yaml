@@ -30,7 +30,7 @@ repos:
         files: ^(mpasdiag|tests)/
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+    rev: v2.1.0
     hooks:
       - id: mypy
         files: ^mpasdiag/

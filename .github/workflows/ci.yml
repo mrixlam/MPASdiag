@@ -89,8 +89,10 @@ jobs:
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing ruff and mypy..." | tee -a "${LOG_FILE}"
-        # Pinned to match .pre-commit-config.yaml so CI agrees with local hooks
-        pip install ruff==0.8.4 mypy==1.13.0 2>&1 | tee -a "${LOG_FILE}"
+        # mypy pinned to match .pre-commit-config.yaml so CI agrees with local
+        # hooks. Must be >= the dev floor (mypy>=1.15.0); older versions report
+        # false positives the codebase is not written against.
+        pip install ruff==0.8.4 mypy==2.1.0 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
         pip install -e . 2>&1 | tee -a "${LOG_FILE}"
