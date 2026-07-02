@@ -233,7 +233,7 @@ class TestRunSingleCrossSectionLowerHalf:
         self: "TestRunSingleCrossSectionLowerHalf", tmp_path: "Path"
     ) -> None:
         """
-        This test verifies that when config.output is explicitly set, _run_single_cross_section uses it as the output file stem instead of computing a name based on time information (line 1619). It checks that plotter.save_plot is called with the path that includes the explicit output name provided in the configuration.
+        This test verifies that when config.output is explicitly set, _run_single_cross_section uses it as the output file stem instead of computing a name based on time information. Under strict path confinement the explicit output is resolved within the configured output directory, so the test checks that plotter.save_plot is called with the confined path.
 
         Parameters:
             tmp_path (Path): pytest temporary directory fixture used for the output directory in the configuration.
@@ -246,13 +246,15 @@ class TestRunSingleCrossSectionLowerHalf:
         mock_plotter = MagicMock()
         mock_plotter.create_vertical_cross_section.return_value = (None, None)
 
+        output_dir = str(tmp_path / "cross_out")
+
         config = SimpleNamespace(
             time_index=0,
             title=None,
             variable="temperature",
             colormap="default",
-            output="/explicit/path/plot",
-            output_dir=str(tmp_path / "cross_out"),
+            output="explicit_plot",
+            output_dir=output_dir,
             output_formats=["png"],
         )
 
@@ -263,7 +265,7 @@ class TestRunSingleCrossSectionLowerHalf:
             cli._run_single_cross_section(mock_processor, mock_plotter, config, {})
 
         args, _ = mock_plotter.save_plot.call_args
-        assert args[0] == "/explicit/path/plot"
+        assert args[0] == str((Path(output_dir) / "explicit_plot").resolve())
 
 
 class TestLogCreatedFilesWithLogger:

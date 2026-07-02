@@ -265,4 +265,7 @@ jobs:
       run: bandit -r mpasdiag/ -ll
 
     - name: Audit dependencies for known vulnerabilities
-      run: pip-audit --progress-spinner=off || true
+      # No `|| true`: a known-vulnerable dependency must fail CI (audit finding
+      # F18). Add specific, reviewed exceptions with `--ignore-vuln <ID>` only when
+      # an advisory is assessed as not applicable, with a comment justifying it.
+      run: pip-audit --progress-spinner=off --strict

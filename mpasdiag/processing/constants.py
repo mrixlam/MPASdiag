@@ -77,6 +77,9 @@ MAX_SOURCE_CELLS = 500_000_000  # source mesh cells / points
 MAX_TARGET_POINTS = 500_000_000  # target lat-lon grid points (n_lat * n_lon)
 MAX_WEIGHTS_NNZ = 2_000_000_000  # non-zero remap weight entries
 MAX_NUM_POINTS = 1_000_000  # interpolation points along a cross-section transect
+MAX_CELL_VERTICES = 1_000  # per-cell polygon vertices (nVertices) in a source mesh
+MAX_WORKERS = 1_024  # multiprocessing worker processes (fork-bomb guard)
+MAX_INPUT_FILES = 100_000  # data files aggregated by a single open_mfdataset call
 
 # ---------------------------------------------------------------------------
 # Dimension names

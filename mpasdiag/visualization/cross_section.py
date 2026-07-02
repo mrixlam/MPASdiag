@@ -1226,7 +1226,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             np.ndarray: The (n_levels, num_points) interpolated cross-section.
         """
-        cross_section_data = np.full((len(vertical_levels), num_points), np.nan)
+        cross_section_data: np.ndarray = np.full(
+            (len(vertical_levels), num_points), np.nan
+        )
 
         for level_idx, level in enumerate(vertical_levels):
             try:
@@ -1444,7 +1446,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         grid_data_valid = grid_data_flat[valid_mask]
 
         if len(grid_data_valid) == 0:
-            return np.full(len(path_lons), np.nan)
+            empty_result: np.ndarray = np.full(len(path_lons), np.nan)
+            return empty_result
 
         grid_points = np.column_stack(
             [
@@ -1624,7 +1627,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         """
         if "temperature" in var_lower or "temp" in var_lower:
             step = 5 if data_range > 50 else 2
-            return np.arange(data_min, data_max + step, step)
+            temp_levels: np.ndarray = np.arange(data_min, data_max + step, step)
+            return temp_levels
 
         if "pressure" in var_lower:
             if data_min > 0:

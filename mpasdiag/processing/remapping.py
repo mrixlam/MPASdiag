@@ -395,6 +395,11 @@ class MPASRemapper:
         Returns:
             Tuple[Any, int, bool, bool, Any, Optional[np.ndarray]]: A tuple containing the prepared ESMF source object, the number of source points, flags indicating if it's a mesh or grid, normalization type for conservative remapping, and the cell of element mapping if applicable.
         """
+        DataValidator.enforce_size_limits(
+            n_src=len(source_lon_deg),
+            context="preparing source grid for remapping",
+        )
+
         is_conservative = self.method in ("conservative", "conservative_normed")
         src_is_structured = tuple(source_grid["lon"].dims) != tuple(
             source_grid["lat"].dims
@@ -626,6 +631,19 @@ class MPASRemapper:
             metadata = row_indices = col_indices = weight_values = bcast_coe = None
 
         metadata = comm.bcast(metadata, root=0)  # small dict — pickle OK
+
+        DataValidator.enforce_size_limits(
+            nnz=int(metadata["nnz"]),
+            n_src=int(metadata["n_src"]),
+            n_tgt=int(metadata["tgt_lat"]) * int(metadata["tgt_lon"]),
+            context="receiving broadcast remap weights",
+        )
+
+        if metadata.get("has_coe"):
+            DataValidator.enforce_size_limits(
+                nnz=int(metadata["coe_len"]),
+                context="receiving broadcast cell_of_element mapping",
+            )
 
         if mpi_rank != 0:
             row_indices = np.empty(metadata["nnz"], dtype=np.int32)
@@ -960,6 +978,12 @@ class MPASRemapper:
             Any: An ESMPy Mesh object representing the unstructured source grid, and an array mapping each mesh element to its parent cell index.
         """
         n_cells, nv = lon_bounds.shape
+
+        DataValidator.enforce_size_limits(
+            nv=nv,
+            n_src=n_cells * max(1, nv - 2),
+            context="building conservative source mesh",
+        )
 
         if nv in (3, 4):
             element_type = (

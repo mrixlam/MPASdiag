@@ -14,8 +14,71 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import re
 from pathlib import Path
 from typing import Iterable, Optional, Union
+
+_UNSAFE_COMPONENT_CHARS = re.compile(r"[/\\\x00-\x1f\x7f]")
+
+
+def sanitize_filename_component(name: str, *, fallback: str = "output") -> str:
+    """
+    This function sanitizes a string to be used as a safe filename component. It replaces unsafe characters with underscores, collapses multiple dots and underscores, and strips leading/trailing dots and whitespace. If the resulting string is empty or invalid, it returns a fallback value.
+
+    Parameters:
+        name (str): Raw, possibly attacker-influenced token.
+        fallback (str): Value returned when ``name`` sanitizes to empty.
+
+    Returns:
+        str: A safe filename component.
+    """
+    cleaned = _UNSAFE_COMPONENT_CHARS.sub("_", str(name))
+    # Collapse any run of dots so ``..`` (and longer) can never survive.
+    cleaned = re.sub(r"\.{2,}", "_", cleaned)
+    # Collapse runs of underscores introduced by substitution for tidy names.
+    cleaned = re.sub(r"_{2,}", "_", cleaned)
+    # A leading dot/underscore would create a hidden/ugly file; strip them.
+    cleaned = cleaned.strip(". _\t")
+    if not cleaned or cleaned in {".", ".."}:
+        return fallback
+    return cleaned
+
+
+def safe_label(text: object, *, max_len: int = 200) -> str:
+    """
+    This function sanitizes untrusted text for safe rendering in labels or titles. It removes control characters, collapses whitespace, and truncates the string to a specified maximum length. This helps prevent issues with rendering and ensures that the text is safe to display.
+
+    Parameters:
+        text (object): Value to render safely (coerced with ``str``).
+        max_len (int): Maximum length before truncation.
+
+    Returns:
+        str: A single-line, control-character-free, length-bounded string.
+    """
+    s = re.sub(r"[\x00-\x1f\x7f]", " ", str(text))
+    s = re.sub(r"\s+", " ", s).strip()
+    if len(s) > max_len:
+        s = s[:max_len] + "…(truncated)"
+    return s
+
+
+def safe_plot_text(text: object, *, max_len: int = 300) -> str:
+    """
+    This function sanitizes untrusted text for safe rendering in matplotlib labels or titles. It removes control characters, dollar signs (to avoid LaTeX interpretation), collapses whitespace, and truncates the string to a specified maximum length. This ensures that the text is safe to display in plots without causing rendering issues.
+
+    Parameters:
+        text (object): Value to render safely (coerced with ``str``).
+        max_len (int): Maximum length before truncation.
+
+    Returns:
+        str: Text safe to hand to matplotlib as a label/title.
+    """
+    s = re.sub(r"[\x00-\x1f\x7f]", " ", str(text))
+    s = s.replace("$", "")
+    s = re.sub(r"\s+", " ", s).strip()
+    if len(s) > max_len:
+        s = s[:max_len] + "…"
+    return s
 
 
 def safe_resolve_within(

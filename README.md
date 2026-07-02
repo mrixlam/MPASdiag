@@ -293,6 +293,26 @@ If you prefer the command line, see the `CLI Examples` section below.
 
 ## CLI Examples
 
+**Path confinement (security):** By default, every input/output path the CLI
+touches — `--grid-file`, `--data-dir`, `--output-dir`, `--output`, `--log-file`,
+`--config`, and the weights cache — must resolve **inside the current working
+directory**. A path that points outside it (via `..` or an absolute path) is
+refused. This protects you from a shared/untrusted config file redirecting reads
+or writes elsewhere on your filesystem. The examples below use paths relative to
+the current directory, so they work as-is.
+
+Scientific data often lives outside the working directory (e.g. `/scratch`,
+`/glade`, project mounts). To work there, pass **`--base-dir <dir>`**: all paths
+then must resolve within that trusted directory instead. For example:
+
+```bash
+mpasdiag surface --base-dir /scratch/$USER/run42 \
+  --grid-file /scratch/$USER/run42/grid.nc \
+  --data-dir  /scratch/$USER/run42/diag \
+  --output-dir /scratch/$USER/run42/plots \
+  --variable t2m --plot-type contourf
+```
+
 ### Precipitation Analysis
 ```bash
 # Basic precipitation analysis (single time)
@@ -447,6 +467,9 @@ Create YAML configuration files for repeatable analysis. All `MPASConfig` datacl
 # config.yaml - Full MPASConfig reference (select fields relevant to your analysis)
 
 # --- I/O paths ---
+# NOTE: these paths must resolve within the current working directory (or the
+# directory passed via --base-dir). Absolute or '..' paths outside that base are
+# refused; run with `--base-dir /scratch/...` to use data/output on another mount.
 grid_file:   "./data/grids/x1.10242.init.nc"
 data_dir:    "./data/u240k"
 output_dir:  "./output"
@@ -758,7 +781,7 @@ mpasdiag.diagnostics
 
 ## Testing
 
-MPASdiag features a comprehensive, modernized test suite with **1650+ tests** across organized sub-packages, achieving **99%+ code coverage**. Tests are organized into four domain sub-packages (`cli/`, `diagnostics/`, `processing/`, `visualization/`) plus top-level module tests and integration tests. MPASdiag uses `pytest` as the testing framework with `pytest-cov` for coverage reporting.
+MPASdiag features a comprehensive, modernized test suite with **1850+ tests** across organized sub-packages, achieving **98%+ code coverage**. Tests are organized into four domain sub-packages (`cli/`, `diagnostics/`, `processing/`, `visualization/`) plus top-level module tests and integration tests. MPASdiag uses `pytest` as the testing framework with `pytest-cov` for coverage reporting.
 
 Key test sub-packages:
 - **`tests/cli/`**: CLI command parsing, argument handling, batch mode, config loading, sounding, overlay, logging, and integration tests (12 modules)

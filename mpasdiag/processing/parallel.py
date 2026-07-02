@@ -27,6 +27,8 @@ from enum import Enum
 from multiprocessing import cpu_count, get_context
 
 from .utils_logger import get_logger
+from .utils_validator import DataValidator
+from .constants import MAX_WORKERS
 
 logger = get_logger(__name__)
 
@@ -68,7 +70,11 @@ def _configure_worker_threads(n_threads: int = 1) -> None:
         try:
             n_threads = max(1, int(override))
         except ValueError:
-            pass
+            logger.warning(
+                "Ignoring invalid %s=%r (expected a positive integer)",
+                _WORKER_THREADS_ENV,
+                override,
+            )
     n_threads = max(1, n_threads)
 
     for var in _THREAD_ENV_VARS:
@@ -491,11 +497,37 @@ class MPASParallelManager:
         """
         self.backend: Optional[str] = "multiprocessing"
         self.rank = 0
-        self.size = self.n_workers or max(1, cpu_count() - 1)
+        self.size = self._resolve_worker_count(self.n_workers)
         self.is_master: bool = True
         self.comm: Optional[Any] = None
         self.distributor: Optional[MPASTaskDistributor] = None
         self.collector: Optional[MPASResultCollector] = None
+
+    @staticmethod
+    def _resolve_worker_count(n_workers: Optional[int]) -> int:
+        """
+        This static method determines a safe and positive number of worker processes to use for multiprocessing based on the requested count and system capabilities. It checks the requested worker count against a safety cap defined by the environment variable 'MPASDIAG_MAX_WORKERS' or a default maximum. If the requested count exceeds the cap, it logs a warning and clamps the value to the cap. The method ensures that at least one worker is always used, even if the requested count is zero or negative.
+
+        Parameters:
+            n_workers (Optional[int]): Requested worker count, or None for the default.
+
+        Returns:
+            int: A safe, positive worker-process count.
+        """
+        cap = DataValidator._resolve_size_limit("MPASDIAG_MAX_WORKERS", MAX_WORKERS)
+        if n_workers is None:
+            size = max(1, cpu_count() - 1)
+        else:
+            size = max(1, int(n_workers))
+        if size > cap:
+            logger.warning(
+                "Requested %d worker processes exceeds the safety cap %d; "
+                "clamping. Raise it via MPASDIAG_MAX_WORKERS if intended.",
+                size,
+                cap,
+            )
+            size = cap
+        return size
 
     def _setup_serial_backend(self: "MPASParallelManager") -> None:
         """

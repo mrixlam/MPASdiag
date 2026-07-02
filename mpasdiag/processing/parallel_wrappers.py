@@ -69,6 +69,7 @@ except ImportError:
     from mpasdiag.diagnostics.sounding import SoundingDiagnostics
 
 from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.processing.utils_path import sanitize_filename_component
 from mpasdiag.processing.constants import (
     PRECIP_REQUIRED_VARS,
     CROSS_SECTION_AUX_VARS,
@@ -432,7 +433,10 @@ def _precipitation_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
         output_path = os.path.join(
             output_dir,
-            f"{file_prefix}_vartype_{var_name}_acctype_{accum_period}_valid_{time_str}_ptype_{plot_type}",
+            f"{sanitize_filename_component(file_prefix)}"
+            f"_vartype_{sanitize_filename_component(var_name)}"
+            f"_acctype_{sanitize_filename_component(accum_period)}"
+            f"_valid_{time_str}_ptype_{sanitize_filename_component(plot_type)}",
         )
 
         plotter.save_plot(output_path, formats=formats)
@@ -565,7 +569,10 @@ def _surface_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     safe_time_str = time_str
 
     output_path = os.path.join(
-        output_dir, f"{file_prefix}_{var_name}_{plot_type}_valid_{safe_time_str}"
+        output_dir,
+        f"{sanitize_filename_component(file_prefix)}"
+        f"_{sanitize_filename_component(var_name)}"
+        f"_{sanitize_filename_component(plot_type)}_valid_{safe_time_str}",
     )
 
     plotter.save_plot(output_path, formats=formats)
@@ -759,7 +766,10 @@ def _cross_section_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
     safe_time_str = time_str.replace(":", "").replace("-", "").replace(" ", "T")[:13]
     save_path = os.path.join(
         output_dir,
-        f"{file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{safe_time_str}.png",
+        f"{sanitize_filename_component(file_prefix)}"
+        f"_{sanitize_filename_component(var_name)}"
+        f"_vcrd_{sanitize_filename_component(vertical_coord)}"
+        f"_valid_{safe_time_str}.png",
     )
 
     fig, _ = plotter.create_vertical_cross_section(
@@ -873,7 +883,8 @@ def _skewt_worker(args: Tuple[int, Dict[str, Any]]) -> Dict[str, Any]:
 
     output_path = os.path.join(
         output_dir,
-        f"{file_prefix}_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}",
+        f"{sanitize_filename_component(file_prefix)}"
+        f"_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}",
     )
 
     plotter = MPASSkewTPlotter(figsize=(9, 12), verbose=False)

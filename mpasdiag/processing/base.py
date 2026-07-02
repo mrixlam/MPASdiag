@@ -31,6 +31,30 @@ from typing import List, Tuple, Any, Optional, Dict, Union, Iterator, cast
 from .utils_datetime import MPASDateTimeUtils
 from .constants import DATASET_NOT_LOADED_MSG, DIAG_GLOB
 from .utils_logger import get_logger
+from .utils_validator import DataValidator
+
+
+def _enforce_dataset_load_limit(ds: "xr.Dataset", context: str) -> None:
+    """
+    This function enforces a limit on the number of elements in an xarray.Dataset to prevent excessive memory usage or performance issues when loading large datasets. It iterates through all variables in the dataset, calculates the total number of elements for each variable based on its shape, and tracks the maximum number of elements found across all variables. It then calls the DataValidator's enforce_size_limits method to check if the maximum number of elements exceeds predefined limits, raising an error if necessary. This function is used to ensure that datasets being loaded do not exceed reasonable size constraints, which is particularly important for MPASdiag workflows that may involve large unstructured grid datasets.
+
+    Parameters:
+        ds (xr.Dataset): An opened (possibly lazy) dataset to inspect.
+        context (str): Short description of the load operation for error messages.
+
+    Returns:
+        None
+    """
+    max_elems = 0
+    for var in ds.variables.values():
+        shape = getattr(var, "shape", ())
+        count = 1
+        for dim in shape:
+            count *= int(dim)
+        if count > max_elems:
+            max_elems = count
+    DataValidator.enforce_size_limits(n_src=max_elems, context=context)
+
 
 logger = get_logger(__name__)
 
@@ -357,8 +381,16 @@ class MPASBaseProcessor:
         if drop_variables:
             open_mfdataset_kwargs["drop_variables"] = drop_variables
 
+        # Cap the number of aggregated files so a directory stuffed with matches does not OOM-kill the process.
+        DataValidator.enforce_size_limits(
+            n_files=len(data_files), context="aggregating input data files"
+        )
+
         # Read data files into a single xarray.Dataset using open_mfdataset with the specified chunking strategy for efficient memory usage.
         combined_ds = xr.open_mfdataset(data_files, **open_mfdataset_kwargs)
+
+        # Reject crafted files that declare enormous logical dimensions to prevent excessive memory usage
+        _enforce_dataset_load_limit(combined_ds, context="loading MPAS data files")
 
         # Assign the provided datetime objects as the Time coordinates in the combined dataset
         combined_ds = combined_ds.assign_coords(Time=pd.to_datetime(file_datetimes))
@@ -1046,6 +1078,7 @@ class MPASBaseProcessor:
                     pass
 
             with xr.open_dataset(self.grid_file, **open_kwargs) as opened:
+                _enforce_dataset_load_limit(opened, context="loading grid file")
                 return opened.load()
 
         grid_file_ds = _load_shared(_GRID_DS_CACHE, cache_key, _read)

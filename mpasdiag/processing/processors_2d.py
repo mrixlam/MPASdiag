@@ -24,6 +24,7 @@ from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
 from .constants import DIAG_GLOB, MPASOUT_GLOB
 from .utils_logger import get_logger
+from .utils_path import safe_label
 
 logger = get_logger(__name__)
 
@@ -288,7 +289,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
                 self.dataset.data_vars.keys()
             )
             raise ValueError(
-                f"Could not find {spatial_dim} coordinates. Available variables: {available_vars}"
+                f"Could not find {spatial_dim} coordinates. Available variables: "
+                f"{safe_label(available_vars)}"
             )
 
         # Both coordinate arrays are guaranteed present past the guard above.
@@ -363,7 +365,8 @@ class MPAS2DProcessor(MPASBaseProcessor):
         if var_name not in self.dataset.data_vars:
             available_vars = list(self.dataset.data_vars.keys())
             raise ValueError(
-                f"Variable '{var_name}' not found. Available variables: {available_vars}"
+                f"Variable '{safe_label(var_name)}' not found. Available variables: "
+                f"{safe_label(available_vars)}"
             )
 
         time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(

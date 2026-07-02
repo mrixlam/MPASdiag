@@ -108,6 +108,11 @@ class FileManager:
         Returns:
             int: Count of files that were deleted based on the specified criteria.
         """
+        if older_than_days < 0:
+            raise ValueError(
+                f"older_than_days must be non-negative, got {older_than_days}"
+            )
+
         path = Path(directory)
         cutoff_time = datetime.now() - timedelta(days=older_than_days)
         deleted_count = 0

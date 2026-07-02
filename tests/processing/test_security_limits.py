@@ -6,12 +6,24 @@
 Tests for the security-hardening helpers added in the pre-release audit:
 
 This module contains unit tests for the security-hardening helpers introduced in the pre-release audit of the MPASdiag package. The tests focus on verifying the functionality of the enforce_size_limits function and the safe_resolve_within function, ensuring that they correctly enforce input size limits and path containment, respectively.
+
+Author: Rubaiat Islam
+Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
+Email: mrislam@ucar.edu
+Date: June 2026
+Version: 1.0.0
 """
 
 import pytest
 
 from mpasdiag.processing.utils_validator import DataValidator
-from mpasdiag.processing.utils_path import safe_resolve_within
+from mpasdiag.processing.utils_path import (
+    safe_resolve_within,
+    sanitize_filename_component,
+    safe_label,
+    safe_plot_text,
+)
+from mpasdiag.processing.utils_config import MPASConfig
 from mpasdiag.processing import constants
 from pathlib import Path
 
@@ -288,6 +300,340 @@ class TestSafeResolveWithin:
         target.write_bytes(b"")
         resolved = safe_resolve_within("present.nc", str(tmp_path), must_exist=True)
         assert resolved == target.resolve()
+
+
+class TestExtendedSizeLimits:
+    """Extended input-size caps for testing (MPAS-001)."""
+
+    def test_cell_vertices_over_default_raises(self: "TestExtendedSizeLimits") -> None:
+        """
+        This test verifies that the enforce_size_limits function raises a ValueError when the number of cell vertices (nv) exceeds the default limit defined in constants.MAX_CELL_VERTICES. It ensures that the function correctly enforces the safety limit for cell vertices and provides an appropriate error message indicating the issue.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="cell vertices"):
+            DataValidator.enforce_size_limits(nv=constants.MAX_CELL_VERTICES + 1)
+
+    def test_workers_over_default_raises(self: "TestExtendedSizeLimits") -> None:
+        """
+        This test verifies that the enforce_size_limits function raises a ValueError when the number of worker processes (n_workers) exceeds the default limit defined in constants.MAX_WORKERS. It ensures that the function correctly enforces the safety limit for worker processes and provides an appropriate error message indicating the issue.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="worker processes"):
+            DataValidator.enforce_size_limits(n_workers=constants.MAX_WORKERS + 1)
+
+    def test_input_files_over_default_raises(self: "TestExtendedSizeLimits") -> None:
+        """
+        This test verifies that the enforce_size_limits function raises a ValueError when the number of input files (n_files) exceeds the default limit defined in constants.MAX_INPUT_FILES. It ensures that the function correctly enforces the safety limit for input files and provides an appropriate error message indicating the issue.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="input files"):
+            DataValidator.enforce_size_limits(n_files=constants.MAX_INPUT_FILES + 1)
+
+    def test_new_limits_env_override(
+        self: "TestExtendedSizeLimits", monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        This test checks that the enforce_size_limits function allows an override of the default limit for the number of cell vertices (nv) through an environment variable (MPASDIAG_MAX_CELL_VERTICES). It ensures that the function correctly respects the environment variable and allows values above the default limit when the override is set.
+
+        Parameters:
+            monkeypatch: pytest.MonkeyPatch - Fixture for modifying environment variables.
+
+        Returns:
+            None
+        """
+        monkeypatch.setenv("MPASDIAG_MAX_CELL_VERTICES", "5")
+        with pytest.raises(ValueError, match="cell vertices"):
+            DataValidator.enforce_size_limits(nv=6)
+
+
+class TestSanitizeFilenameComponent:
+    """Filename-component sanitization (F2): no separators or traversal survive."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            ("../../etc/passwd", "etc_passwd"),
+            ("foo/bar", "foo_bar"),
+            ("a\\b", "a_b"),
+            ("x\x00y", "x_y"),
+            ("te\nst", "te_st"),
+            ("..", "output"),
+            (".", "output"),
+            ("", "output"),
+            (".hidden", "hidden"),
+            ("rainnc", "rainnc"),
+        ],
+    )
+    def test_sanitize(
+        self: "TestSanitizeFilenameComponent", raw: str, expected: str
+    ) -> None:
+        """
+        This test verifies that the sanitize_filename_component function correctly sanitizes various raw filename components by removing or replacing disallowed characters and patterns. It ensures that the sanitized output matches the expected result and does not contain any path separators or traversal sequences.
+
+        Parameters:
+            raw: str - The raw filename component to be sanitized.
+            expected: str - The expected sanitized output.
+
+        Returns:
+            None
+        """
+        result = sanitize_filename_component(raw)
+        assert result == expected
+        assert "/" not in result and "\\" not in result
+        assert ".." not in result
+
+    def test_custom_fallback(self: "TestSanitizeFilenameComponent") -> None:
+        """
+        This test checks that the sanitize_filename_component function correctly uses a custom fallback value when the sanitized result is empty or invalid. It ensures that when the input string is such that it results in an empty sanitized output, the function returns the specified fallback value instead.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        assert sanitize_filename_component("///", fallback="var") == "var"
+
+
+class TestMessageAndPlotTextSanitizers:
+    """Log/plot text sanitization for the LLM-agent threat model (F15/F16)."""
+
+    def test_safe_label_strips_control_chars(
+        self: "TestMessageAndPlotTextSanitizers",
+    ) -> None:
+        """
+        This test verifies that the safe_label function correctly removes control characters (such as newlines, tabs, and null bytes) from the input string. It ensures that the sanitized output is free of any control characters that could potentially disrupt logging or plotting.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        assert safe_label("a\nb\tc\x00d") == "a b c d"
+
+    def test_safe_label_truncates(self: "TestMessageAndPlotTextSanitizers") -> None:
+        """
+        This test checks that the safe_label function correctly truncates long input strings to a specified maximum length. It ensures that when the input string exceeds the max_len parameter, the function returns a truncated version of the string with an appropriate indication (e.g., "(truncated)") appended to it.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        out = safe_label("x" * 500, max_len=50)
+        assert out.endswith("(truncated)") and len(out) <= 70
+
+    def test_safe_plot_text_removes_mathtext(
+        self: "TestMessageAndPlotTextSanitizers",
+    ) -> None:
+        """
+        This test verifies that the safe_plot_text function correctly removes LaTeX mathtext expressions (enclosed in dollar signs) from the input string. It ensures that any mathematical expressions intended for plotting are stripped out, leaving only the plain text content.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        assert "$" not in safe_plot_text("temp $\\frac{1}{0}$ K")
+
+
+class TestConfigValidationIntegrity:
+    """Merged-config revalidation and numeric bounds (F10/F11/F12)."""
+
+    def test_numeric_bounds_reject_abusive_dpi(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test checks that the MPASConfig class raises a ValueError when an excessively high DPI (dots per inch) value is specified. It ensures that the configuration validation enforces reasonable bounds for the DPI setting, preventing configurations that could lead to performance issues or resource exhaustion.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="dpi"):
+            MPASConfig(dpi=1_000_000)
+
+    def test_auto_sentinels_are_accepted(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test verifies that the MPASConfig class accepts sentinel values for certain configuration parameters, such as subsample_factor and time_index. It ensures that the configuration validation allows these sentinel values to be used without raising any exceptions, indicating that they are valid inputs for the respective parameters.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        MPASConfig(subsample_factor=-1)
+        MPASConfig(subsample_factor=0)
+        MPASConfig(time_index=-1)
+
+    def test_numeric_bounds_reject_negative_workers(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test checks that the MPASConfig class raises a ValueError when a negative number of worker processes is specified. It ensures that the configuration validation enforces non-negative bounds for the number of workers, preventing configurations that could lead to runtime errors or unexpected behavior.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="workers"):
+            MPASConfig(workers=-4)
+
+    def test_revalidate_catches_merged_bad_remap_engine(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test verifies that the MPASConfig class raises a ValueError when an invalid remap engine is specified. It ensures that the configuration validation correctly identifies unsupported remap engine values and raises an appropriate error message.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        cfg = MPASConfig()
+        cfg.remap_engine = "totally-bogus"
+        with pytest.raises(ValueError, match="remap_engine"):
+            cfg.revalidate()
+
+    def test_revalidate_catches_merged_bad_extent(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test checks that the MPASConfig class raises a ValueError when the specified spatial extent is invalid (i.e., when lat_min is greater than lat_max). It ensures that the configuration validation correctly identifies and rejects configurations with inconsistent spatial bounds.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        cfg = MPASConfig()
+        cfg.lat_min = 50.0
+        cfg.lat_max = 10.0
+        with pytest.raises(ValueError, match="spatial extent"):
+            cfg.revalidate()
+
+    def test_from_dict_filters_unknown_keys(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test verifies that the MPASConfig class correctly filters out unknown keys when creating a configuration instance from a dictionary. It ensures that only recognized configuration keys are retained, while any unrecognized keys are ignored without raising an error.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        cfg = MPASConfig.from_dict(
+            {"variable": "t2m", "an_unknown_key": 123, "another": "x"}
+        )
+        assert cfg.variable == "t2m"
+
+    def test_from_dict_rejects_non_mapping(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test checks that the MPASConfig class raises a ValueError when attempting to create a configuration instance from a non-mapping object (e.g., a list). It ensures that the from_dict method enforces the requirement that the input must be a dictionary or mapping type.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        with pytest.raises(ValueError, match="mapping"):
+            MPASConfig.from_dict(["not", "a", "dict"])  # type: ignore[arg-type]
+
+    def test_resolved_base_dir_defaults_to_cwd(
+        self: "TestConfigValidationIntegrity",
+    ) -> None:
+        """
+        This test verifies that the resolved_base_dir method of the MPASConfig class defaults to the current working directory when no explicit base_dir is provided. It ensures that the method correctly resolves the base directory to the current working directory in the absence of a user-specified value.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        assert MPASConfig().resolved_base_dir() == Path.cwd().resolve()
+
+    def test_resolved_base_dir_uses_explicit_value(
+        self: "TestConfigValidationIntegrity", tmp_path: Path
+    ) -> None:
+        """
+        This test checks that the resolved_base_dir method of the MPASConfig class correctly uses an explicitly provided base_dir value. It ensures that when a specific base directory is set, the method resolves and returns that directory instead of defaulting to the current working directory.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        cfg = MPASConfig(base_dir=str(tmp_path))
+        assert cfg.resolved_base_dir() == tmp_path.resolve()
+
+
+class TestWorkerCountClamp:
+    """Fork-bomb guard on the multiprocessing pool size (F8)."""
+
+    def test_excessive_request_is_clamped(self: "TestWorkerCountClamp") -> None:
+        """
+        This test verifies that the _resolve_worker_count method of the MPASParallelManager class correctly clamps an excessively high requested worker count to the maximum allowed value defined in constants.MAX_WORKERS. It ensures that the method enforces the upper limit on the number of worker processes to prevent resource exhaustion or potential fork-bomb scenarios.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.parallel import MPASParallelManager
+
+        assert (
+            MPASParallelManager._resolve_worker_count(100_000) == constants.MAX_WORKERS
+        )
+
+    def test_nonpositive_request_floors_at_one(self: "TestWorkerCountClamp") -> None:
+        """
+        This test checks that the _resolve_worker_count method of the MPASParallelManager class correctly floors a non-positive requested worker count to a minimum of one. It ensures that the method enforces a lower limit on the number of worker processes, preventing configurations that would result in zero or negative workers.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from mpasdiag.processing.parallel import MPASParallelManager
+
+        assert MPASParallelManager._resolve_worker_count(-3) == 1
+        assert MPASParallelManager._resolve_worker_count(0) == 1
 
 
 if __name__ == "__main__":

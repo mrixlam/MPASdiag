@@ -39,6 +39,7 @@ from .parallel_wrappers import (
 )
 
 from .constants import DIAG_GLOB, MPASOUT_GLOB, PERFORMANCE_MONITOR_MSG
+from .utils_path import safe_resolve_within, sanitize_filename_component
 from .utils_datetime import MPASDateTimeUtils
 from .utils_geog import GeographicBounds
 
@@ -169,6 +170,14 @@ class MPASUnifiedCLI:
             help="Suppress output messages (shortcut for --log-level ERROR)",
         )
         parser.add_argument("--log-file", type=str, help="Log file path")
+        parser.add_argument(
+            "--base-dir",
+            type=str,
+            default=None,
+            help="Trusted base directory that all input/output paths must resolve "
+            "within (default: current working directory). Set this to work with "
+            "grid/data/output on an explicit out-of-tree location (e.g. /scratch).",
+        )
         parser.add_argument(
             "--log-level",
             type=str,
@@ -898,6 +907,7 @@ class MPASUnifiedCLI:
             "grid_file": "grid_file",
             "data_dir": "data_dir",
             "output_dir": "output_dir",
+            "base_dir": "base_dir",
             "lat_min": "lat_min",
             "lat_max": "lat_max",
             "lon_min": "lon_min",
@@ -1153,6 +1163,11 @@ class MPASUnifiedCLI:
             log_file if log_file is not None else getattr(config, "log_file", None)
         )
 
+        if effective_log_file:
+            effective_log_file = str(
+                safe_resolve_within(effective_log_file, config.resolved_base_dir())
+            )
+
         if config.log_level:
             log_level = getattr(logging, config.log_level)
         elif getattr(config, "quiet", False):
@@ -1173,6 +1188,55 @@ class MPASUnifiedCLI:
 
         self.logger = get_logger(__name__)
         return self.logger
+
+    def _confine_config_paths(
+        self: "MPASUnifiedCLI", config: "MPASConfig", errors: List[str]
+    ) -> None:
+        """
+        This method ensures that all file and directory paths specified in the configuration object are confined within a trusted base directory, preventing potential security risks associated with path traversal. It iterates over key path attributes in the configuration (grid_file, data_dir, output_dir) and attempts to resolve each path relative to the base directory. If a path resolves outside the base directory, it appends an error message to the provided errors list indicating that the specific path is not allowed. Additionally, if an output filename is specified, it sanitizes the filename to remove any potentially unsafe characters or sequences. This confinement step is crucial for maintaining security and integrity when processing user-specified paths in the MPASUnifiedCLI.
+
+        Parameters:
+            config (MPASConfig): Configuration whose path fields are confined in place.
+            errors (List[str]): Accumulator for human-readable validation errors.
+
+        Returns:
+            None
+        """
+        base = config.resolved_base_dir()
+
+        for attr, label in (
+            ("grid_file", "Grid file"),
+            ("data_dir", "Data directory"),
+            ("output_dir", "Output directory"),
+        ):
+            value = getattr(config, attr, None)
+            if not value:
+                continue
+            try:
+                setattr(config, attr, str(safe_resolve_within(value, base)))
+            except ValueError:
+                errors.append(
+                    f"{label} resolves outside the trusted base directory "
+                    f"'{base}': {value}. Pass --base-dir to permit this location."
+                )
+
+        if config.output:
+            config.output = sanitize_filename_component(config.output)
+
+    def _safe_output_path(
+        self: "MPASUnifiedCLI", config: "MPASConfig", output_path: str
+    ) -> str:
+        """
+        This method safely resolves the specified output path relative to the trusted output directory defined in the configuration object, ensuring that the resulting absolute path does not escape the confines of the designated output directory. It uses the safe_resolve_within utility function to perform this resolution, which checks for potential path traversal attempts and raises an error if the resolved path would be outside the allowed output directory. This safety measure is important for preventing unauthorized file writes to unintended locations on the filesystem, maintaining security and integrity when generating output files during analysis execution.
+
+        Parameters:
+            config (MPASConfig): Configuration providing the confined output_dir.
+            output_path (str): The output path (without extension) to confine.
+
+        Returns:
+            str: The confined absolute output path.
+        """
+        return str(safe_resolve_within(output_path, config.output_dir))
 
     def _validate_file_path(
         self: "MPASUnifiedCLI",
@@ -1332,6 +1396,13 @@ class MPASUnifiedCLI:
             bool: True if the configuration passes all validation checks and is considered valid for execution, False if any validation errors are detected that require user correction before execution can continue.
         """
         errors: List[str] = []
+
+        self._confine_config_paths(config, errors)
+
+        try:
+            config.revalidate()
+        except ValueError as exc:
+            errors.append(str(exc))
 
         self._validate_file_path(config.grid_file, "Grid file", errors)
 
@@ -1600,9 +1671,11 @@ class MPASUnifiedCLI:
         plot_type = getattr(config, "plot_type", "scatter")
         output_path = config.output or os.path.join(
             config.output_dir,
-            f"mpas_precipitation_map_vartype_{config.variable}"
-            f"_acctype_{config.accumulation_period}_valid_{time_str}_ptype_{plot_type}",
+            f"mpas_precipitation_map_vartype_{sanitize_filename_component(config.variable)}"
+            f"_acctype_{sanitize_filename_component(config.accumulation_period)}"
+            f"_valid_{time_str}_ptype_{sanitize_filename_component(plot_type)}",
         )
+        output_path = self._safe_output_path(config, output_path)
 
         plotter.save_plot(output_path, formats=config.output_formats or ["png"])
         plotter.close_plot()
@@ -1747,8 +1820,10 @@ class MPASUnifiedCLI:
 
         output_path = config.output or os.path.join(
             config.output_dir,
-            f"mpas_surface_{config.variable}_{config.plot_type}_valid_{time_str}",
+            f"mpas_surface_{sanitize_filename_component(config.variable)}"
+            f"_{sanitize_filename_component(config.plot_type)}_valid_{time_str}",
         )
+        output_path = self._safe_output_path(config, output_path)
 
         plotter.save_plot(output_path, formats=config.output_formats or ["png"])
         plotter.close_plot()
@@ -1901,8 +1976,11 @@ class MPASUnifiedCLI:
 
         output_path = config.output or os.path.join(
             config.output_dir,
-            f"mpas_wind_{config.u_variable}_{config.v_variable}_{config.wind_plot_type}_valid_{time_str}",
+            f"mpas_wind_{sanitize_filename_component(config.u_variable)}"
+            f"_{sanitize_filename_component(config.v_variable)}"
+            f"_{sanitize_filename_component(config.wind_plot_type)}_valid_{time_str}",
         )
+        output_path = self._safe_output_path(config, output_path)
 
         plotter.save_plot(output_path, formats=config.output_formats or ["png"])
         plotter.close_plot()
@@ -2057,8 +2135,10 @@ class MPASUnifiedCLI:
         )
 
         output_path = config.output or os.path.join(
-            config.output_dir, f"mpas_cross_section_{config.variable}_{time_str}"
+            config.output_dir,
+            f"mpas_cross_section_{sanitize_filename_component(config.variable)}_{time_str}",
         )
+        output_path = self._safe_output_path(config, output_path)
 
         plotter.save_plot(output_path, formats=config.output_formats or ["png"])
         plotter.close_plot()
@@ -2279,7 +2359,9 @@ class MPASUnifiedCLI:
         output_name = getattr(config, "output", None) or (
             f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_valid_{time_str}"
         )
-        save_path = os.path.join(config.output_dir, f"{output_name}")
+        save_path = self._safe_output_path(
+            config, os.path.join(config.output_dir, f"{output_name}")
+        )
 
         plotter.create_skewt_diagram(
             pressure=profile["pressure"],
@@ -2417,7 +2499,7 @@ class MPASUnifiedCLI:
             argparse.Namespace: The parsed command-line arguments after reordering global options and attempting to parse them with the provided parser. If parsing fails, it returns the result of parsing the original arguments without reordering.
         """
         cli_args = sys.argv[1:]
-        globals_with_value = {"--config", "--log-file"}
+        globals_with_value = {"--config", "--log-file", "--base-dir"}
         globals_no_value = {"--verbose", "-v", "--quiet", "-q", "--version"}
 
         global_args = []
@@ -2494,7 +2576,7 @@ class MPASUnifiedCLI:
 
         emit = self.logger if self.logger else get_logger(__name__)
         emit.error("Unexpected error: %s", error)
-        emit.error(traceback.format_exc())
+        emit.debug("Full traceback:\n%s", traceback.format_exc())
         return 1
 
     def main(self: "MPASUnifiedCLI") -> int:

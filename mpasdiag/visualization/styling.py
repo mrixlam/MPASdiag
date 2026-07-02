@@ -32,6 +32,7 @@ from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
 from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
 from ..processing.utils_logger import get_logger
+from ..processing.utils_path import safe_plot_text
 
 logger = get_logger(__name__)
 
@@ -1066,12 +1067,19 @@ class MPASVisualizationStyle:
 
         if long_name is None and default_long_name is not None:
             long_name = default_long_name
+
         if units is None and default_units is not None:
             units = default_units
 
+        if long_name is not None:
+            long_name = safe_plot_text(long_name)
+
+        if units is not None:
+            units = safe_plot_text(units)
+
         if long_name:
             if units and f"[{units}]" in long_name:
-                return cast(str, long_name)
+                return long_name
             return f"{long_name} [{units}]" if units else long_name
 
         if units:

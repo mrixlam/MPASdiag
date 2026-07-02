@@ -12,8 +12,11 @@ Security updates are provided for the most recent release line of MPASdiag.
 ## Security considerations for users
 
 MPASdiag is a **local command-line tool and Python library**. It runs with the
-privileges of the user who invokes it and is not a network service. Please keep
-the following trust boundaries in mind:
+privileges of the user who invokes it and is not a network service. It is,
+however, hardened so that it can be run safely against **inputs authored by
+someone other than the operator** — a shared or downloaded `config.yaml`, a
+NetCDF/HDF5 file from an untrusted source, or invocation by an automated/LLM
+agent. Please keep the following trust boundaries in mind:
 
 ### Only process data you trust
 
@@ -25,25 +28,56 @@ through a vulnerability in those underlying libraries, be unsafe.** Only process
 files obtained from sources you trust, and keep your scientific stack updated.
 
 As a defense-in-depth measure, MPASdiag rejects inputs whose declared dimensions
-exceed generous safety limits before allocating large arrays, to avoid
-out-of-memory crashes on malformed files. If you legitimately work with very
-large grids, you can raise these limits via environment variables:
-`MPASDIAG_MAX_SOURCE_CELLS`, `MPASDIAG_MAX_TARGET_POINTS`,
-`MPASDIAG_MAX_WEIGHTS_NNZ`, and `MPASDIAG_MAX_NUM_POINTS`.
+exceed generous safety limits **before allocating large arrays or building a
+regridder**, to avoid out-of-memory crashes and CPU-exhaustion on malformed
+files. These limits are enforced uniformly on the raw data/grid load, the
+in-memory cache, the live regridder build (source cells and per-cell vertices),
+and the cached-weights load. If you legitimately work with very large grids, you
+can raise them via environment variables: `MPASDIAG_MAX_SOURCE_CELLS`,
+`MPASDIAG_MAX_TARGET_POINTS`, `MPASDIAG_MAX_WEIGHTS_NNZ`, `MPASDIAG_MAX_NUM_POINTS`,
+`MPASDIAG_MAX_CELL_VERTICES`, `MPASDIAG_MAX_WORKERS`, and `MPASDIAG_MAX_INPUT_FILES`.
 
-The remapping **weights cache directory** (`weights_dir`) is treated as trusted
-input: only point it at a location you control. A tampered cache file is
-validated for internal consistency before use, but should not be shared across
-trust boundaries.
+Untrusted text read from files (variable names, `long_name`/`units` attributes)
+is sanitized before it is embedded in log/error messages or rendered as plot
+text, so it cannot forge log lines, inject content into the output an automated
+agent reads, or abort rendering via a malformed matplotlib mathtext expression.
 
-### Output, log, and config paths
+The remapping **weights cache directory** (`weights_dir`) is validated for
+internal consistency and confined like other paths; a tampered cache file is
+rejected before use, but you should still point it only at a location you control.
 
-Output directories, log files (`--log-file`), configuration files (`--config`),
-and weights paths are taken from the operator and are honored as given — this is
-intended behavior for a local tool that writes to your own filesystem.
-Configuration paths are confined to the working directory (or an explicit
-`base_dir`) and must be `.yaml`/`.yml` files; this guards against accidental
-path traversal, not against a user who deliberately targets their own files.
+### Output, log, config, grid, and data paths
+
+All operator- or config-supplied filesystem paths — `--output-dir`, `--output`,
+`--log-file`, `--config`, `--grid-file`, `--data-dir`, and the weights cache — are
+**confined to the working directory** (or an explicit base directory). A path
+that resolves outside that directory, whether via `..` traversal or an absolute
+path, is refused. Untrusted filename components (e.g. a variable name taken from a
+data file) are sanitized so they cannot inject a path separator or escape the
+output directory. Configuration files must be `.yaml`/`.yml`.
+
+Because scientific grid and data files legitimately live outside the working
+directory (e.g. `/scratch`, `/glade`, project mounts), pass **`--base-dir <dir>`**
+to move the containment boundary to a directory you trust; all input and output
+paths must then resolve within it. This lets you work with out-of-tree data while
+still refusing an untrusted config's attempt to read or write arbitrary locations.
+
+Configuration loaded from a file is fully re-validated after any command-line
+overrides are merged, and numeric parameters (DPI, figure size, worker count,
+time/level indices, etc.) are range-checked, so a hostile or careless config
+cannot slip an invalid or abusive value past the validators.
+
+### Parallel (MPI) execution
+
+When run under MPI, MPASdiag assumes that **all ranks in `MPI_COMM_WORLD` belong
+to the same trusted job and user**. Inter-rank messages use Python `pickle`
+(via `mpi4py`), so a compromised or malicious co-rank could deliver arbitrary
+objects to its peers — do not launch MPASdiag across a communicator that spans a
+trust boundary. As defense-in-depth, sizes carried in broadcast metadata are
+bounded before peer ranks allocate buffers. The in-memory data cache is pickled
+only within a single machine's process pool to seed multiprocessing workers; it
+is never persisted, and must never be rehydrated from an on-disk or untrusted
+pickle.
 
 ### Reproducible installation
 

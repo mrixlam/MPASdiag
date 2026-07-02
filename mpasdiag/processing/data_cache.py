@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Tuple
 
 from .utils_logger import get_logger
+from .utils_validator import DataValidator
 
 logger = get_logger(__name__)
 
@@ -147,6 +148,11 @@ class MPASDataCache:
                     f"Coordinate variables {lon_coord_name}, {lat_coord_name} not found in dataset"
                 )
 
+            DataValidator.enforce_size_limits(
+                n_src=int(dataset[lon_coord_name].size),
+                context=f"caching coordinates '{cache_key}'",
+            )
+
             lon = dataset[lon_coord_name].values
             lat = dataset[lat_coord_name].values
 
@@ -234,6 +240,12 @@ class MPASDataCache:
             # Extract metadata
             units = var_data.attrs.get("units", "")
             long_name = var_data.attrs.get("long_name", var_name)
+
+            # Bound the declared element count before materializing the data array to avoid excessive memory usage
+            DataValidator.enforce_size_limits(
+                n_src=int(var_data.size),
+                context=f"caching variable '{var_name}'",
+            )
 
             # Convert to numpy array
             data_array = var_data.values

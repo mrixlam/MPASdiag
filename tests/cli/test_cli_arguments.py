@@ -422,7 +422,9 @@ class TestMainArgumentReorderingAdditional:
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".log", delete=False, dir=os.getcwd()
+        ) as f:
             log_file = f.name
 
         original_argv = sys.argv

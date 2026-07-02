@@ -108,19 +108,19 @@ class TestSetupLoggingEdgeCases:
 
         cli = MPASUnifiedCLI()
 
-        config = MPASConfig(grid_file="test.nc", data_dir="data/", verbose=True)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = MPASConfig(
+                grid_file="test.nc",
+                data_dir="data/",
+                verbose=True,
+                base_dir=tmpdir,
+            )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
-            log_file = f.name
-
-        try:
+            log_file = os.path.join(tmpdir, "run.log")
             logger = cli.setup_logging(config, log_file=log_file)
 
             assert logger is not None
             assert os.path.exists(log_file)
-        finally:
-            if os.path.exists(log_file):
-                os.unlink(log_file)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,9 @@ from .constants import (
     MAX_TARGET_POINTS,
     MAX_WEIGHTS_NNZ,
     MAX_NUM_POINTS,
+    MAX_CELL_VERTICES,
+    MAX_WORKERS,
+    MAX_INPUT_FILES,
 )
 
 
@@ -59,6 +62,9 @@ class DataValidator:
         n_tgt: Optional[int] = None,
         nnz: Optional[int] = None,
         num_points: Optional[int] = None,
+        nv: Optional[int] = None,
+        n_workers: Optional[int] = None,
+        n_files: Optional[int] = None,
         context: str = "",
     ) -> None:
         """
@@ -89,6 +95,9 @@ class DataValidator:
                 MAX_NUM_POINTS,
                 "cross-section points",
             ),
+            (nv, "MPASDIAG_MAX_CELL_VERTICES", MAX_CELL_VERTICES, "cell vertices"),
+            (n_workers, "MPASDIAG_MAX_WORKERS", MAX_WORKERS, "worker processes"),
+            (n_files, "MPASDIAG_MAX_INPUT_FILES", MAX_INPUT_FILES, "input files"),
         )
         where = f" while {context}" if context else ""
         for value, env_var, default, label in checks:

@@ -26,6 +26,7 @@ from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
 from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG
 from .utils_logger import get_logger
+from .utils_path import safe_label
 
 logger = get_logger(__name__)
 
@@ -159,7 +160,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
                     )
                     raise ValueError(
                         f"Could not find {spatial_dim} coordinates in grid file. "
-                        f"Available variables: {available_vars}"
+                        f"Available variables: {safe_label(available_vars)}"
                     )
 
                 if np.nanmax(np.abs(lat_coords)) <= np.pi:
@@ -330,7 +331,8 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if var_name not in self.dataset.data_vars:
             available_vars = list(self.dataset.data_vars.keys())
             raise ValueError(
-                f"Variable '{var_name}' not found. Available variables: {available_vars[:20]}..."
+                f"Variable '{safe_label(var_name)}' not found. Available variables: "
+                f"{safe_label(available_vars[:20])}..."
             )
         if (
             "nVertLevels" not in self.dataset[var_name].sizes

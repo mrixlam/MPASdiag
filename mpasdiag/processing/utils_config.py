@@ -17,7 +17,7 @@ Version: 1.0.0
 import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, fields
 
 from .utils_logger import get_logger
 from .utils_path import safe_resolve_within
@@ -57,6 +57,8 @@ class MPASConfig:
     grid_file: str = ""
     data_dir: str = ""
     output_dir: str = ""
+
+    base_dir: Optional[str] = None
 
     lat_min: float = -90.0
     lat_max: float = 90.0
@@ -157,11 +159,85 @@ class MPASConfig:
         if self.output_formats is None:
             self.output_formats = ["png"]
 
+        self.revalidate()
+
+    def revalidate(self: "MPASConfig") -> None:
+        """
+        This method revalidates the configuration parameters after the dataclass has been initialized. It checks the spatial extent parameters, remap settings, log level, and numeric ranges to ensure that they are all valid. If any of these validations fail, it raises a ValueError with an appropriate message indicating the specific issue. This method can be called at any time to ensure that the configuration remains valid, especially if any parameters have been modified after initialization.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
         if not self._validate_spatial_extent():
             raise ValueError("Invalid spatial extent parameters")
 
         self._validate_remap_settings()
         self._validate_log_level()
+        self._validate_numeric_ranges()
+
+    def resolved_base_dir(self: "MPASConfig") -> Path:
+        """
+        This method resolves the base directory for the configuration. If the base_dir attribute is set, it converts it to a Path object and resolves it to an absolute path. If base_dir is None, it defaults to the current working directory (Path.cwd()) and resolves that to an absolute path. This method ensures that any file paths used in the configuration are resolved relative to a trusted base directory, which helps prevent path traversal vulnerabilities.
+
+        Parameters:
+            None
+
+        Returns:
+            Path: The resolved base directory.
+        """
+        return (Path(self.base_dir) if self.base_dir else Path.cwd()).resolve()
+
+    def _validate_numeric_ranges(self: "MPASConfig") -> None:
+        """
+        This method validates the numeric parameters of the configuration to ensure they fall within their allowed ranges. It checks parameters such as dpi, time_index, num_points, chunk_size, subsample_factor, contour_levels, and workers (if specified). If any of these parameters are out of their defined ranges or are not numeric types (int or float), it raises a ValueError with an appropriate message indicating the invalid parameter and its allowed range. This validation step is crucial for preventing runtime errors and ensuring that the configuration parameters are set to reasonable values for processing and plotting operations.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+
+        def _check(name: str, value: Any, low: float, high: float) -> None:
+            """
+            This helper function checks if a numeric value falls within a specified range. If the value is None, it returns without performing any checks. If the value is not an int or float (or is a bool), it raises a ValueError. If the value is outside the specified range [low, high], it raises a ValueError indicating the allowed range.
+
+            Parameters:
+                name (str): The name of the parameter being checked (for error messages).
+                value (Any): The value of the parameter to check.
+                low (float): The lower bound of the allowed range.
+                high (float): The upper bound of the allowed range.
+
+            Returns:
+                None
+            """
+            if value is None:
+                return
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError(f"{name} must be a number, got {value!r}")
+            if not (low <= value <= high):
+                raise ValueError(
+                    f"{name} ({value}) out of allowed range [{low}, {high}]"
+                )
+
+        _check("dpi", self.dpi, 10, 2_000)
+        _check("time_index", self.time_index, -10_000_000, 10_000_000)
+        _check("num_points", self.num_points, 1, 1_000_000)
+        _check("chunk_size", self.chunk_size, 1, 1_000_000_000)
+        _check("subsample_factor", self.subsample_factor, -1, 1_000_000)
+        _check("contour_levels", self.contour_levels, 1, 10_000)
+
+        if self.workers is not None:
+            _check("workers", self.workers, 1, 100_000)
+
+        if self.figure_size is not None:
+            if len(self.figure_size) != 2:
+                raise ValueError("figure_size must have exactly two values")
+            for dim in self.figure_size:
+                _check("figure_size", dim, 0.1, 1_000.0)
 
     def _validate_log_level(self: "MPASConfig") -> None:
         """
@@ -282,11 +358,25 @@ class MPASConfig:
         Returns:
             MPASConfig: An instance of MPASConfig initialized with the provided configuration parameters.
         """
-        if "figure_size" in config_dict and isinstance(
-            config_dict["figure_size"], list
-        ):
-            config_dict["figure_size"] = tuple(config_dict["figure_size"])
-        return cls(**config_dict)
+        if not isinstance(config_dict, dict):
+            raise ValueError(
+                f"Configuration must be a mapping of parameters, got "
+                f"{type(config_dict).__name__}"
+            )
+
+        # Filter to declared dataclass fields so an untrusted YAML with unknown or
+        # extra keys is a warning, not a TypeError-level crash (audit finding F12).
+        known = {f.name for f in fields(cls)}
+        unknown = set(config_dict) - known
+        if unknown:
+            logger.warning(
+                "Ignoring unknown configuration keys: %s", ", ".join(sorted(unknown))
+            )
+        filtered = {k: v for k, v in config_dict.items() if k in known}
+
+        if "figure_size" in filtered and isinstance(filtered["figure_size"], list):
+            filtered["figure_size"] = tuple(filtered["figure_size"])
+        return cls(**filtered)
 
     def save_to_file(
         self: "MPASConfig", filepath: str, base_dir: Optional[str] = None
