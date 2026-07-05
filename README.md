@@ -905,6 +905,41 @@ its neighbors for cores and filesystem bandwidth.
    ```
    Without MetPy, `SoundingDiagnostics` still works but only computes a fallback LCL estimate; `MPASSkewTPlotter` requires MetPy.
 
+### Grid size safety limits
+
+As a defense-in-depth measure, MPASdiag rejects inputs whose declared dimensions
+exceed generous safety limits **before** allocating large arrays. When you
+legitimately work with a very large grid, you may see a warning such as:
+
+```text
+WARNING - source grid cells (2,005,146,000) exceeds the safety limit (500,000,000) while loading MPAS data files. If this input is trusted, raise the limit via the MPASDIAG_MAX_SOURCE_CELLS environment variable.
+```
+
+If the input is trusted, raise the relevant limit through an environment
+variable to a value at or above your grid size, then re-run the command:
+
+```bash
+# Raise the source-cell limit above your grid size (e.g. 2,005,146,000 cells)
+export MPASDIAG_MAX_SOURCE_CELLS=2100000000
+
+mpasdiag precipitation --grid-file grid.nc --data-dir ./data --variable total
+```
+
+The full set of overridable limits (see [SECURITY.md](SECURITY.md) for details):
+
+| Environment variable | Guards against |
+| --- | --- |
+| `MPASDIAG_MAX_SOURCE_CELLS` | Source mesh cells / points |
+| `MPASDIAG_MAX_TARGET_POINTS` | Target grid points |
+| `MPASDIAG_MAX_WEIGHTS_NNZ` | Non-zero remap weight entries |
+| `MPASDIAG_MAX_NUM_POINTS` | Cross-section interpolation points |
+| `MPASDIAG_MAX_CELL_VERTICES` | Per-cell vertices |
+| `MPASDIAG_MAX_WORKERS` | Worker processes |
+| `MPASDIAG_MAX_INPUT_FILES` | Input files per run |
+
+Each value must be a positive integer. To make the setting permanent, add the
+`export` line to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.). When updating these environment variables, ensure that the new values are sufficient for your dataset sizes and processing needs. Also, you might have to make adjustments depending on the shell or job scheduler you are using, especially in HPC environments.
+
 ### Logging and verbosity
 
 All `mpasdiag` subcommands use a unified logging system under the `mpasdiag` root logger. You can control how much output you see and where it goes via four CLI flags, available on every subcommand (`precipitation`, `surface`, `wind`, `cross`, `sounding`, etc.):
