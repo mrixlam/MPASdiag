@@ -33,6 +33,9 @@ dist/
 pip-wheel-metadata/
 eggs/
 
+# Jupyter
+.ipynb_checkpoints/
+
 # Testing and coverage
 .pytest_cache/
 .mypy_cache/

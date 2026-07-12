@@ -872,6 +872,59 @@ its neighbors for cores and filesystem bandwidth.
    The analyzer reports speedup, parallel efficiency, rank imbalance, and flags
    anti-scaling configurations.
 
+## Jupyter Notebook Usage
+
+MPASdiag ships with ready-to-run example notebooks in the [notebooks/](notebooks/)
+directory that mirror the scripts in `examples/`. They are a convenient way to
+explore the API interactively, tweak parameters, and view plots inline.
+
+Available notebooks:
+
+| Notebook | Description |
+| --- | --- |
+| [notebooks/example_precipitation_map.ipynb](notebooks/example_precipitation_map.ipynb) | Precipitation accumulation map |
+| [notebooks/example_surface_map.ipynb](notebooks/example_surface_map.ipynb) | 2D surface variable plot |
+| [notebooks/example_wind_map.ipynb](notebooks/example_wind_map.ipynb) | Wind vector plot |
+| [notebooks/example_3d_variable_slice.ipynb](notebooks/example_3d_variable_slice.ipynb) | 3D variable horizontal slice |
+| [notebooks/example_cross_section.ipynb](notebooks/example_cross_section.ipynb) | Vertical cross-section |
+| [notebooks/example_overlay_surface_and_wind.ipynb](notebooks/example_overlay_surface_and_wind.ipynb) | Surface + wind barbs overlay |
+| [notebooks/example_ivt_map.ipynb](notebooks/example_ivt_map.ipynb) | IVT magnitude + vector overlay |
+| [notebooks/generate_skewt_plot.ipynb](notebooks/generate_skewt_plot.ipynb) | Skew-T Log-P sounding diagram |
+
+### Setting up the Jupyter kernel
+
+After creating and activating the `mpasdiag` conda environment (see
+[Installation](#installation)), install the Jupyter tooling and register the
+environment as a named kernel so notebooks can find it:
+
+```bash
+# Install the IPython kernel backend
+conda install -c anaconda ipykernel
+
+# Register the mpasdiag environment as a selectable Jupyter kernel
+python -m ipykernel install --user --name=mpasdiag --display-name "MPASdiag"
+
+# Install Jupyter and interactive widgets (enables tqdm progress bars, etc.)
+conda install -n mpasdiag -c conda-forge ipywidgets jupyter
+```
+
+**This approach works for both personal and HPC environments (e.g. NCAR derecho or casper). If you are on a shared system, you may need to request the Jupyter kernel installation from your system administrator or use a virtual environment that you can control.**
+
+### Launching the notebooks
+
+```bash
+# From the repository root, with the mpasdiag environment active
+jupyter lab notebooks/
+# or
+jupyter notebook notebooks/
+```
+
+Once a notebook is open, select the **MPASdiag** kernel
+(Kernel → Change Kernel → MPASdiag) so it runs against the environment where
+MPASdiag and its dependencies are installed. The example notebooks read from the
+bundled `data/` directory and write plots to `notebooks/output/`, so they run
+as-is from the repository root.
+
 ## Troubleshooting
 
 ### Common Issues
