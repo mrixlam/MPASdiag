@@ -39,6 +39,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/glade`, so input/output can live outside the working directory.
 - Environment overrides for the new safety limits: `MPASDIAG_MAX_CELL_VERTICES`,
   `MPASDIAG_MAX_WORKERS`, and `MPASDIAG_MAX_INPUT_FILES`.
+- **Projection centering and keyword controls**: `SurfaceMapStyle`,
+  `PrecipitationRenderStyle`, and `WindPlotStyle` gain `central_longitude`,
+  `central_latitude`, and `proj_kwargs` fields to control the map projection
+  aesthetic. `central_longitude` enables, e.g., Pacific-centered / dateline-
+  crossing maps (`central_longitude=180`) on the default `PlateCarree`
+  projection; `proj_kwargs` passes any keyword straight through to the cartopy
+  projection constructor (e.g. `standard_parallels`, `globe`, `satellite_height`).
+  All three default to `None`, so existing output is unchanged.
+- **Expanded projection whitelist**: `Robinson`, `Mollweide`, `Orthographic`,
+  `NorthPolarStereo`, `SouthPolarStereo`, and `NearsidePerspective` are now
+  supported in addition to `PlateCarree`, `Mercator`, and `LambertConformal`.
 
 ### Changed
 - **Breaking**: absolute or out-of-tree input/output paths are now rejected
@@ -46,6 +57,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   current working directory must pass `--base-dir <trusted dir>`.
 - Unexpected top-level errors now print a concise message by default; the full
   traceback is emitted only at `DEBUG` verbosity (`--verbose`/`--log-level DEBUG`).
+- Projection names are now validated against a whitelist and an unrecognized name
+  falls back to `PlateCarree` with a warning; wind plots build their projection
+  through the same shared factory as the surface and precipitation plotters, so
+  they now honor auto-centering and the new centering controls consistently
+  (previously wind ignored projection centering entirely).
+
+### Fixed
+- Global maps on a projected CRS (Mercator, Robinson, Mollweide, ...) now render
+  the full projection domain via `set_global()` instead of a lon/lat
+  `set_extent()`. Previously a global extent combined with a `central_longitude`
+  near the antimeridian (e.g. a Pacific-centered `central_longitude=180`)
+  collapsed the map — Mercator rendered a blank canvas and Robinson showed only a
+  sliver — because both longitude bounds mapped to nearly the same projected x.
+  Affected the surface, precipitation, and wind plotters.
+- Globe-view projections (`Orthographic`, `NearsidePerspective`) no longer raise
+  "Axis limits cannot be NaN or Inf" when a global extent is requested; the extent
+  helper falls back to `set_global()` for extents a projection cannot represent.
 
 ## [1.0.0] - 2026-06-12
 

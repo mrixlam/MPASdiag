@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class WindPlotStyle:
-    """Optional styling settings for a base wind vector plot, grouping the wind level label, plot type, subsampling factor, arrow scale, speed-background toggle and colormap, title, timestamp, and projection into a single value object."""
+    """Optional styling settings for a base wind vector plot, grouping the wind level label, plot type, subsampling factor, arrow scale, speed-background toggle and colormap, title, timestamp, projection, and projection centering/keyword controls into a single value object."""
 
     wind_level: str = "surface"
     plot_type: str = "barbs"
@@ -60,6 +60,9 @@ class WindPlotStyle:
     title: Optional[str] = None
     time_stamp: Optional[datetime] = None
     projection: str = "PlateCarree"
+    central_longitude: Optional[float] = None
+    central_latitude: Optional[float] = None
+    proj_kwargs: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -213,9 +216,12 @@ class MPASVisualizer:
         lat_min: float,
         lat_max: float,
         projection: str = "PlateCarree",
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ccrs.CRS, ccrs.CRS]:
         """
-        This method sets up the map projection for cartographic visualizations based on the geographic extent of the data and a specified projection type. It delegates to MPASVisualizationStyle to create a cartopy CRS object for the map projection (e.g., PlateCarree, Mercator, LambertConformal) centered on the provided longitude and latitude bounds, and to define the data CRS (typically PlateCarree for unprojected lat/lon data) for accurate coordinate transformations. The method returns a tuple containing the map projection CRS for the axes and the data CRS for transformations, enabling consistent and accurate rendering of MPAS data on maps with appropriate geographic context.
+        This method sets up the map projection for cartographic visualizations based on the geographic extent of the data and a specified projection type. It delegates to MPASVisualizationStyle to create a cartopy CRS object for the map projection (e.g., PlateCarree, Mercator, LambertConformal, Robinson, Orthographic) centered on the provided longitude and latitude bounds, and to define the data CRS (typically PlateCarree for unprojected lat/lon data) for accurate coordinate transformations. Optional central_longitude/central_latitude arguments override the auto-derived projection center, and proj_kwargs passes any additional keyword arguments straight through to the cartopy projection constructor for full control. The method returns a tuple containing the map projection CRS for the axes and the data CRS for transformations, enabling consistent and accurate rendering of MPAS data on maps with appropriate geographic context.
 
         Parameters:
             lon_min (float): Western longitude bound in degrees for map extent.
@@ -223,13 +229,50 @@ class MPASVisualizer:
             lat_min (float): Southern latitude bound in degrees for map extent.
             lat_max (float): Northern latitude bound in degrees for map extent.
             projection (str): Name of the cartopy projection to use for the map axes (default: 'PlateCarree').
+            central_longitude (Optional[float]): Explicit central longitude in degrees, overriding the auto-derived value. Defaults to None.
+            central_latitude (Optional[float]): Explicit central latitude in degrees for projections that accept it, overriding the auto-derived value. Defaults to None.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor. Takes precedence over central_longitude/central_latitude. Defaults to None.
 
         Returns:
             Tuple[ccrs.CRS, ccrs.CRS]: A tuple containing the map projection CRS for the axes and the data CRS for coordinate transformations, suitable for use in cartopy plotting functions.
         """
         return MPASVisualizationStyle.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=central_longitude,
+            central_latitude=central_latitude,
+            proj_kwargs=proj_kwargs,
         )
+
+    @staticmethod
+    def _apply_map_extent(
+        ax: GeoAxes,
+        extent: Sequence[float],
+        crs: ccrs.CRS,
+    ) -> None:
+        """
+        This helper sets the geographic extent of a GeoAxes with a graceful fallback for projections that cannot represent the requested rectangular extent. Globe-view and perspective projections such as Orthographic and NearsidePerspective can only display a single hemisphere, so requesting a full-globe (or otherwise out-of-domain) rectangular extent makes cartopy compute infinite projected limits and raises "Axis limits cannot be NaN or Inf". In that case the method falls back to ax.set_global(), which sets the axes to the projection's natural full domain (e.g. the visible hemisphere for Orthographic). For the cylindrical and pseudo-cylindrical projections that already worked (PlateCarree, Mercator, Robinson, Mollweide, polar stereographic), set_extent succeeds and behavior is unchanged.
+
+        Parameters:
+            ax (GeoAxes): The cartopy GeoAxes whose extent is being set.
+            extent (Sequence[float]): The [lon_min, lon_max, lat_min, lat_max] extent to apply.
+            crs (ccrs.CRS): The coordinate reference system the extent values are expressed in (typically PlateCarree).
+
+        Returns:
+            None: Sets the extent on the provided GeoAxes in-place, falling back to a global view when the extent cannot be represented by the projection.
+        """
+        try:
+            ax.set_extent(list(extent), crs=crs)
+        except ValueError:
+            logger.warning(
+                "Projection %s cannot represent extent %s; using global view instead.",
+                type(ax.projection).__name__,
+                list(extent),
+            )
+            ax.set_global()
 
     def add_regional_features(
         self: "MPASVisualizer",
@@ -531,7 +574,14 @@ class MPASVisualizer:
         projection = style.projection
 
         map_proj, data_crs = self.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=style.central_longitude,
+            central_latitude=style.central_latitude,
+            proj_kwargs=style.proj_kwargs,
         )
 
         self.fig = plt.figure(figsize=self.figsize, dpi=self.dpi)

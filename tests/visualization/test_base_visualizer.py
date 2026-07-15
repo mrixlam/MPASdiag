@@ -1069,5 +1069,54 @@ class TestTransectOverlay:
         plt.close(fig)
 
 
+class TestApplyMapExtent:
+    """Tests for the _apply_map_extent helper, including the set_global() fallback for globe-view projections."""
+
+    def test_regional_extent_applied_directly(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that for a projection able to represent the requested rectangular extent (PlateCarree), _apply_map_extent sets that extent directly and the resulting axes extent matches the request.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+        MPASVisualizer._apply_map_extent(
+            ax, [-130.0, -50.0, 20.0, 60.0], ccrs.PlateCarree()
+        )
+        west, east, south, north = ax.get_extent(crs=ccrs.PlateCarree())
+        assert west == pytest.approx(-130.0, abs=0.5)
+        assert east == pytest.approx(-50.0, abs=0.5)
+        plt.close(fig)
+
+    def test_globe_view_global_extent_falls_back_to_global(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that requesting a full-globe rectangular extent on a globe-view projection (Orthographic) does not raise "Axis limits cannot be NaN or Inf" but instead falls back to set_global(), leaving the axes with finite limits.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.Orthographic())
+        # Would raise ValueError without the set_global() fallback.
+        MPASVisualizer._apply_map_extent(
+            ax, [-179.99, 179.99, -89.99, 89.99], ccrs.PlateCarree()
+        )
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        assert all(np.isfinite([xmin, xmax, ymin, ymax]))
+        plt.close(fig)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

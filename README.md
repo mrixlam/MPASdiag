@@ -291,6 +291,52 @@ plotter.save_plot('./output/ivt_map', formats=['png'])
 
 If you prefer the command line, see the `CLI Examples` section below.
 
+#### Map Projection & Centering
+
+The surface, precipitation, and wind style objects (`SurfaceMapStyle`,
+`PrecipitationRenderStyle`, `WindPlotStyle`) expose three optional fields for
+controlling the map projection aesthetic:
+
+- `central_longitude` / `central_latitude` — recenter the projection (e.g. a
+  Pacific-centered, dateline-crossing map). They override the value derived from
+  the map bounds.
+- `proj_kwargs` — a dictionary passed straight through to the cartopy projection
+  constructor for full control (e.g. `standard_parallels`). Keys here take
+  precedence over `central_longitude` / `central_latitude`.
+
+Supported projections: `PlateCarree` (default), `Mercator`, `LambertConformal`,
+`Robinson`, `Mollweide`, `Orthographic`, `NorthPolarStereo`, `SouthPolarStereo`,
+`NearsidePerspective`. An unrecognized name falls back to `PlateCarree`.
+
+```python
+import mpasdiag as md
+
+plotter = md.MPASSurfacePlotter(figsize=(12, 10), dpi=300)
+
+# Pacific-centered global map (dateline in the middle)
+fig, ax = plotter.create_surface_map(
+    lon=lon, lat=lat, data=t2m.values, var_name='t2m',
+    bounds=md.GeographicBounds(-180, 180, -90, 90),
+    style=md.SurfaceMapStyle(plot_type='contourf', central_longitude=180.0),
+    data_array=t2m, config=cfg,
+)
+
+# Robinson projection with any cartopy keyword via proj_kwargs
+fig, ax = plotter.create_surface_map(
+    lon=lon, lat=lat, data=t2m.values, var_name='t2m',
+    bounds=md.GeographicBounds(-180, 180, -90, 90),
+    style=md.SurfaceMapStyle(
+        plot_type='contourf', projection='Robinson',
+        proj_kwargs={'central_longitude': 0.0},
+    ),
+    data_array=t2m, config=cfg,
+)
+```
+
+See [examples/example_projection_centering.py](examples/example_projection_centering.py)
+for a runnable version. Defaults are unchanged: without these fields, `PlateCarree`
+stays centered on 0° and existing plots render exactly as before.
+
 ## CLI Examples
 
 **Path confinement (security):** By default, every input/output path the CLI
@@ -627,6 +673,7 @@ examples/
 ├── example_overlay_surface_and_wind.py     # Surface + wind barbs overlay
 ├── example_overlay_surface_contourf_and_contour.py  # Dual-variable contour overlay
 ├── example_ivt_map.py                     # IVT magnitude + vector overlay (new)
+├── example_projection_centering.py        # Map projection centering & projections (new)
 ├── generate_skewt_plot.py                 # Skew-T Log-P sounding diagram (new)
 ├── generate_complex_weather_map.py        # Multi-panel composite map
 └── benchmark.py                           # Performance benchmark script

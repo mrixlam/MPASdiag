@@ -781,3 +781,139 @@ class TestCreateWindPlot:
 
         # Close the figure to free resources
         plt.close(fig)
+
+    def test_create_wind_plot_central_longitude(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on WindPlotStyle flows through create_wind_plot to the GeoAxes projection. Wind previously built its projection with an unvalidated getattr and ignored centering entirely; this confirms the shared-factory routing honors it.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1, plot_type="barbs", central_longitude=180.0
+            ),
+        )
+
+        assert cast(GeoAxes, ax).projection.proj4_params["lon_0"] == 180.0
+        plt.close(fig)
+
+    def test_create_wind_plot_global_projected_centered_on_antimeridian_not_collapsed(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This regression test guards against a bug where a global wind map on a projected CRS (Mercator) combined with a central_longitude near the antimeridian collapsed to a blank map. The cause was set_extent([-179.99, 179.99, ...], PlateCarree) mapping both longitude bounds to nearly the same projected x; the fix uses ax.set_global() for global extents. The test asserts the axes x-limits span essentially the full projection domain for a Pacific-centered (central_longitude=180) global Mercator wind map.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1,
+                plot_type="barbs",
+                projection="Mercator",
+                central_longitude=180.0,
+            ),
+        )
+
+        geo_ax = cast(GeoAxes, ax)
+        xmin, xmax = geo_ax.get_xlim()
+        full_min, full_max = geo_ax.projection.x_limits
+        frac = abs(xmax - xmin) / abs(full_max - full_min)
+        assert frac > 0.9, f"axes x-extent collapsed (frac={frac:.4f})"
+        plt.close(fig)
+
+    def test_create_wind_plot_globe_view_falls_back_to_global(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This regression test verifies that a globe-view projection (Orthographic) requested with a global extent does not crash on set_extent (which cannot represent a full-globe rectangle) and instead renders via the set_global() fallback in _apply_map_extent.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1, plot_type="barbs", projection="Orthographic"
+            ),
+        )
+
+        assert isinstance(cast(GeoAxes, ax).projection, ccrs.Orthographic)
+        plt.close(fig)

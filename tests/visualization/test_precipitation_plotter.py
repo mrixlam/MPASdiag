@@ -146,6 +146,88 @@ class TestUnitConversion:
         assert isinstance(fig, Figure)
         plt.close(fig)
 
+    def test_central_longitude_flows_through_to_axes(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on PrecipitationRenderStyle flows through create_precipitation_map to the GeoAxes projection, enabling e.g. Pacific-centered precipitation maps.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", central_longitude=180.0
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert ax.projection.proj4_params["lon_0"] == 180.0
+        plt.close(fig)
+
+    def test_global_projected_crs_centered_on_antimeridian_not_collapsed(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This regression test guards against a bug where a global map on a projected CRS (Mercator, Robinson, ...) combined with a central_longitude near the antimeridian collapsed to a blank/sliver map. The cause was set_extent([-179.99, 179.99, ...], PlateCarree) mapping both longitude bounds to nearly the same projected x; the fix uses ax.set_global() for global extents. The test asserts the axes x-limits span essentially the full projection domain for a Pacific-centered (central_longitude=180) global Mercator map.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", projection="Mercator", central_longitude=180.0
+            ),
+        )
+
+        xmin, xmax = ax.get_xlim()
+        full_min, full_max = ax.projection.x_limits
+        frac = abs(xmax - xmin) / abs(full_max - full_min)
+        assert frac > 0.9, f"axes x-extent collapsed (frac={frac:.4f})"
+        plt.close(fig)
+
+    def test_globe_view_projection_falls_back_to_global(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This regression test verifies that a globe-view projection (Orthographic) requested with a global extent does not crash on set_extent (which cannot represent a full-globe rectangle) and instead renders via the set_global() fallback in _apply_map_extent.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", projection="Orthographic"
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert isinstance(ax.projection, ccrs.Orthographic)
+        plt.close(fig)
+
 
 class TestPlotExtent:
     """Tests for plot extent handling."""

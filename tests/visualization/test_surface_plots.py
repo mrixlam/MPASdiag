@@ -144,6 +144,60 @@ class TestPlotTypes:
         assert isinstance(fig, Figure)
         plt.close(fig)
 
+    def test_central_longitude_flows_through_to_axes(
+        self: "TestPlotTypes",
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on SurfaceMapStyle flows all the way through create_surface_map to the GeoAxes projection, confirming the projection-centering control is wired correctly.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_surface_map(
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", central_longitude=150.0),
+        )
+
+        assert isinstance(fig, Figure)
+        assert ax.projection.proj4_params["lon_0"] == 150.0
+        plt.close(fig)
+
+    def test_proj_kwargs_flows_through_to_axes(
+        self: "TestPlotTypes",
+    ) -> None:
+        """
+        This end-to-end test verifies that proj_kwargs on SurfaceMapStyle is passed through create_surface_map to the cartopy projection constructor, using a non-default projection with an explicit central_longitude keyword.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_surface_map(
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(
+                plot_type="scatter",
+                projection="Robinson",
+                proj_kwargs={"central_longitude": -60.0},
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert ax.projection.proj4_params["lon_0"] == -60.0
+        plt.close(fig)
+
     def test_plot_with_custom_levels(self: "TestPlotTypes") -> None:
         """
         This test checks that providing a custom list of contour levels to the `create_surface_map` method results in a Figure being produced without errors. It calls the method with a specific set of levels and asserts that the output is a Figure instance, confirming that the plotter correctly handles user-defined contour levels.
