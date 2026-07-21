@@ -259,13 +259,12 @@ jobs:
         python-version: '3.11'
 
     - name: Install security tooling
-      run: pip install bandit==1.8.0 pip-audit==2.7.3
+      run: |
+        python -m pip install --upgrade pip setuptools
+        pip install bandit==1.8.0 pip-audit==2.7.3
 
     - name: Static analysis with bandit
       run: bandit -r mpasdiag/ -ll
 
     - name: Audit dependencies for known vulnerabilities
-      # No `|| true`: a known-vulnerable dependency must fail CI (audit finding
-      # F18). Add specific, reviewed exceptions with `--ignore-vuln <ID>` only when
-      # an advisory is assessed as not applicable, with a comment justifying it.
       run: pip-audit --progress-spinner=off --strict

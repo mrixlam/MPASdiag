@@ -15,6 +15,7 @@ Version: 1.0.0
 """
 
 import pytest
+from typing import Any
 
 from mpasdiag.processing.utils_validator import DataValidator
 from mpasdiag.processing.utils_path import (
@@ -568,8 +569,9 @@ class TestConfigValidationIntegrity:
         Returns:
             None
         """
+        not_a_mapping: Any = ["not", "a", "dict"]
         with pytest.raises(ValueError, match="mapping"):
-            MPASConfig.from_dict(["not", "a", "dict"])  # type: ignore[arg-type]
+            MPASConfig.from_dict(not_a_mapping)
 
     def test_resolved_base_dir_defaults_to_cwd(
         self: "TestConfigValidationIntegrity",
