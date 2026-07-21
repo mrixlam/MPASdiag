@@ -561,7 +561,8 @@ class MPASParallelManager:
             None
         """
         try:
-            assert MPI_AVAILABLE and MPI is not None, "MPI not available"
+            if not (MPI_AVAILABLE and MPI is not None):
+                raise RuntimeError("MPI not available")
             self.comm = MPI.COMM_WORLD
             self.rank = self.comm.Get_rank()
             self.size = self.comm.Get_size()
@@ -595,7 +596,8 @@ class MPASParallelManager:
             None
         """
         try:
-            assert self.comm is not None, _COMM_NOT_INITIALIZED_MSG
+            if self.comm is None:
+                raise RuntimeError(_COMM_NOT_INITIALIZED_MSG)
             node_name = MPI.Get_processor_name()
             node_names = self.comm.allgather(node_name)
             ranks_on_node = node_names.count(node_name)

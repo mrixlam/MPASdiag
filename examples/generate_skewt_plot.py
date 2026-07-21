@@ -13,6 +13,7 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+
 # Load common libraries
 from pathlib import Path
 
@@ -20,8 +21,8 @@ from pathlib import Path
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u240k/mpasout'
-gridPath = '../data/grids/x1.10242.static.nc'
+dataDir = "../data/u240k/mpasout"
+gridPath = "../data/grids/x1.10242.static.nc"
 
 # Specify output directory for plots
 plotDir = Path("output/skewt")
@@ -48,19 +49,22 @@ profile = diagnostics.extract_sounding_profile(
 )
 
 # Extract relevant variables from the profile for plotting
-pressure    = profile['pressure']
-temperature = profile['temperature']
-dewpoint    = profile['dewpoint']
-u_wind      = profile.get('u_wind')
-v_wind      = profile.get('v_wind')
-station_lon = profile['station_lon']
-station_lat = profile['station_lat']
+pressure = profile["pressure"]
+temperature = profile["temperature"]
+dewpoint = profile["dewpoint"]
+u_wind = profile.get("u_wind")
+v_wind = profile.get("v_wind")
+station_lon = profile["station_lon"]
+station_lat = profile["station_lat"]
 
 # Compute thermodynamic indices for the sounding profile
 indices = diagnostics.compute_thermodynamic_indices(
-    pressure, temperature, dewpoint,
-    u_wind_kt=u_wind, v_wind_kt=v_wind,
-    height_m=profile.get('height'),
+    pressure,
+    temperature,
+    dewpoint,
+    u_wind_kt=u_wind,
+    v_wind_kt=v_wind,
+    height_m=profile.get("height"),
 )
 
 # Define the Skew-T plotter with desired figure size and resolution
@@ -71,16 +75,17 @@ latstr = f"{abs(station_lat):.2f}{'N' if station_lat >= 0 else 'S'}"
 lonstr = f"{abs(station_lon):.2f}{'E' if station_lon >= 0 else 'W'}"
 
 # Extract valid time from the dataset for the specified time index
-valtime = processor.dataset['Time'][time].values
-valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
+valtime = processor.dataset["Time"][time].values
+valtime_str = str(valtime.astype("datetime64[h]")).replace("-", "")
 
 # Define the title for the Skew-T plot using station coordinates and valid time
-title = (
-    f"Location: {lonstr} / {latstr}  |  Valid Time: {valtime_str}"
-)
+title = f"Location: {lonstr} / {latstr}  |  Valid Time: {valtime_str}"
 
 # Define the output path for the generated Skew-T plot
-save_path = str(plotDir / f"mpas_skewt_{lonstr.replace('.', 'p')}_{latstr.replace('.', 'p')}_valid_{valtime_str}.png")
+save_path = str(
+    plotDir
+    / f"mpas_skewt_{lonstr.replace('.', 'p')}_{latstr.replace('.', 'p')}_valid_{valtime_str}.png"
+)
 
 # Create the Skew-T diagram using the extracted profile and computed indices
 fig, ax = plotter.create_skewt_diagram(
@@ -95,4 +100,4 @@ fig, ax = plotter.create_skewt_diagram(
 )
 
 # Save the generated Skew-T diagram in PNG format
-fig.savefig(save_path, format='png', bbox_inches='tight', pad_inches=0.1, dpi=150)
+fig.savefig(save_path, format="png", bbox_inches="tight", pad_inches=0.1, dpi=150)

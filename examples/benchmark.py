@@ -26,11 +26,17 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+
 import os
 
-for _var in ('OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
-             'NUMEXPR_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS'):
-    os.environ.setdefault(_var, '1')
+for _var in (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+):
+    os.environ.setdefault(_var, "1")
 
 # Load standard libraries
 import gc
@@ -46,10 +52,10 @@ from typing import Callable, Optional, Any
 # Load relevant MPASdiag modules
 import mpasdiag as md
 
-
 COMM: Optional[Any]
 try:
     from mpi4py import MPI
+
     COMM = MPI.COMM_WORLD
     RANK = COMM.Get_rank()
     SIZE = COMM.Get_size()
@@ -64,18 +70,19 @@ N_NODES = len(set(COMM.allgather(HOSTNAME))) if COMM is not None else 1
 if SIZE > 1:
     try:
         import dask
-        dask.config.set(scheduler='synchronous')
+
+        dask.config.set(scheduler="synchronous")
     except ImportError:
         pass
 
-BACKEND = 'serial'
+BACKEND = "serial"
 PARALLEL_WIDTH = 1
 
 EXPERIMENTS = {
-    'u240k': {
-        'grid_file': '../data/grids/x1.10242.static.nc',
-        'diag_dir': '../data/u240k/diag',
-        'mpasout_dir': '../data/u240k/mpasout',
+    "u240k": {
+        "grid_file": "../data/grids/x1.10242.static.nc",
+        "diag_dir": "../data/u240k/diag",
+        "mpasout_dir": "../data/u240k/mpasout",
     },
     # 'u120k': {
     #     'grid_file': '../data/grids/x1.40962.static.nc',
@@ -85,47 +92,50 @@ EXPERIMENTS = {
 }
 
 SPATIAL_BOUNDS = {
-    'lon_min': 91.0,
-    'lon_max': 113.0,
-    'lat_min': -9.6,
-    'lat_max': 12.2,
+    "lon_min": 91.0,
+    "lon_max": 113.0,
+    "lat_min": -9.6,
+    "lat_max": 12.2,
 }
 
 CROSS_SECTION_CONFIG = {
-    'start_point': (95.0, -5.0),
-    'end_point': (110.0, 10.0),
-    'variable': 'theta',
-    'vertical_coord': 'pressure',
-    'num_points': 100,
+    "start_point": (95.0, -5.0),
+    "end_point": (110.0, 10.0),
+    "variable": "theta",
+    "vertical_coord": "pressure",
+    "num_points": 100,
 }
 
 SKEWT_CONFIG = {
-    'lon': 103.2,
-    'lat': 3.8,
+    "lon": 103.2,
+    "lat": 3.8,
 }
 
 WIND_CONFIG = {
-    'u_variable': 'u10',
-    'v_variable': 'v10',
-    'plot_type': 'barbs',
-    'subsample': -1,
-    'grid_resolution': 0.1,
+    "u_variable": "u10",
+    "v_variable": "v10",
+    "plot_type": "barbs",
+    "subsample": -1,
+    "grid_resolution": 0.1,
 }
 
-DIAG_VARIABLES = ['t2m', 'u10', 'v10', 'rainc', 'rainnc']
+DIAG_VARIABLES = ["t2m", "u10", "v10", "rainc", "rainnc"]
 
 MPASOUT_VARIABLES = [
-    'theta', 'qv', 'pressure_p', 'pressure_base',
-    'uReconstructZonal', 'uReconstructMeridional',
+    "theta",
+    "qv",
+    "pressure_p",
+    "pressure_base",
+    "uReconstructZonal",
+    "uReconstructMeridional",
 ]
 
-BENCHMARK_DIR = Path('../output/benchmarks')
+BENCHMARK_DIR = Path("../output/benchmarks")
 
 
-def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor,
-                                out_dir: str,
-                                use_parallel: bool,
-                                n_workers: int) -> tuple[float, int]:
+def run_benchmark_precipitation(
+    processor_2d: md.MPAS2DProcessor, out_dir: str, use_parallel: bool, n_workers: int
+) -> tuple[float, int]:
     """
     This function benchmarks the batch precipitation map creation. It creates a directory for precipitation plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
@@ -138,40 +148,52 @@ def run_benchmark_precipitation(processor_2d: md.MPAS2DProcessor,
     Returns:
         tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
-    plot_dir = os.path.join(out_dir, 'precipitation')
+    plot_dir = os.path.join(out_dir, "precipitation")
     os.makedirs(plot_dir, exist_ok=True)
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = md.ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            var_name='total',
-            accum_period='a01h',
-            plot_type='scatter',
-            grid_resolution=WIND_CONFIG['grid_resolution'],
-            n_processes=n_workers,
-        ) or []
+        created = (
+            md.ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
+                processor_2d,
+                plot_dir,
+                md.GeographicBounds(
+                    SPATIAL_BOUNDS["lon_min"],
+                    SPATIAL_BOUNDS["lon_max"],
+                    SPATIAL_BOUNDS["lat_min"],
+                    SPATIAL_BOUNDS["lat_max"],
+                ),
+                var_name="total",
+                accum_period="a01h",
+                plot_type="scatter",
+                grid_resolution=WIND_CONFIG["grid_resolution"],
+                n_processes=n_workers,
+            )
+            or []
+        )
     else:
         plotter = md.MPASPrecipitationPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_precipitation_maps(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            var_name='total',
-            accum_period='a01h',
-            grid_resolution=WIND_CONFIG['grid_resolution'],
-            plot_type='scatter',
+            processor_2d,
+            plot_dir,
+            md.GeographicBounds(
+                SPATIAL_BOUNDS["lon_min"],
+                SPATIAL_BOUNDS["lon_max"],
+                SPATIAL_BOUNDS["lat_min"],
+                SPATIAL_BOUNDS["lat_max"],
+            ),
+            var_name="total",
+            accum_period="a01h",
+            grid_resolution=WIND_CONFIG["grid_resolution"],
+            plot_type="scatter",
         )
     elapsed = time.perf_counter() - t0
     return elapsed, len(created)
 
 
-def run_benchmark_surface(processor_2d: md.MPAS2DProcessor,
-                          out_dir: str,
-                          use_parallel: bool,
-                          n_workers: int) -> tuple[float, int]:
+def run_benchmark_surface(
+    processor_2d: md.MPAS2DProcessor, out_dir: str, use_parallel: bool, n_workers: int
+) -> tuple[float, int]:
     """
     This function benchmarks the batch surface map creation. It creates a directory for surface plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
@@ -184,38 +206,50 @@ def run_benchmark_surface(processor_2d: md.MPAS2DProcessor,
     Returns:
         tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
-    plot_dir = os.path.join(out_dir, 'surface')
+    plot_dir = os.path.join(out_dir, "surface")
     os.makedirs(plot_dir, exist_ok=True)
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = md.ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            var_name='t2m',
-            grid_resolution=WIND_CONFIG['grid_resolution'],
-            n_processes=n_workers,
-            style=md.SurfaceBatchStyle(plot_type='scatter'),
-        ) or []
+        created = (
+            md.ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
+                processor_2d,
+                plot_dir,
+                md.GeographicBounds(
+                    SPATIAL_BOUNDS["lon_min"],
+                    SPATIAL_BOUNDS["lon_max"],
+                    SPATIAL_BOUNDS["lat_min"],
+                    SPATIAL_BOUNDS["lat_max"],
+                ),
+                var_name="t2m",
+                grid_resolution=WIND_CONFIG["grid_resolution"],
+                n_processes=n_workers,
+                style=md.SurfaceBatchStyle(plot_type="scatter"),
+            )
+            or []
+        )
     else:
         plotter = md.MPASSurfacePlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_surface_maps(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            var_name='t2m',
-            plot_type='scatter',
-            grid_resolution=WIND_CONFIG['grid_resolution'],
+            processor_2d,
+            plot_dir,
+            md.GeographicBounds(
+                SPATIAL_BOUNDS["lon_min"],
+                SPATIAL_BOUNDS["lon_max"],
+                SPATIAL_BOUNDS["lat_min"],
+                SPATIAL_BOUNDS["lat_max"],
+            ),
+            var_name="t2m",
+            plot_type="scatter",
+            grid_resolution=WIND_CONFIG["grid_resolution"],
         )
     elapsed = time.perf_counter() - t0
     return elapsed, len(created)
 
 
-def run_benchmark_wind(processor_2d: md.MPAS2DProcessor,
-                       out_dir: str,
-                       use_parallel: bool,
-                       n_workers: int) -> tuple[float, int]:
+def run_benchmark_wind(
+    processor_2d: md.MPAS2DProcessor, out_dir: str, use_parallel: bool, n_workers: int
+) -> tuple[float, int]:
     """
     This function benchmarks the batch wind map creation. It creates a directory for wind plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS2DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
@@ -229,44 +263,56 @@ def run_benchmark_wind(processor_2d: md.MPAS2DProcessor,
         tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
     cfg = WIND_CONFIG
-    plot_dir = os.path.join(out_dir, 'wind')
+    plot_dir = os.path.join(out_dir, "wind")
     os.makedirs(plot_dir, exist_ok=True)
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = md.ParallelWindProcessor.create_batch_wind_plots_parallel(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            u_variable=cfg['u_variable'],
-            v_variable=cfg['v_variable'],
-            n_processes=n_workers,
-            style=md.WindBatchStyle(
-                plot_type=cfg['plot_type'],
-                subsample=cfg['subsample'],
-                grid_resolution=cfg['grid_resolution'],
-            ),
-        ) or []
+        created = (
+            md.ParallelWindProcessor.create_batch_wind_plots_parallel(
+                processor_2d,
+                plot_dir,
+                md.GeographicBounds(
+                    SPATIAL_BOUNDS["lon_min"],
+                    SPATIAL_BOUNDS["lon_max"],
+                    SPATIAL_BOUNDS["lat_min"],
+                    SPATIAL_BOUNDS["lat_max"],
+                ),
+                u_variable=cfg["u_variable"],
+                v_variable=cfg["v_variable"],
+                n_processes=n_workers,
+                style=md.WindBatchStyle(
+                    plot_type=cfg["plot_type"],
+                    subsample=cfg["subsample"],
+                    grid_resolution=cfg["grid_resolution"],
+                ),
+            )
+            or []
+        )
     else:
         plotter = md.MPASWindPlotter(figsize=(12, 12), dpi=100)
         created = plotter.create_batch_wind_plots(
-            processor_2d, plot_dir,
-            md.GeographicBounds(SPATIAL_BOUNDS['lon_min'], SPATIAL_BOUNDS['lon_max'],
-                             SPATIAL_BOUNDS['lat_min'], SPATIAL_BOUNDS['lat_max']),
-            u_variable=cfg['u_variable'],
-            v_variable=cfg['v_variable'],
-            plot_type=cfg['plot_type'],
-            subsample=cfg['subsample'],
-            grid_resolution=cfg['grid_resolution'],
+            processor_2d,
+            plot_dir,
+            md.GeographicBounds(
+                SPATIAL_BOUNDS["lon_min"],
+                SPATIAL_BOUNDS["lon_max"],
+                SPATIAL_BOUNDS["lat_min"],
+                SPATIAL_BOUNDS["lat_max"],
+            ),
+            u_variable=cfg["u_variable"],
+            v_variable=cfg["v_variable"],
+            plot_type=cfg["plot_type"],
+            subsample=cfg["subsample"],
+            grid_resolution=cfg["grid_resolution"],
         )
     elapsed = time.perf_counter() - t0
     return elapsed, len(created)
 
 
-def run_benchmark_cross_section(processor_3d: md.MPAS3DProcessor,
-                                out_dir: str,
-                                use_parallel: bool,
-                                n_workers: int) -> tuple[float, int]:
+def run_benchmark_cross_section(
+    processor_3d: md.MPAS3DProcessor, out_dir: str, use_parallel: bool, n_workers: int
+) -> tuple[float, int]:
     """
     This function benchmarks the batch vertical cross-section plot creation. It creates a directory for cross-section plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled.
 
@@ -280,39 +326,42 @@ def run_benchmark_cross_section(processor_3d: md.MPAS3DProcessor,
         tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
     cfg = CROSS_SECTION_CONFIG
-    plot_dir = os.path.join(out_dir, 'cross_section')
+    plot_dir = os.path.join(out_dir, "cross_section")
     os.makedirs(plot_dir, exist_ok=True)
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = md.ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
-            processor_3d,
-            var_name=cfg['variable'],
-            start_point=cfg['start_point'],
-            end_point=cfg['end_point'],
-            output_dir=plot_dir,
-            vertical_coord=cfg['vertical_coord'],
-            num_points=cfg['num_points'],
-            n_processes=n_workers,
-        ) or []
+        created = (
+            md.ParallelCrossSectionProcessor.create_batch_cross_section_plots_parallel(
+                processor_3d,
+                var_name=cfg["variable"],
+                start_point=cfg["start_point"],
+                end_point=cfg["end_point"],
+                output_dir=plot_dir,
+                vertical_coord=cfg["vertical_coord"],
+                num_points=cfg["num_points"],
+                n_processes=n_workers,
+            )
+            or []
+        )
     else:
         plotter = md.MPASVerticalCrossSectionPlotter(figsize=(14, 12), dpi=100)
         created = plotter.create_batch_cross_section_plots(
-            processor_3d, plot_dir,
-            var_name=cfg['variable'],
-            start_point=cfg['start_point'],
-            end_point=cfg['end_point'],
-            vertical_coord=cfg['vertical_coord'],
-            num_points=cfg['num_points'],
+            processor_3d,
+            plot_dir,
+            var_name=cfg["variable"],
+            start_point=cfg["start_point"],
+            end_point=cfg["end_point"],
+            vertical_coord=cfg["vertical_coord"],
+            num_points=cfg["num_points"],
         )
     elapsed = time.perf_counter() - t0
     return elapsed, len(created)
 
 
-def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
-                        out_dir: str,
-                        use_parallel: bool,
-                        n_workers: int) -> tuple[float, int]:
+def run_benchmark_skewt(
+    processor_3d: md.MPAS3DProcessor, out_dir: str, use_parallel: bool, n_workers: int
+) -> tuple[float, int]:
     """
     This function benchmarks the batch skew-T plot creation. It creates a directory for skew-T plots, runs the batch plotting function (either in parallel or serial), and returns the elapsed time and number of files created. The function takes in the MPAS3DProcessor with loaded data, the output directory path, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. In parallel mode it distributes the per-timestep sounding extraction, thermodynamic index computation, and plotting across MPI ranks or worker processes via ParallelSkewTProcessor; in serial mode it iterates over timesteps in a single process.
 
@@ -326,38 +375,47 @@ def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
         tuple[float, int]: A tuple containing the elapsed time in seconds for the batch plotting operation and the number of plot files created. The elapsed time is measured from the start of the plotting function to its completion, and the number of files is determined by counting the created plot files in the output directory.
     """
     cfg = SKEWT_CONFIG
-    plot_dir = os.path.join(out_dir, 'skewt')
+    plot_dir = os.path.join(out_dir, "skewt")
     os.makedirs(plot_dir, exist_ok=True)
 
     t0 = time.perf_counter()
     if use_parallel:
-        created = md.ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
-            processor_3d, plot_dir,
-            lon=cfg['lon'],
-            lat=cfg['lat'],
-            n_processes=n_workers,
-        ) or []
+        created = (
+            md.ParallelSkewTProcessor.create_batch_skewt_plots_parallel(
+                processor_3d,
+                plot_dir,
+                lon=cfg["lon"],
+                lat=cfg["lat"],
+                n_processes=n_workers,
+            )
+            or []
+        )
     else:
         diag = md.SoundingDiagnostics(verbose=False)
         plotter = md.MPASSkewTPlotter(figsize=(9, 12), dpi=100, verbose=False)
 
-        time_dim = 'Time' if 'Time' in processor_3d.dataset.dims else 'time'
+        time_dim = "Time" if "Time" in processor_3d.dataset.dims else "time"
         n_times = processor_3d.dataset.sizes.get(time_dim, 1)
 
         created = []
         for t_idx in range(n_times):
             profile = diag.extract_sounding_profile(
-                processor_3d, cfg['lon'], cfg['lat'], time_index=t_idx,
+                processor_3d,
+                cfg["lon"],
+                cfg["lat"],
+                time_index=t_idx,
             )
             indices = diag.compute_thermodynamic_indices(
-                profile['pressure'], profile['temperature'], profile['dewpoint'],
-                u_wind_kt=profile.get('u_wind'),
-                v_wind_kt=profile.get('v_wind'),
-                height_m=profile.get('height'),
+                profile["pressure"],
+                profile["temperature"],
+                profile["dewpoint"],
+                u_wind_kt=profile.get("u_wind"),
+                v_wind_kt=profile.get("v_wind"),
+                height_m=profile.get("height"),
             )
 
-            stn_lon = profile['station_lon']
-            stn_lat = profile['station_lat']
+            stn_lon = profile["station_lon"]
+            stn_lat = profile["station_lat"]
             lon_tag = f"{abs(stn_lon):.2f}{'W' if stn_lon < 0 else 'E'}"
             lat_tag = f"{abs(stn_lat):.2f}{'S' if stn_lat < 0 else 'N'}"
 
@@ -366,11 +424,11 @@ def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
                 f"mpas_skewt_{lon_tag.replace('.', 'p')}_{lat_tag.replace('.', 'p')}_t{t_idx:03d}",
             )
             plotter.create_skewt_diagram(
-                pressure=profile['pressure'],
-                temperature=profile['temperature'],
-                dewpoint=profile['dewpoint'],
-                u_wind=profile['u_wind'],
-                v_wind=profile['v_wind'],
+                pressure=profile["pressure"],
+                temperature=profile["temperature"],
+                dewpoint=profile["dewpoint"],
+                u_wind=profile["u_wind"],
+                v_wind=profile["v_wind"],
                 title=f"Skew-T | {lon_tag}, {lat_tag} | Time idx {t_idx}",
                 indices=indices,
                 show_parcel=False,
@@ -383,8 +441,7 @@ def run_benchmark_skewt(processor_3d: md.MPAS3DProcessor,
     return elapsed, len(created)
 
 
-def write_csv(results: list[dict],
-              csv_path: str) -> None:
+def write_csv(results: list[dict], csv_path: str) -> None:
     """
     This function writes the benchmark results to a CSV file. It takes a list of dictionaries, where each dictionary contains the results of a single benchmark (including experiment name, category, number of MPI ranks, elapsed time in seconds, number of files created, and timestamp), and the path to the CSV file where the results should be saved. The function uses Python's built-in csv module to write the data to the specified CSV file, including a header row with the field names.
 
@@ -395,17 +452,28 @@ def write_csv(results: list[dict],
     Returns:
         None
     """
-    fieldnames = ['experiment', 'category', 'mpi_ranks', 'backend', 'workers', 'trial',
-                  'elapsed_s', 'elapsed_min_s', 'elapsed_mean_s', 'n_files',
-                  'n_nodes', 'hostname', 'timestamp']
-    with open(csv_path, 'w', newline='') as fh:
+    fieldnames = [
+        "experiment",
+        "category",
+        "mpi_ranks",
+        "backend",
+        "workers",
+        "trial",
+        "elapsed_s",
+        "elapsed_min_s",
+        "elapsed_mean_s",
+        "n_files",
+        "n_nodes",
+        "hostname",
+        "timestamp",
+    ]
+    with open(csv_path, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(results)
 
 
-def print_summary(results: list[dict],
-                  csv_path: str) -> None:
+def print_summary(results: list[dict], csv_path: str) -> None:
     """
     This function prints a summary of the benchmark results to the console. It takes a list of dictionaries containing the benchmark results and the path to the CSV file where the results are saved. The function formats and prints a table summarizing the experiment name, category, number of MPI ranks, elapsed time in seconds, and number of files created for each benchmark. It also prints a separator line before and after the table for better readability, and at the end, it prints the path to the CSV file where the results are stored.
 
@@ -420,7 +488,7 @@ def print_summary(results: list[dict],
         f"{'Experiment':<12} {'Category':<20} {'Backend':>14} {'Width':>5} "
         f"{'Max(s)':>9} {'Mean(s)':>9} {'Min(s)':>9} {'Files':>6}"
     )
-    sep = '-' * len(hdr)
+    sep = "-" * len(hdr)
     print(f"\n{sep}\n  Benchmark Summary\n{sep}")
     print(hdr)
     print(sep)
@@ -440,14 +508,16 @@ def print_summary(results: list[dict],
     print(f"Results saved to: {csv_path}\n")
 
 
-def _make_result(exp_name: str,
-                 category: str,
-                 elapsed: float,
-                 n_files: int,
-                 timestamp: str,
-                 elapsed_min: float | None = None,
-                 elapsed_mean: float | None = None,
-                 trial: int = 1) -> dict:
+def _make_result(
+    exp_name: str,
+    category: str,
+    elapsed: float,
+    n_files: int,
+    timestamp: str,
+    elapsed_min: float | None = None,
+    elapsed_mean: float | None = None,
+    trial: int = 1,
+) -> dict:
     """
     This function creates a result record dictionary for a single benchmark. It takes the experiment name, benchmark category, elapsed time in seconds (the maximum across ranks, i.e. the makespan), number of files created, and a timestamp string as input parameters, and returns a dictionary containing these values along with the number of MPI ranks used (from the global SIZE variable), the minimum and mean elapsed time across ranks (which together with the maximum quantify load imbalance), the trial index, and the node count and hostname identifying where the run executed. The elapsed times are rounded to 4 decimal places for consistency. This function is intended to standardize the format of the benchmark results for later aggregation and CSV writing.
 
@@ -465,24 +535,23 @@ def _make_result(exp_name: str,
         dict: A dictionary matching the CSV schema in write_csv.
     """
     return {
-        'experiment': exp_name,
-        'category': category,
-        'mpi_ranks': SIZE,
-        'backend': BACKEND,
-        'workers': PARALLEL_WIDTH,
-        'trial': trial,
-        'elapsed_s': round(elapsed, 4),
-        'elapsed_min_s': round(elapsed if elapsed_min is None else elapsed_min, 4),
-        'elapsed_mean_s': round(elapsed if elapsed_mean is None else elapsed_mean, 4),
-        'n_files': n_files,
-        'n_nodes': N_NODES,
-        'hostname': HOSTNAME,
-        'timestamp': timestamp,
+        "experiment": exp_name,
+        "category": category,
+        "mpi_ranks": SIZE,
+        "backend": BACKEND,
+        "workers": PARALLEL_WIDTH,
+        "trial": trial,
+        "elapsed_s": round(elapsed, 4),
+        "elapsed_min_s": round(elapsed if elapsed_min is None else elapsed_min, 4),
+        "elapsed_mean_s": round(elapsed if elapsed_mean is None else elapsed_mean, 4),
+        "n_files": n_files,
+        "n_nodes": N_NODES,
+        "hostname": HOSTNAME,
+        "timestamp": timestamp,
     }
 
 
-def print_banner(mode_label: str,
-                 experiment_names: list[str]) -> None:
+def print_banner(mode_label: str, experiment_names: list[str]) -> None:
     """
     This function prints a banner to the console at the start of the benchmark run. The banner includes a title for the benchmark, the resolved execution mode (serial, multiprocessing, or MPI) together with the parallel width, the number of MPI ranks in the job, and the list of experiments that will be run. The banner is formatted with separator lines for better visibility. This function is intended to provide a clear starting point for the benchmark output and to summarise the key parameters of the run.
 
@@ -498,8 +567,10 @@ def print_banner(mode_label: str,
     print(f"  Execution mode: {mode_label}")
     print(f"  MPI ranks in job: {SIZE}")
     print(f"  Nodes: {N_NODES} (rank 0 on {HOSTNAME})")
-    print(f"  OMP_NUM_THREADS={os.environ.get('OMP_NUM_THREADS')} "
-          f"OPENBLAS_NUM_THREADS={os.environ.get('OPENBLAS_NUM_THREADS')}")
+    print(
+        f"  OMP_NUM_THREADS={os.environ.get('OMP_NUM_THREADS')} "
+        f"OPENBLAS_NUM_THREADS={os.environ.get('OPENBLAS_NUM_THREADS')}"
+    )
     print(f"  Experiments: {experiment_names}")
     print("=" * 60)
 
@@ -526,8 +597,10 @@ def load_experiment_data(
 
         md.clear_grid_cache()
         t_load = time.perf_counter()
-        processor_2d = md.MPAS2DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-        processor_2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
+        processor_2d = md.MPAS2DProcessor(
+            grid_file=paths["grid_file"], verbose=(RANK == 0)
+        )
+        processor_2d.load_2d_data(paths["diag_dir"], variables=diag_variables)
         load_2d_time = time.perf_counter() - t_load
 
         if RANK == 0:
@@ -535,18 +608,22 @@ def load_experiment_data(
 
         md.clear_grid_cache()
         t_load = time.perf_counter()
-        processor_3d = md.MPAS3DProcessor(grid_file=paths['grid_file'], verbose=(RANK == 0))
-        processor_3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
+        processor_3d = md.MPAS3DProcessor(
+            grid_file=paths["grid_file"], verbose=(RANK == 0)
+        )
+        processor_3d.load_3d_data(paths["mpasout_dir"], variables=mpasout_variables)
         load_3d_time = time.perf_counter() - t_load
 
     return processor_2d, processor_3d, load_2d_time, load_3d_time
 
 
-def build_benchmarks(processor_2d: md.MPAS2DProcessor,
-                     processor_3d: md.MPAS3DProcessor,
-                     exp_out: str,
-                     use_parallel: bool,
-                     n_workers: int | None) -> list[tuple[str, Callable[[], tuple[float, int]]]]:
+def build_benchmarks(
+    processor_2d: md.MPAS2DProcessor,
+    processor_3d: md.MPAS3DProcessor,
+    exp_out: str,
+    use_parallel: bool,
+    n_workers: int | None,
+) -> list[tuple[str, Callable[[], tuple[float, int]]]]:
     """
     This function builds the list of benchmarks to run for a single experiment. It takes the loaded 2D and 3D processors, the base output directory for the experiment, a boolean indicating whether to use parallel processing, and the number of worker processes to use if parallel processing is enabled. The function returns a list of tuples, where each tuple contains a benchmark category name (e.g. 'precipitation') and a zero-argument callable that executes the corresponding benchmark function and returns a tuple of (elapsed time in seconds, number of files created). The benchmark functions are wrapped in lambda functions to defer their execution until they are called in the main experiment loop. All five benchmark categories, including skew-T, run in parallel across ranks (MPI) or worker processes (multiprocessing) when parallel processing is enabled.
 
@@ -562,19 +639,40 @@ def build_benchmarks(processor_2d: md.MPAS2DProcessor,
     """
     workers = n_workers if n_workers is not None else 1
     return [
-        ('precipitation', lambda: run_benchmark_precipitation(processor_2d, exp_out, use_parallel, workers)),
-        ('surface', lambda: run_benchmark_surface(processor_2d, exp_out, use_parallel, workers)),
-        ('wind', lambda: run_benchmark_wind(processor_2d, exp_out, use_parallel, workers)),
-        ('cross_section', lambda: run_benchmark_cross_section(processor_3d, exp_out, use_parallel, workers)),
-        ('skewt', lambda: run_benchmark_skewt(processor_3d, exp_out, use_parallel, workers)),
+        (
+            "precipitation",
+            lambda: run_benchmark_precipitation(
+                processor_2d, exp_out, use_parallel, workers
+            ),
+        ),
+        (
+            "surface",
+            lambda: run_benchmark_surface(processor_2d, exp_out, use_parallel, workers),
+        ),
+        (
+            "wind",
+            lambda: run_benchmark_wind(processor_2d, exp_out, use_parallel, workers),
+        ),
+        (
+            "cross_section",
+            lambda: run_benchmark_cross_section(
+                processor_3d, exp_out, use_parallel, workers
+            ),
+        ),
+        (
+            "skewt",
+            lambda: run_benchmark_skewt(processor_3d, exp_out, use_parallel, workers),
+        ),
     ]
 
 
-def run_single_benchmark(plotter_name: str,
-                         bench_fn: Callable[[], tuple[float, int]],
-                         exp_name: str,
-                         timestamp: str,
-                         trial: int = 1) -> dict | None:
+def run_single_benchmark(
+    plotter_name: str,
+    bench_fn: Callable[[], tuple[float, int]],
+    exp_name: str,
+    timestamp: str,
+    trial: int = 1,
+) -> dict | None:
     """
     This function runs a single benchmark and gathers the results across MPI ranks. It takes the benchmark category name, a zero-argument callable that executes the benchmark and returns (elapsed time, number of files), the experiment name, and a timestamp string. The function prints a status message indicating which benchmark is running, synchronises the ranks with a barrier, executes the benchmark function to get the timing and file count, and then gathers these results from all ranks to rank 0. On rank 0, it computes the maximum elapsed time across ranks (as the effective runtime) and the total number of files created, prints the results for this benchmark, and creates a result record dictionary using the _make_result helper function. The function returns this result record on rank 0, while other ranks return None.
 
@@ -619,18 +717,23 @@ def run_single_benchmark(plotter_name: str,
             )
 
         result = _make_result(
-            exp_name, plotter_name, max_time, total_files, timestamp,
-            elapsed_min=min_time, elapsed_mean=mean_time, trial=trial,
+            exp_name,
+            plotter_name,
+            max_time,
+            total_files,
+            timestamp,
+            elapsed_min=min_time,
+            elapsed_mean=mean_time,
+            trial=trial,
         )
 
     gc.collect()
     return result
 
 
-def _record_load_times(exp_name: str,
-                       load_2d_time: float,
-                       load_3d_time: float,
-                       timestamp: str) -> list[dict]:
+def _record_load_times(
+    exp_name: str, load_2d_time: float, load_3d_time: float, timestamp: str
+) -> list[dict]:
     """
     This function gathers the 2D and 3D data loading times across ranks and creates result records for these operations. It takes the experiment name, the loading times for 2D and 3D data on this rank, and a timestamp string. The function gathers the loading times from all ranks to rank 0, computes the maximum loading time across ranks (as the effective loading time), and on rank 0, it prints these times and creates result records for both 'data_load_2d' and 'data_load_3d' categories using the _make_result helper function. The function returns a list of these result records on rank 0, while other ranks return an empty list.
 
@@ -656,21 +759,31 @@ def _record_load_times(exp_name: str,
     print(f"  2D load: {max(load_2d_times):.2f}s | 3D load: {max(load_3d_times):.2f}s")
 
     records: list[dict] = []
-    for category, load_times in (('data_load_2d', load_2d_times),
-                                 ('data_load_3d', load_3d_times)):
-        records.append(_make_result(
-            exp_name, category, max(load_times), 0, timestamp,
-            elapsed_min=min(load_times),
-            elapsed_mean=sum(load_times) / len(load_times),
-        ))
+    for category, load_times in (
+        ("data_load_2d", load_2d_times),
+        ("data_load_3d", load_3d_times),
+    ):
+        records.append(
+            _make_result(
+                exp_name,
+                category,
+                max(load_times),
+                0,
+                timestamp,
+                elapsed_min=min(load_times),
+                elapsed_mean=sum(load_times) / len(load_times),
+            )
+        )
     return records
 
 
-def _record_solo_load_times(exp_name: str,
-                            paths: dict,
-                            timestamp: str,
-                            diag_variables: list[str] | None = None,
-                            mpasout_variables: list[str] | None = None) -> list[dict]:
+def _record_solo_load_times(
+    exp_name: str,
+    paths: dict,
+    timestamp: str,
+    diag_variables: list[str] | None = None,
+    mpasout_variables: list[str] | None = None,
+) -> list[dict]:
     """
     This function measures the single-reader (uncontended) data-loading baseline for an experiment so that it can be compared against the concurrent data_load_2d/data_load_3d numbers, which every rank performs simultaneously. Only rank 0 loads the 2D and 3D datasets while all other ranks wait at a barrier, so the timing reflects loading without shared-filesystem read contention. The process-level grid cache is cleared before each of the 2D and 3D loads (so each is an independent cold read whose grid caching is separated from the timing) and again afterwards (so the subsequent real concurrent load is also cold and measured fairly). The discarded processors are garbage-collected immediately. The resulting records use the 'data_load_2d_solo' and 'data_load_3d_solo' categories and are returned only on rank 0; all other ranks return an empty list.
 
@@ -694,14 +807,14 @@ def _record_solo_load_times(exp_name: str,
 
     if RANK == 0:
         t0 = time.perf_counter()
-        proc2d = md.MPAS2DProcessor(grid_file=paths['grid_file'], verbose=False)
-        proc2d.load_2d_data(paths['diag_dir'], variables=diag_variables)
+        proc2d = md.MPAS2DProcessor(grid_file=paths["grid_file"], verbose=False)
+        proc2d.load_2d_data(paths["diag_dir"], variables=diag_variables)
         load_2d_time = time.perf_counter() - t0
 
         md.clear_grid_cache()
         t0 = time.perf_counter()
-        proc3d = md.MPAS3DProcessor(grid_file=paths['grid_file'], verbose=False)
-        proc3d.load_3d_data(paths['mpasout_dir'], variables=mpasout_variables)
+        proc3d = md.MPAS3DProcessor(grid_file=paths["grid_file"], verbose=False)
+        proc3d.load_3d_data(paths["mpasout_dir"], variables=mpasout_variables)
         load_3d_time = time.perf_counter() - t0
 
         del proc2d, proc3d
@@ -715,18 +828,19 @@ def _record_solo_load_times(exp_name: str,
     if RANK != 0:
         return []
 
-    print(f"  [solo baseline] 2D: {load_2d_time:.2f}s | 3D: {load_3d_time:.2f}s (rank 0 only)")
+    print(
+        f"  [solo baseline] 2D: {load_2d_time:.2f}s | 3D: {load_3d_time:.2f}s (rank 0 only)"
+    )
 
     return [
-        _make_result(exp_name, 'data_load_2d_solo', load_2d_time, 0, timestamp),
-        _make_result(exp_name, 'data_load_3d_solo', load_3d_time, 0, timestamp),
+        _make_result(exp_name, "data_load_2d_solo", load_2d_time, 0, timestamp),
+        _make_result(exp_name, "data_load_3d_solo", load_3d_time, 0, timestamp),
     ]
 
 
-def _run_trials(benchmarks: list,
-                exp_name: str,
-                timestamp: str,
-                trials: int) -> list[dict]:
+def _run_trials(
+    benchmarks: list, exp_name: str, timestamp: str, trials: int
+) -> list[dict]:
     """
     This function runs the provided benchmarks for a specified number of trials, collecting the results. It takes a list of (name, callable) benchmark pairs, the experiment name, a timestamp string, and the number of trials to run. The function iterates over the number of trials, and for each trial, it iterates over the benchmarks, running each one with run_single_benchmark to get the result record. If there are multiple trials, it prints a status message indicating the current trial. The collected result records from all benchmarks and trials are returned as a list on rank 0, while other ranks return an empty list.
 
@@ -744,21 +858,25 @@ def _run_trials(benchmarks: list,
         if RANK == 0 and trials > 1:
             print(f"  --- Trial {trial}/{trials} ---")
         for plotter_name, bench_fn in benchmarks:
-            result = run_single_benchmark(plotter_name, bench_fn, exp_name, timestamp, trial)
+            result = run_single_benchmark(
+                plotter_name, bench_fn, exp_name, timestamp, trial
+            )
             if result is not None:
                 records.append(result)
     return records
 
 
-def run_experiment(exp_name: str,
-                   paths: dict,
-                   use_parallel: bool,
-                   n_workers: int | None,
-                   timestamp: str,
-                   trials: int = 1,
-                   load_baseline: bool = False,
-                   diag_variables: list[str] | None = None,
-                   mpasout_variables: list[str] | None = None) -> list[dict]:
+def run_experiment(
+    exp_name: str,
+    paths: dict,
+    use_parallel: bool,
+    n_workers: int | None,
+    timestamp: str,
+    trials: int = 1,
+    load_baseline: bool = False,
+    diag_variables: list[str] | None = None,
+    mpasout_variables: list[str] | None = None,
+) -> list[dict]:
     """
     This function runs a single experiment, which includes loading the data, running all benchmarks for that experiment, and collecting the results. It takes the experiment name, a dictionary of paths for loading the data, a boolean indicating whether to use parallel processing, the number of worker processes to use if parallel processing is enabled, and a timestamp string. The function first prints the experiment name on rank 0, creates an output directory for the experiment, and synchronises the ranks. It then loads the 2D and 3D data using the load_experiment_data helper function, which returns the loaded processors and the time taken for loading. The loading times are recorded as benchmark results. Next, it builds the list of benchmarks to run using the build_benchmarks helper function, which returns a list of (name, callable) pairs. The function then iterates over these benchmarks, running each one with run_single_benchmark to get the result record, which is collected into a list of results. Finally, it cleans up by deleting the processors and calling garbage collection before returning the list of results for this experiment.
 
@@ -790,17 +908,27 @@ def run_experiment(exp_name: str,
         COMM.Barrier()
 
     if load_baseline:
-        results.extend(_record_solo_load_times(
-            exp_name, paths, timestamp, diag_variables, mpasout_variables,
-        ))
+        results.extend(
+            _record_solo_load_times(
+                exp_name,
+                paths,
+                timestamp,
+                diag_variables,
+                mpasout_variables,
+            )
+        )
 
     processor_2d, processor_3d, load_2d_time, load_3d_time = load_experiment_data(
-        paths, diag_variables=diag_variables, mpasout_variables=mpasout_variables,
+        paths,
+        diag_variables=diag_variables,
+        mpasout_variables=mpasout_variables,
     )
 
     results.extend(_record_load_times(exp_name, load_2d_time, load_3d_time, timestamp))
 
-    benchmarks = build_benchmarks(processor_2d, processor_3d, exp_out, use_parallel, n_workers)
+    benchmarks = build_benchmarks(
+        processor_2d, processor_3d, exp_out, use_parallel, n_workers
+    )
     results.extend(_run_trials(benchmarks, exp_name, timestamp, trials))
 
     del processor_2d, processor_3d
@@ -822,44 +950,54 @@ def parse_args() -> argparse.Namespace:
         description="MPASdiag batch-plotter benchmark (serial / multiprocessing / MPI).",
     )
     parser.add_argument(
-        '--workers', type=int, default=None,
+        "--workers",
+        type=int,
+        default=None,
         help="Worker processes for the multiprocessing backend when NOT launched via "
-             "mpiexec (default: CPU count - 1). Ignored under MPI.",
+        "mpiexec (default: CPU count - 1). Ignored under MPI.",
     )
     parser.add_argument(
-        '--serial', action='store_true',
+        "--serial",
+        action="store_true",
         help="Force a single-process serial run (parallelism disabled).",
     )
     parser.add_argument(
-        '--experiments', nargs='+', metavar='NAME', default=None,
+        "--experiments",
+        nargs="+",
+        metavar="NAME",
+        default=None,
         choices=list(EXPERIMENTS.keys()),
         help="Subset of experiments to run (default: all).",
     )
     parser.add_argument(
-        '--trials', type=int, default=1,
+        "--trials",
+        type=int,
+        default=1,
         help="Repetitions of each plotting category per experiment; report the "
-             "spread across trials to separate real changes from filesystem "
-             "noise (default: 1).",
+        "spread across trials to separate real changes from filesystem "
+        "noise (default: 1).",
     )
     parser.add_argument(
-        '--load-baseline', action='store_true',
+        "--load-baseline",
+        action="store_true",
         help="Before the concurrent load, time a single-reader load on rank 0 "
-             "only (data_load_*_solo) as a contention-free baseline to compare "
-             "against the every-rank concurrent data_load_* numbers.",
+        "only (data_load_*_solo) as a contention-free baseline to compare "
+        "against the every-rank concurrent data_load_* numbers.",
     )
     parser.add_argument(
-        '--all-vars', action='store_true',
+        "--all-vars",
+        action="store_true",
         help="Load every 2D diagnostic variable instead of only the few the "
-             "plots need (the default). Use to measure how much selective "
-             "loading speeds up the 2D data load.",
+        "plots need (the default). Use to measure how much selective "
+        "loading speeds up the 2D data load.",
     )
     args, _ = parser.parse_known_args()
     return args
 
 
-def resolve_execution_mode(size: int,
-                           serial: bool,
-                           workers: int | None) -> tuple[bool, int | None, str, int]:
+def resolve_execution_mode(
+    size: int, serial: bool, workers: int | None
+) -> tuple[bool, int | None, str, int]:
     """
     This function decides the execution backend from the launch context and the command-line flags. The benchmark can run three ways: distributed MPI (selected when the script is launched with an MPI process manager so that the world size exceeds one), shared-memory multiprocessing (a Pool of worker processes when run as plain Python), or a single-process serial baseline. MPI takes precedence because it is chosen by the launcher rather than by a flag, followed by an explicit serial request, and finally the multiprocessing default sized to the available CPUs.
 
@@ -872,17 +1010,17 @@ def resolve_execution_mode(size: int,
         tuple[bool, int | None, str, int]: (use_parallel, n_workers, backend, parallel_width).
     """
     if size > 1:
-        return True, size, 'mpi', size
+        return True, size, "mpi", size
 
     if serial:
-        return False, None, 'serial', 1
+        return False, None, "serial", 1
 
     resolved = workers if workers is not None else max(1, cpu_count() - 1)
 
     if resolved <= 1:
-        return False, None, 'serial', 1
+        return False, None, "serial", 1
 
-    return True, resolved, 'multiprocessing', resolved
+    return True, resolved, "multiprocessing", resolved
 
 
 def select_experiments(names: list[str] | None) -> dict:
@@ -901,22 +1039,24 @@ def select_experiments(names: list[str] | None) -> dict:
 
 
 def main() -> None:
-    """ Main function for the MPASdiag Batch Plotter Benchmark. """
+    """Main function for the MPASdiag Batch Plotter Benchmark."""
     global BACKEND, PARALLEL_WIDTH
 
     args = parse_args()
     use_parallel, n_workers, BACKEND, PARALLEL_WIDTH = resolve_execution_mode(
-        SIZE, args.serial, args.workers,
+        SIZE,
+        args.serial,
+        args.workers,
     )
     experiments = select_experiments(args.experiments)
 
     mode_label = {
-        'mpi': f"MPI ({SIZE} ranks)",
-        'multiprocessing': f"multiprocessing ({PARALLEL_WIDTH} workers)",
-        'serial': "serial (1 process)",
+        "mpi": f"MPI ({SIZE} ranks)",
+        "multiprocessing": f"multiprocessing ({PARALLEL_WIDTH} workers)",
+        "serial": "serial (1 process)",
     }[BACKEND]
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     all_results = []
 
     diag_variables = None if args.all_vars else DIAG_VARIABLES
@@ -929,18 +1069,26 @@ def main() -> None:
             print(f"  2D load: selective variables {diag_variables}")
             print(f"  3D load: selective variables {mpasout_variables}")
             print("  (pass --all-vars to load every variable instead)")
-        if BACKEND == 'multiprocessing':
-            print("  Note: the multiprocessing backend reloads data per worker "
-                  "(esp. on macOS spawn).")
+        if BACKEND == "multiprocessing":
+            print(
+                "  Note: the multiprocessing backend reloads data per worker "
+                "(esp. on macOS spawn)."
+            )
             print("        For the fastest run use: mpiexec -n N python benchmark.py\n")
 
     for exp_name, paths in experiments.items():
         all_results.extend(
-            run_experiment(exp_name, paths, use_parallel, n_workers, timestamp,
-                           trials=max(1, args.trials),
-                           load_baseline=args.load_baseline,
-                           diag_variables=diag_variables,
-                           mpasout_variables=mpasout_variables)
+            run_experiment(
+                exp_name,
+                paths,
+                use_parallel,
+                n_workers,
+                timestamp,
+                trials=max(1, args.trials),
+                load_baseline=args.load_baseline,
+                diag_variables=diag_variables,
+                mpasout_variables=mpasout_variables,
+            )
         )
 
     if RANK == 0:
@@ -949,5 +1097,5 @@ def main() -> None:
         print_summary(all_results, str(csv_path))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

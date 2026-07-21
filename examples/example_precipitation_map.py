@@ -13,12 +13,13 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+
 # Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u240k/diag'
-gridPath = '../data/grids/x1.10242.static.nc'
+dataDir = "../data/u240k/diag"
+gridPath = "../data/grids/x1.10242.static.nc"
 
 # Load unstructured MPAS data
 processor = md.MPAS2DProcessor(grid_file=gridPath)
@@ -32,11 +33,15 @@ tindex = 1
 
 # Extract precipitation difference at time index 1
 precip = diag.compute_precipitation_difference(
-  processor.dataset, tindex, var_name='total', accum_period='a01h',
-  data_type=processor.data_type or 'xarray')
+    processor.dataset,
+    tindex,
+    var_name="total",
+    accum_period="a01h",
+    data_type=processor.data_type or "xarray",
+)
 
 # Extract coordinates
-lon, lat = processor.extract_2d_coordinates_for_variable('total', precip)
+lon, lat = processor.extract_2d_coordinates_for_variable("total", precip)
 
 # Define the precipitation plotter with desired figure size and resolution
 plotter = md.MPASPrecipitationPlotter(figsize=(12, 8), dpi=300)
@@ -56,41 +61,53 @@ cfg.lat_max = 90.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A",
-        "end": (-80.0,  50.0), "end_label": "B",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "red"},
+        "start": (-120.0, 30.0),
+        "start_label": "A",
+        "end": (-80.0, 50.0),
+        "end_label": "B",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "red",
+    },
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C",
-        "end": ( 45.0,  30.0), "end_label": "D",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "royalblue"},
+        "start": (0.0, 0.0),
+        "start_label": "C",
+        "end": (45.0, 30.0),
+        "end_label": "D",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "royalblue",
+    },
 }
 
 # Extract valid time from the dataset for the specified time index
-valtime = processor.dataset['Time'][tindex].values
-valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
+valtime = processor.dataset["Time"][tindex].values
+valtime_str = str(valtime.astype("datetime64[h]")).replace("-", "")
 
 # Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
-cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
-cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+cfg.remap_engine = "kdtree"  # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = "nearest"  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
 # Create precipitation map for 1-hour accumulation over CONUS with filled contour plot
 fig, ax = plotter.create_precipitation_map(
-              lon,
-              lat,
-              precip.values,
-              md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-              accum_period='a01h',
-              data_array=precip,
-              dataset=processor.dataset,
-              config=cfg,
-              style=md.PrecipitationRenderStyle(title=f'Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}', plot_type='contourf', grid_resolution=1.0),
-          )
+    lon,
+    lat,
+    precip.values,
+    md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    accum_period="a01h",
+    data_array=precip,
+    dataset=processor.dataset,
+    config=cfg,
+    style=md.PrecipitationRenderStyle(
+        title=f"Total precipitation | Plot Type: Filled Contour | Valid Time: {valtime_str}",
+        plot_type="contourf",
+        grid_resolution=1.0,
+    ),
+)
 
 # Overlay cross-section transect lines
 plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save the generated plot in PNG format
-plotter.save_plot(f'./output/total_precipitation_valid_{valtime_str}', formats=['png'])
+plotter.save_plot(f"./output/total_precipitation_valid_{valtime_str}", formats=["png"])
 plotter.close_plot()

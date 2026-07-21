@@ -17,6 +17,7 @@ Email: mrislam@ucar.edu
 Date: June 2026
 Version: 1.0.0
 """
+
 import csv
 import glob
 import sys
@@ -42,8 +43,10 @@ def _validate_csv_path(path: str, base: Path | None = None) -> Path:
     base = (base or Path.cwd()).resolve()
     resolved = Path(path).resolve()
     if not resolved.is_relative_to(base):
-        sys.exit(f"Refusing to read '{path}': resolves outside allowed directory {base}")
-    if resolved.suffix.lower() != '.csv':
+        sys.exit(
+            f"Refusing to read '{path}': resolves outside allowed directory {base}"
+        )
+    if resolved.suffix.lower() != ".csv":
         sys.exit(f"Refusing to read '{path}': not a .csv file")
     if not resolved.is_file():
         sys.exit(f"Refusing to read '{path}': not a regular file")
@@ -63,14 +66,18 @@ def load_results(paths: list[str]) -> list[dict]:
     rows = []
     for path in paths:
         safe_path = _validate_csv_path(path)
-        with open(safe_path, newline='') as fh:
+        with open(safe_path, newline="") as fh:
             for row in csv.DictReader(fh):
-                row['workers'] = int(row.get('workers') or row.get('mpi_ranks') or 1)
-                row['trial'] = int(row.get('trial') or 1)
-                row['elapsed_s'] = float(row['elapsed_s'])
-                row['elapsed_min_s'] = float(row.get('elapsed_min_s') or row['elapsed_s'])
-                row['elapsed_mean_s'] = float(row.get('elapsed_mean_s') or row['elapsed_s'])
-                row['n_files'] = int(row.get('n_files') or 0)
+                row["workers"] = int(row.get("workers") or row.get("mpi_ranks") or 1)
+                row["trial"] = int(row.get("trial") or 1)
+                row["elapsed_s"] = float(row["elapsed_s"])
+                row["elapsed_min_s"] = float(
+                    row.get("elapsed_min_s") or row["elapsed_s"]
+                )
+                row["elapsed_mean_s"] = float(
+                    row.get("elapsed_mean_s") or row["elapsed_s"]
+                )
+                row["n_files"] = int(row.get("n_files") or 0)
                 rows.append(row)
     return rows
 
@@ -88,29 +95,34 @@ def aggregate_trials(rows: list[dict]) -> dict:
     grouped: dict = defaultdict(lambda: defaultdict(list))
 
     for row in rows:
-        grouped[(row['experiment'], row['category'])][row['workers']].append(row)
+        grouped[(row["experiment"], row["category"])][row["workers"]].append(row)
 
     aggregated: dict = {}
 
     for key, by_width in grouped.items():
         aggregated[key] = {}
         for width, recs in by_width.items():
-            elapsed = median(r['elapsed_s'] for r in recs)
+            elapsed = median(r["elapsed_s"] for r in recs)
             imbalance = median(
-                (r['elapsed_s'] / r['elapsed_mean_s']) if r['elapsed_mean_s'] > 0 else 1.0
+                (
+                    (r["elapsed_s"] / r["elapsed_mean_s"])
+                    if r["elapsed_mean_s"] > 0
+                    else 1.0
+                )
                 for r in recs
             )
             aggregated[key][width] = {
-                'elapsed': elapsed,
-                'imbalance': imbalance,
-                'n_trials': len(recs),
-                'n_files': max(r['n_files'] for r in recs),
+                "elapsed": elapsed,
+                "imbalance": imbalance,
+                "n_trials": len(recs),
+                "n_files": max(r["n_files"] for r in recs),
             }
     return aggregated
 
 
-def _scaling_flags(rec: dict, width: int, category: str,
-                   prev_elapsed: float | None) -> list[str]:
+def _scaling_flags(
+    rec: dict, width: int, category: str, prev_elapsed: float | None
+) -> list[str]:
     """
     This function derives the diagnostic flags for a single (worker count) record. It flags configurations where the number of workers meets or exceeds the number of files (tasks), data-load categories whose work is replicated across workers, and anti-scaling cases where adding workers made the run slower than the previous width. A missing-files flag is added when a compute category processed no files (a likely failure).
 
@@ -124,19 +136,20 @@ def _scaling_flags(rec: dict, width: int, category: str,
         list[str]: Flag strings describing scaling anomalies for this record.
     """
     flags = []
-    is_data_load = 'data_load' in category
-    ranks_exceed_tasks = (not is_data_load
-                          and rec['n_files'] > 0 and width >= rec['n_files'])
+    is_data_load = "data_load" in category
+    ranks_exceed_tasks = (
+        not is_data_load and rec["n_files"] > 0 and width >= rec["n_files"]
+    )
 
     if ranks_exceed_tasks:
         flags.append(f"RANKS>=TASKS({rec['n_files']})")
     elif is_data_load:
-        flags.append('REPLICATED')
-    elif prev_elapsed is not None and rec['elapsed'] > prev_elapsed * 1.05:
-        flags.append('ANTI-SCALING')
+        flags.append("REPLICATED")
+    elif prev_elapsed is not None and rec["elapsed"] > prev_elapsed * 1.05:
+        flags.append("ANTI-SCALING")
 
-    if rec['n_files'] == 0 and not is_data_load:
-        flags.append('NO-FILES(failed?)')
+    if rec["n_files"] == 0 and not is_data_load:
+        flags.append("NO-FILES(failed?)")
 
     return flags
 
@@ -155,25 +168,31 @@ def _print_category(experiment: str, category: str, by_width: dict) -> None:
     """
     widths = sorted(by_width)
     base_width = widths[0]
-    base = by_width[base_width]['elapsed']
+    base = by_width[base_width]["elapsed"]
 
-    print(f"\n{experiment} / {category}  (baseline: {base_width} worker(s), {base:.2f}s)")
-    print(f"  {'workers':>8} {'time (s)':>10} {'speedup':>8} {'efficiency':>11} "
-          f"{'imbalance':>10} {'trials':>7}  flags")
+    print(
+        f"\n{experiment} / {category}  (baseline: {base_width} worker(s), {base:.2f}s)"
+    )
+    print(
+        f"  {'workers':>8} {'time (s)':>10} {'speedup':>8} {'efficiency':>11} "
+        f"{'imbalance':>10} {'trials':>7}  flags"
+    )
 
     prev_elapsed = None
 
     for width in widths:
         rec = by_width[width]
-        speedup = base / rec['elapsed'] if rec['elapsed'] > 0 else float('inf')
+        speedup = base / rec["elapsed"] if rec["elapsed"] > 0 else float("inf")
         ratio = width / base_width
         efficiency = speedup / ratio if ratio > 0 else 1.0
 
         flags = _scaling_flags(rec, width, category, prev_elapsed)
 
-        print(f"  {width:>8} {rec['elapsed']:>10.2f} {speedup:>7.2f}x {efficiency:>10.1%} "
-              f"{rec['imbalance']:>9.2f}x {rec['n_trials']:>7}  {' '.join(flags)}")
-        prev_elapsed = rec['elapsed']
+        print(
+            f"  {width:>8} {rec['elapsed']:>10.2f} {speedup:>7.2f}x {efficiency:>10.1%} "
+            f"{rec['imbalance']:>9.2f}x {rec['n_trials']:>7}  {' '.join(flags)}"
+        )
+        prev_elapsed = rec["elapsed"]
 
 
 def print_report(aggregated: dict) -> None:
@@ -186,16 +205,18 @@ def print_report(aggregated: dict) -> None:
     Returns:
         None
     """
-    for (experiment, category) in sorted(aggregated):
+    for experiment, category in sorted(aggregated):
         _print_category(experiment, category, aggregated[(experiment, category)])
 
 
 def main() -> None:
-    """ Main entry point: resolve CSV paths from argv or the working directory and print the scaling report. """
-    paths = sys.argv[1:] or sorted(glob.glob('benchmark_results_*.csv'))
+    """Main entry point: resolve CSV paths from argv or the working directory and print the scaling report."""
+    paths = sys.argv[1:] or sorted(glob.glob("benchmark_results_*.csv"))
 
     if not paths:
-        sys.exit("No benchmark CSVs found. Pass paths or run from the results directory.")
+        sys.exit(
+            "No benchmark CSVs found. Pass paths or run from the results directory."
+        )
 
     rows = load_results(paths)
 
@@ -203,5 +224,5 @@ def main() -> None:
     print_report(aggregate_trials(rows))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

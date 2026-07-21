@@ -13,12 +13,13 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+
 # Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u240k/diag'
-gridPath = '../data/grids/x1.10242.static.nc'
+dataDir = "../data/u240k/diag"
+gridPath = "../data/grids/x1.10242.static.nc"
 
 # Load unstructured MPAS data
 processor = md.MPAS2DProcessor(grid_file=gridPath)
@@ -31,10 +32,10 @@ tindex = 1
 plotter = md.MPASSurfacePlotter(verbose=True)
 
 # Extract surface variable at time index 0
-surface_var = processor.dataset['t2m'].isel(Time=tindex)
+surface_var = processor.dataset["t2m"].isel(Time=tindex)
 
 # Extract coordinates
-lon, lat = processor.extract_2d_coordinates_for_variable('t2m', surface_var)
+lon, lat = processor.extract_2d_coordinates_for_variable("t2m", surface_var)
 
 # Define the surface plotter with desired figure size and resolution
 plotter = md.MPASSurfacePlotter(figsize=(12, 10), dpi=300)
@@ -51,35 +52,51 @@ cfg.lat_max = 90.0
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A",
-        "end": (-80.0,  50.0), "end_label": "B",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "red"},
+        "start": (-120.0, 30.0),
+        "start_label": "A",
+        "end": (-80.0, 50.0),
+        "end_label": "B",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "red",
+    },
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C",
-        "end": ( 45.0,  30.0), "end_label": "D",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "royalblue"},
+        "start": (0.0, 0.0),
+        "start_label": "C",
+        "end": (45.0, 30.0),
+        "end_label": "D",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "royalblue",
+    },
 }
 
 # Extract valid time from the dataset for the specified time index
-valtime = processor.dataset['Time'][tindex].values
-valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
+valtime = processor.dataset["Time"][tindex].values
+valtime_str = str(valtime.astype("datetime64[h]")).replace("-", "")
 
 # Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
-cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
-cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+cfg.remap_engine = "kdtree"  # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = "nearest"  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
 # Create scatter plot of 2-meter temperature
 fig, ax = plotter.create_surface_map(
-  lon=lon, lat=lat, data=surface_var.values, var_name='t2m',
-  bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
-  style=md.SurfaceMapStyle(plot_type='contourf', title=f'2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}'),
-  data_array=surface_var, config=cfg)
+    lon=lon,
+    lat=lat,
+    data=surface_var.values,
+    var_name="t2m",
+    bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
+    style=md.SurfaceMapStyle(
+        plot_type="contourf",
+        title=f"2-meter Temperature | Plot Type: Filled Contour | Valid Time: {valtime_str}",
+    ),
+    data_array=surface_var,
+    config=cfg,
+)
 
 # Overlay cross-section transect lines
 plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save the generated plot in PNG format
-plotter.save_plot(f'./output/2m_temperature_contourf_{valtime_str}', formats=['png'])
+plotter.save_plot(f"./output/2m_temperature_contourf_{valtime_str}", formats=["png"])
 plotter.close_plot()

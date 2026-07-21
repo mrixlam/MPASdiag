@@ -83,7 +83,10 @@ jobs:
       run: |
         echo "=== Installing Dependencies ===" | tee -a "${LOG_FILE}"
         echo "Installing conda packages..." | tee -a "${LOG_FILE}"
-        conda install -y -c conda-forge numpy scipy xarray pandas "matplotlib<3.11" cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray metpy xesmf 2>&1 | tee -a "${LOG_FILE}"
+        # Install ALL mpasdiag runtime deps via conda (the env's version source of
+        # truth) — including pyyaml/psutil — so `pip install -e . --no-deps` below
+        # needs no pip-resolved (unlocked) dependencies.
+        conda install -y -c conda-forge numpy scipy xarray pandas "matplotlib<3.11" cartopy netCDF4 h5netcdf dask numba llvmlite mpi4py uxarray metpy xesmf pyyaml psutil 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing test dependencies..." | tee -a "${LOG_FILE}"
         conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet 2>&1 | tee -a "${LOG_FILE}"
@@ -92,10 +95,13 @@ jobs:
         # mypy pinned to match .pre-commit-config.yaml so CI agrees with local
         # hooks. Must be >= the dev floor (mypy>=1.15.0); older versions report
         # false positives the codebase is not written against.
-        pip install ruff==0.8.4 mypy==2.1.0 2>&1 | tee -a "${LOG_FILE}"
+        pip install --only-binary=:all: ruff==0.8.4 mypy==2.1.0 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "Installing mpasdiag..." | tee -a "${LOG_FILE}"
-        pip install -e . 2>&1 | tee -a "${LOG_FILE}"
+        # --no-deps: dependencies are already provided (and version-locked) by the
+        # conda solve above, so pip installs only the local package and resolves no
+        # unlocked dependency versions.
+        pip install --only-binary=:all: --no-deps -e . 2>&1 | tee -a "${LOG_FILE}"
         echo "" | tee -a "${LOG_FILE}"
         echo "=== Final Package List ===" | tee -a "${LOG_FILE}"
         conda list 2>&1 | tee -a "${LOG_FILE}"
@@ -233,7 +239,7 @@ jobs:
     - name: Install linting tools
       run: |
         # black/ruff pinned to match .pre-commit-config.yaml so CI agrees with local hooks
-        pip install flake8 black==24.10.0 ruff==0.8.4
+        pip install --only-binary=:all: flake8==7.3.0 black==24.10.0 ruff==0.8.4
 
     - name: Run flake8
       run: |
@@ -260,8 +266,12 @@ jobs:
 
     - name: Install security tooling
       run: |
-        python -m pip install --upgrade pip setuptools
-        pip install bandit==1.8.0 pip-audit==2.7.3
+        # Pin pip + setuptools to specific, non-vulnerable versions: locked for
+        # SonarQube, and above the base env's flagged releases (pip PYSEC-2026-196
+        # fixed in 26.1.2; setuptools PYSEC-2026-3447 fixed in 83.0.0). pip-audit
+        # --strict below will flag these if a newer advisory lands, prompting a bump.
+        python -m pip install --only-binary=:all: pip==26.1.2 setuptools==83.0.0
+        pip install --only-binary=:all: bandit==1.8.0 pip-audit==2.7.3
 
     - name: Static analysis with bandit
       run: bandit -r mpasdiag/ -ll

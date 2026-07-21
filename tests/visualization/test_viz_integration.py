@@ -173,23 +173,23 @@ class TestRealDataIntegration:
 
         processor = mpas_3d_processor
 
-        try:
-            if hasattr(processor, "dataset") and processor.dataset is not None:
-                if "rainnc" in processor.dataset:
-                    precip_data = processor.dataset["rainnc"].isel(Time=0)
-                    style = MPASVisualizationStyle.get_variable_style(
-                        "precip_24h", precip_data
-                    )
+        if not (hasattr(processor, "dataset") and processor.dataset is not None):
+            pytest.skip("Could not load dataset")
 
-                    assert "colormap" in style
-                    assert "levels" in style
-                    assert isinstance(style["colormap"], mcolors.ListedColormap)
-                else:
-                    pytest.skip("rainnc variable not found in dataset")
-            else:
-                pytest.skip("Could not load dataset")
+        if "rainnc" not in processor.dataset:
+            pytest.skip("rainnc variable not found in dataset")
+
+        # Only the data access / style computation may legitimately fail here
+        # (and warrant a skip); the assertions below must be able to fail the test.
+        try:
+            precip_data = processor.dataset["rainnc"].isel(Time=0)
+            style = MPASVisualizationStyle.get_variable_style("precip_24h", precip_data)
         except Exception as e:
             pytest.skip(f"Could not load MPAS data: {e}")
+
+        assert "colormap" in style
+        assert "levels" in style
+        assert isinstance(style["colormap"], mcolors.ListedColormap)
 
 
 class TestMPASVisualizer:
@@ -643,13 +643,12 @@ class TestBatchProcessing:
                 accum_period="a01h",
                 formats=["png"],
             )
-
-            assert isinstance(created_files, list), "Should return a list of files"
-
         except Exception as e:
             pytest.skip(f"Test skipped due to: {e}")
         finally:
             plt.close("all")
+
+        assert isinstance(created_files, list), "Should return a list of files"
 
 
 class TestVisualizationIntegration:

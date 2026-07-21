@@ -13,12 +13,13 @@ Email: mrislam@ucar.edu
 Date: March 2026
 Version: 1.0.0
 """
+
 # Load relevant MPASdiag modules
 import mpasdiag as md
 
 # Specify the path to sample data and grid file
-dataDir = '../data/u240k/diag'
-gridPath = '../data/grids/x1.10242.static.nc'
+dataDir = "../data/u240k/diag"
+gridPath = "../data/grids/x1.10242.static.nc"
 
 # Load unstructured MPAS data
 processor = md.MPAS2DProcessor(grid_file=gridPath)
@@ -28,25 +29,33 @@ processor.load_2d_data(dataDir)
 tindex = 1
 
 # Extract wind components at time index 1
-u_data = processor.get_2d_variable_data('u10', tindex)
-v_data = processor.get_2d_variable_data('v10', tindex)
+u_data = processor.get_2d_variable_data("u10", tindex)
+v_data = processor.get_2d_variable_data("v10", tindex)
 
 # Cross-section transects to overlay on the map (label: {start, end, xoffset, yoffset, color})
 TRANSECTS = {
     "A–B": {
-        "start": (-120.0, 30.0), "start_label": "A",
-        "end": (-80.0,  50.0), "end_label": "B",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "red"},
+        "start": (-120.0, 30.0),
+        "start_label": "A",
+        "end": (-80.0, 50.0),
+        "end_label": "B",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "red",
+    },
     "C–D": {
-        "start": (0.0,  0.0), "start_label": "C",
-        "end": ( 45.0,  30.0), "end_label": "D",
-        "xoffset": -1.0, "yoffset": 3.0,
-        "color": "royalblue"},
+        "start": (0.0, 0.0),
+        "start_label": "C",
+        "end": (45.0, 30.0),
+        "end_label": "D",
+        "xoffset": -1.0,
+        "yoffset": 3.0,
+        "color": "royalblue",
+    },
 }
 
 # Extract coordinates
-lon, lat = processor.extract_2d_coordinates_for_variable('u10', u_data)
+lon, lat = processor.extract_2d_coordinates_for_variable("u10", u_data)
 
 # Define the wind plotter with desired figure size and resolution
 wind_plotter = md.MPASWindPlotter(figsize=(14, 11), dpi=300)
@@ -61,23 +70,27 @@ cfg.lat_min = 20.0
 cfg.lat_max = 60.0
 
 # Extract valid time from the dataset for the specified time index
-valtime = processor.dataset['Time'][tindex].values
-valtime_str = str(valtime.astype('datetime64[h]')).replace('-', '')
+valtime = processor.dataset["Time"][tindex].values
+valtime_str = str(valtime.astype("datetime64[h]")).replace("-", "")
 
 # Remapping configuration: controls how unstructured MPAS data is mapped to regular lat/lon grid for plotting.
-cfg.remap_engine = 'kdtree'   # 'kdtree' (SciPy) or 'esmf' (ESMPy)
-cfg.remap_method = 'nearest'  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
+cfg.remap_engine = "kdtree"  # 'kdtree' (SciPy) or 'esmf' (ESMPy)
+cfg.remap_method = "nearest"  # 'nearest' | 'linear' for kdtree; 'conservative' | 'nearest_s2d' for esmf
 
 # Generate wind plot over CONUS with vectors represented as barbs
 fig, ax = wind_plotter.create_wind_plot(
-    lon=lon, lat=lat, u_data=u_data.values, v_data=v_data.values,
+    lon=lon,
+    lat=lat,
+    u_data=u_data.values,
+    v_data=v_data.values,
     bounds=md.GeographicBounds(cfg.lon_min, cfg.lon_max, cfg.lat_min, cfg.lat_max),
     style=md.WindPlotStyle(
         subsample=-1,
-        plot_type='barbs',
-        title=f'MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}',
+        plot_type="barbs",
+        title=f"MPAS Wind Analysis | Vector Type: Barbs | Valid Time: {valtime_str}",
     ),
-    grid_resolution=0.1, regrid_method='linear',
+    grid_resolution=0.1,
+    regrid_method="linear",
     config=cfg,
 )
 
@@ -85,5 +98,5 @@ fig, ax = wind_plotter.create_wind_plot(
 wind_plotter.draw_transect_lines(ax, TRANSECTS)
 
 # Save figure as PNG file
-wind_plotter.save_plot(f'./output/mpas_wind_plot_conus_{valtime_str}', formats=['png'])
+wind_plotter.save_plot(f"./output/mpas_wind_plot_conus_{valtime_str}", formats=["png"])
 wind_plotter.close_plot()
