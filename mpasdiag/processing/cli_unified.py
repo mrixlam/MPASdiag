@@ -127,7 +127,8 @@ class MPASUnifiedCLI:
             prog="mpasdiag",
             description="Unified MPAS Data Analysis and Visualization Tool",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Precipitation analysis (single time step)
               mpasdiag precipitation --grid-file grid.nc --data-dir ./data --variable rainnc --time-index 12
@@ -149,7 +150,8 @@ class MPASUnifiedCLI:
 
               # Use configuration file
               mpasdiag --config analysis_config.yaml
-            """),
+            """
+            ),
         )
 
         parser.add_argument(
@@ -405,7 +407,8 @@ class MPASUnifiedCLI:
             help="Precipitation accumulation analysis",
             description="Generate precipitation accumulation maps",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Single time step
               mpasdiag precipitation --grid-file grid.nc --data-dir ./data --variable rainnc
@@ -415,7 +418,8 @@ class MPASUnifiedCLI:
 
               # Custom accumulation period
               mpasdiag precipitation --grid-file grid.nc --data-dir ./data --variable rainnc --accumulation a24h
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser)
@@ -478,7 +482,8 @@ class MPASUnifiedCLI:
             help="Surface variable analysis",
             description="Generate surface variable scalar plots",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Temperature scatter plot
               mpasdiag surface --grid-file grid.nc --data-dir ./data --variable t2m
@@ -488,7 +493,8 @@ class MPASUnifiedCLI:
 
               # Custom grid resolution
               mpasdiag surface --grid-file grid.nc --data-dir ./data --variable t2m --plot-type contour --grid-resolution 0.1
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser)
@@ -545,7 +551,8 @@ class MPASUnifiedCLI:
             help="Wind vector analysis",
             description="Generate wind vector plots with barbs or arrows",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Surface wind barbs
               mpasdiag wind --grid-file grid.nc --data-dir ./data --u-variable u10 --v-variable v10
@@ -555,7 +562,8 @@ class MPASUnifiedCLI:
 
               # Custom subsampling and scaling
               mpasdiag wind --grid-file grid.nc --data-dir ./data --u-variable u10 --v-variable v10 --subsample 3 --wind-scale 50
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser)
@@ -651,14 +659,16 @@ class MPASUnifiedCLI:
             help="3D vertical cross-section analysis",
             description="Generate vertical cross-section plots along specified paths",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Temperature cross-section
               mpasdiag cross --grid-file grid.nc --data-dir ./data --variable theta --start-lon -105 --start-lat 40 --end-lon -95 --end-lat 35
 
               # Wind cross-section with pressure coordinates
               mpasdiag cross --grid-file grid.nc --data-dir ./data --variable uReconstructZonal --start-lon -110 --start-lat 35 --end-lon -80 --end-lat 45 --vertical-coord pressure
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser, required_grid=True)
@@ -739,7 +749,8 @@ class MPASUnifiedCLI:
             help="Skew-T Log-P sounding diagram",
             description="Generate Skew-T Log-P diagrams from MPAS 3D atmospheric data at a specified location",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Sounding at Denver
               mpasdiag sounding --grid-file grid.nc --data-dir ./data --lon -105.0 --lat 39.7
@@ -749,7 +760,8 @@ class MPASUnifiedCLI:
 
               # Batch all time steps
               mpasdiag sounding --grid-file grid.nc --data-dir ./data --lon -97.5 --lat 35.2 --batch-all --show-indices
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser, required_grid=True)
@@ -796,7 +808,8 @@ class MPASUnifiedCLI:
             help="Complex multi-variable overlay analysis",
             description="Generate complex overlay plots combining multiple variables",
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=textwrap.dedent("""
+            epilog=textwrap.dedent(
+                """
             Examples:
               # Precipitation + wind overlay
               mpas-analyze overlay --grid-file grid.nc --data-dir ./data --overlay-type precip_wind --variable rainnc --u-variable u10 --v-variable v10
@@ -806,7 +819,8 @@ class MPASUnifiedCLI:
 
               # Multi-level analysis
               mpas-analyze overlay --grid-file grid.nc --data-dir ./data --overlay-type multi_level --variables t2m,mslp,u10,v10
-            """),
+            """
+            ),
         )
 
         self._add_common_arguments(parser)
