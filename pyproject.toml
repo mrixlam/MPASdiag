@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "wheel"]
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -94,12 +94,10 @@ mpasdiag = "mpasdiag.cli:main"
 "Source" = "https://github.com/mrixlam/MPASdiag"
 "Documentation" = "https://github.com/mrixlam/MPASdiag#readme"
 
+[tool.uv]
+constraint-dependencies = ["setuptools>=83.0.0"]
+
 [tool.uv.sources]
-# esmpy is not published on PyPI for all Python versions, so it is fetched from the
-# upstream ESMF repository. The ref is PINNED to an immutable release tag (audit
-# finding MPAS-002): an unpinned default-branch checkout would execute arbitrary,
-# non-reproducible upstream build code at install time. Bump deliberately and
-# re-verify when upgrading. Prefer `conda install -c conda-forge esmpy` where possible.
 esmpy = { git = "https://github.com/esmf-org/esmf", subdirectory = "src/addon/esmpy", rev = "v8.9.1" }
 
 [tool.setuptools]
