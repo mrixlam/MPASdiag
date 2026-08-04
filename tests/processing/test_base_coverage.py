@@ -417,6 +417,131 @@ class TestDiscoverDataFilesDefaultFallback:
         assert result == fake_files
 
 
+class TestDiscoverDataFilesCustomPattern:
+    """Tests for the MPASBaseProcessor _discover_data_files method to verify that it correctly discovers files matching a custom glob pattern when the processor is constructed with a file_pattern attribute."""
+
+    @staticmethod
+    def _write_stream_files(data_dir: "Path", count: int) -> list:
+        """
+        This helper function creates a set of empty NetCDF-style files in the specified directory, named after a custom output stream ('wiso.*.nc') with timestamps that follow the MPAS file naming convention. It is used by the tests in this class to build a realistic directory of custom stream files without requiring actual NetCDF content, since the discovery methods under test only inspect file names.
+
+        Parameters:
+            data_dir (Path): Directory in which the custom stream files are created; parent directories are created as needed.
+            count (int): Number of custom stream files to create.
+
+        Returns:
+            list: A sorted list of the string paths of the files that were created.
+        """
+        data_dir.mkdir(parents=True, exist_ok=True)
+        created = []
+
+        for i in range(count):
+            file_path = data_dir / f"wiso.2024-09-{27 + i:02d}_00.00.00.nc"
+            file_path.touch()
+            created.append(str(file_path))
+
+        return sorted(created)
+
+    def test_discovers_files_matching_custom_pattern(
+        self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
+    ) -> None:
+        """
+        This test verifies that _discover_data_files returns the files matching the custom glob pattern when the processor was constructed with a file_pattern, rather than the files matching the default 'diag*.nc' convention. The test writes a set of custom stream files and a decoy diagnostic file into the same directory, sets the file_pattern attribute on the processor, and confirms that only the custom stream files are returned.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        expected = self._write_stream_files(tmp_path, 3)
+        (tmp_path / "diag.2024-09-27_00.00.00.nc").touch()
+
+        proc = _make_proc()
+        proc.file_pattern = "wiso.*.nc"
+
+        assert proc._discover_data_files(str(tmp_path)) == expected
+
+    def test_custom_pattern_takes_precedence_over_finder_methods(
+        self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
+    ) -> None:
+        """
+        This test verifies that a custom file_pattern takes precedence over the specialized finder methods, so that a processor defining find_diagnostic_files still discovers files through the custom pattern. The test attaches a find_diagnostic_files attribute that would fail the test if called, sets a custom pattern, and confirms that the returned files are the ones matching the custom pattern.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        expected = self._write_stream_files(tmp_path, 2)
+
+        proc = _make_proc()
+        proc.file_pattern = "wiso.*.nc"
+        proc.find_diagnostic_files = MagicMock(return_value=["should-not-be-used.nc"])
+
+        assert proc._discover_data_files(str(tmp_path)) == expected
+        proc.find_diagnostic_files.assert_not_called()
+
+    def test_falls_back_to_recursive_search(
+        self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
+    ) -> None:
+        """
+        This test verifies that _find_custom_pattern_files falls back to a recursive search when no files matching the custom pattern are present directly in the specified directory. The test writes the custom stream files into a subdirectory and confirms that they are still discovered when the parent directory is searched, and that a verbose summary of the recursive search is logged.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        expected = self._write_stream_files(tmp_path / "wiso", 2)
+
+        proc = _make_proc(verbose=True)
+
+        with patch("mpasdiag.processing.base.logger") as mock_logger:
+            result = proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")
+
+        assert result == expected
+        assert mock_logger.info.called
+
+    def test_raises_when_no_files_match(
+        self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
+    ) -> None:
+        """
+        This test verifies that _find_custom_pattern_files raises a FileNotFoundError with an informative message when no files matching the custom pattern are found, even after a recursive search. The test confirms that the method correctly identifies the absence of matching files and raises the expected exception, indicating that no files were found for processing.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        proc = _make_proc()
+
+        with pytest.raises(FileNotFoundError, match="wiso.\\*.nc"):
+            proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")
+
+    def test_raises_when_single_file_found_recursively(
+        self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
+    ) -> None:
+        """
+        This test verifies that _find_custom_pattern_files raises a ValueError with an informative message when only one file matching the custom pattern is found, even if it is found through a recursive search. The test writes a single custom stream file into a subdirectory and confirms that the method raises the expected exception, indicating that insufficient files were found for processing.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        self._write_stream_files(tmp_path / "wiso", 1)
+
+        proc = _make_proc()
+
+        with pytest.raises(ValueError, match="Insufficient files"):
+            proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")
+
+
 class TestLoadDataSelectiveVariables:
     """Tests for the MPASBaseProcessor _load_data method to verify the behavior when a variables list is provided, including the computation of drop_variables, verbose output, and exception handling related to selective loading."""
 

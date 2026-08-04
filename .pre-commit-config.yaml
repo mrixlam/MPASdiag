@@ -34,9 +34,10 @@ repos:
     hooks:
       - id: mypy
         files: ^mpasdiag/
+        pass_filenames: false
+        args: ['mpasdiag/']
         additional_dependencies: ['types-PyYAML']
 
-  # Static security analysis (security audit finding MPAS-004).
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.0
     hooks:

@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/glade`, so input/output can live outside the working directory.
 - Environment overrides for the new safety limits: `MPASDIAG_MAX_CELL_VERTICES`,
   `MPASDIAG_MAX_WORKERS`, and `MPASDIAG_MAX_INPUT_FILES`.
+- `file_pattern` argument on `MPAS2DProcessor`, `MPAS3DProcessor`, and
+  `MPASBaseProcessor` to read custom output streams whose file names do not
+  follow the built-in `diag*.nc` / `mpasout*.nc` conventions, e.g.
+  `MPAS2DProcessor(grid_file=..., file_pattern="wiso.*.nc")`. Matching files are
+  searched for in the data directory and then recursively beneath it; file names
+  must still embed a `YYYY-MM-DD_HH.MM.SS` timestamp. See
+  `examples/example_custom_file_pattern.py`.
 
 ### Changed
 - **Breaking**: absolute or out-of-tree input/output paths are now rejected

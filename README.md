@@ -627,6 +627,7 @@ examples/
 ├── example_overlay_surface_and_wind.py     # Surface + wind barbs overlay
 ├── example_overlay_surface_contourf_and_contour.py  # Dual-variable contour overlay
 ├── example_ivt_map.py                     # IVT magnitude + vector overlay (new)
+├── example_custom_file_pattern.py         # Surface map from a custom output stream (new)
 ├── generate_skewt_plot.py                 # Skew-T Log-P sounding diagram (new)
 ├── generate_complex_weather_map.py        # Multi-panel composite map
 └── benchmark.py                           # Performance benchmark script

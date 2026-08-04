@@ -36,18 +36,24 @@ _TOP_PRESSURE_LEVEL_MSG = "  Top: %.1f Pa"
 class MPAS3DProcessor(MPASBaseProcessor):
     """Specialized processor for 3D MPAS atmospheric data."""
 
-    def __init__(self: "MPAS3DProcessor", grid_file: str, verbose: bool = True) -> None:
+    def __init__(
+        self: "MPAS3DProcessor",
+        grid_file: str,
+        verbose: bool = True,
+        file_pattern: Optional[str] = None,
+    ) -> None:
         """
-        This constructor initializes the MPAS3DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the processor to handle 3D atmospheric data from MPAS output files, ensuring that the necessary grid information is available for subsequent processing operations. The constructor does not perform any data loading or processing itself, but prepares the processor for use in methods that will extract coordinates, find files, load datasets, and manipulate 3D variables.
+        This constructor initializes the MPAS3DProcessor by calling the base class constructor with the provided grid file, verbosity settings, and optional custom file pattern. It sets up the processor to handle 3D atmospheric data from MPAS output files, ensuring that the necessary grid information is available for subsequent processing operations. When a custom file pattern is supplied, file discovery uses that glob pattern instead of the default 'mpasout*.nc' convention, which allows 3D fields to be read from custom output streams such as 'wiso.*.nc'. The constructor does not perform any data loading or processing itself, but prepares the processor for use in methods that will extract coordinates, find files, load datasets, and manipulate 3D variables.
 
         Parameters:
             grid_file (str): Path to the MPAS grid file containing spatial coordinate information.
             verbose (bool): If True, enables verbose output for debugging and informational purposes (default: True).
+            file_pattern (Optional[str]): Custom glob pattern used to discover input files (e.g. 'wiso.*.nc'). When None, the default 'mpasout*.nc' discovery is used (default: None).
 
         Returns:
             None
         """
-        super().__init__(grid_file, verbose)
+        super().__init__(grid_file, verbose, file_pattern)
 
     @staticmethod
     def _detect_spatial_dim(sizes: Any) -> str:

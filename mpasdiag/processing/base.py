@@ -196,15 +196,22 @@ def _load_shared(cache: dict, key: Any, reader: Any) -> Any:
 class MPASBaseProcessor:
     """Base class for MPAS data processing with common functionality for loading datasets, managing file I/O, and defining shared attributes and methods for specialized 2D and 3D processors."""
 
+    # Default glob pattern override for file discovery
+    file_pattern: Optional[str] = None
+
     def __init__(
-        self: "MPASBaseProcessor", grid_file: str, verbose: bool = True
+        self: "MPASBaseProcessor",
+        grid_file: str,
+        verbose: bool = True,
+        file_pattern: Optional[str] = None,
     ) -> None:
         """
-        This constructor initializes the MPASBaseProcessor with the specified grid file and verbosity setting. It validates the existence of the grid file, which is essential for loading MPAS datasets with unstructured grid support, and sets up attributes for managing the dataset and data type. The constructor also provides diagnostic feedback in verbose mode about the initialization process and raises an error if the grid file is not found to ensure that subsequent loading operations have the necessary grid information available.
+        This constructor initializes the MPASBaseProcessor with the specified grid file, verbosity setting, and optional custom file pattern. It validates the existence of the grid file, which is essential for loading MPAS datasets with unstructured grid support, and sets up attributes for managing the dataset and data type. The optional file pattern allows the processor to read from output streams whose file names do not follow the built-in 'diag*.nc' and 'mpasout*.nc' conventions (for example a custom 'wiso.*.nc' stream), in which case file discovery uses the supplied glob pattern instead of the default conventions. The constructor also provides diagnostic feedback in verbose mode about the initialization process and raises an error if the grid file is not found to ensure that subsequent loading operations have the necessary grid information available.
 
         Parameters:
             grid_file (str): Absolute path to the MPAS grid file, which is required for loading datasets with unstructured grid support using UXarray.
             verbose (bool): Flag to enable verbose output for diagnostic messages during processing (default: True).
+            file_pattern (Optional[str]): Custom glob pattern used to discover input files (e.g. 'wiso.*.nc'). When None, the default file discovery conventions for the specific processor are used (default: None).
 
         Returns:
             None
@@ -214,6 +221,9 @@ class MPASBaseProcessor:
 
         # Store verbosity setting for controlling diagnostic output during processing.
         self.verbose = verbose
+
+        # Store the optional custom glob pattern used to discover input files, overriding the default discovery conventions when provided.
+        self.file_pattern = file_pattern
 
         # Initialize dataset and data type attributes to None
         self.dataset: Optional[Union[xr.Dataset, ux.UxDataset]] = None
@@ -587,9 +597,59 @@ class MPASBaseProcessor:
         # Return the combined xarray.Dataset and the string identifier 'xarray'
         return combined_ds, "xarray"
 
+    def _find_custom_pattern_files(
+        self: "MPASBaseProcessor", data_dir: str, pattern: str
+    ) -> List[str]:
+        """
+        This helper method discovers input files that match a user-supplied glob pattern, which allows MPASdiag to read output streams whose file names do not follow the built-in 'diag*.nc' and 'mpasout*.nc' conventions. It first searches for matching files directly in the specified directory, and if none are found it performs a recursive search through all subdirectories so that custom streams organized into subdirectories are still discovered. As with the built-in finders, it requires at least two matching files because temporal analysis needs multiple time steps, and it provides a truncated summary of the discovered files when verbose mode is enabled. Note that the file names must still embed a timestamp of the form YYYY-MM-DD_HH.MM.SS for the Time coordinate to be reconstructed correctly during loading. The method returns the sorted list of matching file paths for use in subsequent loading operations.
+
+        Parameters:
+            data_dir (str): Absolute path to the directory containing the data files to discover.
+            pattern (str): Glob pattern used to match the files of the custom output stream (e.g. 'wiso.*.nc').
+
+        Returns:
+            List[str]: A sorted list of file paths matching the custom pattern, either directly in the specified directory or anywhere beneath it, ready for validation and loading.
+        """
+        # Build a human-readable label for the custom stream used in error messages and verbose output.
+        file_type = f"custom pattern files ({pattern})"
+
+        # Search for matching files directly in the specified directory before considering subdirectories.
+        try:
+            return self._find_files_by_pattern(data_dir, pattern, file_type)
+        except FileNotFoundError:
+            pass
+
+        # Fall back to a recursive search so that custom streams stored in subdirectories are still discovered.
+        files = sorted(glob.glob(os.path.join(data_dir, "**", pattern), recursive=True))
+
+        # Raise a FileNotFoundError if no files match the custom pattern anywhere beneath the specified directory.
+        if not files:
+            raise FileNotFoundError(
+                f"No files matching pattern '{pattern}' found under: {data_dir}"
+            )
+
+        # Raise a ValueError if fewer than 2 files are found, as temporal analysis requires multiple time steps.
+        if len(files) < 2:
+            raise ValueError(
+                f"Insufficient files for temporal analysis. Found {len(files)}, need at least 2."
+            )
+
+        # If verbose mode is enabled, print a summary of the discovered files with truncated listing for large file sets.
+        if self.verbose:
+            logger.info("Found %d %s (recursive search):", len(files), file_type)
+
+            for i, filename in enumerate(files[:5]):
+                logger.info("  %d: %s", i + 1, os.path.basename(filename))
+
+            if len(files) > 5:
+                logger.info("  ... and %d more files", len(files) - 5)
+
+        # Return the sorted list of file paths for use in subsequent loading and processing operations.
+        return files
+
     def _discover_data_files(self: "MPASBaseProcessor", data_dir: str) -> List[str]:
         """
-        This helper method discovers the relevant data files in the specified directory using custom finder methods if available or a default glob pattern. It first checks if the class has a method named `find_diagnostic_files` and if it is callable, in which case it uses that method to find diagnostic files. If not, it checks for a method named `find_mpasout_files` and uses it if available. If neither custom finder method is present, it falls back to using the `_find_files_by_pattern` method with a default glob pattern defined by `DIAG_GLOB` to search for diagnostic files in the specified directory. This approach allows for flexible file discovery based on the specific needs of different processors while still providing a robust default mechanism for finding files when custom methods are not defined. The method returns a list of file paths that were discovered for loading.
+        This helper method discovers the relevant data files in the specified directory using a custom glob pattern if one was supplied, custom finder methods if available, or a default glob pattern. It first checks whether the processor was constructed with a `file_pattern`, in which case discovery is delegated to `_find_custom_pattern_files` so that arbitrary output streams can be read. Otherwise it checks if the class has a method named `find_diagnostic_files` and if it is callable, in which case it uses that method to find diagnostic files. If not, it checks for a method named `find_mpasout_files` and uses it if available. If neither custom finder method is present, it falls back to using the `_find_files_by_pattern` method with a default glob pattern defined by `DIAG_GLOB` to search for diagnostic files in the specified directory. This approach allows for flexible file discovery based on the specific needs of different processors while still providing a robust default mechanism for finding files when custom methods are not defined. The method returns a list of file paths that were discovered for loading.
 
         Parameters:
             data_dir (str): Absolute path to the directory containing the data files to discover.
@@ -597,6 +657,10 @@ class MPASBaseProcessor:
         Returns:
             List[str]: A list of file paths that were discovered using the appropriate method for finding diagnostic files in the specified directory, ready for validation and loading.
         """
+        # A custom glob pattern takes precedence over the built-in discovery conventions
+        if self.file_pattern:
+            return self._find_custom_pattern_files(data_dir, self.file_pattern)
+
         diag_file_finder = getattr(self, "find_diagnostic_files", None)
 
         if callable(diag_file_finder):

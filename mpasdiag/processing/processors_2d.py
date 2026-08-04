@@ -32,18 +32,24 @@ logger = get_logger(__name__)
 class MPAS2DProcessor(MPASBaseProcessor):
     """Processor class for handling 2D surface and diagnostic variables from MPAS model output."""
 
-    def __init__(self: "MPAS2DProcessor", grid_file: str, verbose: bool = True) -> None:
+    def __init__(
+        self: "MPAS2DProcessor",
+        grid_file: str,
+        verbose: bool = True,
+        file_pattern: Optional[str] = None,
+    ) -> None:
         """
-        This constructor initializes the MPAS2DProcessor by calling the base class constructor with the provided grid file and verbosity settings. It sets up the necessary attributes for processing 2D diagnostic data, ensuring that the processor is ready to load datasets, extract spatial coordinates, and prepare data for visualization. By inheriting from MPASBaseProcessor, it leverages common functionality while allowing for specific implementations tailored to 2D surface data processing workflows.
+        This constructor initializes the MPAS2DProcessor by calling the base class constructor with the provided grid file, verbosity settings, and optional custom file pattern. It sets up the necessary attributes for processing 2D diagnostic data, ensuring that the processor is ready to load datasets, extract spatial coordinates, and prepare data for visualization. When a custom file pattern is supplied, file discovery uses that glob pattern instead of the default 'diag*.nc' convention, which allows 2D fields to be read from custom output streams such as 'wiso.*.nc'. By inheriting from MPASBaseProcessor, it leverages common functionality while allowing for specific implementations tailored to 2D surface data processing workflows.
 
         Parameters:
             grid_file (str): Path to the MPAS grid file containing spatial coordinate information.
             verbose (bool): If True, enables detailed logging of processing steps (default: True).
+            file_pattern (Optional[str]): Custom glob pattern used to discover input files (e.g. 'wiso.*.nc'). When None, the default 'diag*.nc' discovery (with an 'mpasout*.nc' fallback) is used (default: None).
 
         Returns:
             None
         """
-        super().__init__(grid_file, verbose)
+        super().__init__(grid_file, verbose, file_pattern)
 
     def add_spatial_coordinates(
         self: "MPAS2DProcessor", combined_ds: xr.Dataset
