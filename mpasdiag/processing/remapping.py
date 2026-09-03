@@ -31,11 +31,13 @@ try:
     import esmpy
 
     ESMPY_AVAILABLE = True
-except ImportError:
+except Exception as _esmpy_error:  # noqa: BLE001
     ESMPY_AVAILABLE = False
     esmpy = None
     warnings.warn(
-        "ESMPy is not installed. Install with: conda install -c conda-forge esmpy",
+        f"ESMPy is unavailable ({type(_esmpy_error).__name__}: {_esmpy_error}). "
+        "Falling back to the 'kdtree' remapping engine; 'esmf' will not be usable. "
+        "Install with: conda install -c conda-forge esmpy",
         ImportWarning,
     )
 

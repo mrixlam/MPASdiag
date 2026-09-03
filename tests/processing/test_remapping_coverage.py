@@ -17,6 +17,7 @@ Version: 1.0.0
 import sys
 import runpy
 import pytest
+import builtins
 import importlib
 import numpy as np
 import xarray as xr
@@ -85,7 +86,53 @@ class TestEsmPyImportFallback:
         saved_state = dict(remap_mod.__dict__)
         try:
             with patch.dict(sys.modules, {"esmpy": None}):
-                with pytest.warns(ImportWarning, match="ESMPy is not installed"):
+                with pytest.warns(ImportWarning, match="ESMPy is unavailable"):
+                    importlib.reload(remap_mod)
+                assert remap_mod.ESMPY_AVAILABLE is False
+                assert remap_mod.esmpy is None
+        finally:
+            remap_mod.__dict__.update(saved_state)
+
+    def test_import_fallback_on_non_import_error(
+        self: "TestEsmPyImportFallback",
+    ) -> None:
+        """
+        This test verifies that a failure other than ImportError while importing esmpy is also caught and degraded to the kdtree engine.  ESMPy raises exceptions such as esmpy.util.exceptions.VersionMismatch when the ESMF library located via $ESMFMKFILE does not match the installed ESMPy, and those derive from Exception rather than ImportError, so a narrower guard would let them escape and take down the whole mpasdiag.processing package.  It patches __import__ to raise such an error for 'esmpy' only, reloads the remapping module, and verifies that the warning names the underlying error and that the module degrades cleanly.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import mpasdiag.processing.remapping as remap_mod
+
+        class VersionMismatch(Exception):
+            """Stand-in for esmpy.util.exceptions.VersionMismatch."""
+
+        real_import = builtins.__import__
+
+        def _fail_esmpy_import(name: str, *args: object, **kwargs: object) -> object:
+            """
+            This helper replaces builtins.__import__ so that importing 'esmpy' raises a non-ImportError exception while every other import is delegated to the real machinery unchanged.
+
+            Parameters:
+                name (str): Name of the module being imported.
+                *args (object): Remaining positional arguments forwarded to the real __import__.
+                **kwargs (object): Remaining keyword arguments forwarded to the real __import__.
+
+            Returns:
+                object: The imported module for every name other than 'esmpy'.
+            """
+            if name == "esmpy":
+                raise VersionMismatch("ESMF installation version differs")
+            return real_import(name, *args, **kwargs)
+
+        saved_state = dict(remap_mod.__dict__)
+
+        try:
+            with patch("builtins.__import__", _fail_esmpy_import):
+                with pytest.warns(ImportWarning, match="VersionMismatch"):
                     importlib.reload(remap_mod)
                 assert remap_mod.ESMPY_AVAILABLE is False
                 assert remap_mod.esmpy is None
