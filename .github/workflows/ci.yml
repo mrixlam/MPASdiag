@@ -2,7 +2,7 @@ name: MPASdiag CI
 
 on:
   push:
-    branches: [ '**' ]
+    branches: [ main, master, develop ]
   pull_request:
     branches: [ '**' ]
 
@@ -12,6 +12,7 @@ permissions:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
