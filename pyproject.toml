@@ -11,16 +11,16 @@ authors = [
 description = "Python package for MPAS model output analysis and visualization"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Atmospheric Science",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 keywords = [
@@ -34,25 +34,21 @@ keywords = [
     "weather prediction",
 ]
 dependencies = [
-    # Lower bounds are deliberately set above the newest *known-vulnerable* release
-    # of each security-relevant dependency (audit finding MPAS-003). CI installs the
-    # latest versions, so these floors only constrain the minimum a user may resolve.
-    "numpy>=1.22.0",          # >=1.22 clears CVE-2021-33430/34141/41495/41496
+    "numpy>=1.22.0",
     "scipy>=1.8.0",
     "xarray>=0.19.0",
     "pandas>=1.4.0",
-    # matplotlib capped <3.11: cartopy<=0.25.0 is incompatible with matplotlib 3.11
     "matplotlib>=3.5.0,<3.11",
     "cartopy>=0.21.0",
-    "netCDF4>=1.6.0",         # bundles patched libhdf5/libnetcdf (MPAS-001)
+    "netCDF4>=1.6.0",
     "h5netcdf>=1.1.0",
-    "dask>=2021.10.0",        # >=2021.10.0 clears CVE-2021-42343 (distributed RCE)
+    "dask>=2021.10.0",
     "numba>=0.55.0",
     "llvmlite>=0.38.0",
     "mpi4py>=3.1.0",
     "uxarray>=2024.01.0",
-    "PyYAML>=6.0",            # loading uses yaml.safe_load; floor raised for hygiene
-    "psutil>=5.8.0",          # >=5.6.6 clears CVE-2019-18874 (double free)
+    "PyYAML>=6.0",
+    "psutil>=5.8.0",
     "metpy>=1.4.0",
 ]
 
@@ -73,7 +69,6 @@ dev = [
     "mypy>=1.15.0",
     "sphinx>=4.0",
     "sphinx-rtd-theme>=0.5",
-    # Security tooling (audit finding MPAS-004)
     "bandit>=1.7.0",
     "pip-audit>=2.6.0",
 ]
@@ -116,7 +111,7 @@ mpasdiag = ["py.typed"]
 # Development tools configuration
 [tool.black]
 line-length = 88
-target-version = ['py310']
+target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -165,7 +160,8 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
+no_site_packages = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

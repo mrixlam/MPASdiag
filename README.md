@@ -4,7 +4,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 
 [![CI](https://github.com/mrixlam/MPASdiag/workflows/MPASdiag%20CI/badge.svg)](https://github.com/mrixlam/MPASdiag/actions)
 [![codecov](https://codecov.io/gh/mrixlam/MPASdiag/branch/main/graph/badge.svg)](https://codecov.io/gh/mrixlam/MPASdiag)
-![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen.svg)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19486544.svg)](https://doi.org/10.5281/zenodo.19486544)
@@ -13,7 +13,7 @@ A comprehensive Python package for analyzing and visualizing MPAS (Model for Pre
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.11 or higher
 - NetCDF4-compatible system libraries
 - HDF5 libraries (for h5netcdf)
 - MPI libraries (OpenMPI or MPICH for parallel processing)
@@ -27,7 +27,7 @@ git clone https://github.com/mrixlam/MPASdiag.git
 cd MPASdiag
 
 # Create a new conda environment
-conda create -n mpasdiag python=3.10 -y
+conda create -n mpasdiag python=3.11 -y
 conda activate mpasdiag
 
 # Install required scientific python libraries

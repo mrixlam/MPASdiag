@@ -16,7 +16,7 @@ body:
       options:
         - label: I have searched the [existing issues](https://github.com/mrixlam/MPASdiag/issues) and this has not been reported.
           required: true
-        - label: I am using a supported Python version (3.10–3.13).
+        - label: I am using a supported Python version (3.11–3.14).
           required: true
 
   - type: textarea
