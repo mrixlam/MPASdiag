@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `examples/example_custom_file_pattern.py`.
 
 ### Changed
+- **Breaking**: the minimum supported Python is now **3.11** (`requires-python
+  = ">=3.11"`, was `">=3.10"`). The supported and CI-verified matrix moves from
+  3.10–3.13 to **3.11–3.14**. Python 3.10 users must upgrade to 3.11 or newer;
+  `pip`/`uv` will refuse to install this version on 3.10 rather than fail at
+  runtime. The 3.10 leg was dropped because it hangs indefinitely in conda's
+  dependency solve on GitHub's macOS runners (45+ minutes, unreproducible
+  off-runner), so 3.10 support could no longer be verified by CI; 3.14 was
+  verified to resolve the full scientific stack before the swap. `uv.lock`,
+  the classifiers, `environment.yml`, the black/mypy targets and the README
+  prerequisites were regenerated/updated to match.
 - **Breaking**: absolute or out-of-tree input/output paths are now rejected
   unless `--base-dir` is supplied. Workflows that read or write outside the
   current working directory must pass `--base-dir <trusted dir>`.
