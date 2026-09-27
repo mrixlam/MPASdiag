@@ -318,9 +318,12 @@ class TestRenderWindVectorsStreamline1D:
         mock_ax = MagicMock()
         lon = np.linspace(-100.0, -80.0, 5)
         lat = np.linspace(30.0, 50.0, 5)
+        u = np.ones(5)
+        v = np.ones(5)
+
         with pytest.raises(ValueError, match="grid_resolution"):
             plotter._render_wind_vectors(
-                mock_ax, lon, lat, np.ones(5), np.ones(5), plot_type="streamlines"
+                mock_ax, lon, lat, u, v, plot_type="streamlines"
             )
 
 
@@ -835,10 +838,11 @@ class TestCreateBatchWindPlots:
         """
         proc = MagicMock()
         proc.dataset = None
+        output_dir = str(tmp_path)
+        bounds = GeographicBounds(-100.0, -80.0, 30.0, 50.0)
+
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(
-                proc, str(tmp_path), GeographicBounds(-100.0, -80.0, 30.0, 50.0)
-            )
+            plotter.create_batch_wind_plots(proc, output_dir, bounds)
 
     def test_no_dataset_attr_raises_value_error(
         self: "TestCreateBatchWindPlots", plotter: MPASWindPlotter, tmp_path: "Path"
@@ -860,10 +864,11 @@ class TestCreateBatchWindPlots:
             pass
 
         proc = _ProcWithoutDataset()
+        output_dir = str(tmp_path)
+        bounds = GeographicBounds(-100.0, -80.0, 30.0, 50.0)
+
         with pytest.raises(ValueError, match="no loaded dataset"):
-            plotter.create_batch_wind_plots(
-                proc, str(tmp_path), GeographicBounds(-100.0, -80.0, 30.0, 50.0)
-            )
+            plotter.create_batch_wind_plots(proc, output_dir, bounds)
 
     def test_time_info_exception_falls_back_to_time_idx(
         self: "TestCreateBatchWindPlots", plotter: MPASWindPlotter, tmp_path: "Path"

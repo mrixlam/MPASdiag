@@ -183,7 +183,8 @@ class TestEndToEnd:
             method="nearest",
         )
 
-        assert "lon" in remapped.coords and "lat" in remapped.coords
+        assert "lon" in remapped.coords
+        assert "lat" in remapped.coords
 
         lon2d, lat2d = np.meshgrid(remapped["lon"].values, remapped["lat"].values)
         bounds = GeographicBounds(*bounds_from_coords(lon2d.ravel(), lat2d.ravel()))
@@ -305,7 +306,8 @@ class TestEndToEnd:
         lon_t, lat_t = lon[sl], lat[sl]
         u_t = np.asarray(u.values).ravel()[sl]
         v_t = np.asarray(v.values).ravel()[sl]
-        assert np.isfinite(u_t).any() and np.isfinite(v_t).any()
+        assert np.isfinite(u_t).any()
+        assert np.isfinite(v_t).any()
 
         bounds = GeographicBounds(*bounds_from_coords(lon_t, lat_t))
         plotter = MPASWindPlotter(figsize=(8, 6), dpi=80)

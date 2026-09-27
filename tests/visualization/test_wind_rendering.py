@@ -408,7 +408,8 @@ class TestCreateWindPlot:
         extent = geo_ax.get_extent()
 
         # Verify that extent is a tuple of length 4
-        assert isinstance(extent, tuple) and len(extent) == pytest.approx(4)
+        assert isinstance(extent, tuple)
+        assert len(extent) == pytest.approx(4)
 
         # Close the figure to free resources
         plt.close(fig)

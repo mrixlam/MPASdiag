@@ -75,7 +75,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -134,7 +135,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -202,7 +204,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -378,7 +381,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         # Use real headless plotting instead of monkeypatching plt.subplots
         fig = plt.figure()
@@ -401,7 +405,8 @@ class TestAddWindOverlay:
         err = str(exc_info.value)
 
         # Assert that the error message contains references to the missing bounding box parameters, confirming that the ValueError raised when attempting to regrid without bounds is informative about what parameters are required for regridding
-        assert "lon_min" in err and "lat_min" in err
+        assert "lon_min" in err
+        assert "lat_min" in err
 
         # Close the figure after the test to free up resources, since we are not actually displaying it in this test context
         plt.close(fig)
@@ -430,7 +435,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -474,7 +480,8 @@ class TestAddWindOverlay:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
@@ -489,7 +496,8 @@ class TestAddWindOverlay:
             plotter.add_wind_overlay(ax, lon, lat, wind_config)
 
         err = str(exc_info.value)
-        assert "lon_min" in err and "lat_min" in err
+        assert "lon_min" in err
+        assert "lat_min" in err
         plt.close(fig)
 
     # ------------------ Test Wind Overlay Addition with Empty Data ------------------
@@ -516,7 +524,8 @@ class TestAddWindOverlay:
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
-        assert mpas_coordinates is not None and len(mpas_coordinates) >= 2
+        assert mpas_coordinates is not None
+        assert len(mpas_coordinates) >= 2
         # Use real MPAS coordinates but inject NaN wind values
         lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
         u = np.array([np.nan, np.nan, np.nan])
@@ -641,7 +650,8 @@ class TestCreateBatchWindPlots:
         if mpas_coordinates is None or mpas_wind_data is None:
             pytest.skip("MPAS data not available")
 
-        assert mpas_coordinates is not None and mpas_wind_data is not None
+        assert mpas_coordinates is not None
+        assert mpas_wind_data is not None
 
         # Import pandas and xarray here since they are only needed for this test and to avoid unnecessary imports if MPAS data is not available
         import pandas as pd

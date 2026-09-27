@@ -160,7 +160,8 @@ class TestUnitConversion:
         assert converted.shape == temp_array.shape
 
         np.testing.assert_array_almost_equal(converted, expected, decimal=2)
-        assert np.all(converted >= -80.0) and np.all(converted <= 60.0)
+        assert np.all(converted >= -80.0)
+        assert np.all(converted <= 60.0)
 
     def test_xarray_conversions(
         self: "TestUnitConversion", mpas_surface_temp_data: np.ndarray
@@ -281,7 +282,8 @@ class TestUnitConversion:
 
         assert metadata["units"] == "°C"
         assert metadata.get("original_units") == "K"
-        assert np.all(result_values >= -80.0) and np.all(result_values <= 60.0)
+        assert np.all(result_values >= -80.0)
+        assert np.all(result_values <= 60.0)
 
 
 class TestDisplayUnitPreferencesExtended:

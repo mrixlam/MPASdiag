@@ -343,15 +343,11 @@ class TestDataValidation:
         lat = np.array([0, 1, 2])
         data = np.array([np.nan, np.nan, np.nan])
 
+        bounds = GeographicBounds(*self.extent_bounds)
+        style = SurfaceMapStyle(plot_type="scatter")
+
         with pytest.raises(ValueError) as ctx:
-            self.plotter.create_surface_map(
-                lon,
-                lat,
-                data,
-                "t2m",
-                GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type="scatter"),
-            )
+            self.plotter.create_surface_map(lon, lat, data, "t2m", bounds, style=style)
         assert "No valid data points" in str(ctx.value)
 
     def test_data_outside_extent(self: "TestDataValidation") -> None:
@@ -368,15 +364,11 @@ class TestDataValidation:
         lat = np.array([10, 20, 30])
         data = np.array([1, 2, 3])
 
+        bounds = GeographicBounds(*self.extent_bounds)
+        style = SurfaceMapStyle(plot_type="scatter")
+
         with pytest.raises(ValueError) as ctx:
-            self.plotter.create_surface_map(
-                lon,
-                lat,
-                data,
-                "t2m",
-                GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type="scatter"),
-            )
+            self.plotter.create_surface_map(lon, lat, data, "t2m", bounds, style=style)
         assert "No valid data points" in str(ctx.value)
 
 

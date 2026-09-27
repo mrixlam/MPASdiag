@@ -524,7 +524,8 @@ class TestRemappingCoverageGaps:
         )
 
         assert isinstance(result, xr.DataArray)
-        assert result.shape[0] > 0 and result.shape[1] > 0
+        assert result.shape[0] > 0
+        assert result.shape[1] > 0
 
     def test_remap_mpas_statistics_printout(
         self: "TestRemappingCoverageGaps", capsys: "pytest.CaptureFixture"

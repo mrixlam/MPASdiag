@@ -794,7 +794,8 @@ class TestMPASRemapperCoveragePaths:
         weight_matrix, tgt_shape, _ = MPASRemapper._load_weights_netcdf(weights_path)
         assert weight_matrix is not None
         assert len(tgt_shape) == 2
-        assert tgt_shape[0] > 0 and tgt_shape[1] > 0
+        assert tgt_shape[0] > 0
+        assert tgt_shape[1] > 0
 
     def test_load_weights_with_cell_of_element(
         self: "TestMPASRemapperCoveragePaths",
