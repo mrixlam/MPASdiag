@@ -611,7 +611,9 @@ class TestComputeResultStatistics:
         data = xr.DataArray(np.array([0.0, 0.5, 1.0, 2.0, 0.0]))
         stats = diag._compute_result_statistics(data)
         assert stats is not None
-        assert "min" in stats and "max" in stats and "mean" in stats
+        assert "min" in stats
+        assert "max" in stats
+        assert "mean" in stats
         assert stats["total_count"] == 5
 
     def test_all_nan_returns_none(

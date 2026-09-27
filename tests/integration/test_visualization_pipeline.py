@@ -103,7 +103,8 @@ class TestVisualizationPipeline:
             var_name="rainnc",
         )
 
-        assert fig is not None and ax is not None
+        assert fig is not None
+        assert ax is not None
 
         out = output_dir / "precip_map"
         plotter.save_plot(str(out), formats=["png"])
@@ -141,7 +142,8 @@ class TestVisualizationPipeline:
             data_array=data,
         )
 
-        assert fig is not None and ax is not None
+        assert fig is not None
+        assert ax is not None
 
         out = output_dir / "surface_map"
         plotter.save_plot(str(out), formats=["png"])
@@ -172,7 +174,8 @@ class TestVisualizationPipeline:
             lon, lat, np.asarray(data.values).ravel(), title="Integration Scatter"
         )
 
-        assert fig is not None and ax is not None
+        assert fig is not None
+        assert ax is not None
 
         out = output_dir / "scatter"
         plotter.save_plot(str(out), formats=["png"])
@@ -221,7 +224,8 @@ class TestVisualizationPipeline:
             level_info="surface",
         )
 
-        assert fig is not None and ax is not None
+        assert fig is not None
+        assert ax is not None
 
         out = output_dir / "wind_plot"
         plotter.save_plot(str(out), formats=["png"])
@@ -256,7 +260,8 @@ class TestVisualizationPipeline:
             style=CrossSectionStyle(plot_type="contourf"),
         )
 
-        assert fig is not None and ax is not None
+        assert fig is not None
+        assert ax is not None
 
         out = output_dir / "cross_section"
         plotter.save_plot(str(out), formats=["png"])

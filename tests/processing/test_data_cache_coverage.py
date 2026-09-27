@@ -271,7 +271,8 @@ class TestLoadCoordinatesDimBranches:
         cache = MPASDataCache()
         cache.load_coordinates_from_dataset(ds, "vorticity")
         lon, _ = cache.get_coordinates("vorticity")
-        assert np.all(lon >= -180) and np.all(lon <= 180)
+        assert np.all(lon >= -180)
+        assert np.all(lon <= 180)
 
 
 class TestLoadCoordinatesMissingVars:

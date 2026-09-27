@@ -129,16 +129,12 @@ class TestWindOverlay:
                 "Invalid wind config"
             )
 
+            bounds = GeographicBounds(*self.extent_bounds)
+            style = SurfaceMapStyle(plot_type="scatter", wind_overlay=wind_config)
+
             with pytest.raises(ValueError):
                 self.plotter.create_surface_map(
-                    self.lon,
-                    self.lat,
-                    self.data,
-                    "t2m",
-                    GeographicBounds(*self.extent_bounds),
-                    style=SurfaceMapStyle(
-                        plot_type="scatter", wind_overlay=wind_config
-                    ),
+                    self.lon, self.lat, self.data, "t2m", bounds, style=style
                 )
 
     def test_wind_overlay_other_exception(self: "TestWindOverlay") -> None:
@@ -251,16 +247,12 @@ class TestSurfaceOverlay:
         """
         surface_config = {"data": self.data, "plot_type": "invalid_type"}
 
+        bounds = GeographicBounds(*self.extent_bounds)
+        style = SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config)
+
         with pytest.raises(ValueError):
             self.plotter.create_surface_map(
-                self.lon,
-                self.lat,
-                self.data,
-                "t2m",
-                GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(
-                    plot_type="scatter", surface_overlay=surface_config
-                ),
+                self.lon, self.lat, self.data, "t2m", bounds, style=style
             )
 
     def test_surface_overlay_other_exception(self: "TestSurfaceOverlay") -> None:
@@ -335,16 +327,12 @@ class TestSurfaceOverlayMethod:
         """
         surface_config = {"data": self.temp_data, "plot_type": "invalid"}
 
+        bounds = GeographicBounds(*self.extent_bounds)
+        style = SurfaceMapStyle(plot_type="scatter", surface_overlay=surface_config)
+
         with pytest.raises(ValueError) as exc_info:
             self.plotter.create_surface_map(
-                self.lon,
-                self.lat,
-                self.temp_data,
-                "t2m",
-                GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(
-                    plot_type="scatter", surface_overlay=surface_config
-                ),
+                self.lon, self.lat, self.temp_data, "t2m", bounds, style=style
             )
         assert "Unsupported surface overlay plot_type" in str(exc_info.value)
 
@@ -617,14 +605,12 @@ class TestInterpolation:
         Returns:
             None
         """
+        bounds = GeographicBounds(*self.extent_bounds)
+        style = SurfaceMapStyle(plot_type="contourf", grid_resolution=-0.5)
+
         with pytest.raises((ValueError, Exception)):
             self.plotter.create_surface_map(
-                self.lon,
-                self.lat,
-                self.data,
-                "t2m",
-                GeographicBounds(*self.extent_bounds),
-                style=SurfaceMapStyle(plot_type="contourf", grid_resolution=-0.5),
+                self.lon, self.lat, self.data, "t2m", bounds, style=style
             )
 
     def test_interpolation_with_fixed_resolution(self: "TestInterpolation") -> None:

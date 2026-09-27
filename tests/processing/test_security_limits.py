@@ -395,7 +395,8 @@ class TestSanitizeFilenameComponent:
         """
         result = sanitize_filename_component(raw)
         assert result == expected
-        assert "/" not in result and "\\" not in result
+        assert "/" not in result
+        assert "\\" not in result
         assert ".." not in result
 
     def test_custom_fallback(self: "TestSanitizeFilenameComponent") -> None:
@@ -439,7 +440,8 @@ class TestMessageAndPlotTextSanitizers:
             None
         """
         out = safe_label("x" * 500, max_len=50)
-        assert out.endswith("(truncated)") and len(out) <= 70
+        assert out.endswith("(truncated)")
+        assert len(out) <= 70
 
     def test_safe_plot_text_removes_mathtext(
         self: "TestMessageAndPlotTextSanitizers",

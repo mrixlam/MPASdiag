@@ -464,7 +464,8 @@ class TestSafePairToUnit:
             raise ValueError("bad")
 
         first, second = SoundingDiagnostics._safe_pair(_bad_func, to_unit="knots")
-        assert first is None and second is None
+        assert first is None
+        assert second is None
 
 
 class TestComputeFallbackLcl:
@@ -979,7 +980,8 @@ class TestExtractWindProfilesNoVars:
             u, v = diag._extract_wind_profiles(ds, "Time", 0, 0)
 
         assert captured.getvalue() == ""
-        assert u is None and v is None
+        assert u is None
+        assert v is None
 
 
 class TestExtractHeightStaggered:

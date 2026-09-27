@@ -772,7 +772,8 @@ class TestInterpolateAtPressureVerbosePaths:
             "theta", 110000.0, mean_p, ds_raw, "Time", 0
         )
 
-        assert idx == 0 and result is None
+        assert idx == 0
+        assert result is None
 
     def test_below_top_verbose_prints_and_returns_last_idx(
         self: "TestInterpolateAtPressureVerbosePaths", proc_v: "MPAS3DProcessor"
@@ -820,7 +821,8 @@ class TestInterpolateAtPressureVerbosePaths:
             "theta", 40000.0, mean_p, ds_raw, "Time", 0
         )
 
-        assert idx == len(mean_p) - 1 and result is None
+        assert idx == len(mean_p) - 1
+        assert result is None
 
     def test_boundary_lower_idx_at_last_returns_without_interpolating(
         self: "TestInterpolateAtPressureVerbosePaths", proc: "MPAS3DProcessor"

@@ -460,16 +460,14 @@ class TestEnhancedSurfacePlotting:
             )
             assert isinstance(fig, Figure)
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+        style = SurfaceMapStyle(plot_type="invalid")
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon,
-                self.lat,
-                temp_2d,
-                "t2m",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
-                style=SurfaceMapStyle(plot_type="invalid"),
+                self.lon, self.lat, temp_2d, "t2m", bounds, style=style
             )
 
         assert "plot_type must be 'scatter', 'contour', 'contourf', or 'both'" in str(
@@ -495,16 +493,14 @@ class TestEnhancedSurfacePlotting:
             "plot_type": "invalid_type",
         }
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+        style = SurfaceMapStyle(wind_overlay=wind_config)
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon,
-                self.lat,
-                temp_2d,
-                "t2m",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
-                style=SurfaceMapStyle(wind_overlay=wind_config),
+                self.lon, self.lat, temp_2d, "t2m", bounds, style=style
             )
 
         assert "plot_type must be 'barbs', 'arrows', or 'streamlines'" in str(
@@ -526,15 +522,13 @@ class TestEnhancedSurfacePlotting:
         base = self.temp_data[: self.n_cells]
         data_4d = np.tile(base.reshape((self.n_cells, 1, 1, 1)), (1, 10, 5, 3))
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon,
-                self.lat,
-                data_4d,
-                "temperature",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
+                self.lon, self.lat, data_4d, "temperature", bounds
             )
 
         assert "only 1D, 2D and 3D data are supported" in str(context.value)
@@ -554,15 +548,13 @@ class TestEnhancedSurfacePlotting:
             (u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12)
         )
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon,
-                self.lat,
-                temp_wrong_length,
-                "temperature",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
+                self.lon, self.lat, temp_wrong_length, "temperature", bounds
             )
 
         assert "must match coordinate arrays length" in str(context.value)
@@ -630,15 +622,13 @@ class TestEnhancedSurfacePlotting:
         _, _, _, _ = load_mpas_coords_from_processor(n=self.n_cells)
         temp_2d = self.temp_data[: self.n_cells]
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                lon_out_of_bounds,
-                lat_out_of_bounds,
-                temp_2d,
-                "t2m",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
+                lon_out_of_bounds, lat_out_of_bounds, temp_2d, "t2m", bounds
             )
 
         assert "No valid data points found within the specified map extent" in str(
@@ -1048,16 +1038,14 @@ class TestDataTypeAgnosticFeatures:
             "plot_type": "invalid_type",
         }
 
+        bounds = GeographicBounds(
+            self.lon_min, self.lon_max, self.lat_min, self.lat_max
+        )
+        style = SurfaceMapStyle(surface_overlay=surface_config)
+
         with pytest.raises(ValueError) as context:
             self.visualizer.create_surface_map(
-                self.lon,
-                self.lat,
-                temp_2d,
-                "temperature",
-                GeographicBounds(
-                    self.lon_min, self.lon_max, self.lat_min, self.lat_max
-                ),
-                style=SurfaceMapStyle(surface_overlay=surface_config),
+                self.lon, self.lat, temp_2d, "temperature", bounds, style=style
             )
 
         assert "Unsupported surface overlay plot_type: invalid_type" in str(

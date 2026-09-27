@@ -183,7 +183,10 @@ class TestMainFunctionAndArgumentHandling:
                     assert result == pytest.approx(0)
 
     def test_main_with_direct_args(
-        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: Path
+        self: "TestMainFunctionAndArgumentHandling",
+        grid_file: str,
+        test_data_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test runs `MPASUnifiedCLI.main()` with a direct set of command-line arguments simulating a typical user invocation for a surface plot. It sets `sys.argv` to include necessary flags and arguments, then calls `main()` to ensure it processes the arguments correctly and returns a zero exit code on success. This test verifies that the CLI can handle a straightforward command-line invocation without relying on config files or global flags.
@@ -203,35 +206,33 @@ class TestMainFunctionAndArgumentHandling:
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "surface",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--variable",
+            "t2m",
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_main_direct",
+            "--quiet",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "surface",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--variable",
-                "t2m",
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_main_direct",
-                "--quiet",
-            ]
+        cli = MPASUnifiedCLI()
+        result = cli.main()
 
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        assert result == pytest.approx(0)
 
     def test_main_with_verbose_flag(
-        self: "TestMainFunctionAndArgumentHandling", grid_file: str, test_data_dir: Path
+        self: "TestMainFunctionAndArgumentHandling",
+        grid_file: str,
+        test_data_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when `MPASUnifiedCLI.main()` is invoked with the `--verbose` flag, it processes the arguments correctly and returns a zero exit code on success. By setting `sys.argv` to include the `--verbose` flag along with necessary arguments for a precipitation plot, the test checks that the CLI can handle verbose mode and that it executes without errors, returning the expected exit code.
@@ -251,33 +252,29 @@ class TestMainFunctionAndArgumentHandling:
 
         data_dir = str(test_data_dir / "u240k" / "diag")
 
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "--verbose",
+            "precipitation",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_verbose",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "--verbose",
-                "precipitation",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_verbose",
-            ]
+        cli = MPASUnifiedCLI()
+        result = cli.main()
 
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        assert result == pytest.approx(0)
 
     def test_main_keyboard_interrupt(
         self: "TestMainFunctionAndArgumentHandling",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test simulates a `KeyboardInterrupt` during the execution of `MPASUnifiedCLI.main()` to verify that the CLI handles such interrupts gracefully. By patching the `run_analysis` method to raise a `KeyboardInterrupt`, the test checks that `main()` catches this exception and returns an appropriate exit code (commonly 130 for keyboard interrupts) instead of allowing the exception to propagate uncaught.
@@ -291,28 +288,25 @@ class TestMainFunctionAndArgumentHandling:
         from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "precipitation",
+            "--grid-file",
+            "test.nc",
+            "--data-dir",
+            "data/",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "precipitation",
-                "--grid-file",
-                "test.nc",
-                "--data-dir",
-                "data/",
-            ]
+        with patch.object(cli, "validate_config", return_value=True):
+            with patch.object(cli, "run_analysis", side_effect=KeyboardInterrupt()):
+                result = cli.main()
 
-            with patch.object(cli, "validate_config", return_value=True):
-                with patch.object(cli, "run_analysis", side_effect=KeyboardInterrupt()):
-                    result = cli.main()
-
-                    assert result == pytest.approx(130)
-        finally:
-            sys.argv = original_argv
+                assert result == pytest.approx(130)
 
     def test_main_unexpected_exception(
         self: "TestMainFunctionAndArgumentHandling",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test simulates an unexpected exception during the execution of `MPASUnifiedCLI.main()` to verify that the CLI handles such exceptions gracefully. By patching the `run_analysis` method to raise a generic `RuntimeError`, the test checks that `main()` catches this exception and returns an appropriate exit code (commonly 1 for general errors) instead of allowing the exception to propagate uncaught.
@@ -326,26 +320,22 @@ class TestMainFunctionAndArgumentHandling:
         from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "precipitation",
+            "--grid-file",
+            "test.nc",
+            "--data-dir",
+            "data/",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "precipitation",
-                "--grid-file",
-                "test.nc",
-                "--data-dir",
-                "data/",
-            ]
-
-            with patch.object(cli, "validate_config", return_value=True):
-                with patch.object(
-                    cli, "run_analysis", side_effect=RuntimeError("Test error")
-                ):
-                    result = cli.main()
-                    assert result == pytest.approx(1)
-        finally:
-            sys.argv = original_argv
+        with patch.object(cli, "validate_config", return_value=True):
+            with patch.object(
+                cli, "run_analysis", side_effect=RuntimeError("Test error")
+            ):
+                result = cli.main()
+                assert result == pytest.approx(1)
 
 
 class TestMainArgumentReorderingAdditional:
@@ -355,6 +345,7 @@ class TestMainArgumentReorderingAdditional:
         self: "TestMainArgumentReorderingAdditional",
         grid_file: str,
         test_data_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle global flags (like `--verbose`) appearing after the subcommand and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--verbose` flag after the subcommand and necessary arguments for a precipitation plot, the test checks that the CLI can reorder arguments as needed and execute without errors.
@@ -373,35 +364,31 @@ class TestMainArgumentReorderingAdditional:
             pytest.skip("Test data files not available")
 
         data_dir = str(test_data_dir / "u240k" / "diag")
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "precipitation",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--verbose",
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_reorder",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "precipitation",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--verbose",
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_reorder",
-            ]
+        cli = MPASUnifiedCLI()
+        result = cli.main()
 
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        assert result == pytest.approx(0)
 
     def test_main_with_log_file_argument(
         self: "TestMainArgumentReorderingAdditional",
         grid_file: str,
         test_data_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that `MPASUnifiedCLI.main()` can handle a `--log-file` argument appearing in the command line and that it processes the arguments correctly, returning a zero exit code on success. By setting `sys.argv` to include the `--log-file` flag along with necessary arguments for a precipitation plot, the test checks that the CLI can handle log file specification and that it executes without errors, creating the log file as expected.
@@ -427,33 +414,30 @@ class TestMainArgumentReorderingAdditional:
         ) as f:
             log_file = f.name
 
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "--log-file",
+            log_file,
+            "precipitation",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_logfile",
+            "--quiet",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
         try:
-            sys.argv = [
-                "mpasdiag",
-                "--log-file",
-                log_file,
-                "precipitation",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_logfile",
-                "--quiet",
-            ]
-
             cli = MPASUnifiedCLI()
             result = cli.main()
 
             assert result == pytest.approx(0)
             assert os.path.exists(log_file)
-
         finally:
-            sys.argv = original_argv
             if os.path.exists(log_file):
                 os.unlink(log_file)
 

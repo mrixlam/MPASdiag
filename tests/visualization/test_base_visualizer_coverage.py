@@ -419,7 +419,8 @@ class TestEnsureBoundaryData:
         v = _viz()
         r1 = v._ensure_boundary_data(ds)
         r2 = v._ensure_boundary_data(ds)
-        assert r1 is not None and r2 is not None
+        assert r1 is not None
+        assert r2 is not None
 
 
 class TestExtractFullGrid:
@@ -447,7 +448,8 @@ class TestExtractFullGrid:
         lon, lat = MPASVisualizer._extract_full_grid(ds)
         assert lon.shape == (N_CELLS,)
         assert lat.shape == (N_CELLS,)
-        assert np.all(lon >= -180) and np.all(lon <= 180)
+        assert np.all(lon >= -180)
+        assert np.all(lon <= 180)
 
     def test_longitude_latitude_aliases(self: "TestExtractFullGrid") -> None:
         """
@@ -1031,16 +1033,19 @@ class TestCreateContourPlot:
                 with patch.object(
                     v.ax, "contour", side_effect=RuntimeError("contour failed")
                 ):
+                    bounds = GeographicBounds(-100.0, -90.0, 35.0, 45.0)
+                    data_crs = ccrs.PlateCarree()
+
                     with pytest.raises(RuntimeError, match="Contour plotting failed"):
                         v._create_contour_plot(
                             lon,
                             lat,
                             data,
-                            GeographicBounds(-100.0, -90.0, 35.0, 45.0),
+                            bounds,
                             cmap_obj="viridis",
                             norm=None,
                             levels=None,
-                            data_crs=ccrs.PlateCarree(),
+                            data_crs=data_crs,
                         )
         finally:
             plt.close(v.fig)
@@ -1233,15 +1238,11 @@ class TestCreateWindPlot:
         u = np.array([5.0, 6.0, 7.0])
         vw = np.array([1.0, 2.0, 3.0])
 
+        bounds = GeographicBounds(-100.0, -90.0, 35.0, 45.0)
+        style = WindPlotStyle(plot_type="barbs")
+
         with pytest.raises(ValueError, match="No valid wind data"):
-            v.create_wind_plot(
-                lon,
-                lat,
-                u,
-                vw,
-                GeographicBounds(-100.0, -90.0, 35.0, 45.0),
-                style=WindPlotStyle(plot_type="barbs"),
-            )
+            v.create_wind_plot(lon, lat, u, vw, bounds, style=style)
 
     def test_invalid_plot_type_raises(self: "TestCreateWindPlot") -> None:
         """
@@ -1256,15 +1257,11 @@ class TestCreateWindPlot:
         v = _viz()
         lon, lat, u, vw = self._make_wind_data()
 
+        bounds = GeographicBounds(-100.0, -90.0, 35.0, 45.0)
+        style = WindPlotStyle(plot_type="invalid_type")
+
         with pytest.raises(ValueError, match="plot_type must be"):
-            v.create_wind_plot(
-                lon,
-                lat,
-                u,
-                vw,
-                GeographicBounds(-100.0, -90.0, 35.0, 45.0),
-                style=WindPlotStyle(plot_type="invalid_type"),
-            )
+            v.create_wind_plot(lon, lat, u, vw, bounds, style=style)
 
     def test_auto_subsampling_dense_data(self: "TestCreateWindPlot") -> None:
         """

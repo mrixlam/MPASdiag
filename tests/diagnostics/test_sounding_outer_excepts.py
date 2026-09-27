@@ -122,7 +122,8 @@ class TestLoadGridCoordinatesDropVariables:
 
         assert lon.shape == (N_CELLS,)
         assert lat.shape == (N_CELLS,)
-        assert np.all(lon >= -180.0) and np.all(lon <= 180.0)
+        assert np.all(lon >= -180.0)
+        assert np.all(lon <= 180.0)
 
     def test_no_extra_vars_does_not_set_drop(
         self: "TestLoadGridCoordinatesDropVariables", tmp_path: Path

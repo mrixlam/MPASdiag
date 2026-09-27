@@ -416,14 +416,14 @@ class TestCreatePrecipitationMapValidation:
             None
         """
         plotter = MPASPrecipitationPlotter()
+        lon = _lon()
+        lat = _lat()
+        precip = _precip()
+        bounds = GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+        style = PrecipitationRenderStyle(plot_type="heatmap")
+
         with pytest.raises(ValueError, match="plot_type must be"):
-            plotter.create_precipitation_map(
-                _lon(),
-                _lat(),
-                _precip(),
-                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
-                style=PrecipitationRenderStyle(plot_type="heatmap"),
-            )
+            plotter.create_precipitation_map(lon, lat, precip, bounds, style=style)
 
     def test_invalid_extent_raises(
         self: "TestCreatePrecipitationMapValidation",
@@ -438,13 +438,13 @@ class TestCreatePrecipitationMapValidation:
             None
         """
         plotter = MPASPrecipitationPlotter()
+        lon = _lon()
+        lat = _lat()
+        precip = _precip()
+        bounds = GeographicBounds(LON_MAX, LON_MIN, LAT_MIN, LAT_MAX)
+
         with pytest.raises(ValueError, match="Invalid plot extent"):
-            plotter.create_precipitation_map(
-                _lon(),
-                _lat(),
-                _precip(),
-                GeographicBounds(LON_MAX, LON_MIN, LAT_MIN, LAT_MAX),
-            )
+            plotter.create_precipitation_map(lon, lat, precip, bounds)
 
 
 class TestCreatePrecipitationMapContour:
@@ -597,10 +597,12 @@ class TestAddPrecipitationOverlayValidation:
         """
         plotter = MPASPrecipitationPlotter()
         mock_ax = MagicMock()
+        lon = _lon()
+        lat = _lat()
+        overlay_config = {"data": _precip(), "plot_type": "hexbin"}
+
         with pytest.raises(ValueError, match="plot_type must be"):
-            plotter.add_precipitation_overlay(
-                mock_ax, _lon(), _lat(), {"data": _precip(), "plot_type": "hexbin"}
-            )
+            plotter.add_precipitation_overlay(mock_ax, lon, lat, overlay_config)
 
 
 class TestExtractCoordinatesFromProcessor:
@@ -929,12 +931,11 @@ class TestCreateBatchPrecipitationMaps:
             None
         """
         plotter = MPASPrecipitationPlotter()
+        output_dir = str(tmp_path)
+        bounds = GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+
         with pytest.raises(ValueError, match="Processor cannot be None"):
-            plotter.create_batch_precipitation_maps(
-                None,
-                str(tmp_path),
-                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
-            )
+            plotter.create_batch_precipitation_maps(None, output_dir, bounds)
 
     def test_dataset_none_raises(
         self: "TestCreateBatchPrecipitationMaps", tmp_path: "Path"
@@ -951,12 +952,11 @@ class TestCreateBatchPrecipitationMaps:
         plotter = MPASPrecipitationPlotter()
         proc = MagicMock()
         proc.dataset = None
+        output_dir = str(tmp_path)
+        bounds = GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX)
+
         with pytest.raises(ValueError, match="No data loaded"):
-            plotter.create_batch_precipitation_maps(
-                proc,
-                str(tmp_path),
-                GeographicBounds(LON_MIN, LON_MAX, LAT_MIN, LAT_MAX),
-            )
+            plotter.create_batch_precipitation_maps(proc, output_dir, bounds)
 
     def test_empty_time_indices_returns_empty_list(
         self: "TestCreateBatchPrecipitationMaps", tmp_path: "Path"
@@ -1424,8 +1424,10 @@ class TestSavePlot:
             None
         """
         plotter = MPASPrecipitationPlotter()
+        output_path = str(tmp_path / "test_output")
+
         with pytest.raises(ValueError, match="No figure to save"):
-            plotter.save_plot(str(tmp_path / "test_output"))
+            plotter.save_plot(output_path)
 
     def test_saves_to_disk(self: "TestSavePlot", tmp_path: "Path") -> None:
         """
