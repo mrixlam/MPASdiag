@@ -82,14 +82,15 @@ class TestPlotTypeAndLabelingErrors:
             None
         """
         processor = self.processor
+        style = CrossSectionStyle(plot_type="invalid_type")
 
         with pytest.raises(ValueError) as cm:
-            _, _ = self.plotter.create_vertical_cross_section(
+            self.plotter.create_vertical_cross_section(
                 processor,
                 "theta",
                 (-100, 30),
                 (-90, 40),
-                style=CrossSectionStyle(plot_type="invalid_type"),
+                style=style,
             )
 
         assert "Unknown plot_type" in str(cm.value)

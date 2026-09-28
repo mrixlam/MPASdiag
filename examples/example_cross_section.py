@@ -44,7 +44,7 @@ processor.load_3d_data(dataDir)
 available_3d = processor.get_available_3d_variables()
 if var_name not in processor.dataset.data_vars:
     raise KeyError(
-        f"Variable '{var_name}' not found. " f"Available 3D variables: {available_3d}"
+        f"Variable '{var_name}' not found. Available 3D variables: {available_3d}"
     )
 
 # Define the cross-section transect

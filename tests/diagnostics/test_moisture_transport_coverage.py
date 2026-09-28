@@ -31,7 +31,7 @@ N_CELLS = 8
 N_VERT = 6
 
 
-@pytest.fixture()
+@pytest.fixture
 def pressure() -> xr.DataArray:
     """
     This fixture creates a synthetic pressure profile for testing. The pressure decreases linearly from 1000 hPa at the surface to 200 hPa at the top of the atmosphere across 6 vertical levels. The resulting DataArray has dimensions (nCells, nVertLevels) and is used as input for testing the moisture transport diagnostics, particularly for the compute_iwv method which integrates specific humidity over the vertical using the pressure levels.
@@ -49,7 +49,7 @@ def pressure() -> xr.DataArray:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def specific_humidity(pressure: xr.DataArray) -> xr.DataArray:
     """
     This fixture creates a synthetic specific humidity profile for testing. The specific humidity is set to a constant value of 0.01 kg/kg across all cells and vertical levels, which is a typical value for mid-tropospheric moisture. The resulting DataArray has dimensions (nCells, nVertLevels) and is used as input for testing the moisture transport diagnostics. The pressure fixture is included as a parameter to ensure that the specific humidity profile can be used in tests that require both pressure and specific humidity, such as the compute_iwv method which integrates specific humidity over the vertical using the pressure levels.
@@ -66,7 +66,7 @@ def specific_humidity(pressure: xr.DataArray) -> xr.DataArray:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def u_component() -> xr.DataArray:
     """
     This fixture creates a synthetic u-component of wind for testing. The u-component is set to a constant value of 10.0 m/s across all cells and vertical levels. The resulting DataArray has dimensions (nCells, nVertLevels) and is used as input for testing the moisture transport diagnostics, particularly for the compute_ivt_components method which calculates the eastward water vapor flux using the u-component of wind and specific humidity.
@@ -83,7 +83,7 @@ def u_component() -> xr.DataArray:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def v_component() -> xr.DataArray:
     """
     This fixture creates a synthetic v-component of wind for testing. The v-component is set to a constant value of -5.0 m/s across all cells and vertical levels. The resulting DataArray has dimensions (nCells, nVertLevels) and is used as input for testing the moisture transport diagnostics, particularly for the compute_ivt_components method which calculates the northward water vapor flux using the v-component of wind and specific humidity.
@@ -399,7 +399,7 @@ class TestComputeIVTComponentsVerbose:
 class TestComputeIVTVerbose:
     """Tests for verbose print statements in the compute_ivt method of MoistureTransportDiagnostics, which computes the integrated water vapor transport (IVT) magnitude from its components."""
 
-    @pytest.fixture()
+    @pytest.fixture
     def ivt_components(
         self: "TestComputeIVTVerbose",
         specific_humidity: xr.DataArray,

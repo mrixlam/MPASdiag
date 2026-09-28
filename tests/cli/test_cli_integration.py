@@ -35,9 +35,10 @@ class TestCLIIntegration:
         from mpasdiag import MPASUnifiedCLI
 
         cli = MPASUnifiedCLI()
+        parser = cli.create_main_parser()
 
         with pytest.raises(SystemExit) as exc_info:
-            cli.create_main_parser().parse_args(["--help"])
+            parser.parse_args(["--help"])
 
         assert exc_info.value.code == pytest.approx(0)
 
@@ -237,7 +238,10 @@ class TestIntegrationWithRealData:
         assert result is True
 
     def test_main_function_with_precipitation_args(
-        self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str
+        self: "TestIntegrationWithRealData",
+        grid_file: str,
+        test_data_dir: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test simulates a CLI invocation by setting `sys.argv` to a precipitation command with required options and asserts that the top-level `main()` returns a zero exit code on success. It is useful for verifying argument parsing, dispatch, and exit-code conventions when running the CLI as a process would normally do. The test will be skipped if sample data files required for the run are not present in the test environment.
@@ -256,33 +260,31 @@ class TestIntegrationWithRealData:
             pytest.skip("Test data files not available")
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "precipitation",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_main_precip",
+            "--quiet",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "precipitation",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_main_precip",
-                "--quiet",
-            ]
+        cli = MPASUnifiedCLI()
+        result = cli.main()
 
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        assert result == pytest.approx(0)
 
     def test_main_function_with_surface_args(
-        self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str
+        self: "TestIntegrationWithRealData",
+        grid_file: str,
+        test_data_dir: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test validates that `MPASUnifiedCLI.main()` can execute a surface analysis invocation. By manipulating `sys.argv` to represent a surface subcommand call, the test checks that the CLI can parse surface-specific options and complete successfully, returning the conventional zero exit code for success. The test will be skipped if sample data files required for the run are not present in the test environment.
@@ -301,35 +303,33 @@ class TestIntegrationWithRealData:
             pytest.skip("Test data files not available")
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "surface",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--variable",
+            "t2m",
+            "--time-index",
+            "0",
+            "--output-dir",
+            "output/test_main_surface",
+            "--quiet",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "surface",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--variable",
-                "t2m",
-                "--time-index",
-                "0",
-                "--output-dir",
-                "output/test_main_surface",
-                "--quiet",
-            ]
+        cli = MPASUnifiedCLI()
+        result = cli.main()
 
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        assert result == pytest.approx(0)
 
     def test_main_function_with_wind_args(
-        self: "TestIntegrationWithRealData", grid_file: str, test_data_dir: str
+        self: "TestIntegrationWithRealData",
+        grid_file: str,
+        test_data_dir: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test confirms that `MPASUnifiedCLI.main()` can handle a wind subcommand invocation. This test sets `sys.argv` to emulate a wind-analysis CLI call, including options such as subsampling and output directory, and asserts that the `main()` method completes with a zero return code. It verifies the integration of parsing, dispatch, and underlying wind-analysis logic under representative parameters. The test will be skipped if sample data files required for the run are not present in the test environment.
@@ -348,31 +348,26 @@ class TestIntegrationWithRealData:
             pytest.skip("Test data files not available")
 
         data_dir = str(Path(test_data_dir) / "u240k" / "diag")
-        original_argv = sys.argv
+        argv = [
+            "mpasdiag",
+            "wind",
+            "--grid-file",
+            grid_file,
+            "--data-dir",
+            data_dir,
+            "--time-index",
+            "0",
+            "--subsample",
+            "5",
+            "--output-dir",
+            "output/test_main_wind",
+            "--quiet",
+        ]
+        monkeypatch.setattr(sys, "argv", argv)
 
-        try:
-            sys.argv = [
-                "mpasdiag",
-                "wind",
-                "--grid-file",
-                grid_file,
-                "--data-dir",
-                data_dir,
-                "--time-index",
-                "0",
-                "--subsample",
-                "5",
-                "--output-dir",
-                "output/test_main_wind",
-                "--quiet",
-            ]
-
-            cli = MPASUnifiedCLI()
-            result = cli.main()
-            assert result == pytest.approx(0)
-
-        finally:
-            sys.argv = original_argv
+        cli = MPASUnifiedCLI()
+        result = cli.main()
+        assert result == pytest.approx(0)
 
 
 if __name__ == "__main__":

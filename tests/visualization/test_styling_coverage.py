@@ -1082,6 +1082,40 @@ class TestBuildColorbarLabel:
         result = MPASVisualizationStyle.build_colorbar_label(None)
         assert result is None
 
+    def test_units_sanitized_before_embedded_check(
+        self: "TestBuildColorbarLabel",
+    ) -> None:
+        """
+        This test verifies that the units are sanitized before build_colorbar_label checks whether they already appear in the long name. Units written as LaTeX math such as "$K$" are sanitized to "K" by safe_plot_text, and a long name of "Temperature [K]" already embeds that sanitized form. If the embedded check ran against the raw units, "[$K$]" would not be found and the label would repeat the units as "Temperature [K] [K]", so this test guards the ordering of sanitization and the embedded check.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        result = MPASVisualizationStyle.build_colorbar_label(
+            {"long_name": "Temperature [K]", "units": "$K$"}
+        )
+        assert result == "Temperature [K]"
+
+    def test_default_units_not_applied_when_both_unit_keys_empty(
+        self: "TestBuildColorbarLabel",
+    ) -> None:
+        """
+        This test verifies that default_units replaces the metadata units only when they are missing (None), not when they are an empty string. The metadata supplies both spellings as empty strings, so "units" or "unit" evaluates to "" rather than None and the default is not applied. This pins the current behavior of the None-only fallback. Note that a single empty key behaves differently: {"units": ""} falls through the "or" to None, so the default is applied in that case.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        result = MPASVisualizationStyle.build_colorbar_label(
+            {"long_name": "Temperature", "units": "", "unit": ""}, default_units="K"
+        )
+        assert result == "Temperature"
+
 
 class TestFormatLatitude:
     """Test coverage for format_latitude, specifically the branches for positive/zero latitude (N) and negative latitude (S)."""

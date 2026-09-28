@@ -513,8 +513,10 @@ class TestLoadVariableDataMissingVar:
             None
         """
         cache = MPASDataCache()
+        ds = _make_cell_ds()
+
         with pytest.raises(ValueError, match="not found in dataset"):
-            cache.load_variable_data(_make_cell_ds(), "no_such_variable")
+            cache.load_variable_data(ds, "no_such_variable")
 
     def test_typo_in_var_name_raises(self: "TestLoadVariableDataMissingVar") -> None:
         """
@@ -527,8 +529,10 @@ class TestLoadVariableDataMissingVar:
             None
         """
         cache = MPASDataCache()
+        ds = _make_cell_ds()
+
         with pytest.raises(ValueError, match="not found in dataset"):
-            cache.load_variable_data(_make_cell_ds(), "temperatur")  # missing 'e'
+            cache.load_variable_data(ds, "temperatur")  # missing 'e'
 
 
 class TestGetVariableDataKeyError:
