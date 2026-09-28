@@ -813,12 +813,14 @@ class TestParallelPrecipitationProcessorEdgeCases:
         )
 
         try:
+            bounds = GeographicBounds(-120, -80, 30, 50)
+
             with pytest.raises(AttributeError, match="data_dir"):
                 ParallelPrecipitationProcessor.create_batch_precipitation_maps_parallel(
                     processor=processor,
                     output_dir=self.temp_dir,
                     time_indices=[2, 3],
-                    bounds=GeographicBounds(-120, -80, 30, 50),
+                    bounds=bounds,
                 )
         finally:
             _pw.MPASParallelManager = orig_mgr
@@ -972,12 +974,14 @@ class TestParallelSurfaceProcessorEdgeCases:
         processor = SimpleNamespace(dataset=self.mock_dataset, grid_file="grid.nc")
 
         try:
+            bounds = GeographicBounds(-120, -80, 30, 50)
+
             with pytest.raises(AttributeError, match="data_dir"):
                 ParallelSurfaceProcessor.create_batch_surface_maps_parallel(
                     processor=processor,
                     output_dir=self.temp_dir,
                     time_indices=[0, 1],
-                    bounds=GeographicBounds(-120, -80, 30, 50),
+                    bounds=bounds,
                 )
         finally:
             _pw.MPASParallelManager = orig_mgr
@@ -1196,6 +1200,16 @@ class TestParallelWindProcessorEdgeCases:
         """
         processor = SimpleNamespace(dataset=self.mock_dataset, grid_file="grid.nc")
 
+        bounds = GeographicBounds(-120, -80, 30, 50)
+        style = WindBatchStyle(
+            plot_type="barbs",
+            subsample=1,
+            scale=None,
+            show_background=False,
+            grid_resolution=None,
+            regrid_method="linear",
+        )
+
         with pytest.raises(AttributeError, match="data_dir"):
             ParallelWindProcessor._build_wind_worker_kwargs(
                 processor=processor,
@@ -1204,15 +1218,8 @@ class TestParallelWindProcessorEdgeCases:
                 u_variable="u10",
                 v_variable="v10",
                 formats=["png"],
-                bounds=GeographicBounds(-120, -80, 30, 50),
-                style=WindBatchStyle(
-                    plot_type="barbs",
-                    subsample=1,
-                    scale=None,
-                    show_background=False,
-                    grid_resolution=None,
-                    regrid_method="linear",
-                ),
+                bounds=bounds,
+                style=style,
             )
 
     def test_cache_preload_exception_shows_warning(

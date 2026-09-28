@@ -445,13 +445,15 @@ class TestCreateVerticalCrossSectionComplete:
         Returns:
             None
         """
+        style = CrossSectionStyle(plot_type="invalid_type")
+
         with pytest.raises(ValueError) as ctx:
             self.plotter.create_vertical_cross_section(
                 self.processor,
                 "theta",
                 start_point=(-110, 35),
                 end_point=(-90, 45),
-                style=CrossSectionStyle(plot_type="invalid_type"),
+                style=style,
             )
         assert "Unknown plot_type" in str(ctx.value)
 

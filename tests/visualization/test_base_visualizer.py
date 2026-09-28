@@ -96,6 +96,7 @@ class TestHelperMethodsAndOutput:
 
     def test_add_spatial_coords_helper_verbose(
         self: "TestHelperMethodsAndOutput",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that the `_add_spatial_coords_helper` method correctly adds spatial coordinate variables to the dataset and produces verbose output when `processor.verbose` is True. The test uses real MPAS 2D data from the fixture to create a combined dataset and calls the helper method to add spatial coordinates. It captures the standard output and asserts that the expected messages about loading the grid file and adding spatial coordinates are present, as well as confirming that the resulting dataset contains the new coordinate variables.
@@ -113,25 +114,21 @@ class TestHelperMethodsAndOutput:
         from io import StringIO
 
         captured_output = StringIO()
-        sys.stdout = captured_output
+        monkeypatch.setattr(sys, "stdout", captured_output)
 
-        try:
-            result_ds = self.processor._add_spatial_coords_helper(
-                combined_ds,
-                dimensions_to_add=["nCells"],
-                spatial_vars=["lonCell", "latCell"],
-                processor_type="2D",
-            )
+        result_ds = self.processor._add_spatial_coords_helper(
+            combined_ds,
+            dimensions_to_add=["nCells"],
+            spatial_vars=["lonCell", "latCell"],
+            processor_type="2D",
+        )
 
-            output = captured_output.getvalue()
+        output = captured_output.getvalue()
 
-            assert "Grid file loaded" in output
-            assert "Added spatial coordinate variable" in output
-            assert "lonCell" in result_ds.data_vars
-            assert "latCell" in result_ds.data_vars
-
-        finally:
-            sys.stdout = sys.__stdout__
+        assert "Grid file loaded" in output
+        assert "Added spatial coordinate variable" in output
+        assert "lonCell" in result_ds.data_vars
+        assert "latCell" in result_ds.data_vars
 
     def test_add_spatial_coords_no_matching_dimension(
         self: "TestHelperMethodsAndOutput", mock_mpas_mesh: Any
@@ -200,6 +197,7 @@ class TestDataLoadingStrategies:
 
     def test_all_loading_fails_triggers_single_file_fallback(
         self: "TestDataLoadingStrategies",
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
         This test verifies that when both the primary loading method (using `uxarray`) and the multi-file fallback method (using `xarray.open_mfdataset`) fail, the `_load_data` method correctly triggers the single-file fallback mechanism. The test patches both `ux.open_dataset` and `xr.open_mfdataset` to raise exceptions, simulating failures in both loading paths. It then calls the `_load_data` method and asserts that the resulting dataset is not None and that the output contains indications of using the single-file fallback, confirming that the method correctly handles multiple loading failures and falls back to a single file load.
@@ -216,31 +214,27 @@ class TestDataLoadingStrategies:
         assert_expected_public_methods(processor, "MPAS3DProcessor")
 
         from io import StringIO
-        import sys as sys_module
 
         captured_output = StringIO()
-        sys_module.stdout = captured_output
+        monkeypatch.setattr(sys, "stdout", captured_output)
 
-        try:
-            with patch("mpasdiag.processing.base.ux.open_dataset") as mock_ux:
-                with patch("mpasdiag.processing.base.xr.open_mfdataset") as mock_mfd:
-                    mock_ux.side_effect = Exception("UXarray failed")
-                    mock_mfd.side_effect = Exception("Multi-file xarray failed")
+        with patch("mpasdiag.processing.base.ux.open_dataset") as mock_ux:
+            with patch("mpasdiag.processing.base.xr.open_mfdataset") as mock_mfd:
+                mock_ux.side_effect = Exception("UXarray failed")
+                mock_mfd.side_effect = Exception("Multi-file xarray failed")
 
-                    dataset, _ = processor._load_data(
-                        MPASOUT_DIR,
-                        use_pure_xarray=False,
-                        chunks={"Time": 1},
-                        reference_file="",
-                        data_type_label="3D",
-                    )
+                dataset, _ = processor._load_data(
+                    MPASOUT_DIR,
+                    use_pure_xarray=False,
+                    chunks={"Time": 1},
+                    reference_file="",
+                    data_type_label="3D",
+                )
 
-                    output = captured_output.getvalue()
+                output = captured_output.getvalue()
 
-                    assert dataset is not None
-                    assert "single" in output.lower()
-        finally:
-            sys_module.stdout = sys_module.__stdout__
+                assert dataset is not None
+                assert "single" in output.lower()
 
 
 class TestEdgeCasesAndErrorHandling:

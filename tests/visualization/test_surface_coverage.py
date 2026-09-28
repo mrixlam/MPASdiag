@@ -927,10 +927,11 @@ class TestCreateBatchSurfaceMaps:
         proc = Mock()
         proc.dataset = None
         plotter = MPASSurfacePlotter()
+        output_dir = str(tmp_path)
+        bounds = GeographicBounds(-100.0, -80.0, 30.0, 50.0)
+
         with pytest.raises(ValueError, match="No data loaded in processor"):
-            plotter.create_batch_surface_maps(
-                proc, str(tmp_path), GeographicBounds(-100.0, -80.0, 30.0, 50.0)
-            )
+            plotter.create_batch_surface_maps(proc, output_dir, bounds)
 
     def test_progress_printed_at_step_10(
         self: "TestCreateBatchSurfaceMaps",
@@ -997,12 +998,12 @@ class TestCreateSimpleScatterPlot:
             None
         """
         plotter = MPASSurfacePlotter()
+        lon = np.array([np.nan, np.nan, np.nan])
+        lat = np.array([np.nan, np.nan, np.nan])
+        data = np.array([np.nan, np.nan, np.nan])
+
         with pytest.raises(ValueError, match="No valid data points"):
-            plotter.create_simple_scatter_plot(
-                np.array([np.nan, np.nan, np.nan]),
-                np.array([np.nan, np.nan, np.nan]),
-                np.array([np.nan, np.nan, np.nan]),
-            )
+            plotter.create_simple_scatter_plot(lon, lat, data)
 
     def test_colorbar_tickparams_exception_is_suppressed(
         self: "TestCreateSimpleScatterPlot",

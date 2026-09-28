@@ -1065,27 +1065,36 @@ class MPASVisualizationStyle:
             long_name = var_metadata.get("long_name") or var_metadata.get("longName")
             units = var_metadata.get("units") or var_metadata.get("unit")
 
-        if long_name is None and default_long_name is not None:
-            long_name = default_long_name
+        long_name = MPASVisualizationStyle._resolve_label_part(
+            long_name, default_long_name
+        )
+        units = MPASVisualizationStyle._resolve_label_part(units, default_units)
 
-        if units is None and default_units is not None:
-            units = default_units
+        if not long_name:
+            return f"[{units}]" if units else None
 
-        if long_name is not None:
-            long_name = safe_plot_text(long_name)
+        if units and f"[{units}]" not in long_name:
+            return f"{long_name} [{units}]"
 
-        if units is not None:
-            units = safe_plot_text(units)
+        return long_name
 
-        if long_name:
-            if units and f"[{units}]" in long_name:
-                return long_name
-            return f"{long_name} [{units}]" if units else long_name
+    @staticmethod
+    def _resolve_label_part(
+        value: Optional[str], default: Optional[str]
+    ) -> Optional[str]:
+        """
+        This helper resolves one component of a colorbar label (the long name or the units) by falling back to a default and then sanitizing the result for safe display. The fallback applies only when the value is exactly None, so an empty string taken from metadata is kept rather than replaced by the default. Sanitization is applied to any non-None result, including an empty string, so that the later bracket check in build_colorbar_label compares sanitized text on both sides.
 
-        if units:
-            return f"[{units}]"
+        Parameters:
+            value (str, optional): The component as read from the variable metadata, or None if the metadata did not provide it.
+            default (str, optional): The fallback to use when value is None.
 
-        return None
+        Returns:
+            Optional[str]: The sanitized component, or None if neither the value nor the default is available.
+        """
+        if value is None:
+            value = default
+        return None if value is None else safe_plot_text(value)
 
     @staticmethod
     def format_latitude(value: float, _: Any) -> str:

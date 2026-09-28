@@ -168,8 +168,10 @@ def test_collective_grid_load_resets_on_exception() -> None:
         None
     """
     assert base._COLLECTIVE_GRID_LOAD_DEPTH == 0
-    with pytest.raises(RuntimeError):
-        with collective_grid_load():
+    grid_load = collective_grid_load()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        with grid_load:
             assert base._COLLECTIVE_GRID_LOAD_DEPTH == 1
             raise RuntimeError("boom")
     assert base._COLLECTIVE_GRID_LOAD_DEPTH == 0

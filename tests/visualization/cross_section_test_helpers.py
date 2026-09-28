@@ -165,6 +165,6 @@ def check_input_validation() -> None:
             start_point=(-100, 40),
             end_point=(-90, 40),
         )
-        assert False, "Should have raised ValueError for invalid processor"
+        pytest.fail("Should have raised ValueError for invalid processor")
     except ValueError as e:
         assert "MPAS3DProcessor" in str(e)

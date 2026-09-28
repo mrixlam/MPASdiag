@@ -248,8 +248,10 @@ class TestConfigPathValidation:
         Returns:
             None
         """
+        base_dir = str(tmp_path)
+
         with pytest.raises(ValueError, match="outside"):
-            MPASConfig.load_from_file("../../etc/passwd", base_dir=str(tmp_path))
+            MPASConfig.load_from_file("../../etc/passwd", base_dir=base_dir)
 
     def test_load_rejects_absolute_path_outside_base_dir(
         self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
@@ -263,8 +265,10 @@ class TestConfigPathValidation:
         Returns:
             None
         """
+        base_dir = str(tmp_path)
+
         with pytest.raises(ValueError, match="outside"):
-            MPASConfig.load_from_file("/etc/hosts", base_dir=str(tmp_path))
+            MPASConfig.load_from_file("/etc/hosts", base_dir=base_dir)
 
     def test_save_rejects_non_yaml_suffix(
         self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
@@ -278,8 +282,11 @@ class TestConfigPathValidation:
         Returns:
             None
         """
+        config = MPASConfig()
+        base_dir = str(tmp_path)
+
         with pytest.raises(ValueError, match="yaml"):
-            MPASConfig().save_to_file("config.txt", base_dir=str(tmp_path))
+            config.save_to_file("config.txt", base_dir=base_dir)
 
     def test_load_missing_file_raises_not_found(
         self: "TestConfigPathValidation", tmp_path: "os.PathLike[str]"
@@ -293,8 +300,10 @@ class TestConfigPathValidation:
         Returns:
             None
         """
+        base_dir = str(tmp_path)
+
         with pytest.raises(FileNotFoundError):
-            MPASConfig.load_from_file("missing.yaml", base_dir=str(tmp_path))
+            MPASConfig.load_from_file("missing.yaml", base_dir=base_dir)
 
 
 if __name__ == "__main__":

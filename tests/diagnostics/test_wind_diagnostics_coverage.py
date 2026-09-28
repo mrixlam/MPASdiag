@@ -27,7 +27,7 @@ N_VERT = 10
 N_TIME = 2
 
 
-@pytest.fixture()
+@pytest.fixture
 def wind_pair() -> tuple:
     """
     This fixture provides a pair of xarray DataArrays, u and v, representing the zonal and meridional wind components, respectively. The values in these DataArrays are chosen to yield a variety of wind directions when processed by the compute_wind_direction method in the WindDiagnostics class. The u and v components are structured with a dimension of "nCells" and contain values that will allow for testing the correct calculation of wind direction in radians.
@@ -43,7 +43,7 @@ def wind_pair() -> tuple:
     return u, v
 
 
-@pytest.fixture()
+@pytest.fixture
 def ds_3d() -> xr.Dataset:
     """
     This fixture provides a 3D xarray Dataset containing u, pressure_p, and pressure_base variables for testing the _compute_level_index_from_pressure method in the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains values designed to allow for testing the method's ability to compute a level index based on a specified pressure level. The pressure_p variable is set to a constant value across all levels, while the pressure_base variable is defined as a linear gradient from 100,000 Pa at the surface to 20,000 Pa at the top level. This setup allows for verifying that the method can correctly identify the appropriate vertical level corresponding to a given pressure level when both pressure_p and pressure_base variables are present in the dataset.
@@ -74,7 +74,7 @@ def ds_3d() -> xr.Dataset:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def ds_3d_no_pressure() -> xr.Dataset:
     """
     This fixture provides a 3D xarray Dataset containing only the u variable, without any pressure variables, for testing the error handling in the _compute_level_index_from_pressure method of the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains constant values for the u variable. This setup allows for verifying that the method correctly raises a ValueError when it attempts to compute a level index based on pressure but finds no pressure data available in the dataset.
@@ -95,7 +95,7 @@ def ds_3d_no_pressure() -> xr.Dataset:
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def ds_2d() -> xr.Dataset:
     """
     This fixture provides a 2D xarray Dataset containing u10 and v10 variables for testing the get_2d_wind_components method in the WindDiagnostics class. The dataset is structured with dimensions "Time" and "nCells", and contains random values for both u10 and v10 variables. This setup allows for verifying that the method can successfully extract the 2D wind components from the dataset and return them as xarray DataArrays when the data_type parameter is set to "uxarray". The random values ensure that the method's functionality is tested with a variety of wind component values, which can lead to different wind directions when processed by other methods in the WindDiagnostics class.

@@ -645,7 +645,7 @@ class TestRemapDatasetSkipMissingFalse:
                 "bad_var": xr.DataArray(_RNG.standard_normal(100), dims=["x"]),
             }
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="dimension mismatch"):
             remapper.remap_dataset(bad_dataset, skip_missing=False)
 
 
