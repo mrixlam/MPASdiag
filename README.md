@@ -374,9 +374,12 @@ mpasdiag surface --base-dir /scratch/$USER/run42 \
 
 ### Precipitation Analysis
 ```bash
-# Basic precipitation analysis (single time)
+# Basic precipitation analysis (single time). An accumulation needs an earlier
+# step to difference against, so with hourly files and a01h the first valid
+# --time-index is 1 (index 0 has no lookback and is reported as an error).
 mpasdiag precipitation \
-  --grid-file grid.nc --data-dir ./data --variable total --accumulation a01h --plot-type contourf
+  --grid-file grid.nc --data-dir ./data --variable total --accumulation a01h --plot-type contourf \
+  --time-index 1
 
 # Batch process all time steps
 mpasdiag precipitation \
@@ -721,7 +724,9 @@ mpasdiag/
     ├── precipitation.py       # Precipitation accumulation and differencing
     ├── wind.py                # Wind speed, direction, shear diagnostics
     ├── sounding.py            # Vertical sounding extraction + thermodynamic indices
-    └── moisture_transport.py  # IWV and IVT computation (pressure-column integrals)
+    ├── thermodynamic.py       # Virtual and density potential temperature, humidity conversions
+    ├── moisture_transport.py  # IWV and IVT computation (pressure-column integrals)
+    └── _vertical.py           # Shared mass-level destaggering of interface variables
 
 examples/
 ├── example_precipitation_map.py            # Precipitation accumulation map
@@ -736,7 +741,11 @@ examples/
 ├── example_projection_centering.py        # Map projection centering & projections (new)
 ├── generate_skewt_plot.py                 # Skew-T Log-P sounding diagram (new)
 ├── generate_complex_weather_map.py        # Multi-panel composite map
-└── benchmark.py                           # Performance benchmark script
+├── generate_figure_panel.py               # 2x3 panel of t2m at six forecast times
+├── example_mpasdiag_panel_plots.py        # 2x2 panel of density potential temperature with transects
+├── test.py                                # Minimal quick-start: one global t2m map
+├── benchmark.py                           # Performance benchmark script
+└── analyze_benchmarks.py                  # Speedup/efficiency report from benchmark CSVs
 
 tests/
 ├── conftest.py              # Centralized mock fixtures for all test modules
@@ -967,11 +976,31 @@ its neighbors for cores and filesystem bandwidth.
    #PBS -l select=1:ncpus=128:mpiprocs=16
    ```
 
-3. **Do not request more ranks than ~half the timestep count.** With 30
+3. **Know what the workers share.** A batch loads the data once: the command
+   line reads only the variables the analysis plots (plus time and
+   vertical-coordinate helpers), MPI ranks hand their loaded dataset to their
+   own worker, and multiprocessing workers receive the parent's lazily loaded
+   dataset through a temporary file that is removed when the batch ends (also
+   on SIGTERM from a scheduler). On macOS the worker server (forkserver) is
+   started at the beginning of a `--parallel` run, so it imports the plotting
+   stack while the data load. Runs that do not distribute work (single time
+   steps, soundings, overlays) execute on rank 0 only when started under
+   `mpiexec`.
+
+4. **Tune the worker pool with environment variables** when needed:
+
+   | Variable | Default | Effect |
+   |---|---|---|
+   | `MPASDIAG_WORKER_THREADS` | cores / workers | Threads per worker for dask, BLAS and numba (uxarray kernels); `NUMBA_NUM_THREADS`, if set, is left alone |
+   | `MPASDIAG_MAX_TASKS_PER_WORKER` | `100` | Recycle a multiprocessing worker after this many time steps (bounds slow memory growth); `0` disables |
+   | `MPASDIAG_WORKER_MEMORY_GB` | 1.5 x the parent's memory | Estimated memory per worker; the worker count is lowered, with a warning, when the workers would not fit in 85% of the available memory. `0` disables the check |
+   | `MPASDIAG_MAX_WORKERS` | `1024` | Safety cap on the worker count (see [Grid size safety limits](#grid-size-safety-limits)) |
+
+5. **Do not request more ranks than ~half the timestep count.** With 30
    timesteps, ranks beyond 15 sit idle for the tail of every batch (the manager
    logs a granularity notice when this happens).
 
-4. **Benchmark before and after changes** with repeated trials, then compare:
+6. **Benchmark before and after changes** with repeated trials, then compare:
    ```bash
    mpiexec -n 16 python examples/benchmark.py --trials 3
    python examples/analyze_benchmarks.py output/benchmarks/benchmark_results_*.csv
@@ -1064,6 +1093,16 @@ as-is from the repository root.
    pip install metpy
    ```
    Without MetPy, `SoundingDiagnostics` still works but only computes a fallback LCL estimate; `MPASSkewTPlotter` requires MetPy.
+   An installed MetPy that fails to import (for example after a pint or numpy
+   upgrade) is treated the same way, with a warning naming the import error.
+
+6. **`mpiexec` runs on a laptop end with "MPI_Finalize failed ... OFI poll failed"**
+   (MPICH with the default libfabric network provider). Use the TCP provider
+   and keep the launcher on the local host:
+   ```bash
+   FI_PROVIDER=tcp mpiexec -hosts localhost -n 4 mpasdiag surface ... --parallel
+   ```
+   Serial and `--workers` runs never initialise MPI, so they are not affected.
 
 ### Grid size safety limits
 
