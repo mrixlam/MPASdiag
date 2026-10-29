@@ -367,21 +367,18 @@ class MPASWindPlotter(MPASVisualizer):
         return lon_2d, lat_2d, u_2d, v_2d
 
     def _setup_wind_plot_figure(
-        self: "MPASWindPlotter", projection: str
+        self: "MPASWindPlotter", map_proj: ccrs.Projection
     ) -> Tuple[Figure, GeoAxes]:
         """
-        This internal helper method sets up the Matplotlib figure and GeoAxes for wind plotting based on the specified Cartopy projection. It determines the appropriate Cartopy projection class based on the provided projection name and creates an instance for use in the GeoAxes. The method then creates a Matplotlib figure and GeoAxes with the specified projection, ensuring that the axes is a GeoAxes instance for compatibility with cartographic plotting. By centralizing the figure and axes setup in this method, it allows for consistent configuration of the plotting environment across different types of wind visualizations while leveraging Cartopy's capabilities for geographic projections.
+        This internal helper method sets up the Matplotlib figure and GeoAxes for wind plotting using a pre-built Cartopy projection object. The projection is created by the shared setup_map_projection factory (which validates the projection name against a whitelist and applies any centering or passthrough keyword arguments), so this method simply creates a Matplotlib figure and GeoAxes with the provided projection, ensuring that the axes is a GeoAxes instance for compatibility with cartographic plotting. By centralizing the figure and axes setup in this method, it allows for consistent configuration of the plotting environment across different types of wind visualizations while leveraging Cartopy's capabilities for geographic projections.
 
         Parameters:
-            projection (str): Name of the Cartopy projection to use for the GeoAxes (e.g., 'PlateCarree', 'Mercator', 'LambertConformal').
+            map_proj (ccrs.Projection): Pre-built Cartopy projection object (from setup_map_projection) to use for the GeoAxes.
 
         Returns:
             Tuple[Figure, GeoAxes]: Matplotlib Figure and GeoAxes instances configured with the specified Cartopy projection for wind plotting.
         """
-        # Determine the cartopy projection class based on the provided projection name and create an instance for use in GeoAxes
-        map_proj = getattr(ccrs, projection)()
-
-        # Create a matplotlib figure and GeoAxes with the specified projection
+        # Create a matplotlib figure and GeoAxes with the provided projection
         fig, ax = plt.subplots(
             1,
             1,
@@ -476,34 +473,13 @@ class MPASWindPlotter(MPASVisualizer):
         is_global_lat = (lat_max - lat_min) >= 179.0
 
         if is_global_lon and is_global_lat:
-            # For global coverage, adjust boundaries slightly to avoid dateline artifacts in cartopy projections.
-            adjusted_lon_min = max(lon_min, -179.99)
-            adjusted_lon_max = min(lon_max, 179.99)
-            adjusted_lat_min = max(lat_min, -89.99)
-            adjusted_lat_max = min(lat_max, 89.99)
-
-            # Set the map extent using the adjusted boundaries to ensure proper rendering without dateline artifacts for global coverage
-            ax.set_extent(
-                [
-                    adjusted_lon_min,
-                    adjusted_lon_max,
-                    adjusted_lat_min,
-                    adjusted_lat_max,
-                ],
-                crs=ccrs.PlateCarree(),
-            )
-
-            # Print the adjusted extent for debugging purposes to confirm that global coverage is being handled correctly
-            logger.debug(
-                "Using global extent (adjusted): [%s, %s, %s, %s]",
-                adjusted_lon_min,
-                adjusted_lon_max,
-                adjusted_lat_min,
-                adjusted_lat_max,
-            )
+            ax.set_global()
+            logger.debug("Using global extent via set_global() for projection view")
         else:
             # Set the map extent directly using the provided longitude and latitude boundaries for regional plots
-            ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+            self._apply_map_extent(
+                ax, [lon_min, lon_max, lat_min, lat_max], ccrs.PlateCarree()
+            )
 
     def _add_map_features(
         self: "MPASWindPlotter",
@@ -677,8 +653,18 @@ class MPASWindPlotter(MPASVisualizer):
         time_stamp = style.time_stamp
         projection = style.projection
 
-        # Setup figure and axes with projection
-        self.fig, self.ax = self._setup_wind_plot_figure(projection)
+        # Build the projection via the shared factory
+        map_proj, _ = self.setup_map_projection(
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=style.central_longitude,
+            central_latitude=style.central_latitude,
+            proj_kwargs=style.proj_kwargs,
+        )
+        self.fig, self.ax = self._setup_wind_plot_figure(map_proj)
 
         # Auto-enable regridding for streamlines if needed
         grid_resolution = self._handle_streamline_regridding(plot_type, grid_resolution)

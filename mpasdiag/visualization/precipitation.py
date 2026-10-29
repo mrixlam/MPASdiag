@@ -63,7 +63,7 @@ class PrecipitationMapStyle:
 
 @dataclass
 class PrecipitationRenderStyle:
-    """Optional rendering and appearance settings for a single precipitation map, grouping the title, plot type, colormap, contour levels, color limits, projection, and grid resolution into a single value object."""
+    """Optional rendering and appearance settings for a single precipitation map, grouping the title, plot type, colormap, contour levels, color limits, projection, projection centering/keyword controls, and grid resolution into a single value object."""
 
     title: str = "MPAS Precipitation"
     plot_type: str = "scatter"
@@ -72,6 +72,9 @@ class PrecipitationRenderStyle:
     clim_min: Optional[float] = None
     clim_max: Optional[float] = None
     projection: str = "PlateCarree"
+    central_longitude: Optional[float] = None
+    central_latitude: Optional[float] = None
+    proj_kwargs: Optional[Dict[str, Any]] = None
     grid_resolution: Optional[float] = None
 
 
@@ -202,6 +205,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         lat_min: float,
         lat_max: float,
         projection: str,
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ccrs.Projection, ccrs.CRS]:
         """
         This method sets up the figure and GeoAxes for precipitation plotting using cartopy. It configures the map projection based on the specified projection name and geographic extent, and adds relevant geographic features such as coastlines, borders, ocean, and land with styling appropriate for precipitation maps. The method also handles global map extents by adjusting them slightly to avoid dateline issues. It returns the configured map projection and data CRS for use in plotting transforms. The created figure and axes are stored as instance attributes for use in subsequent plotting methods.
@@ -218,7 +224,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         """
         # Setup map projection and data CRS using parent class method
         map_proj, data_crs = self.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=central_longitude,
+            central_latitude=central_latitude,
+            proj_kwargs=proj_kwargs,
         )
 
         # Create figure and GeoAxes with the specified projection
@@ -231,34 +244,15 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Determine if the map is global based on extent to handle dateline issues appropriately
         is_global = (lon_max - lon_min) >= 359.0 and (lat_max - lat_min) >= 179.0
 
-        # For global maps, adjust extent slightly to avoid dateline issues; for regional maps, set extent directly with validation
+        # For global maps, show the projection's full natural domain via set_global().
         if is_global:
-            # Adjust global extent slightly to avoid dateline issues
-            adjusted_lon_min = max(lon_min, -179.99)
-            adjusted_lon_max = min(lon_max, 179.99)
-            adjusted_lat_min = max(lat_min, -89.99)
-            adjusted_lat_max = min(lat_max, 89.99)
-
-            # Set global extent with slight adjustment to avoid dateline issues, ensuring proper rendering of global maps without artifacts
-            self.ax.set_extent(
-                [
-                    adjusted_lon_min,
-                    adjusted_lon_max,
-                    adjusted_lat_min,
-                    adjusted_lat_max,
-                ],
-                crs=data_crs,
-            )
-            logger.debug(
-                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
-                adjusted_lon_min,
-                adjusted_lon_max,
-                adjusted_lat_min,
-                adjusted_lat_max,
-            )
+            self.ax.set_global()
+            logger.debug("Using global extent via set_global() for projection view")
         else:
             # Set extent for regional maps, ensuring it is within valid ranges and properly ordered
-            self.ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
+            self._apply_map_extent(
+                self.ax, [lon_min, lon_max, lat_min, lat_max], data_crs
+            )
 
         # Add geographic features with styling for precipitation maps
         self.ax.add_feature(
@@ -630,7 +624,14 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Setup figure, axes, projection, and geographic features for precipitation map
         _, data_crs = self._setup_precipitation_figure(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=style.central_longitude,
+            central_latitude=style.central_latitude,
+            proj_kwargs=style.proj_kwargs,
         )
 
         # Assert fig and ax are created and of correct type for cartopy plotting
@@ -2007,37 +2008,18 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Returns:
             None: This method modifies the provided GeoAxes in place by setting the extent, adding geographic features, and configuring gridlines and labels. It does not return any value.
         """
-        # Set extent with dateline handling for global panels
+        # Set extent for the panel. Global panels use set_global() so the full
+        # projection domain is shown regardless of projection type or
+        # central_longitude (a set_extent() with a lon/lat box collapses for
+        # projected CRSs centered near the antimeridian); regional panels set the
+        # requested extent directly.
         if is_global:
-            # Adjust global extent slightly to avoid dateline issues with Cartopy
-            adjusted_lon_min = max(lon_min, -179.99)
-            adjusted_lon_max = min(lon_max, 179.99)
-            adjusted_lat_min = max(lat_min, -89.99)
-            adjusted_lat_max = min(lat_max, 89.99)
-
-            # Set extent with adjusted bounds to avoid dateline issues
-            ax.set_extent(
-                [
-                    adjusted_lon_min,
-                    adjusted_lon_max,
-                    adjusted_lat_min,
-                    adjusted_lat_max,
-                ],
-                crs=data_crs,
-            )
-
-            # Print adjusted extent for global panel to inform about dateline handling
+            ax.set_global()
             if panel_index == 0:
-                logger.debug(
-                    "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
-                    adjusted_lon_min,
-                    adjusted_lon_max,
-                    adjusted_lat_min,
-                    adjusted_lat_max,
-                )
+                logger.debug("Using global extent via set_global() for projection view")
         else:
             # For regional extents, use provided bounds directly
-            ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
+            self._apply_map_extent(ax, [lon_min, lon_max, lat_min, lat_max], data_crs)
 
         # Add geographic features with styling
         ax.add_feature(cfeature.COASTLINE, linewidth=0.8, edgecolor="black", alpha=0.7)
@@ -2186,6 +2168,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         title2: str = "Precipitation 2",
         accum_period: str = "a01h",
         projection: str = "PlateCarree",
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Figure, List[Axes]]:
         """
         This method creates a side-by-side comparison plot of two precipitation datasets on a shared map projection. It sets up a figure with two GeoAxes subplots, each configured with the same geographic extent and map features for consistent visual comparison. The method creates a shared colormap and normalization based on the specified accumulation period to ensure that both panels use the same color scale for accurate comparison. It handles global extents by adjusting the longitude and latitude bounds to avoid dateline issues in Cartopy. Each subplot is populated with the corresponding precipitation data using a scatter plot, and titles are set for each panel to clearly indicate which dataset is being displayed. A single colorbar is added below the two panels, centered, with consistent styling and tick formatting based on the color levels used in the plots. Finally, timestamp and branding are added to the figure, and the layout is adjusted to prevent overlap and ensure clear presentation. The method returns the figure and axes for further manipulation or saving as needed. This approach allows for effective visual comparison of two precipitation datasets while maintaining consistent geographic context and styling across both panels.
@@ -2203,13 +2188,23 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             title2 (str): Title for the second subplot (default: "Precipitation 2").
             accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h') used to determine colormap and normalization (default: "a01h").
             projection (str): Map projection type to use for the GeoAxes (default: 'PlateCarree').
+            central_longitude (Optional[float]): Explicit central longitude in degrees, overriding the auto-derived value. Defaults to None.
+            central_latitude (Optional[float]): Explicit central latitude in degrees for projections that accept it, overriding the auto-derived value. Defaults to None.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor. Defaults to None.
 
         Returns:
             Tuple[Figure, List[Axes]]: A tuple containing the created matplotlib Figure object and a list of the two GeoAxes subplots. The figure contains the side-by-side comparison of the two precipitation datasets with shared map features and a common colorbar. The axes can be further manipulated or saved as needed after the method returns.
         """
         # Setup map projection and coordinate reference system based on provided geographic bounds and projection type
         map_proj, data_crs = self.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=central_longitude,
+            central_latitude=central_latitude,
+            proj_kwargs=proj_kwargs,
         )
 
         # Create figure with two subplots sharing the same map projection and size

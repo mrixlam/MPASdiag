@@ -17,6 +17,7 @@ Version: 1.0.0
 # Load necessary libraries for data handling, plotting, and styling
 import os
 import re
+import inspect
 import numpy as np
 import xarray as xr
 import cartopy.crs as ccrs
@@ -39,6 +40,18 @@ logger = get_logger(__name__)
 
 class MPASVisualizationStyle:
     """Comprehensive visualization styling utility class providing variable-specific colormaps, contour levels, and plot appearance parameters for MPAS atmospheric diagnostics."""
+
+    _PROJECTION_REGISTRY: Dict[str, Tuple[type, bool, bool]] = {
+        "platecarree": (ccrs.PlateCarree, False, False),
+        "mercator": (ccrs.Mercator, True, False),
+        "lambertconformal": (ccrs.LambertConformal, True, True),
+        "robinson": (ccrs.Robinson, False, False),
+        "mollweide": (ccrs.Mollweide, False, False),
+        "orthographic": (ccrs.Orthographic, True, True),
+        "northpolarstereo": (ccrs.NorthPolarStereo, False, False),
+        "southpolarstereo": (ccrs.SouthPolarStereo, False, False),
+        "nearsideperspective": (ccrs.NearsidePerspective, True, True),
+    }
 
     @staticmethod
     def create_precip_colormap(
@@ -651,33 +664,80 @@ class MPASVisualizationStyle:
         lat_min: float,
         lat_max: float,
         projection: str = "PlateCarree",
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ccrs.Projection, ccrs.PlateCarree]:
         """
-        This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. It calculates the central longitude and latitude from the provided bounds to use as reference points for certain projections (e.g., Mercator, Lambert Conformal). The method supports multiple projection types, including 'PlateCarree', 'Mercator', and 'LambertConformal', and defaults to 'PlateCarree' if an unrecognized projection name is provided. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data). This setup allows for flexible visualization of MPAS diagnostics on different map projections while ensuring that the data is correctly transformed to match the chosen projection.
+        This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. The projection is looked up from a whitelist of supported cartopy projections (see MPASVisualizationStyle._PROJECTION_REGISTRY), which includes 'PlateCarree', 'Mercator', 'LambertConformal', 'Robinson', 'Mollweide', 'Orthographic', 'NorthPolarStereo', 'SouthPolarStereo', and 'NearsidePerspective'. It resolves the projection center using the following precedence (lowest to highest): the midpoint of the requested bounds is used only for projections that historically auto-center (Mercator, LambertConformal, and the globe-view projections); an explicit central_longitude or central_latitude argument overrides that auto value; and any keys in proj_kwargs override everything (full passthrough to the cartopy constructor). PlateCarree is never auto-centered and stays at central_longitude=0 unless the caller supplies one explicitly, preserving historical output. Auto-derived center keywords are only injected when the projection constructor accepts them, while proj_kwargs are passed through unfiltered so any cartopy projection parameter (e.g. standard_parallels, globe, satellite_height) can be supplied. An unrecognized projection name falls back to 'PlateCarree'. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data).
 
         Parameters:
             lon_min (float): Minimum longitude of the plot area.
             lon_max (float): Maximum longitude of the plot area.
             lat_min (float): Minimum latitude of the plot area.
             lat_max (float): Maximum latitude of the plot area.
-            projection (str): Desired map projection type (e.g., 'PlateCarree', 'Mercator', 'LambertConformal'). Defaults to 'PlateCarree'.
+            projection (str): Desired map projection type (e.g., 'PlateCarree', 'Mercator', 'LambertConformal', 'Robinson', 'Orthographic'). Defaults to 'PlateCarree'. Unrecognized names fall back to 'PlateCarree'.
+            central_longitude (Optional[float]): Explicit central longitude in degrees for the projection. Overrides the auto-derived midpoint. Defaults to None (use auto/default behavior).
+            central_latitude (Optional[float]): Explicit central latitude in degrees for the projection (only used by projections that accept it, e.g. LambertConformal, Orthographic). Overrides the auto-derived midpoint. Defaults to None.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor for full control over its parameters. Keys here take precedence over central_longitude/central_latitude. Defaults to None.
 
         Returns:
-            Tuple[ccrs.Projection, ccrs.PlateCarree]: A tuple containing the map projection object to be used for plotting and the data coordinate system (PlateCarree). The map projection is configured based on the specified bounds and projection type, while the data coordinate system is set to PlateCarree for compatibility with MPAS data.
+            Tuple[ccrs.Projection, ccrs.PlateCarree]: A tuple containing the map projection object to be used for plotting and the data coordinate system (PlateCarree). The map projection is configured based on the specified bounds, projection type, and any explicit centering or passthrough keyword arguments, while the data coordinate system is set to PlateCarree for compatibility with MPAS data.
         """
-        central_lon = (lon_min + lon_max) / 2
-        central_lat = (lat_min + lat_max) / 2
+        auto_central_lon = (lon_min + lon_max) / 2
+        auto_central_lat = (lat_min + lat_max) / 2
 
-        if projection.lower() == "platecarree":
-            map_proj = ccrs.PlateCarree()
-        elif projection.lower() == "mercator":
-            map_proj = ccrs.Mercator(central_longitude=central_lon)
-        elif projection.lower() == "lambertconformal":
-            map_proj = ccrs.LambertConformal(
-                central_longitude=central_lon, central_latitude=central_lat
+        registry = MPASVisualizationStyle._PROJECTION_REGISTRY
+        proj_key = projection.lower()
+
+        if proj_key not in registry:
+            logger.warning(
+                "Unknown projection '%s'; falling back to PlateCarree. "
+                "Supported projections: %s",
+                projection,
+                ", ".join(sorted(registry)),
             )
-        else:
-            map_proj = ccrs.PlateCarree()
+            proj_key = "platecarree"
+
+        proj_cls, auto_center_lon, auto_center_lat = registry[proj_key]
+        effective_lon: Optional[float] = None
+
+        if central_longitude is not None:
+            effective_lon = central_longitude
+        elif auto_center_lon:
+            effective_lon = auto_central_lon
+
+        effective_lat: Optional[float] = None
+
+        if central_latitude is not None:
+            effective_lat = central_latitude
+        elif auto_center_lat:
+            effective_lat = auto_central_lat
+
+        try:
+            accepted = set(inspect.signature(proj_cls).parameters)
+        except (ValueError, TypeError):
+            accepted = {"central_longitude", "central_latitude"}
+
+        kwargs: Dict[str, Any] = {}
+
+        if effective_lon is not None and "central_longitude" in accepted:
+            kwargs["central_longitude"] = effective_lon
+
+        if effective_lat is not None and "central_latitude" in accepted:
+            kwargs["central_latitude"] = effective_lat
+
+        if proj_kwargs:
+            kwargs.update(proj_kwargs)
+
+        try:
+            map_proj = proj_cls(**kwargs)
+        except TypeError as exc:
+            valid = ", ".join(sorted(accepted - {"self"}))
+            raise ValueError(
+                f"Invalid projection arguments for {proj_cls.__name__}: {exc}. "
+                f"Valid parameters are: {valid}"
+            ) from exc
 
         data_crs = ccrs.PlateCarree()
 

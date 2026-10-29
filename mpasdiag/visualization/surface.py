@@ -49,7 +49,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class SurfaceMapStyle:
-    """Optional rendering and appearance settings for a surface map, grouping the title, plot type, colormap, contour levels, color limits, projection, grid resolution, and wind/surface overlay configurations into a single value object."""
+    """Optional rendering and appearance settings for a surface map, grouping the title, plot type, colormap, contour levels, color limits, projection, projection centering/keyword controls, grid resolution, and wind/surface overlay configurations into a single value object."""
 
     title: Optional[str] = None
     plot_type: str = "scatter"
@@ -58,6 +58,9 @@ class SurfaceMapStyle:
     clim_min: Optional[float] = None
     clim_max: Optional[float] = None
     projection: str = "PlateCarree"
+    central_longitude: Optional[float] = None
+    central_latitude: Optional[float] = None
+    proj_kwargs: Optional[Dict[str, Any]] = None
     grid_resolution: Optional[float] = None
     wind_overlay: Optional[dict] = None
     surface_overlay: Optional[dict] = None
@@ -317,6 +320,9 @@ class MPASSurfacePlotter(MPASVisualizer):
         lat_min: float,
         lat_max: float,
         projection: str,
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[
         ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float
     ]:
@@ -329,17 +335,40 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat_min (float): Minimum latitude for the map extent.
             lat_max (float): Maximum latitude for the map extent.
             projection (str): Map projection type (e.g., 'PlateCarree', 'Mercator', etc.) to use for the plot.
+            central_longitude (Optional[float]): Explicit central longitude in degrees, overriding the auto-derived value.
+            central_latitude (Optional[float]): Explicit central latitude in degrees for projections that accept it, overriding the auto-derived value.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor.
 
         Returns:
             Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]: Map projection, data CRS, and filter bounds for plotting and data selection.
         """
         # Set up the map projection and data CRS using the base visualizer's setup function
         map_proj, data_crs = self.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=central_longitude,
+            central_latitude=central_latitude,
+            proj_kwargs=proj_kwargs,
         )
 
-        # Mercator cannot project latitudes at ±90° (the math diverges to ±∞). To avoid issues with cartopy when using a Mercator projection, we clamp the latitude bounds to a safe range just below ±90° to ensure that the CRS transformation does not encounter singularities at the poles.
-        if projection.lower() == "mercator":
+        # Determine if the requested extent is global in longitude and latitude.
+        # This is evaluated on the originally requested bounds (before any
+        # projection-specific clamping below) so a global request is still
+        # recognized as global for projections whose valid latitude range is
+        # narrower than ±90° (e.g. Mercator).
+        is_global_lon = (lon_max - lon_min) >= 359.0
+        is_global_lat = (lat_max - lat_min) >= 179.0
+        is_global = is_global_lon and is_global_lat
+
+        # Mercator cannot project latitudes at ±90° (the math diverges to ±∞). For
+        # regional extents we clamp the latitude bounds to a safe range just below
+        # ±90° so the CRS transformation does not hit the pole singularity. Global
+        # extents use set_global() below, which already respects Mercator's native
+        # latitude limits, so no clamping is needed there.
+        if projection.lower() == "mercator" and not is_global:
             _LAT_MERCATOR_MAX = 85.051
             lat_min = max(lat_min, -_LAT_MERCATOR_MAX)
             lat_max = min(lat_max, _LAT_MERCATOR_MAX)
@@ -351,30 +380,21 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Ensure that the axes is a GeoAxes instance for cartopy plotting and raise an error if not
         assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
 
-        # Determine if the requested extent is global in longitude and latitude to apply a safe extent that avoids dateline wrapping issues.
-        is_global_lon = (lon_max - lon_min) >= 359.0
-        is_global_lat = (lat_max - lat_min) >= 179.0
+        # If the extent is global, show the projection's full natural domain via
+        # set_global(). This is independent of the projection type and of any
+        # central_longitude: a set_extent() with a lon/lat box collapses for
+        # projected CRSs (e.g. Mercator, Robinson) centered near the antimeridian,
+        # because both longitude bounds map to nearly the same projected x.
+        if is_global:
+            self.ax.set_global()
 
-        # If the extent is global in longitude and latitude, we set a slightly smaller extent to avoid issues with dateline wrapping in cartopy.
-        if is_global_lon and is_global_lat:
-            # Apply a small buffer to the global extent to avoid dateline artifacts
+            # Nominal global bounds retained for downstream return values/logging.
             filter_lon_min = max(lon_min, -179.99)
             filter_lon_max = min(lon_max, 179.99)
             filter_lat_min = max(lat_min, -89.99)
             filter_lat_max = min(lat_max, 89.99)
 
-            # Set the map extent to the adjusted global bounds and log the chosen extent for debugging
-            self.ax.set_extent(
-                [filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max],
-                crs=data_crs,
-            )
-            logger.debug(
-                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
-                filter_lon_min,
-                filter_lon_max,
-                filter_lat_min,
-                filter_lat_max,
-            )
+            logger.debug("Using global extent via set_global() for projection view")
 
             # Use original lon/lat bounds for filtering data since we want to include all points in the dataset for global plots
             filter_lon_min_data = -180.01
@@ -389,7 +409,9 @@ class MPASSurfacePlotter(MPASVisualizer):
             filter_lat_max = lat_max
 
             # Set the map extent to the requested regional bounds and log the chosen extent for debugging
-            self.ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
+            self._apply_map_extent(
+                self.ax, [lon_min, lon_max, lat_min, lat_max], data_crs
+            )
 
             # Use the same lon/lat bounds for filtering data since we want to restrict to the regional area for non-global plots
             filter_lon_min_data = lon_min
@@ -816,7 +838,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             data (Union[np.ndarray, xr.DataArray]): Array of data values to be plotted, which can be a numpy array or an xarray DataArray.
             var_name (str): Variable name used for labeling and metadata extraction.
             bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
-            style (Optional[SurfaceMapStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution, wind_overlay, surface_overlay). If None, defaults are used.
+            style (Optional[SurfaceMapStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, central_longitude, central_latitude, proj_kwargs, grid_resolution, wind_overlay, surface_overlay).
             time_stamp (Optional[datetime]): Optional timestamp to include in the title or annotations.
             data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the data, used for metadata extraction and unit conversion.
             level_index (Optional[int]): Optional index for selecting a vertical level from a multi-dimensional data array.
@@ -887,7 +909,14 @@ class MPASSurfacePlotter(MPASVisualizer):
             filter_lat_min_data,
             filter_lat_max_data,
         ) = self._setup_map_extent_and_features(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=style.central_longitude,
+            central_latitude=style.central_latitude,
+            proj_kwargs=style.proj_kwargs,
         )
 
         # At this point, self.fig and self.ax should be initialized by _setup_map_extent_and_features, so we assert that they are not None
