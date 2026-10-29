@@ -24,6 +24,7 @@ matplotlib.use("Agg")
 from typing import Any
 from datetime import datetime
 import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 from cartopy.mpl.geoaxes import GeoAxes
 from typing import Generator, Tuple, List
 from unittest.mock import patch, MagicMock
@@ -148,6 +149,10 @@ class TestConditionalTimeDisplay:
         mock_fig = MagicMock()
         mock_ax = MagicMock(spec=GeoAxes)
         mock_ax.transAxes = MagicMock()
+        # The extent helper reads the projection and resulting limits back from the axes
+        mock_ax.projection = ccrs.PlateCarree()
+        mock_ax.get_xlim.return_value = (-180.0, 180.0)
+        mock_ax.get_ylim.return_value = (-90.0, 90.0)
 
         text_calls = []
 

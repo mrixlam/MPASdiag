@@ -18,6 +18,7 @@ import pytest
 import tempfile
 import numpy as np
 import xarray as xr
+import cartopy.crs as ccrs
 from unittest.mock import Mock, patch
 
 try:
@@ -125,17 +126,17 @@ class TestDataProcessing:
             None
         """
         from mpasdiag import PrecipitationDiagnostics
+        from mpasdiag.diagnostics import InsufficientLookbackError
 
         processor = MPAS2DProcessor(mock_grid_file, verbose=False)
         processor.dataset = mock_dataset
         precip_diag = PrecipitationDiagnostics(verbose=False)
 
-        precip_data = precip_diag.compute_precipitation_difference(
-            mock_dataset, 0, var_name="rainnc"
-        )
-
-        assert isinstance(precip_data, xr.DataArray)
-        assert precip_data.shape[0] > 0
+        # The first time step has no earlier output to difference against
+        with pytest.raises(InsufficientLookbackError):
+            precip_diag.compute_precipitation_difference(
+                mock_dataset, 0, var_name="rainnc"
+            )
 
         if len(mock_dataset.Time) > 1:
             precip_data = precip_diag.compute_precipitation_difference(
@@ -240,6 +241,10 @@ class TestVisualization:
             mock_fig = Mock()
             mock_ax = Mock(spec=GeoAxes)
             mock_ax.transAxes = Mock()
+            # The extent helper reads the projection and resulting limits back from the axes
+            mock_ax.projection = ccrs.PlateCarree()
+            mock_ax.get_xlim.return_value = (-180.0, 180.0)
+            mock_ax.get_ylim.return_value = (-90.0, 90.0)
             mock_figure.return_value = mock_fig
             mock_fig.add_subplot.return_value = mock_ax
 
@@ -274,7 +279,10 @@ class TestVisualization:
         with patch("matplotlib.pyplot.subplots") as mock_subplots:
             mock_fig = Mock()
             mock_ax = Mock(spec=GeoAxes)
-            mock_ax.projection = Mock()
+            # The extent helper reads the projection and resulting limits back from the axes
+            mock_ax.projection = ccrs.PlateCarree()
+            mock_ax.get_xlim.return_value = (-180.0, 180.0)
+            mock_ax.get_ylim.return_value = (-90.0, 90.0)
             mock_subplots.return_value = (mock_fig, mock_ax)
 
             fig, ax = wind_plotter.create_wind_plot(

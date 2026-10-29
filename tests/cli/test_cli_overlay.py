@@ -57,7 +57,7 @@ class TestOverlayAndCompositeAnalysis:
 
         result = cli.run_analysis(config)
 
-        assert result is True
+        assert result is False  # unknown overlay types are rejected
 
     def test_run_overlay_analysis_precip_wind(
         self: "TestOverlayAndCompositeAnalysis", grid_file: str, test_data_dir: str
@@ -87,7 +87,7 @@ class TestOverlayAndCompositeAnalysis:
             data_dir=data_dir,
             analysis_type="overlay",
             overlay_type="precip_wind",
-            time_index=0,
+            time_index=1,
             output_dir="output/test_overlay_precip_wind",
             verbose=True,
         )
@@ -166,7 +166,7 @@ class TestOverlayTypePaths:
         )
 
         result = cli.run_analysis(config)
-        assert result is True
+        assert result is False  # unknown overlay types are rejected
 
 
 class TestOverlayWithLogger:
@@ -197,7 +197,7 @@ class TestOverlayWithLogger:
             data_dir="data/u240k/diag",
             analysis_type="overlay",
             overlay_type="precip_wind",
-            time_index=0,
+            time_index=1,
             output_dir="output/test_overlay_precip_wind_logger",
             verbose=True,
         )
@@ -269,7 +269,7 @@ class TestOverlayWithLogger:
         )
 
         result = cli.run_analysis(config)
-        assert result is True
+        assert result is False  # unknown overlay types are rejected
 
 
 if __name__ == "__main__":

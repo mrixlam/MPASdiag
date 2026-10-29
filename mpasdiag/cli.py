@@ -13,7 +13,9 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import sys
+
 from mpasdiag.processing.cli_unified import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

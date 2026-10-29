@@ -375,7 +375,7 @@ class TestAnalysisTypeAliases:
             data_dir="data/u240k/diag",
             analysis_type="complex",  # Alias
             overlay_type="precip_wind",
-            time_index=0,
+            time_index=1,
             output_dir="output/test_complex_alias",
             verbose=False,
         )
@@ -437,7 +437,7 @@ class TestAnalysisTypeAliases:
             data_dir="data/u240k/diag",
             analysis_type="composite",  # Alias
             overlay_type="precip_wind",
-            time_index=0,
+            time_index=1,
             output_dir="output/test_composite_alias",
             verbose=False,
         )

@@ -111,6 +111,7 @@ _SOURCES = {
         "ParallelCrossSectionProcessor",
         "ParallelSkewTProcessor",
         "SurfaceBatchStyle",
+        "BatchRenderOptions",
         "WindBatchStyle",
         "CrossSectionBatchStyle",
         "RemapConfig",
@@ -237,6 +238,7 @@ if TYPE_CHECKING:  # help IDEs and static type checkers resolve ``md.<symbol>``
     from mpasdiag.processing.cli_unified import main, MPASUnifiedCLI
     from mpasdiag.processing.parallel_wrappers import (
         auto_batch_processor,
+        BatchRenderOptions,
         CrossSectionBatchStyle,
         ParallelCrossSectionProcessor,
         ParallelPrecipitationProcessor,
