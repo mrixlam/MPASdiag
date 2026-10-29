@@ -27,6 +27,7 @@ from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
 from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag import MPASWindPlotter
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from tests.visualization.wind_test_helpers import require_wind_fixtures
 from tests.test_data_helpers import fake_render_factory
 from mpasdiag import GeographicBounds
@@ -827,7 +828,7 @@ class TestCreateWindPlot:
             ),
         )
 
-        assert cast(GeoAxes, ax).projection.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(cast(GeoAxes, ax).projection) == 180.0
         plt.close(fig)
 
     def test_create_wind_plot_global_projected_centered_on_antimeridian_not_collapsed(
@@ -965,7 +966,7 @@ class TestStreamlineSourceGrid:
         )
         np.testing.assert_array_equal(x, lon)
         np.testing.assert_array_equal(u_out, u)
-        assert crs.proj4_params["lon_0"] == 0.0
+        assert projection_central_longitude(crs) == 0.0
         plt.close("all")
 
     def test_global_grid_on_dateline_centered_map_is_rolled(
@@ -985,7 +986,7 @@ class TestStreamlineSourceGrid:
         x, u_out, _, _, crs = MPASWindPlotter._streamline_source_grid(
             self._axes(180.0), lon, u, u, u
         )
-        assert crs.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(crs) == 180.0
         np.testing.assert_allclose(np.diff(x), 2.0)
         assert x[0] == -180.0 and x[-1] == 180.0
         # source frame x=-180 is geographic 0°, x=10 is geographic 190° == -170°
@@ -1032,7 +1033,7 @@ class TestStreamlineSourceGrid:
             self._axes(180.0), lon, u, u, u
         )
         np.testing.assert_array_equal(x, lon)
-        assert crs.proj4_params["lon_0"] == 0.0
+        assert projection_central_longitude(crs) == 0.0
         plt.close("all")
 
     def test_streamlines_render_on_dateline_crossing_box(
@@ -1061,5 +1062,5 @@ class TestStreamlineSourceGrid:
             grid_resolution=2.0,
         )
         fig.canvas.draw()
-        assert cast(GeoAxes, ax).projection.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(cast(GeoAxes, ax).projection) == 180.0
         plt.close(fig)

@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
 from mpasdiag import MPASVisualizationStyle
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 
 _RNG = np.random.default_rng(42)
 
@@ -614,7 +615,7 @@ class TestSetupMapProjection:
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100.0, -80.0, 30.0, 50.0, projection="PlateCarree"
         )
-        assert proj.proj4_params["lon_0"] == 0.0
+        assert projection_central_longitude(proj) == 0.0
 
     def test_platecarree_explicit_central_longitude(
         self: "TestSetupMapProjection",
@@ -636,7 +637,7 @@ class TestSetupMapProjection:
             projection="PlateCarree",
             central_longitude=180.0,
         )
-        assert proj.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(proj) == 180.0
 
     def test_mercator_default_auto_centers_on_bounds(
         self: "TestSetupMapProjection",
@@ -653,7 +654,7 @@ class TestSetupMapProjection:
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100.0, -80.0, 30.0, 50.0, projection="Mercator"
         )
-        assert proj.proj4_params["lon_0"] == -90.0
+        assert projection_central_longitude(proj) == -90.0
 
     def test_explicit_central_longitude_overrides_auto(
         self: "TestSetupMapProjection",
@@ -670,7 +671,7 @@ class TestSetupMapProjection:
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100.0, -80.0, 30.0, 50.0, projection="Mercator", central_longitude=25.0
         )
-        assert proj.proj4_params["lon_0"] == 25.0
+        assert projection_central_longitude(proj) == 25.0
 
     def test_proj_kwargs_passthrough(
         self: "TestSetupMapProjection",
@@ -717,7 +718,7 @@ class TestSetupMapProjection:
             central_longitude=10.0,
             proj_kwargs={"central_longitude": 55.0},
         )
-        assert proj.proj4_params["lon_0"] == 55.0
+        assert projection_central_longitude(proj) == 55.0
 
     def test_new_global_projections_instantiate(
         self: "TestSetupMapProjection",
@@ -762,7 +763,7 @@ class TestSetupMapProjection:
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100.0, -80.0, 30.0, 50.0, projection="Orthographic"
         )
-        assert proj.proj4_params["lon_0"] == -90.0
+        assert projection_central_longitude(proj) == -90.0
         assert proj.proj4_params["lat_0"] == 40.0
 
     def test_central_latitude_ignored_for_projection_without_it(
@@ -886,7 +887,7 @@ class TestSetupMapProjection:
             proj, _ = MPASVisualizationStyle.setup_map_projection(
                 -180.0, 180.0, -90.0, 90.0, "Robinson", central_longitude=value
             )
-            assert proj.proj4_params["lon_0"] == expected
+            assert projection_central_longitude(proj) == expected
 
     def test_dateline_crossing_box_centers_platecarree(
         self: "TestSetupMapProjection",
@@ -909,9 +910,9 @@ class TestSetupMapProjection:
         global360, _ = MPASVisualizationStyle.setup_map_projection(
             0.0, 360.0, -90.0, 90.0
         )
-        assert crossing.proj4_params["lon_0"] == 180.0
-        assert regional.proj4_params["lon_0"] == 0.0
-        assert global360.proj4_params["lon_0"] == 0.0
+        assert projection_central_longitude(crossing) == 180.0
+        assert projection_central_longitude(regional) == 0.0
+        assert projection_central_longitude(global360) == 0.0
 
     def test_southern_lambert_conformal_uses_mirrored_parallels(
         self: "TestSetupMapProjection",

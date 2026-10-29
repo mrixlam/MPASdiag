@@ -439,8 +439,9 @@ class TestMoistureTransport:
         p = xr.DataArray(
             np.array([[90000.0, 70000.0, 50000.0]]), dims=["nCells", "nVertLevels"]
         )
-        assert float(m.compute_iwv(w, p, is_mixing_ratio=True)) < float(
-            m.compute_iwv(w, p)
+        assert (
+            m.compute_iwv(w, p, is_mixing_ratio=True).item()
+            < m.compute_iwv(w, p).item()
         )
 
 

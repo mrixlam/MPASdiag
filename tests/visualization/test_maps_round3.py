@@ -22,7 +22,10 @@ import matplotlib.pyplot as plt
 from typing import Any, List, Tuple
 
 from mpasdiag.processing.utils_geog import GeographicBounds
-from mpasdiag.visualization.base_visualizer import WindPlotStyle
+from mpasdiag.visualization.base_visualizer import (
+    WindPlotStyle,
+    projection_central_longitude,
+)
 from mpasdiag.visualization.precipitation import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
@@ -543,7 +546,7 @@ def proj_center(ax: Any) -> float:
     Returns:
         float: The absolute central longitude in degrees.
     """
-    return abs(float(ax.projection.proj4_params["lon_0"]))
+    return abs(float(projection_central_longitude(ax.projection)))
 
 
 class TestDatelineWithExplicitCenter:
@@ -568,7 +571,7 @@ class TestDatelineWithExplicitCenter:
                 150.0, 210.0, -40.0, 40.0, projection, central_longitude=0.0
             )
 
-        assert abs(abs(proj.proj4_params["lon_0"]) - 180.0) < 1e-9
+        assert abs(abs(projection_central_longitude(proj)) - 180.0) < 1e-9
         assert any("re-centering" in r.getMessage() for r in caplog.records)
 
     def test_compatible_center_is_kept(self: "TestDatelineWithExplicitCenter") -> None:
@@ -584,11 +587,11 @@ class TestDatelineWithExplicitCenter:
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             -100.0, -60.0, 20.0, 50.0, "Robinson", central_longitude=-80.0
         )
-        assert proj.proj4_params["lon_0"] == -80.0
+        assert projection_central_longitude(proj) == -80.0
         proj, _ = MPASVisualizationStyle.setup_map_projection(
             150.0, 210.0, -40.0, 40.0, "Robinson", central_longitude=180.0
         )
-        assert abs(proj.proj4_params["lon_0"]) == 180.0
+        assert abs(projection_central_longitude(proj)) == 180.0
 
     def test_surface_map_shows_the_extent(
         self: "TestDatelineWithExplicitCenter",

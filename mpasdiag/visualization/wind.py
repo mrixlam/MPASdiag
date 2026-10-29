@@ -37,6 +37,7 @@ from mpasdiag.visualization.base_visualizer import (
     MPASVisualizer,
     WindPlotStyle,
     close_figure_on_error,
+    projection_central_longitude,
 )
 from mpasdiag.visualization.styling import MPASVisualizationStyle
 from mpasdiag.processing.utils_logger import get_logger
@@ -424,7 +425,7 @@ class MPASWindPlotter(MPASVisualizer):
             Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, ccrs.CRS]: Grid longitudes in the source CRS frame, the reordered U, V and speed arrays, and the source CRS to pass as the streamplot transform.
         """
         projection = getattr(ax, "projection", None)
-        center = float(getattr(projection, "proj4_params", {}).get("lon_0", 0.0))
+        center = projection_central_longitude(projection)
         lon_1d = np.asarray(lon_1d, dtype=float)
 
         if abs(center) < 1e-9 and lon_1d.min() >= -180.0 and lon_1d.max() <= 180.0:

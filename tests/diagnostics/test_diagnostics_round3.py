@@ -538,7 +538,7 @@ class TestSpecificHumidityMetadata:
         q = mixing_ratio_to_specific_humidity(w)
         assert q.attrs["long_name"] == "Specific humidity"
         assert q.attrs["standard_name"] == "specific_humidity"
-        assert float(q) == pytest.approx(0.01 / 1.01)
+        assert q.item() == pytest.approx(0.01 / 1.01)
 
 
 class TestTerrainReference:

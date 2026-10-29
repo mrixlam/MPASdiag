@@ -93,6 +93,25 @@ def _array_fingerprint(values: np.ndarray) -> Tuple[int, str, str]:
     return size, str(flat.dtype), digest.hexdigest()
 
 
+def projection_central_longitude(projection: Any) -> float:
+    """
+    This function returns the central longitude of a cartopy projection in degrees. Most projections carry it as the PROJ parameter 'lon_0', but cartopy 0.26 builds PlateCarree as a 'latlong' projection whose centre is the prime meridian 'pm', so both are checked; a projection with neither is centred on 0.
+
+    Parameters:
+        projection (Any): A cartopy CRS, or any object with a 'proj4_params' mapping.
+
+    Returns:
+        float: The central longitude in degrees.
+    """
+    params = getattr(projection, "proj4_params", None) or {}
+    for key in ("lon_0", "pm"):
+        try:
+            return float(params[key])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return 0.0
+
+
 def clear_remap_caches() -> None:
     """
     This function empties the process-wide caches of ESMF cell boundaries and regridders. It is mainly for tests and for long-lived sessions that want to release the regridder's memory after switching meshes.
@@ -443,7 +462,7 @@ class MPASVisualizer:
             bool: True if the band extent was applied, False if the projection's parallels are not horizontal lines.
         """
         proj = ax.projection
-        center = float(proj.proj4_params.get("lon_0", 0.0))
+        center = projection_central_longitude(proj)
         pc = ccrs.PlateCarree()
         probe_lats = np.clip([lat_min, lat_max, (lat_min + lat_max) / 2], -85.0, 85.0)
 

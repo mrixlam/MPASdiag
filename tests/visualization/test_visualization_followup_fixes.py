@@ -323,7 +323,7 @@ class TestOceanFeatureHelper:
 
     def test_projection_check_is_cached(self: "TestOceanFeatureHelper") -> None:
         """
-        This test verifies the ocean projectability verdict is computed once per projection and reflects cartopy's behaviour.
+        This test verifies the ocean projectability verdict is computed once per projection and reused. Whether the Antarctic Lambert azimuthal equal-area projection can project the ocean polygons depends on the cartopy version (cartopy 0.26 can), so the test checks that the cached verdict is reused, not its value.
 
         Parameters:
             None
@@ -334,11 +334,11 @@ class TestOceanFeatureHelper:
         extent = (-180.0, 180.0, -90.0, -46.6)
         assert MPASVisualizer._ocean_projectable(ccrs.PlateCarree(), extent) is True
         laea = ccrs.LambertAzimuthalEqualArea(0, -75)
-        assert MPASVisualizer._ocean_projectable(laea, extent) is False
+        verdict = MPASVisualizer._ocean_projectable(laea, extent)
         with patch.object(
             cfeature.OCEAN, "intersecting_geometries", side_effect=AssertionError
         ):
-            assert MPASVisualizer._ocean_projectable(laea, extent) is False
+            assert MPASVisualizer._ocean_projectable(laea, extent) is verdict
 
     def test_supported_projection_adds_feature(
         self: "TestOceanFeatureHelper",
@@ -365,7 +365,7 @@ class TestOceanFeatureHelper:
         self: "TestOceanFeatureHelper",
     ) -> None:
         """
-        This test verifies an Antarctic-centred Lambert azimuthal equal-area axes gets a blended background colour instead of the crashing feature, and that drawing succeeds.
+        This test verifies that an axes whose projection cannot project the ocean polygons (an Antarctic-centred Lambert azimuthal equal-area map on cartopy versions before 0.26) gets a blended background colour instead of the crashing feature, and that drawing succeeds. The verdict is forced, because newer cartopy versions project these polygons fine.
 
         Parameters:
             None
@@ -377,7 +377,8 @@ class TestOceanFeatureHelper:
         fig = plt.figure()
         ax = plt.axes(projection=ccrs.LambertAzimuthalEqualArea(0, -75))
         ax.set_extent([-180, 180, -90, -60], ccrs.PlateCarree())
-        viz._add_ocean_feature(ax, facecolor="lightblue", alpha=0.5)
+        with patch.object(MPASVisualizer, "_ocean_projectable", return_value=False):
+            viz._add_ocean_feature(ax, facecolor="lightblue", alpha=0.5)
         ax.add_feature(cfeature.LAND, facecolor="lightgray", alpha=0.3)
         assert not any(
             getattr(a, "_feature", None) is cfeature.OCEAN for a in ax.get_children()

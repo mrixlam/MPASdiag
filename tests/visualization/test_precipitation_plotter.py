@@ -39,6 +39,7 @@ from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from mpasdiag import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -169,7 +170,7 @@ class TestUnitConversion:
         )
 
         assert isinstance(fig, Figure)
-        assert ax.projection.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(ax.projection) == 180.0
         plt.close(fig)
 
     def test_global_projected_crs_centered_on_antimeridian_not_collapsed(
@@ -1608,7 +1609,7 @@ class TestDatelineCrossingPrecipitation:
             lon, lat, precip, GeographicBounds(150.0, 210.0, -30.0, 30.0)
         )
         plotted = self._scatter_lons(ax)
-        assert ax.projection.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(ax.projection) == 180.0
         assert plotted.min() >= 150.0 and plotted.max() <= 210.0
         assert (plotted > 180.0).any() and (plotted < 180.0).any()
         plt.close(fig)

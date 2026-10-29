@@ -286,6 +286,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When one of the requested variables is missing (for example a misspelled
   `--u-variable`), the error lists every variable in the files, not only the
   ones that were loaded.
+- With cartopy 0.26, which stores a PlateCarree map's centre as the prime
+  meridian (`pm`) instead of `lon_0`, wind streamlines on dateline-centred
+  maps and latitude-band extents use the real map centre instead of 0.
 - `sounding --max-distance-km` no longer says a point inside the domain lies
   outside it, and MetPy's "Interpolation point out of data bounds" warning no
   longer reaches the console for indices that are simply undefined.

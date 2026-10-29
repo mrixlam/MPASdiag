@@ -27,6 +27,7 @@ from matplotlib.figure import Figure
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 from mpasdiag import MPASSurfacePlotter
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from mpasdiag import GeographicBounds
 from mpasdiag import SurfaceMapStyle
 
@@ -166,7 +167,7 @@ class TestPlotTypes:
         )
 
         assert isinstance(fig, Figure)
-        assert ax.projection.proj4_params["lon_0"] == 150.0
+        assert projection_central_longitude(ax.projection) == 150.0
         plt.close(fig)
 
     def test_proj_kwargs_flows_through_to_axes(
@@ -195,7 +196,7 @@ class TestPlotTypes:
         )
 
         assert isinstance(fig, Figure)
-        assert ax.projection.proj4_params["lon_0"] == -60.0
+        assert projection_central_longitude(ax.projection) == -60.0
         plt.close(fig)
 
     def test_plot_with_custom_levels(self: "TestPlotTypes") -> None:
@@ -823,7 +824,7 @@ class TestDatelineCrossingSurface:
             key=len,
         )
         plotted = np.asarray(offsets)[:, 0]
-        assert ax.projection.proj4_params["lon_0"] == 180.0
+        assert projection_central_longitude(ax.projection) == 180.0
         assert (plotted > 180.0).any() and (plotted < 180.0).any()
         plt.close(fig)
 
