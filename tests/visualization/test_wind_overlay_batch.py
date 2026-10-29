@@ -705,7 +705,8 @@ class TestCreateBatchWindPlots:
 
         # Verify that the expected output files were created in the temporary directory
         for path in created_files:
-            file_png = f"{path}.png"
+            # create_batch_wind_plots now returns full file paths including the extension
+            file_png = path
             assert os.path.exists(file_png), f"Expected output file {file_png}"
 
         # Close any open figures

@@ -908,11 +908,11 @@ class TestInterpolateAllLevels:
 class TestGenerateGreatCirclePath:
     """Covers the zero-distance fill branch."""
 
-    def test_zero_distance_path_filled_with_start_point(
+    def test_zero_distance_path_raises(
         self: "TestGenerateGreatCirclePath",
     ) -> None:
         """
-        This test verifies that the _generate_great_circle_path method correctly fills the path with the start point when the start and end points are the same, resulting in a zero-distance path. It creates a plotter instance and defines a start/end point with specific longitude and latitude values. The test then calls the _generate_great_circle_path method with these identical points and asserts that the resulting longitude, latitude, and distance arrays are all filled with the start point's coordinates and zero distance, respectively.
+        This test verifies that the _generate_great_circle_path method raises a clear ValueError when the start and end points are the same, since a zero-length transect cannot be drawn as a cross-section.
 
         Parameters:
             None
@@ -922,13 +922,9 @@ class TestGenerateGreatCirclePath:
         """
         plotter = _plotter()
         same = (-100.0, 40.0)
-        lons, lats, dists = plotter._generate_great_circle_path(
-            same, same, num_points=5
-        )
-        assert len(lons) == 5
-        assert np.all(lons == pytest.approx(same[0]))
-        assert np.all(lats == pytest.approx(same[1]))
-        assert np.all(dists == pytest.approx(0.0))
+
+        with pytest.raises(ValueError, match="same location"):
+            plotter._generate_great_circle_path(same, same, num_points=5)
 
 
 class TestInterpolateAlongPath:

@@ -17,6 +17,7 @@ Version: 1.0.0
 # Import standard libraries
 import os
 import warnings
+import re
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -29,17 +30,22 @@ import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
 from cartopy.mpl.geoaxes import GeoAxes
 from matplotlib.colors import BoundaryNorm
-from typing import Tuple, Optional, List, Any, Union, Dict, cast
+from matplotlib.lines import Line2D
+from typing import Tuple, Optional, List, Any, Union, Dict, Sequence, cast
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 
 # Import relevant MPASdiag modules for visualization and processing
-from .base_visualizer import MPASVisualizer
+from .base_visualizer import MPASVisualizer, close_figure_on_error
 from .styling import MPASVisualizationStyle
 from dataclasses import dataclass
 from ..processing.utils_unit import UnitConverter
-from ..processing.utils_geog import GeographicBounds
+from ..processing.utils_datetime import MPASDateTimeUtils
+from ..processing.utils_geog import GeographicBounds, MPASGeographicUtils
 from ..processing.utils_logger import get_logger
-from ..diagnostics.precipitation import PrecipitationDiagnostics
+from ..diagnostics.precipitation import (
+    InsufficientLookbackError,
+    PrecipitationDiagnostics,
+)
 
 # Import remapping utilities and check for ESMPy availability
 from ..processing.remapping import (
@@ -59,11 +65,13 @@ class PrecipitationMapStyle:
     custom_title_template: Optional[str] = None
     colormap: Optional[str] = None
     levels: Optional[List[float]] = None
+    display_units: str = "mm"
+    threshold: Optional[float] = None
 
 
 @dataclass
 class PrecipitationRenderStyle:
-    """Optional rendering and appearance settings for a single precipitation map, grouping the title, plot type, colormap, contour levels, color limits, projection, projection centering/keyword controls, and grid resolution into a single value object."""
+    """Optional rendering and appearance settings for a single precipitation map, grouping the title, plot type, colormap, contour levels, color limits, projection, projection centering/keyword controls, grid resolution, display units ('mm', 'in' or 'cm'; the data, colorbar label, levels and color limits are all expressed in these units) and an optional threshold (in display units) above which cells are visibly outlined into a single value object."""
 
     title: str = "MPAS Precipitation"
     plot_type: str = "scatter"
@@ -76,6 +84,8 @@ class PrecipitationRenderStyle:
     central_latitude: Optional[float] = None
     proj_kwargs: Optional[Dict[str, Any]] = None
     grid_resolution: Optional[float] = None
+    display_units: str = "mm"
+    threshold: Optional[float] = None
 
 
 @dataclass
@@ -102,18 +112,20 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         self: "MPASPrecipitationPlotter",
         figsize: Tuple[float, float] = (10, 14),
         dpi: int = 100,
+        verbose: bool = True,
     ) -> None:
         """
-        This initializer sets up the MPASPrecipitationPlotter with default figure size and resolution. It calls the parent class initializer to ensure any necessary setup from MPASVisualizer is performed. The figsize parameter controls the dimensions of the output figure in inches, while dpi sets the resolution for rendering and saving the figure. These defaults can be overridden when instantiating the plotter to suit specific presentation or publication requirements. The initializer does not perform any plotting itself but prepares the instance for subsequent plotting operations.
+        This initializer sets up the MPASPrecipitationPlotter with default figure size and resolution. It calls the parent class initializer to ensure any necessary setup from MPASVisualizer is performed. The figsize parameter controls the dimensions of the output figure in inches, while dpi sets the resolution for rendering and saving the figure, and verbose is forwarded to the base class so every plotter constructor accepts the same keyword. These defaults can be overridden when instantiating the plotter to suit specific presentation or publication requirements. The initializer does not perform any plotting itself but prepares the instance for subsequent plotting operations.
 
         Parameters:
             figsize (Tuple[float, float]): Default figure size in inches (width, height).
             dpi (int): Default resolution in dots per inch for rendering and saving figures.
+            verbose (bool): Enable verbose informational output, forwarded to MPASVisualizer (default: True).
 
         Returns:
             None
         """
-        super().__init__(figsize, dpi)
+        super().__init__(figsize, dpi, verbose)
 
     def create_precip_colormap(
         self: "MPASPrecipitationPlotter", accum: str = "a24h"
@@ -130,72 +142,155 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Delegate to MPASVisualizationStyle to create a discrete colormap and contour levels based on the specified accumulation period
         return MPASVisualizationStyle.create_precip_colormap(accum)
 
+    _MM_PER_UNIT: Dict[str, float] = {"mm": 1.0, "cm": 10.0, "in": 25.4}
+
+    @classmethod
+    def _normalize_display_units(cls, display_units: Optional[str]) -> str:
+        """
+        This helper validates and normalizes the requested precipitation display units. The accepted values are 'mm', 'cm' and 'in' (the aliases 'inch', 'inches' and 'millimeters' style spellings are folded onto them, case-insensitively), and anything else raises a ValueError listing the valid choices instead of silently plotting in millimetres.
+
+        Parameters:
+            display_units (Optional[str]): Requested display units, or None for the millimetre default.
+
+        Returns:
+            str: One of 'mm', 'cm' or 'in'.
+        """
+        if display_units is None:
+            return "mm"
+
+        key = str(display_units).strip().lower()
+        aliases = {
+            "inch": "in",
+            "inches": "in",
+            '"': "in",
+            "millimeter": "mm",
+            "millimeters": "mm",
+            "millimetre": "mm",
+            "millimetres": "mm",
+            "centimeter": "cm",
+            "centimeters": "cm",
+            "centimetre": "cm",
+            "centimetres": "cm",
+        }
+        key = aliases.get(key, key)
+
+        if key not in cls._MM_PER_UNIT:
+            raise ValueError(
+                f"display_units must be one of 'mm', 'in' or 'cm', got '{display_units}'"
+            )
+
+        return key
+
+    @staticmethod
+    def _mask_negative_precipitation(precip_data: np.ndarray) -> np.ndarray:
+        """
+        This helper handles physically invalid negative precipitation values by masking them to NaN (so they are simply not drawn) rather than clipping them to zero, which would paint them as dry cells; a warning with the count and minimum value is logged when any are found.
+
+        Parameters:
+            precip_data (np.ndarray): Precipitation values that may contain negatives.
+
+        Returns:
+            np.ndarray: Float array with negative values replaced by NaN (the input is returned unchanged when none are negative).
+        """
+        data = np.asarray(precip_data)
+
+        with np.errstate(invalid="ignore"):
+            negative = data < 0
+
+        n_negative = int(np.sum(negative))
+
+        if n_negative == 0:
+            return data
+
+        logger.warning(
+            "Found %s negative precipitation values (min: %.4f). Masking them as missing (physically invalid).",
+            f"{n_negative:,}",
+            float(np.nanmin(data)),
+        )
+
+        masked = data.astype(float, copy=True)
+        masked[negative] = np.nan
+        return masked
+
     def _convert_precipitation_units(
         self: "MPASPrecipitationPlotter",
         precip_data: Union[np.ndarray, xr.DataArray],
         data_array: Optional[xr.DataArray],
         var_name: str,
+        display_units: str = "mm",
     ) -> Tuple[np.ndarray, str]:
         """
-        This method handles unit conversion for precipitation data if an xarray DataArray with appropriate metadata is provided. It uses the UnitConverter to convert the input precipitation data to display units (e.g., mm) based on the variable name and metadata attributes. If conversion fails due to missing attributes or incompatible units, it logs a warning and returns the original data with a default unit label of 'mm'. The method also checks for negative precipitation values, which are physically invalid, and clips them to 0 while logging a warning with the count and minimum value. The returned precipitation data is guaranteed to be in display units suitable for plotting, and the unit label can be used for colorbar annotation.
+        This method handles unit conversion for precipitation data. When an xarray DataArray with metadata is provided it uses the UnitConverter to convert the input to millimetres based on the variable name and attributes; if conversion fails due to missing attributes it logs nothing fatal and keeps the original data with the metadata units. The millimetre values are then converted to the requested display units ('mm', 'cm' or 'in'), so the returned data, and therefore the colorbar label, levels and color limits, are all in those units. Negative precipitation values are physically invalid and are masked to NaN with a warning (with and without metadata), so they are not drawn as dry cells. The returned unit label can be used directly for colorbar annotation.
 
         Parameters:
             precip_data (np.ndarray): Input precipitation data array, which may be in model units or already in display units.
-            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing metadata attributes for unit conversion. If None, no conversion is attempted and original data is returned.
+            data_array (Optional[xr.DataArray]): Optional xarray DataArray containing metadata attributes for unit conversion. If None, the data are assumed to already be in millimetres.
             var_name (str): Variable name used for metadata lookup and unit conversion logic.
+            display_units (str): Requested display units, one of 'mm', 'cm' or 'in' (default: 'mm').
 
         Returns:
-            Tuple[np.ndarray, str]: A tuple containing the converted precipitation data array (or original if conversion fails) and a string representing the unit label for colorbar annotation (defaulting to 'mm' if conversion is not possible).
+            Tuple[np.ndarray, str]: The converted precipitation data and the unit label (the display units) for colorbar annotation.
         """
-        # If data_array is not provided, return original data and default unit label 'mm' for precipitation
-        if data_array is None:
-            return precip_data, "mm"
+        target = self._normalize_display_units(display_units)
+        unit_label = "mm"
 
-        try:
-            # Prepare data for conversion, ensuring it is an xarray DataArray with appropriate attributes for UnitConverter
-            if isinstance(precip_data, np.ndarray):
-                data_for_conversion = xr.DataArray(precip_data, attrs=data_array.attrs)
+        if data_array is not None:
+            try:
+                # Prepare data for conversion, ensuring it is an xarray DataArray with appropriate attributes for UnitConverter
+                if isinstance(precip_data, np.ndarray):
+                    data_for_conversion = xr.DataArray(
+                        precip_data, attrs=data_array.attrs
+                    )
+                else:
+                    data_for_conversion = precip_data
+
+                converted_data, metadata = UnitConverter.convert_data_for_display(
+                    data_for_conversion, var_name, data_array
+                )
+            except AttributeError:
+                # If conversion fails due to missing attributes, keep the original data and the metadata units
+                converted_data = precip_data
+                metadata = {
+                    "units": getattr(data_array, "units", "mm"),
+                    "long_name": getattr(data_array, "long_name", "Precipitation"),
+                }
+
+            # Extract converted data values as numpy array for plotting
+            if isinstance(converted_data, xr.DataArray):
+                precip_data = converted_data.values
+            elif isinstance(converted_data, np.ndarray):
+                precip_data = converted_data
             else:
-                data_for_conversion = precip_data
+                precip_data = np.asarray(converted_data)
 
-            # Use UnitConverter to convert precipitation data to display units (mm) and extract metadata for colorbar labeling
-            converted_data, metadata = UnitConverter.convert_data_for_display(
-                data_for_conversion, var_name, data_array
-            )
-        except AttributeError:
-            # If conversion fails due to missing attributes, return original data and default unit label
-            converted_data = precip_data
-
-            # Extract units and long_name from data_array attributes for colorbar labeling, defaulting to 'mm' and 'Precipitation' if not available
-            metadata = {
-                "units": getattr(data_array, "units", "mm"),
-                "long_name": getattr(data_array, "long_name", "Precipitation"),
-            }
-
-        # Extract converted data values as numpy array for plotting, ensuring compatibility with matplotlib functions
-        if isinstance(converted_data, xr.DataArray):
-            precip_data = converted_data.values
-        elif isinstance(converted_data, np.ndarray):
-            precip_data = converted_data
+            unit_label = metadata.get("units", "mm")
         else:
-            precip_data = np.asarray(converted_data)
-
-        # Check for negative precipitation values which are physically invalid and likely indicate data issues
-        n_negative = int(np.sum(precip_data < 0))
-
-        # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to ensure physical validity for precipitation fields
-        if n_negative > 0:
-            logger.warning(
-                "Found %s negative precipitation values (min: %.4f). Clipping to 0 (physically invalid).",
-                f"{n_negative:,}",
-                float(np.nanmin(precip_data)),
+            precip_data = np.asarray(
+                precip_data.values
+                if isinstance(precip_data, xr.DataArray)
+                else precip_data
             )
-            precip_data = np.clip(precip_data, 0, None)
 
-        # Extract unit label for colorbar annotation, defaulting to 'mm' if not available
-        unit_label = metadata.get("units", "mm")
+        # Convert millimetres to the requested display units
+        if target != "mm":
+            if str(unit_label).strip().lower() in ("mm", "millimeter", "millimeters"):
+                precip_data = (
+                    np.asarray(precip_data, dtype=float) / self._MM_PER_UNIT[target]
+                )
+                unit_label = target
+            else:
+                logger.warning(
+                    "Cannot convert precipitation from '%s' to '%s'; keeping '%s'",
+                    unit_label,
+                    target,
+                    unit_label,
+                )
+        else:
+            unit_label = unit_label if data_array is not None else "mm"
 
-        # Return the converted precipitation data and the unit label for colorbar annotation
+        # Mask physically invalid negative values instead of painting them as dry cells
+        precip_data = self._mask_negative_precipitation(precip_data)
+
         return precip_data, unit_label
 
     def _setup_precipitation_figure(
@@ -261,7 +356,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         self.ax.add_feature(
             cfeature.BORDERS, linewidth=0.6, edgecolor="gray", alpha=0.7
         )
-        self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue", alpha=0.3)
+        self._add_ocean_feature(self.ax, facecolor="lightblue", alpha=0.3)
         self.ax.add_feature(cfeature.LAND, facecolor="lightgray", alpha=0.2)
 
         # Add regional features if within the specified extent
@@ -270,6 +365,136 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the map projection and data CRS
         return map_proj, data_crs
 
+    _DEFAULT_LEVELS_BY_UNIT: Dict[str, Tuple[List[float], List[float]]] = {
+        "mm": (
+            [0.1, 0.5, 2.5, 5, 10, 15, 20, 25, 50, 75],
+            [0.1, 1, 5, 10, 20, 30, 40, 50, 100, 150],
+        ),
+        "in": (
+            [0.01, 0.02, 0.1, 0.2, 0.4, 0.6, 0.8, 1, 2, 3],
+            [0.01, 0.05, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6],
+        ),
+        "cm": (
+            [0.01, 0.05, 0.25, 0.5, 1, 1.5, 2, 2.5, 5, 7.5],
+            [0.01, 0.1, 0.5, 1, 2, 3, 4, 5, 10, 15],
+        ),
+    }
+
+    @classmethod
+    def _default_levels_for_units(
+        cls, accum_period: str, display_units: str
+    ) -> List[float]:
+        """
+        This helper returns the default contour levels for an accumulation period expressed in the requested display units. Millimetre levels are the standard scheme from the styling module (short periods below 12 h use the finer set); inch and centimetre levels are hand-picked round numbers with the same number of intervals so the eleven-colour scheme maps onto them one to one, rather than ugly converted values such as 0.0039 in.
+
+        Parameters:
+            accum_period (str): Accumulation period identifier such as 'a01h' or 'a24h'.
+            display_units (str): One of 'mm', 'cm' or 'in'.
+
+        Returns:
+            List[float]: Ten ascending contour levels in the display units.
+        """
+        match = re.search(r"(\d+)", str(accum_period).lower())
+        hours = int(match.group(1)) if match else None
+        short, long = cls._DEFAULT_LEVELS_BY_UNIT[display_units]
+        return list(long if hours is None or hours >= 12 else short)
+
+    @staticmethod
+    def _precip_bounds(levels: List[float], include_zero_floor: bool) -> List[float]:
+        """
+        This helper builds the strictly increasing BoundaryNorm bounds for a set of sorted, unique, finite contour levels: exactly the levels, so the colorbar spans the first to the last level and nothing beyond (values above the last level take the norm's over colour). When include_zero_floor is True and every level is positive, a lower bound of zero is prepended so values below the first level (dry cells) get the first colour of the scheme; a level at or below zero is never duplicated or followed by a hard-coded zero, so a color limit of 0 or a negative value yields valid, monotonic bounds.
+
+        Parameters:
+            levels (List[float]): Sorted unique finite levels (non-empty).
+            include_zero_floor (bool): Whether to prepend a zero floor when the lowest level is positive.
+
+        Returns:
+            List[float]: Strictly increasing bounds.
+        """
+        bounds = list(levels)
+
+        if include_zero_floor and bounds[0] > 0:
+            bounds.insert(0, 0.0)
+
+        return bounds
+
+    @staticmethod
+    def _precip_norm(bounds: List[float], cmap: mcolors.Colormap) -> BoundaryNorm:
+        """
+        This helper builds the discrete precipitation normalization for the given bounds. The norm has one colour region per interval plus an open-ended over region for values above the last bound (extend='max'), so the colours match the classic scheme where the top colour covers everything above the highest level, while the colorbar itself spans exactly the bounds. Values below the first bound take the colormap's under colour, which is its first colour. A single bound (one level) is widened by one unit so the norm stays valid.
+
+        Parameters:
+            bounds (List[float]): Strictly increasing bounds.
+            cmap (mcolors.Colormap): Colormap whose colours are distributed over the regions.
+
+        Returns:
+            BoundaryNorm: The discrete normalization (extend='max').
+        """
+        if len(bounds) < 2:
+            bounds = [bounds[0], bounds[0] + 1.0]
+
+        return BoundaryNorm(bounds, ncolors=cmap.N, extend="max")
+
+    def _select_precip_scheme(
+        self: "MPASPrecipitationPlotter",
+        colormap: Optional[str],
+        levels: Optional[List[float]],
+        accum_period: str,
+        display_units: str,
+    ) -> Tuple[mcolors.Colormap, List[float]]:
+        """
+        This helper chooses the colormap and the raw contour levels before color limits are applied: explicit levels always win, a named colormap replaces the default colours, and when no levels are given the default scheme for the accumulation period is used, taken from the unit-specific table when the display units are not millimetres.
+
+        Parameters:
+            colormap (Optional[str]): Optional matplotlib colormap name.
+            levels (Optional[List[float]]): Optional explicit levels in display units.
+            accum_period (str): Accumulation period identifier selecting the default scheme.
+            display_units (str): Display units ('mm', 'cm' or 'in') selecting the default level table.
+
+        Returns:
+            Tuple[mcolors.Colormap, List[float]]: The colormap and the raw (unsorted) levels.
+        """
+        default_cmap, default_levels = self.create_precip_colormap(accum_period)
+        cmap = plt.get_cmap(colormap) if colormap else default_cmap
+
+        if levels:
+            return cmap, list(levels)
+
+        if display_units != "mm":
+            return cmap, self._default_levels_for_units(accum_period, display_units)
+
+        return cmap, list(default_levels)
+
+    @staticmethod
+    def _apply_color_limits(
+        color_levels: List[float], clim_min: Optional[float], clim_max: Optional[float]
+    ) -> List[float]:
+        """
+        This helper restricts contour levels to the color limits (either limit may be given alone) and inserts each given limit as a level so the colorbar starts and ends exactly at the limits.
+
+        Parameters:
+            color_levels (List[float]): Raw contour levels.
+            clim_min (Optional[float]): Optional lower limit.
+            clim_max (Optional[float]): Optional upper limit.
+
+        Returns:
+            List[float]: Levels inside the limits including the limits themselves.
+        """
+        kept = [
+            level
+            for level in color_levels
+            if (clim_min is None or level >= clim_min)
+            and (clim_max is None or level <= clim_max)
+        ]
+
+        if clim_min is not None and clim_min not in kept:
+            kept.insert(0, clim_min)
+
+        if clim_max is not None and clim_max not in kept:
+            kept.append(clim_max)
+
+        return kept
+
     def _prepare_precipitation_colormap(
         self: "MPASPrecipitationPlotter",
         colormap: Optional[str],
@@ -277,60 +502,115 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         accum_period: str,
         clim_min: Optional[float],
         clim_max: Optional[float],
+        display_units: str = "mm",
     ) -> Tuple[mcolors.Colormap, BoundaryNorm, List[float]]:
         """
-        This method prepares the colormap, normalization, and contour levels for precipitation plotting based on user input and accumulation period. It allows for custom colormap and levels to be specified, or defaults to predefined schemes based on the accumulation period. The method also applies color limits if provided, ensuring that the levels used for coloring and colorbar ticks are consistent with the specified limits. It returns the selected colormap, a BoundaryNorm for discrete coloring, and a sorted list of contour levels that can be used for consistent visualization of precipitation fields.
+        This method prepares the colormap, normalization, and contour levels for precipitation plotting based on user input and accumulation period. It allows for custom colormap and levels to be specified, or defaults to predefined schemes based on the accumulation period and display units. It applies color limits if provided (one-sided limits are supported), ensuring that the levels used for coloring and colorbar ticks are consistent with the limits and that each remaining interval keeps the colour the default scheme assigns to it rather than the colours being stretched across fewer levels. The normalization bounds are built from the sorted unique levels without a hard-coded leading zero, so a color limit of 0 (or a negative one) produces valid, strictly increasing bounds; a minimum limit greater than or equal to the maximum raises a ValueError. It returns the selected colormap, a BoundaryNorm for discrete coloring, and a sorted list of contour levels.
 
         Parameters:
             colormap (Optional[str]): Optional matplotlib colormap name to use for precipitation plotting. If None, a default colormap based on the accumulation period will be used.
-            levels (Optional[List[float]]): Optional list of contour levels to use for coloring and colorbar ticks. If None, default levels based on the accumulation period will be used.
+            levels (Optional[List[float]]): Optional list of contour levels (in display units) to use for coloring and colorbar ticks. If None, default levels based on the accumulation period and display units will be used.
             accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h') used to select default colormap and levels if custom ones are not provided.
-            clim_min (Optional[float]): Optional minimum color limit to clip contour levels for coloring and colorbar ticks.
-            clim_max (Optional[float]): Optional maximum color limit to clip contour levels for coloring and colorbar ticks.
+            clim_min (Optional[float]): Optional minimum color limit (display units) to clip contour levels for coloring and colorbar ticks; may be given without clim_max.
+            clim_max (Optional[float]): Optional maximum color limit (display units) to clip contour levels for coloring and colorbar ticks; may be given without clim_min.
+            display_units (str): Display units of the data, one of 'mm', 'cm' or 'in', selecting the default levels (default: 'mm').
 
         Returns:
             Tuple[mcolors.Colormap, BoundaryNorm, List[float]]: A tuple containing the selected colormap, a BoundaryNorm for discrete coloring based on the levels and color limits, and a sorted list of contour levels that are consistent with the specified limits and accumulation period.
         """
-        # Select colormap and levels based on user input and accumulation period
-        if colormap and levels:
-            # Use custom colormap and levels directly, ensuring levels are sorted and finite for proper normalization and colorbar ticks
-            cmap = plt.get_cmap(colormap)
-            color_levels = levels
-        elif colormap:
-            # Use custom colormap with default levels based on accumulation period for proper colorbar ticks and normalization
-            cmap = plt.get_cmap(colormap)
-            _, color_levels = self.create_precip_colormap(accum_period)
-        else:
-            # Use default precipitation colormap and levels based on accumulation period
-            cmap, color_levels = self.create_precip_colormap(accum_period)
+        if clim_min is not None and clim_max is not None and clim_min >= clim_max:
+            raise ValueError(
+                f"clim_min ({clim_min}) must be smaller than clim_max ({clim_max})"
+            )
 
-        # Apply color limits if specified
-        if clim_min is not None and clim_max is not None:
-            # Filter color levels to those within the specified color limits for proper normalization and colorbar ticks
-            color_levels = [
-                level for level in color_levels if clim_min <= level <= clim_max
-            ]
+        cmap, color_levels = self._select_precip_scheme(
+            colormap, levels, accum_period, display_units
+        )
 
-            # Ensure clim_min is included as a level for proper colorbar ticks and normalization
-            if clim_min not in color_levels:
-                color_levels.insert(0, clim_min)
+        # Remember the unclipped scheme so colours keep their level mapping when limits are applied
+        original_levels = sorted({v for v in color_levels if np.isfinite(v)})
+        original_cmap = cmap
+        has_limits = clim_min is not None or clim_max is not None
 
-            # Ensure clim_max is included as a level for proper colorbar ticks and normalization
-            if clim_max not in color_levels:
-                color_levels.append(clim_max)
+        # Apply color limits if specified (either one alone is honoured)
+        if has_limits:
+            color_levels = self._apply_color_limits(color_levels, clim_min, clim_max)
 
         # Sort and deduplicate color levels, ensuring they are finite values for proper normalization
         color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
-        # Add bounds for normalization: extend beyond the last level to ensure proper coloring of values above the highest level
-        last_bound = max(color_levels_sorted) + 1
-        bounds = [0] + color_levels_sorted + [last_bound]
+        if not color_levels_sorted:
+            raise ValueError(
+                "No finite contour levels available for precipitation plot"
+            )
 
-        # Specify colors for each level, ensuring the number of colors matches the number of intervals defined by bounds
-        norm = BoundaryNorm(bounds, ncolors=cmap.N, clip=True)
+        # A one-sided limit beyond the whole level scheme leaves a single level, which cannot form a colour scale
+        if has_limits and len(color_levels_sorted) < 2:
+            raise ValueError(
+                f"The color limits (clim_min={clim_min}, clim_max={clim_max}) leave fewer than two "
+                f"contour levels ({color_levels_sorted}); choose limits inside the level range"
+            )
+
+        # A lower color limit is the lowest bound itself; otherwise a zero floor catches dry cells
+        floor = clim_min is None
+        bounds = self._precip_bounds(color_levels_sorted, floor)
+        norm = self._precip_norm(bounds, cmap)
+
+        # When limits changed the intervals, give each new interval the colour the unclipped scheme assigns to that value instead of stretching the colours over fewer levels
+        if has_limits and original_levels:
+            original_bounds = self._precip_bounds(original_levels, True)
+            original_norm = self._precip_norm(original_bounds, original_cmap)
+            interval_colors = []
+            edges = list(bounds) + [float(np.nextafter(bounds[-1], np.inf))]
+            for lower, upper in zip(edges[:-2], edges[1:-1]):
+                midpoint = 0.5 * (lower + upper)
+                interval_colors.append(original_cmap(int(original_norm(midpoint))))
+            # The open-ended top region keeps the colour of the values just above the upper limit
+            interval_colors.append(
+                original_cmap(int(original_norm(float(edges[-1]) + 1e-9)))
+            )
+            cmap = mcolors.ListedColormap(interval_colors)
+            norm = self._precip_norm(bounds, cmap)
 
         # Return the colormap, normalization, and sorted contour levels
         return cmap, norm, color_levels_sorted
+
+    @staticmethod
+    def _validate_precipitation_inputs(
+        lon: Any, lat: Any, precip_data: Any, var_name: str
+    ) -> None:
+        """
+        This helper rejects precipitation inputs that cannot produce a meaningful map, mirroring the checks of the surface plotter. Longitude, latitude, and data must have the same number of points, must not be empty, and the data must contain at least one finite value. Zero precipitation is valid data, and points falling outside the map extent are handled later (an empty region still yields a map), so only structurally broken or entirely missing input is rejected here. Previously such input was silently truncated to the shortest array or drawn as a blank map.
+
+        Parameters:
+            lon (Any): Longitude values (array-like).
+            lat (Any): Latitude values (array-like).
+            precip_data (Any): Precipitation values (array-like or DataArray).
+            var_name (str): Variable name used in error messages.
+
+        Returns:
+            None: Raises ValueError when the inputs are unusable.
+        """
+        values = np.asarray(
+            getattr(precip_data, "values", precip_data), dtype=float
+        ).ravel()
+        n_lon = np.asarray(lon).size
+        n_lat = np.asarray(lat).size
+
+        if values.size == 0 or n_lon == 0 or n_lat == 0:
+            raise ValueError(
+                f"No precipitation data to plot for {var_name}: empty input arrays"
+            )
+
+        if not (n_lon == n_lat == values.size):
+            raise ValueError(
+                f"Mismatched input sizes for {var_name}: lon={n_lon}, lat={n_lat}, data={values.size}"
+            )
+
+        if not np.isfinite(values).any():
+            raise ValueError(
+                f"No valid data points found: all {var_name} values are missing (NaN/inf)"
+            )
 
     def _prepare_precipitation_data(
         self: "MPASPrecipitationPlotter",
@@ -374,6 +654,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Create validation mask based on plot type
         if plot_type == "scatter":
+            # Re-express longitudes in the extent's frame so dateline-crossing boxes (e.g. 150..210) keep the cells east of 180°
+            lon_flat = MPASGeographicUtils.wrap_longitude_to_extent(
+                lon_flat, lon_min, lon_max
+            )
             # For scatter, we need to ensure points are within geographic extent and have valid precipitation values
             valid_mask = (
                 np.isfinite(precip_data_flat)
@@ -394,6 +678,73 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Return only valid points for plotting
         return lon_flat[valid_mask], lat_flat[valid_mask], precip_data_flat[valid_mask]
+
+    @staticmethod
+    def _accum_period_hours(accum_period: str) -> int:
+        """
+        This helper converts an accumulation period identifier into its length in hours. Identifiers have the form 'aNNh' (for example 'a01h', 'a03h', 'a06h', 'a12h', 'a24h', 'a48h'), so any whole number of hours from 1 to 240 is accepted rather than only a fixed table. An identifier that does not match this form raises a ValueError listing the standard valid periods, instead of silently falling back to 24 hours and producing mislabelled accumulations.
+
+        Parameters:
+            accum_period (str): Accumulation period identifier such as 'a01h' or 'a24h'.
+
+        Returns:
+            int: Number of hours in the accumulation period.
+        """
+        match = re.fullmatch(r"a(\d{1,3})h", str(accum_period).strip().lower())
+
+        if match is None or not 1 <= int(match.group(1)) <= 240:
+            raise ValueError(
+                f"Unknown accumulation period '{accum_period}'. Use the form 'aNNh' "
+                "with 1 to 240 hours, e.g. 'a01h', 'a03h', 'a06h', 'a12h', 'a24h'"
+            )
+
+        return int(match.group(1))
+
+    @staticmethod
+    def _reconcile_accum_period(
+        accum_period: str, data_array: Optional[xr.DataArray]
+    ) -> str:
+        """
+        This helper reconciles the requested accumulation period with the one recorded in the data's metadata (the 'accumulation_period' or 'accumulation_hours' attribute written by the diagnostics). When the two differ, the colour scheme and levels would be chosen for one period while the annotation and the values describe another, so a warning is logged and the metadata period, which is what was actually plotted, is used for both the levels and the annotation. Missing or unparsable metadata leaves the requested period unchanged.
+
+        Parameters:
+            accum_period (str): Requested accumulation period identifier such as 'a01h' or 'a24h'.
+            data_array (Optional[xr.DataArray]): DataArray whose attrs may carry the accumulation metadata.
+
+        Returns:
+            str: The accumulation period identifier to use for levels and annotation.
+        """
+        if data_array is None:
+            return accum_period
+
+        attrs = getattr(data_array, "attrs", {})
+        hours: Optional[int] = None
+
+        try:
+            if attrs.get("accumulation_period") is not None:
+                hours = MPASPrecipitationPlotter._accum_period_hours(
+                    str(attrs["accumulation_period"])
+                )
+            elif attrs.get("accumulation_hours") is not None:
+                hours = int(attrs["accumulation_hours"])
+        except (ValueError, TypeError):
+            return accum_period
+
+        if hours is None or not 1 <= hours <= 240:
+            return accum_period
+
+        if hours != MPASPrecipitationPlotter._accum_period_hours(accum_period):
+            reconciled = f"a{hours:02d}h"
+            logger.warning(
+                "accum_period '%s' does not match the %d-hour accumulation recorded in the data; "
+                "using '%s' for the levels and the annotation",
+                accum_period,
+                hours,
+                reconciled,
+            )
+            return reconciled
+
+        return accum_period
 
     def _add_time_annotation(
         self: "MPASPrecipitationPlotter",
@@ -419,14 +770,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         if time_end is not None:
             # Derive time_start from time_end and accum_period if not provided
             if time_start is None:
-                accum_hours_map = {
-                    "a01h": 1,
-                    "a03h": 3,
-                    "a06h": 6,
-                    "a12h": 12,
-                    "a24h": 24,
-                }
-                n_hours = accum_hours_map.get(accum_period, 24)
+                n_hours = self._accum_period_hours(accum_period)
                 time_start = time_end - pd.Timedelta(hours=n_hours)
 
             # Format annotation text with UTC times and accumulation period
@@ -436,14 +780,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             annotation_text = f"Accumulation: {start_utc} to {end_utc} ({n_hours} h)"
         elif accum_period:
             # Use accumulation period string if time_end is not provided but accum_period is specified
-            accum_label_map = {
-                "a01h": "1-h",
-                "a03h": "3-h",
-                "a06h": "6-h",
-                "a12h": "12-h",
-                "a24h": "24-h",
-            }
-            accum_display = accum_label_map.get(accum_period, accum_period)
+            try:
+                accum_display = f"{self._accum_period_hours(accum_period)}-h"
+            except ValueError:
+                accum_display = accum_period
             annotation_text = f"Accumulation: {accum_display}"
         else:
             return
@@ -550,6 +890,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the resolved accumulation window endpoints
         return time_end, time_start
 
+    @close_figure_on_error
     def create_precipitation_map(
         self: "MPASPrecipitationPlotter",
         lon: np.ndarray,
@@ -573,8 +914,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             lat (np.ndarray): 1D array of latitude coordinates in degrees for MPAS cell centers.
             precip_data (np.ndarray): Precipitation values corresponding to the lon/lat points (in model or display units).
             bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
-            accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h') used for colormap selection and annotation.
-            style (Optional[PrecipitationRenderStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution). If None, defaults are used.
+            accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h') used for colormap selection and annotation; when data_array records a different accumulation period a warning is logged and the data's period is used for both.
+            style (Optional[PrecipitationRenderStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution, display_units, threshold). Levels, color limits and the threshold are expressed in display_units ('mm', 'in' or 'cm'); cells at or above the threshold are outlined with bold black rings and counted in a legend entry. If None, defaults are used.
             time_end (Optional[datetime]): Optional end datetime for the accumulation period. If provided, it will be used to derive the start time based on the accumulation period if the start time is not explicitly provided.
             time_start (Optional[datetime]): Optional start datetime for the accumulation period. If not provided but time_end is given, it will be derived from time_end and accum_period.
             data_array (Optional[xr.DataArray]): Optional xarray DataArray containing metadata attributes for unit conversion. If None, no conversion is attempted and original data is used.
@@ -599,6 +940,20 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         clim_max = style.clim_max
         projection = style.projection
         grid_resolution = style.grid_resolution
+        display_units = self._normalize_display_units(style.display_units)
+        threshold = style.threshold
+
+        if threshold is not None and not np.isfinite(threshold):
+            raise ValueError(f"threshold must be a finite number, got {threshold}")
+
+        # Close the figure left over from an earlier call on this plotter so reusing the plotter does not leak figures
+        self._release_previous_figure()
+
+        # Validate the accumulation period (form 'aNNh' with a sensible number of hours) before any figure is created
+        self._accum_period_hours(accum_period)
+
+        # Follow the accumulation period recorded in the data, warning when it differs from the requested one
+        accum_period = self._reconcile_accum_period(accum_period, data_array)
 
         # Validate plot type parameter to ensure it is one of the accepted values for rendering methods
         if plot_type not in ["scatter", "contour", "contourf"]:
@@ -606,10 +961,12 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 f"plot_type must be 'scatter', 'contour', or 'contourf', got '{plot_type}'"
             )
 
-        # Validate geographic extent parameters to ensure they are within acceptable ranges and properly ordered
+        # Validate geographic extent parameters to ensure they are within acceptable ranges and properly ordered.
+        # Longitudes may extend past ±180 (e.g. 150..210 or 0..360) so dateline-crossing boxes can be requested.
         if not (
-            -180 <= lon_min <= 180
-            and -180 <= lon_max <= 180
+            -360 <= lon_min <= 360
+            and -360 <= lon_max <= 360
+            and lon_max - lon_min <= 360
             and -90 <= lat_min <= 90
             and -90 <= lat_max <= 90
             and lon_max > lon_min
@@ -619,7 +976,16 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Convert precipitation data units and extract unit label for colorbar
         precip_data, unit_label = self._convert_precipitation_units(
-            precip_data, data_array, var_name
+            precip_data, data_array, var_name, display_units
+        )
+
+        # Reject inputs that cannot produce a meaningful map before any figure is created (as the surface plotter does)
+        self._validate_precipitation_inputs(lon, lat, precip_data, var_name)
+
+        # Longitudes may arrive in 0..360 (e.g. lonCell in degrees); the extent filters, the remapper
+        # back-mapping and the dataset alignment all work in [-180, 180]
+        lon = MPASGeographicUtils.normalize_longitude(
+            np.asarray(self.convert_to_numpy(lon), dtype=float)
         )
 
         # Setup figure, axes, projection, and geographic features for precipitation map
@@ -645,7 +1011,12 @@ class MPASPrecipitationPlotter(MPASVisualizer):
 
         # Prepare colormap, contour levels, and normalization for precipitation visualization
         cmap, norm, color_levels_sorted = self._prepare_precipitation_colormap(
-            colormap, levels, accum_period, clim_min, clim_max
+            colormap,
+            levels,
+            accum_period,
+            clim_min,
+            clim_max,
+            display_units if unit_label == display_units else "mm",
         )
 
         # Prepare and validate data for plotting, returning only valid points within geographic extent (for scatter) or valid values (for contour/contourf)
@@ -712,6 +1083,17 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                     colorbar_ticks=color_levels_sorted,
                     config=config,
                 )
+
+            if threshold is not None:
+                self._highlight_threshold(
+                    lon_valid,
+                    lat_valid,
+                    precip_valid,
+                    threshold,
+                    unit_label,
+                    (lon_min, lon_max, lat_min, lat_max),
+                    data_crs,
+                )
         else:
             logger.warning("No valid precipitation data points found for %s", var_name)
 
@@ -738,6 +1120,80 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return the figure and axes for further manipulation or saving
         return self.fig, self.ax
 
+    def _highlight_threshold(
+        self: "MPASPrecipitationPlotter",
+        lon_valid: np.ndarray,
+        lat_valid: np.ndarray,
+        precip_valid: np.ndarray,
+        threshold: float,
+        unit_label: str,
+        extent: Tuple[float, float, float, float],
+        data_crs: ccrs.CRS,
+    ) -> None:
+        """
+        This method visibly highlights the cells whose precipitation is at or above a threshold by drawing bold black hollow rings around them on top of the filled map (for every plot type), and adds a legend entry stating the threshold, its units and how many plotted cells reach it. Only cells inside the map extent are counted and drawn, with longitudes re-expressed in the extent's frame so dateline-crossing boxes work; when no cell reaches the threshold the legend says so.
+
+        Parameters:
+            lon_valid (np.ndarray): Longitudes of the valid precipitation points in degrees.
+            lat_valid (np.ndarray): Latitudes of the valid precipitation points in degrees.
+            precip_valid (np.ndarray): Valid precipitation values in display units.
+            threshold (float): Threshold in display units; cells with values greater than or equal to it are highlighted.
+            unit_label (str): Display units used in the legend text.
+            extent (Tuple[float, float, float, float]): Map extent as (lon_min, lon_max, lat_min, lat_max) in degrees.
+            data_crs (ccrs.CRS): Coordinate reference system of the point coordinates.
+
+        Returns:
+            None
+        """
+        assert self.ax is not None, "Axes must be created before highlighting"
+
+        lon_min, lon_max, lat_min, lat_max = extent
+        lon_w = MPASGeographicUtils.wrap_longitude_to_extent(
+            np.asarray(lon_valid), lon_min, lon_max
+        )
+        hit = (
+            (precip_valid >= threshold)
+            & (lon_w >= lon_min)
+            & (lon_w <= lon_max)
+            & (lat_valid >= lat_min)
+            & (lat_valid <= lat_max)
+        )
+        n_hit = int(np.sum(hit))
+
+        if n_hit > 0:
+            size = self.calculate_adaptive_marker_size(
+                (lon_min, lon_max, lat_min, lat_max),
+                int(len(precip_valid)),
+                (self.figsize[0], self.figsize[1]),
+            )
+            self.ax.scatter(
+                lon_w[hit],
+                lat_valid[hit],
+                s=max(float(size), 4.0) * 1.8,
+                facecolors="none",
+                edgecolors="black",
+                linewidths=1.2,
+                transform=data_crs,
+                zorder=6,
+            )
+
+        label = (
+            f"Threshold \u2265 {threshold:.3g} {unit_label}: {n_hit:,} cells"
+            if n_hit > 0
+            else f"Threshold \u2265 {threshold:.3g} {unit_label}: no cells"
+        )
+        handle = Line2D(
+            [0],
+            [0],
+            marker="o",
+            linestyle="none",
+            markerfacecolor="none",
+            markeredgecolor="black",
+            markeredgewidth=1.2,
+            label=label,
+        )
+        self.ax.legend(handles=[handle], loc="upper right", fontsize=9, framealpha=0.85)
+
     def _interpolate_to_grid(
         self: "MPASPrecipitationPlotter",
         lon: np.ndarray,
@@ -753,6 +1209,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         resolution_bounds: Optional[Tuple[float, float]] = (0.1, 1.0),
         comm: Optional[Any] = None,
         config: Optional[dict] = None,
+        interpolation: Optional[str] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         This method performs interpolation of the unstructured MPAS data onto a regular grid defined by the specified geographic extent and grid resolution. It uses the MPASRemapper to handle the interpolation, which can be computationally intensive for large datasets, so it includes options for parallel processing with MPI. The method also allows for specifying the interpolation method (e.g., 'linear', 'nearest') and bounds on the grid resolution to ensure that the resulting grid is appropriate for the data density and geographic extent. The returned longitude, latitude, and interpolated data arrays are suitable for contour and filled contour plotting with cartopy.
@@ -770,6 +1227,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             method (str): Interpolation method to use (e.g., 'linear', 'nearest'). The choice of method can affect the appearance of the resulting contour plots, with 'linear' providing smoother results and 'nearest' preserving original data values but resulting in a more blocky appearance.
             resolution_bounds (Optional[Tuple[float, float]]): Optional tuple specifying the minimum and maximum grid resolution in degrees to use for interpolation. This can help ensure that the resulting grid is not too coarse (which can miss important features) or too fine (which can be computationally expensive and may not be justified by the data density). The method will select an appropriate grid resolution within these bounds based on the geographic extent and the number of data points, ensuring a balance between detail and performance in the resulting contour plots.
             comm (Optional[Any]): Optional MPI communicator for parallel processing of the interpolation. If provided, the method will use the communicator to distribute the interpolation workload across multiple processes, which can significantly reduce the time required for interpolation of large datasets. If None, the interpolation will be performed in a single process, which may be sufficient for smaller datasets but can be very slow for larger datasets.
+            config (Optional[dict]): Optional configuration object with remap settings.
+            interpolation (Optional[str]): Explicit gridding method ('nearest', 'linear' or 'cubic') overriding method and the config remap method (default: None).
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: A tuple containing the longitude, latitude, and interpolated data arrays on the regular grid. The longitude and latitude arrays define the coordinates of the grid points, and the data array contains the interpolated values at those grid points. These arrays are suitable for use in contour and filled contour plotting with cartopy, allowing for smooth visualization of the precipitation field across the specified geographic extent. The method handles the complexities of interpolation from an unstructured mesh to a regular grid, ensuring that the resulting data is appropriate for visualization while also providing options for performance optimization through parallel processing and resolution control.
@@ -788,7 +1247,78 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             resolution_bounds=resolution_bounds,
             comm=comm,
             config=config,
+            interpolation=interpolation,
         )
+
+    @staticmethod
+    def _resolve_overlay_extent(
+        extent: Optional[Tuple[Optional[float], ...]],
+        data_bounds: Tuple[float, float, float, float],
+    ) -> Tuple[float, float, float, float]:
+        """
+        This static helper merges a requested map extent with the overlay data's own bounds: every entry of the extent that is not None replaces the corresponding data bound, and a missing extent leaves the data bounds unchanged.
+
+        Parameters:
+            extent (Optional[Tuple[Optional[float], ...]]): Map extent as (lon_min, lon_max, lat_min, lat_max) with optional None entries, or None.
+            data_bounds (Tuple[float, float, float, float]): Bounds derived from the overlay data in the same order.
+
+        Returns:
+            Tuple[float, float, float, float]: The resolved (lon_min, lon_max, lat_min, lat_max).
+        """
+        if extent is None:
+            return data_bounds
+
+        merged = [
+            given if given is not None else fallback
+            for given, fallback in zip(extent, data_bounds)
+        ]
+        return (merged[0], merged[1], merged[2], merged[3])
+
+    def _convert_overlay_units(
+        self: "MPASPrecipitationPlotter",
+        precip_data: np.ndarray,
+        var_name: str,
+        original_units: Optional[str],
+    ) -> np.ndarray:
+        """
+        This helper converts overlay precipitation values from their original units to the display units chosen by UnitConverter for the variable. Nothing happens when no original units are given or they already equal the display units, and a failed conversion is logged as a warning and leaves the data unchanged.
+
+        Parameters:
+            precip_data (np.ndarray): Precipitation values in the original units.
+            var_name (str): Variable name used to pick the display units.
+            original_units (Optional[str]): Original units, or None to skip conversion.
+
+        Returns:
+            np.ndarray: The converted values (or the input when no conversion applies or it fails).
+        """
+        if not original_units:
+            return precip_data
+
+        display_units = UnitConverter.get_display_units(var_name, original_units)
+
+        if original_units == display_units:
+            return precip_data
+
+        try:
+            converted_data = UnitConverter.convert_units(
+                precip_data, original_units, display_units
+            )
+            logger.debug(
+                "Converted overlay %s from %s to %s",
+                var_name,
+                original_units,
+                display_units,
+            )
+            return self.convert_to_numpy(converted_data)
+        except ValueError as e:
+            logger.warning(
+                "Could not convert overlay %s from %s to %s: %s",
+                var_name,
+                original_units,
+                display_units,
+                e,
+            )
+            return precip_data
 
     def _prepare_overlay_data(
         self: "MPASPrecipitationPlotter",
@@ -798,6 +1328,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         var_name: str,
         original_units: Optional[str],
         plot_type: str,
+        extent: Optional[Tuple[Optional[float], ...]] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float, float]:
         """
         This method prepares and validates the longitude, latitude, and precipitation data for overlay plotting. It handles unit conversion if original units are provided, checks for physically valid precipitation values (e.g., non-negative), and creates a validity mask based on the plot type. For scatter plots, it filters out points that fall outside the map extent in addition to invalid precipitation values. For contour and contourf plots, it focuses on validating the precipitation values since geographic masking will be handled during interpolation. The method returns only the valid points that can be plotted along with the geographic bounds for use in rendering the overlay. If no valid points exist after filtering, it raises a ValueError to indicate that the overlay cannot be plotted with the given data.
@@ -809,6 +1340,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
              var_name (str): Variable name used for metadata lookup and unit conversion logic.
              original_units (Optional[str]): Original units of the precipitation data, used for unit conversion if provided. If None, no conversion is attempted and original data is used.
              plot_type (str): Rendering mode: 'scatter', 'contour', or 'contourf'. This determines the validation criteria applied to the data.
+             extent (Optional[Tuple[Optional[float], ...]]): Map extent as (lon_min, lon_max, lat_min, lat_max); any None entry falls back to the overlay data's own bound. Scatter filtering and the returned bounds use the map extent so the overlay is clipped to the map rather than to its own data (default: None).
 
          Returns:
              Tuple containing (lon_valid, lat_valid, precip_valid, lon_min, lon_max, lat_min, lat_max) where the first three are 1D arrays of valid points for plotting and the last four are the geographic bounds of the data for use in rendering the overlay. If no valid points exist, a ValueError is raised.
@@ -827,43 +1359,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 )
 
         # Attempt unit conversion if original units are provided and differ from display units
-        if original_units:
-            # Get display units from UnitConverter based on variable name and original units
-            display_units = UnitConverter.get_display_units(var_name, original_units)
-            # Only attempt conversion if display units differ from original units
-            if original_units != display_units:
-                try:
-                    # Attempt to convert units using UnitConverter
-                    converted_data = UnitConverter.convert_units(
-                        precip_data, original_units, display_units
-                    )
-                    precip_data = self.convert_to_numpy(converted_data)
-                    logger.debug(
-                        "Converted overlay %s from %s to %s",
-                        var_name,
-                        original_units,
-                        display_units,
-                    )
-                except ValueError as e:
-                    logger.warning(
-                        "Could not convert overlay %s from %s to %s: %s",
-                        var_name,
-                        original_units,
-                        display_units,
-                        e,
-                    )
+        precip_data = self._convert_overlay_units(precip_data, var_name, original_units)
 
-        # Check for negative precipitation values which are physically invalid and likely indicate data issues
-        n_negative = int(np.sum(precip_data < 0))
-
-        # If negative values are found, log a warning with the count and minimum value, then clip to 0 to ensure physically valid precipitation values for plotting
-        if n_negative > 0:
-            logger.warning(
-                "Found %s negative precipitation values (min: %.4f). Clipping to 0 (physically invalid).",
-                f"{n_negative:,}",
-                float(np.nanmin(precip_data)),
-            )
-            precip_data = np.clip(precip_data, 0, None)
+        # Mask physically invalid negative values (NaN, not drawn) with a warning
+        precip_data = self._mask_negative_precipitation(precip_data)
 
         # Flatten arrays for processing and ensure they are 1D
         precip_data_flat = precip_data.flatten()
@@ -883,6 +1382,16 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         lon_max = float(lon_flat[np.isfinite(lon_flat)].max())
         lat_min = float(lat_flat[np.isfinite(lat_flat)].min())
         lat_max = float(lat_flat[np.isfinite(lat_flat)].max())
+
+        # Prefer the map extent over the overlay's own data bounds when supplied
+        lon_min, lon_max, lat_min, lat_max = self._resolve_overlay_extent(
+            extent, (lon_min, lon_max, lat_min, lat_max)
+        )
+        if extent is not None:
+            # Re-express longitudes in the extent's frame so dateline-crossing boxes keep their eastern cells
+            lon_flat = MPASGeographicUtils.wrap_longitude_to_extent(
+                lon_flat, lon_min, lon_max
+            )
 
         # Create validity mask based on plot type and data quality
         if plot_type == "scatter":
@@ -951,12 +1460,11 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Filter and sort color levels for normalization and colorbar ticks
         color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
-        # Set bounds for BoundaryNorm (0 to max level + 1) to ensure proper color mapping with clipping
-        last_bound = max(color_levels_sorted) + 1
-        bounds = [0] + color_levels_sorted + [last_bound]
+        # Set bounds for BoundaryNorm (zero floor plus the levels) so the colours follow the levels exactly
+        bounds = self._precip_bounds(color_levels_sorted, True)
 
-        # Use BoundaryNorm for discrete color mapping with clipping
-        norm = BoundaryNorm(bounds, ncolors=cmap.N, clip=True)
+        # Use BoundaryNorm for discrete color mapping; values above the top level take the over colour
+        norm = self._precip_norm(bounds, cmap)
 
         # Return colormap, normalization, and sorted levels for consistent use in overlay rendering
         return cmap, norm, color_levels_sorted
@@ -1201,8 +1709,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             remapped_precip = self._remap_overlay_via_config(
                 precip_valid,
                 dataset,
-                lon_arr,
-                lat_arr,
+                lon_valid,
+                lat_valid,
                 lon_min,
                 lon_max,
                 lat_min,
@@ -1231,8 +1739,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             remapped_precip = self._remap_overlay_via_kdtree(
                 precip_valid,
                 dataset,
-                lon_arr,
-                lat_arr,
+                lon_valid,
+                lat_valid,
                 lon_min,
                 lon_max,
                 lat_min,
@@ -1287,8 +1795,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Parameters:
             precip_valid (np.ndarray): Valid precipitation values for the data points.
             dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
-            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
-            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
+            lon_arr (np.ndarray): Longitudes of the valid points in precip_valid.
+            lat_arr (np.ndarray): Latitudes of the valid points in precip_valid.
             lon_min (float): Western boundary of the map extent in degrees.
             lon_max (float): Eastern boundary of the map extent in degrees.
             lat_min (float): Southern boundary of the map extent in degrees.
@@ -1300,7 +1808,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             xr.DataArray: The remapped precipitation field on the regular lat-lon grid.
         """
         dataset = self._ensure_overlay_dataset(dataset, lon_arr, lat_arr)
-        data_xr = xr.DataArray(precip_valid, dims=["nCells"])
+        data_xr = xr.DataArray(
+            self._align_to_dataset(dataset, lon_arr, lat_arr, precip_valid),
+            dims=["nCells"],
+        )
         return dispatch_remap(
             data=data_xr,
             dataset=dataset,
@@ -1404,8 +1915,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         Parameters:
             precip_valid (np.ndarray): Valid precipitation values for the data points.
             dataset (Optional[xr.Dataset]): Optional dataset with the MPAS grid info.
-            lon_arr (np.ndarray): Longitude array for the MPAS cell centers.
-            lat_arr (np.ndarray): Latitude array for the MPAS cell centers.
+            lon_arr (np.ndarray): Longitudes of the valid points in precip_valid.
+            lat_arr (np.ndarray): Latitudes of the valid points in precip_valid.
             lon_min (float): Western boundary of the map extent in degrees.
             lon_max (float): Eastern boundary of the map extent in degrees.
             lat_min (float): Southern boundary of the map extent in degrees.
@@ -1425,7 +1936,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         )
 
         dataset = self._ensure_overlay_dataset(dataset, lon_arr, lat_arr)
-        data_xr = xr.DataArray(precip_valid, dims=["nCells"])
+        data_xr = xr.DataArray(
+            self._align_to_dataset(dataset, lon_arr, lat_arr, precip_valid),
+            dims=["nCells"],
+        )
 
         return remap_mpas_to_latlon_with_masking(
             data=data_xr,
@@ -1489,7 +2003,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             except Exception:
                 pass
         else:
-            # For filled contours, we want to ensure that the colorbar reflects the same levels
+            # For filled contours, extend only toward the sides where the gridded data actually leaves the level range
             ax.contourf(
                 lon_grid,
                 lat_grid,
@@ -1499,7 +2013,9 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 norm=norm,
                 alpha=alpha,
                 transform=ccrs.PlateCarree(),
-                extend="both",
+                extend=MPASVisualizer._derive_extend(
+                    precip_grid, color_levels_sorted[0], color_levels_sorted[-1]
+                ),
             )
 
     def add_precipitation_overlay(
@@ -1577,7 +2093,13 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 bounds_lat_min,
                 bounds_lat_max,
             ) = self._prepare_overlay_data(
-                lon, lat, precip_data, var_name, original_units, plot_type
+                lon,
+                lat,
+                precip_data,
+                var_name,
+                original_units,
+                plot_type,
+                (lon_min, lon_max, lat_min, lat_max),
             )
         except ValueError as e:
             logger.warning("%s", e)
@@ -1711,9 +2233,19 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         total_times = processor.dataset.sizes[time_dim]
 
         # Map accumulation period identifiers to required hours and corresponding time index offsets
-        accum_hours_map = {"a01h": 1, "a03h": 3, "a06h": 6, "a12h": 12, "a24h": 24}
-        accum_hours = accum_hours_map.get(accum_period, 24)
+        accum_hours = self._accum_period_hours(accum_period)
         min_time_idx = accum_hours
+
+        # Convert the accumulation length to a number of steps using the dataset's time spacing, so non-hourly output still starts at the first index with sufficient lookback
+        try:
+            step_hours = float(
+                MPASDateTimeUtils.calculate_time_delta(processor.dataset)
+                / pd.Timedelta(hours=1)
+            )
+            if np.isfinite(step_hours) and step_hours > 0:
+                min_time_idx = max(1, int(np.ceil(accum_hours / step_hours - 1e-9)))
+        except Exception:
+            min_time_idx = accum_hours
 
         # Check if dataset has enough time steps for the accumulation period
         if min_time_idx >= total_times:
@@ -1801,7 +2333,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             time_end = pd.Timestamp(
                 processor.dataset.Time.values[time_idx]
             ).to_pydatetime()
-            time_str = time_end.strftime("%Y%m%dT%H")
+            time_str = MPASDateTimeUtils.format_time_tag(time_end)
         else:
             # Fallback to time index string if Time coordinate is not available
             time_end = None
@@ -1846,6 +2378,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                 colormap=colormap,
                 levels=levels,
                 grid_resolution=grid_resolution,
+                display_units=style.display_units,
+                threshold=style.threshold,
             ),
         )
 
@@ -1862,7 +2396,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         self.close_plot()
 
         # Return list of created file paths
-        return [f"{output_path}.{fmt}" for fmt in formats]
+        return MPASVisualizationStyle.saved_file_paths(output_path, formats)
 
     def create_batch_precipitation_maps(
         self: "MPASPrecipitationPlotter",
@@ -1966,10 +2500,21 @@ class MPASPrecipitationPlotter(MPASVisualizer):
                         time_idx,
                     )
 
+            except InsufficientLookbackError as e:
+                # Not enough preceding time steps for this accumulation: skip quietly rather than counting a failure
+                logger.info(
+                    "Skipping time index %d: insufficient lookback (%s)", time_idx, e
+                )
+                self.close_plot()
+                continue
+
             except Exception as e:
                 logger.exception(
                     "Error creating map for time index %d: %s", time_idx, e
                 )
+
+                # Close the partially built figure so failed steps do not leak open figures
+                self.close_plot()
                 continue
 
         logger.info(
@@ -2024,7 +2569,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Add geographic features with styling
         ax.add_feature(cfeature.COASTLINE, linewidth=0.8, edgecolor="black", alpha=0.7)
         ax.add_feature(cfeature.BORDERS, linewidth=0.6, edgecolor="gray", alpha=0.7)
-        ax.add_feature(cfeature.OCEAN, facecolor="lightblue", alpha=0.3)
+        self._add_ocean_feature(ax, facecolor="lightblue", alpha=0.3)
         ax.add_feature(cfeature.LAND, facecolor="lightgray", alpha=0.2)
 
         # Add regional features using existing method
@@ -2104,6 +2649,11 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         lon_flat = lon_flat[:min_length]
         lat_flat = lat_flat[:min_length]
 
+        # Re-express longitudes in the extent's frame so dateline-crossing boxes (e.g. 150..210) keep the cells east of 180°
+        lon_flat = MPASGeographicUtils.wrap_longitude_to_extent(
+            lon_flat, lon_min, lon_max
+        )
+
         # Create mask for valid data points (finite, non-negative, within reasonable bounds, and within map extent)
         valid_mask = (
             np.isfinite(data_flat)
@@ -2154,6 +2704,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Return scatter for colorbar reference
         return scatter
 
+    @close_figure_on_error
     def create_precipitation_comparison_plot(
         self: "MPASPrecipitationPlotter",
         lon: np.ndarray,
@@ -2225,12 +2776,11 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         # Sort and filter color levels to ensure valid contour levels for normalization
         color_levels_sorted = sorted({v for v in color_levels if np.isfinite(v)})
 
-        # Add an upper bound to the color levels for normalization to ensure all data values are properly colored
-        last_bound = max(color_levels_sorted) + 1
-        bounds = [0] + color_levels_sorted + [last_bound]
+        # Bounds are a zero floor plus the levels; values above the top level take the over colour
+        bounds = self._precip_bounds(color_levels_sorted, True)
 
         # Create normalization for colormap based on bounds and number of colors in the colormap
-        norm = BoundaryNorm(bounds, ncolors=cmap.N, clip=True)
+        norm = self._precip_norm(bounds, cmap)
 
         # Determine if the extent is global to adjust map features and avoid dateline issues
         is_global = (lon_max - lon_min) >= 359.0 and (lat_max - lat_min) >= 179.0
@@ -2281,6 +2831,16 @@ class MPASPrecipitationPlotter(MPASVisualizer):
             scatter,
             label="Precipitation [mm]",
             orientation="horizontal",
+            extend=MPASVisualizer._derive_extend(
+                np.concatenate(
+                    [
+                        np.asarray(precip_data1, dtype=float).ravel(),
+                        np.asarray(precip_data2, dtype=float).ravel(),
+                    ]
+                ),
+                bounds[0],
+                bounds[-1],
+            ),
             fraction=0.03,
             pad=0.08,
             shrink=0.6,
@@ -2309,7 +2869,7 @@ class MPASPrecipitationPlotter(MPASVisualizer):
     def save_plot(
         self: "MPASPrecipitationPlotter",
         output_path: str,
-        formats: List[str] = ["png"],
+        formats: Union[str, Sequence[str]] = ("png",),
         bbox_inches: str = "tight",
         pad_inches: float = 0.1,
     ) -> None:
@@ -2317,8 +2877,8 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         This method saves the current matplotlib figure to disk in multiple specified formats with consistent styling and optimized settings for precipitation maps. It first checks if there is an active figure to save, raising an error if not. It then determines the output directory from the provided output path and ensures that it exists, creating it if necessary. For each specified format, it constructs the full file path with the appropriate extension and defines savefig options including DPI, bounding box settings, and format. For PNG files, it applies low compression settings to optimize saving speed while maintaining quality, especially for large precipitation maps with many points. The method saves the figure with the specified options and prints a confirmation message for each saved file. This approach allows for flexible saving of precipitation plots in various formats while ensuring that the output files are properly organized and named according to the provided output path.
 
         Parameters:
-            output_path (str): Base file path (without extension) for saving the plot files. The method will append the appropriate extension for each format specified in the formats list.
-            formats (List[str]): List of file format extensions to save the plot in (e.g., ['png', 'pdf']). The method will save a separate file for each format in this list.
+            output_path (str): Base file path for saving the plot files, with or without the extension; the extension of each format is appended unless the path already ends with it.
+            formats (Union[str, Sequence[str]]): A format or list of formats to save the plot in (e.g., 'png' or ['png', 'pdf']); leading dots are stripped and names lowercased. An empty list or unsupported format raises a ValueError.
             bbox_inches (str): Bounding box setting for saving the figure, typically 'tight' to minimize whitespace around the plot.
             pad_inches (float): Padding in inches to add around the figure when bbox_inches is set to 'tight' to prevent clipping of labels and titles.
 
@@ -2329,34 +2889,10 @@ class MPASPrecipitationPlotter(MPASVisualizer):
         if self.fig is None:
             raise ValueError("No figure to save. Create a plot first.")
 
-        # Determine output directory from the provided output path
-        output_dir = os.path.dirname(output_path)
-
-        # Ensure output directory exists, creating it if necessary
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
-
-        for fmt in formats:
-            # Construct full file path with format extension
-            full_path = f"{output_path}.{fmt}"
-
-            # Define savefig options with specified format and bounding box settings
-            save_kwargs: Dict[str, Any] = {
-                "dpi": self.dpi,
-                "bbox_inches": bbox_inches,
-                "pad_inches": pad_inches,
-                "format": fmt,
-            }
-
-            # Optimize PNG files with low compression for faster saving while maintaining quality, especially for large precipitation maps with many points.
-            if fmt.lower() == "png":
-                save_kwargs["pil_kwargs"] = {"compress_level": 1}
-
-            # Save the figure with the specified format and options
-            self.fig.savefig(full_path, **save_kwargs)
-
-            # Print confirmation message for the saved file
-            logger.info("Saved plot: %s", full_path)
+        # Delegate to the shared saver, which validates and normalizes the formats and never doubles an extension
+        MPASVisualizationStyle.save_plot(
+            self.fig, output_path, formats, bbox_inches, pad_inches, self.dpi
+        )
 
     def close_plot(self: "MPASPrecipitationPlotter") -> None:
         """

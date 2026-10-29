@@ -53,6 +53,38 @@ class _DynamicStdoutHandler(logging.Handler):
 
 
 @pytest.fixture(autouse=True)
+def _clear_shared_remap_caches() -> Generator[None, None, None]:
+    """
+    This fixture empties the process-wide ESMF boundary and regridder caches before and after each test, so a regridder cached by one test (possibly a mock) is never returned to another.
+
+    Parameters:
+        None
+
+    Returns:
+        Generator[None, None, None]: A generator that clears the caches around the test.
+    """
+    from mpasdiag.visualization.base_visualizer import clear_remap_caches
+
+    clear_remap_caches()
+    yield
+    clear_remap_caches()
+
+
+@pytest.fixture(autouse=True)
+def _disable_worker_memory_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    This fixture disables the memory-based worker cap for every test, because the pytest process's own memory (which grows over a long session) would otherwise be taken as the per-worker estimate and could lower the worker counts that tests assert on. Tests of the cap set MPASDIAG_WORKER_MEMORY_GB themselves.
+
+    Parameters:
+        monkeypatch (pytest.MonkeyPatch): Pytest fixture used to set the environment variable for the test.
+
+    Returns:
+        None
+    """
+    monkeypatch.setenv("MPASDIAG_WORKER_MEMORY_GB", "0")
+
+
+@pytest.fixture(autouse=True)
 def _configure_mpasdiag_logger_for_capture() -> Generator[None, None, None]:
     """
     This fixture configures the MPASdiag logger to use a custom handler that writes log messages to standard output, ensuring that logs are captured by pytest's output capture system. It temporarily replaces the logger's handlers and settings for the duration of each test, allowing log messages to be visible in test reports and debugging output. After the test completes, the original logger configuration is restored to avoid side effects on other tests or modules.

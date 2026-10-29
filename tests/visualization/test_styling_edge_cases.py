@@ -250,7 +250,9 @@ class TestGenerateLevelsException:
         ):
             style = MPASVisualizationStyle.get_variable_style("temperature", data)
             assert "levels" in style
-            assert style["levels"] == list(range(0, 21))
+
+            # Modified: an unknown level set is now None (automatic levels) instead of the meaningless range(0, 21)
+            assert style["levels"] is None
 
     def test_generate_levels_returns_none(self: "TestGenerateLevelsException") -> None:
         """
@@ -264,7 +266,9 @@ class TestGenerateLevelsException:
         """
         data = xr.DataArray(np.array([np.nan, np.nan, np.nan]))
         style = MPASVisualizationStyle.get_variable_style("temperature", data)
-        assert style["levels"] == list(range(0, 21))
+
+        # Modified: failed level generation now yields None (automatic levels) instead of range(0, 21)
+        assert style["levels"] is None
 
 
 if __name__ == "__main__":

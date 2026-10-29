@@ -69,6 +69,7 @@ class TestCalculateOptimalSubsample:
             lat_max=50.0,
             figsize=None,
             plot_type="barbs",
+            points_in_extent=True,
         )
         assert isinstance(result, int)
 
@@ -92,6 +93,7 @@ class TestCalculateOptimalSubsample:
             lat_max=50.0,
             plot_type="arrows",
             target_density=None,
+            points_in_extent=True,
         )
         assert isinstance(result, int)
 
@@ -115,6 +117,7 @@ class TestCalculateOptimalSubsample:
             lat_max=50.0,
             plot_type="streamlines",
             target_density=None,
+            points_in_extent=True,
         )
         assert isinstance(result, int)
 
@@ -137,6 +140,7 @@ class TestCalculateOptimalSubsample:
             lat_min=30.0,
             lat_max=50.0,
             target_density=2,
+            points_in_extent=True,
         )
         assert isinstance(result, int)
 
@@ -160,6 +164,7 @@ class TestCalculateOptimalSubsample:
             lat_max=50.0,
             figsize=(12.0, 10.0),
             plot_type="barbs",
+            points_in_extent=True,
         )
         assert result > 1
         assert result <= 50
@@ -184,6 +189,7 @@ class TestCalculateOptimalSubsample:
             lat_max=50.0,
             figsize=(12.0, 10.0),
             plot_type="barbs",
+            points_in_extent=True,
         )
         assert result <= 50
 
@@ -205,6 +211,7 @@ class TestCalculateOptimalSubsample:
             lon_max=-80.0,
             lat_min=30.0,
             lat_max=50.0,
+            points_in_extent=True,
         )
         assert result == 1
 
@@ -966,7 +973,7 @@ class TestCreateBatchWindPlots:
                                 )
 
         output_path = result[0]
-        assert output_path.endswith("valid_time_0")
+        assert output_path.endswith("valid_time_0.png")
 
 
 class TestExtract2DFrom3DWind:
@@ -1078,7 +1085,8 @@ class TestExtract2DFrom3DWind:
         u = _RNG.random((N_CELLS, 5))
         v = _RNG.random((N_CELLS, 5))
         u2d, _ = plotter.extract_2d_from_3d_wind(u, v, level_value=850.0)
-        np.testing.assert_array_equal(u2d, u[:, -1])
+        # Modified: the default is now the lowest model level (index 0), not the model top
+        np.testing.assert_array_equal(u2d, u[:, 0])
 
     def test_default_returns_top_level(
         self: "TestExtract2DFrom3DWind", plotter: MPASWindPlotter
@@ -1095,8 +1103,9 @@ class TestExtract2DFrom3DWind:
         u = _RNG.random((N_CELLS, 5))
         v = _RNG.random((N_CELLS, 5))
         u2d, v2d = plotter.extract_2d_from_3d_wind(u, v)
-        np.testing.assert_array_equal(u2d, u[:, -1])
-        np.testing.assert_array_equal(v2d, v[:, -1])
+        # Modified: the default is now the lowest model level (index 0), not the model top
+        np.testing.assert_array_equal(u2d, u[:, 0])
+        np.testing.assert_array_equal(v2d, v[:, 0])
 
     def test_output_is_2d_slice_shape(
         self: "TestExtract2DFrom3DWind", plotter: MPASWindPlotter

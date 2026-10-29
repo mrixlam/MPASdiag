@@ -371,17 +371,16 @@ class TestColormapHandling:
         Returns:
             None
         """
-        fig, _ = self.plotter.create_surface_map(
-            self.lon,
-            self.lat,
-            self.data,
-            "t2m",
-            GeographicBounds(*self.extent_bounds),
-            style=SurfaceMapStyle(plot_type="scatter", colormap="invalid_cmap"),
-        )
-
-        assert isinstance(fig, Figure)
-        plt.close(fig)
+        # An unknown colormap name is an error (as for the precipitation plotter), not a silent switch to viridis
+        with pytest.raises(ValueError, match="colormap"):
+            self.plotter.create_surface_map(
+                self.lon,
+                self.lat,
+                self.data,
+                "t2m",
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type="scatter", colormap="invalid_cmap"),
+            )
 
     def test_none_colormap_object(self: "TestColormapHandling") -> None:
         """
@@ -789,6 +788,43 @@ class TestContourPlotting:
         )
 
         assert isinstance(fig, Figure)
+        plt.close(fig)
+
+
+class TestDatelineCrossingSurface:
+    """Tests that surface scatter maps keep cells on both sides of the dateline for extents written with lon_max > 180."""
+
+    def test_scatter_keeps_cells_east_of_dateline(
+        self: "TestDatelineCrossingSurface",
+    ) -> None:
+        """
+        This regression test verifies that a surface scatter map of a 150..210 box plots the cells stored at -180..-150, which were previously filtered out and left the eastern half of the map empty, and that the map is centered on the dateline.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        rng = np.random.default_rng(5)
+        lon = rng.uniform(-180.0, 180.0, 3000)
+        lat = rng.uniform(-40.0, 40.0, 3000)
+        plotter = MPASSurfacePlotter(figsize=(6, 4), dpi=50)
+        fig, ax = plotter.create_surface_map(
+            lon,
+            lat,
+            280.0 + rng.uniform(0.0, 10.0, 3000),
+            "t2m",
+            GeographicBounds(150.0, 210.0, -30.0, 30.0),
+            style=SurfaceMapStyle(plot_type="scatter"),
+        )
+        offsets = max(
+            (c.get_offsets() for c in ax.collections if hasattr(c, "get_offsets")),
+            key=len,
+        )
+        plotted = np.asarray(offsets)[:, 0]
+        assert ax.projection.proj4_params["lon_0"] == 180.0
+        assert (plotted > 180.0).any() and (plotted < 180.0).any()
         plt.close(fig)
 
 
