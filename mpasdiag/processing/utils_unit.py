@@ -57,7 +57,7 @@ class UnitConverter:
         data: Union[np.ndarray, xr.DataArray, float], from_unit: str, to_unit: str
     ) -> Union[np.ndarray, xr.DataArray, float]:
         """
-        This method converts numeric data from one unit to another based on a predefined set of supported conversions for meteorological variables. It first normalizes the input unit strings to a canonical form using the _normalize_unit_string helper method, then looks up the appropriate conversion function from an internal conversion map. The method supports conversions for temperature (K, °C, °F), pressure (Pa, hPa, mb), humidity (kg/kg, g/kg), precipitation rates (mm/hr, mm/day, in/hr), wind speed (m/s, knots, mph, km/hr), and more. If the requested conversion is not supported, it raises a ValueError with a clear message indicating the unsupported conversion and listing available options. The method returns the converted data in the same structure and type as the input (scalars remain scalars, arrays remain arrays, DataArrays remain DataArrays) to ensure seamless integration with existing MPASdiag workflows.
+        This method converts numeric data from one unit to another based on a predefined set of supported conversions for meteorological variables. It first normalizes the input unit strings to a canonical form using the _normalize_unit_string helper method, then looks up the appropriate conversion function from an internal conversion map. The method supports conversions for temperature (K, °C, °F), pressure (Pa, hPa, mb), humidity (kg/kg, g/kg), precipitation rates (mm/hr, mm/day, in/hr), wind speed (m/s, knots, mph, km/hr), and more. If the requested conversion is not supported, it raises a ValueError with a clear message indicating the unsupported conversion and listing available options. The method returns the converted data in the same structure and type as the input (scalars remain scalars, arrays remain arrays, DataArrays remain DataArrays) to ensure seamless integration with existing MPASdiag workflows. The input is never mutated: when a conversion is an identity (for example hPa to mb) a shallow copy is returned and relabelled, leaving the caller's DataArray and its attrs untouched.
 
         Parameters:
             data (Union[np.ndarray, xr.DataArray, float]): Numeric data to convert, can be a scalar, NumPy array, or xarray DataArray.
@@ -103,6 +103,8 @@ class UnitConverter:
             (METER, KILOMETER): lambda x: x / 1000.0,
             (KILOMETER, METER): lambda x: x * 1000.0,
             (METER, FEET): lambda x: x * 3.28084,
+            (METER, MICRONS): lambda x: x * 1.0e6,
+            (MICRONS, METER): lambda x: x / 1.0e6,
             (FEET, METER): lambda x: x / 3.28084,
         }
 
@@ -115,7 +117,18 @@ class UnitConverter:
             )
 
         converter = conversion_map[conversion_key]
-        return converter(data)
+        converted = converter(data)
+
+        if isinstance(converted, xr.DataArray):
+            # Identity conversions (hPa <-> mb, kg m-2 <-> mm) hand back the very same object; relabelling it
+            # would silently rewrite the caller's array (and any Dataset variable sharing it), so copy first.
+            if converted is data:
+                converted = data.copy(deep=False)
+
+            # The converted values are in the target unit, so the units attribute must say so
+            converted.attrs = {**getattr(data, "attrs", {}), "units": to_unit}
+
+        return converted
 
     @staticmethod
     def convert_data_for_display(
@@ -203,6 +216,16 @@ class UnitConverter:
             "g_kg-1": G_PER_KG,
             "g kg^{-1}": G_PER_KG,
             G_PER_KG.lower(): G_PER_KG,
+            "kg m-3": KG_PER_M3,
+            "kg_m-3": KG_PER_M3,
+            "kg m^{-3}": KG_PER_M3,
+            "m3 m-3": M3_PER_M3,
+            "m3 m^{-3}": M3_PER_M3,
+            "m^3 m^{-3}": M3_PER_M3,
+            "nb kg-1": PER_KG,
+            "nb kg^{-1}": PER_KG,
+            "kg^{-1}": PER_KG,
+            "kg-1": PER_KG,
             "kg m-2": KG_PER_M2,
             "kg_m-2": KG_PER_M2,
             "kg m^{-2}": KG_PER_M2,
@@ -287,12 +310,14 @@ class UnitConverter:
             "t2m": CELSIUS,
             "temperature": CELSIUS,
             "temp": CELSIUS,
-            "theta": CELSIUS,
+            # Potential temperatures are shown in K (they are not physical temperatures); the 'theta' pattern also catches theta_e, theta_v, ...
+            "theta": KELVIN,
+            "th2m": KELVIN,
             "theta_rho": KELVIN,
             "tsk": CELSIUS,
             "sst": CELSIUS,
             "meanT": CELSIUS,
-            "theta_base": CELSIUS,
+            "theta_base": KELVIN,
             "tslb": CELSIUS,
             "dewpoint": CELSIUS,
             "dewpt": CELSIUS,
@@ -347,14 +372,14 @@ class UnitConverter:
                 candidate_unit = UnitConverter._preferred_unit_for_match(
                     current_unit, preferred_unit
                 )
-                return candidate_unit if candidate_unit is not None else preferred_unit
+                return candidate_unit if candidate_unit is not None else current_unit
 
         for var_pattern, preferred_unit in display_unit_preferences.items():
             if len(var_pattern) > 2 and var_pattern.lower() in var_name_lower:
                 candidate_unit = UnitConverter._preferred_unit_for_match(
                     current_unit, preferred_unit
                 )
-                return candidate_unit if candidate_unit is not None else preferred_unit
+                return candidate_unit if candidate_unit is not None else current_unit
 
         return current_unit
 

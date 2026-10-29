@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 from .utils_config import MPASConfig
-from .constants import DIAG_GLOB
+from .constants import DIAG_GLOB, MPASOUT_GLOB
+from .utils_datetime import MPASDateTimeUtils
 from .utils_logger import get_logger
 
 logger = get_logger(__name__)
@@ -203,29 +204,32 @@ class FileManager:
     @staticmethod
     def load_config_file(config_file: str) -> MPASConfig:
         """
-        This method loads a YAML configuration file and parses it into an MPASConfig object. It checks if the specified configuration file exists and attempts to load it using the MPASConfig.load_from_file method. If the file does not exist or if there is an error during loading, it catches the exception, prints an error message to the console, and returns a default MPASConfig instance instead. This utility is essential for initializing the configuration parameters for MPAS diagnostic processing workflows, allowing users to specify their settings in a YAML file while providing a fallback to default settings if the file cannot be loaded. By centralizing the configuration loading logic in this method, it promotes consistency and error handling when working with configuration files across different parts of the codebase.
+        This method loads a YAML configuration file and parses it into an MPASConfig object. It checks if the specified configuration file exists and attempts to load it using the MPASConfig.load_from_file method. If the file does not exist or if there is an error during loading, it raises FileNotFoundError for a missing file and a ValueError (chained to the original error) for an unreadable or invalid one, so a bad configuration is never silently replaced by defaults. This utility is essential for initializing the configuration parameters for MPAS diagnostic processing workflows, allowing users to specify their settings in a YAML file. By centralizing the configuration loading logic in this method, it promotes consistency and error handling when working with configuration files across different parts of the codebase.
 
         Parameters:
             config_file (str): Path to the YAML configuration file to load, can be absolute or relative.
 
         Returns:
-            MPASConfig: An instance of MPASConfig containing the loaded configuration parameters. If the file cannot be loaded, returns a default MPASConfig instance.
+            MPASConfig: An instance of MPASConfig containing the loaded configuration parameters.
+
+        Raises:
+            FileNotFoundError: If the configuration file does not exist.
+            ValueError: If the file cannot be parsed or fails validation.
         """
+        if not os.path.exists(config_file):
+            raise FileNotFoundError(f"Configuration file not found: {config_file}")
+
         try:
-            if not os.path.exists(config_file):
-                raise FileNotFoundError(f"Configuration file not found: {config_file}")
-
             return MPASConfig.load_from_file(config_file)
-
         except Exception as e:
-            logger.exception("Error loading configuration file: %s", e)
-            logger.warning("Using default configuration")
-            return MPASConfig()
+            raise ValueError(
+                f"Could not load configuration file '{config_file}': {e}"
+            ) from e
 
     @staticmethod
     def _find_diag_files(data_dir: str) -> List[str]:
         """
-        This internal method searches for diagnostic files in the specified data directory using a predefined glob pattern (DIAG_GLOB). It first looks for files directly in the provided data directory, then checks common subdirectories such as "diag" and "mpasout". If no files are found in these locations, it performs a recursive search through all subdirectories. The method returns a list of matching file paths. This utility is used by the validate_input_files method to ensure that the necessary diagnostic files are present in the expected locations before processing. By centralizing this file searching logic, it promotes consistency in how diagnostic files are located across different parts of the MPAS diagnostic codebase.
+        This internal method searches for MPAS output files in the specified data directory. Because the function is about diagnostic files it prefers the diag streams: it looks for diag files (DIAG_GLOB) in the data directory and then in its "diag" subdirectory, and only afterwards for mpasout files (MPASOUT_GLOB) in the data directory and its "mpasout" subdirectory, so mpasout files lying next to a diag/ subdirectory never shadow it. If no files are found in these locations, it performs a recursive search for each pattern and orders the results by the timestamp embedded in the file names, so files gathered from several subdirectories come back in chronological order. The method returns a list of matching file paths. This utility is used by the validate_input_files method to ensure that the necessary diagnostic files are present in the expected locations before processing. By centralizing this file searching logic, it promotes consistency in how diagnostic files are located across different parts of the MPAS diagnostic codebase.
 
         Parameters:
             data_dir (str): Path to the data directory to search for diagnostic files, can be absolute or relative.
@@ -233,22 +237,61 @@ class FileManager:
         Returns:
             List[str]: List of file paths matching the diagnostic glob pattern, or an empty list if no files are found.
         """
-        files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=False)
+        # Try each stream in the data directory itself, then the conventional subdirectories
+        search_order = [
+            (data_dir, DIAG_GLOB),
+            (os.path.join(data_dir, "diag"), DIAG_GLOB),
+            (data_dir, MPASOUT_GLOB),
+            (os.path.join(data_dir, "mpasout"), MPASOUT_GLOB),
+        ]
 
-        if not files:
-            diag_subdir = os.path.join(data_dir, "diag")
-            mpasout_subdir = os.path.join(data_dir, "mpasout")
-            files = FileManager.find_files(diag_subdir, DIAG_GLOB, recursive=False)
+        for directory, pattern in search_order:
+            files = FileManager.find_files(directory, pattern, recursive=False)
+            if files:
+                return files
 
-            if not files:
-                files = FileManager.find_files(
-                    mpasout_subdir, DIAG_GLOB, recursive=False
+        # Fall back to a recursive search, ordered by the timestamp in the file names rather than by path
+        for pattern in (DIAG_GLOB, MPASOUT_GLOB):
+            files = FileManager.find_files(data_dir, pattern, recursive=True)
+            if files:
+                return sorted(files, key=MPASDateTimeUtils.file_sort_key)
+
+        return []
+
+    @staticmethod
+    def _data_dir_errors(config: MPASConfig) -> List[str]:
+        """
+        This helper method checks the data directory of the configuration and returns the resulting error messages. It reports a missing, non-existent, or non-directory data path, and, when the directory exists, verifies that it contains diagnostic files matching either the configured file pattern (searched non-recursively first, then recursively) or the default diagnostic file pattern.
+
+        Parameters:
+            config (MPASConfig): Configuration object providing the data_dir and optional file_pattern attributes.
+
+        Returns:
+            List[str]: Error messages describing every failed data directory check (empty when all pass).
+        """
+        errors: List[str] = []
+
+        if not getattr(config, "data_dir", None):
+            errors.append("Data directory not specified")
+        elif not os.path.exists(config.data_dir):
+            errors.append(f"Data directory not found: {config.data_dir}")
+        elif not os.path.isdir(config.data_dir):
+            errors.append(f"Data path is not a directory: {config.data_dir}")
+
+        if getattr(config, "data_dir", None) and os.path.exists(config.data_dir):
+            custom_pattern = getattr(config, "file_pattern", None)
+            if custom_pattern:
+                data_files = FileManager.find_files(
+                    config.data_dir, custom_pattern, recursive=False
+                ) or FileManager.find_files(
+                    config.data_dir, custom_pattern, recursive=True
                 )
+            else:
+                data_files = FileManager._find_diag_files(config.data_dir)
+            if not data_files:
+                errors.append(f"No diagnostic files found in: {config.data_dir}")
 
-        if not files:
-            files = FileManager.find_files(data_dir, DIAG_GLOB, recursive=True)
-
-        return files
+        return errors
 
     @staticmethod
     def validate_input_files(config: MPASConfig) -> bool:
@@ -268,17 +311,7 @@ class FileManager:
         elif not os.path.exists(config.grid_file):
             errors.append(f"Grid file not found: {config.grid_file}")
 
-        if not getattr(config, "data_dir", None):
-            errors.append("Data directory not specified")
-        elif not os.path.exists(config.data_dir):
-            errors.append(f"Data directory not found: {config.data_dir}")
-        elif not os.path.isdir(config.data_dir):
-            errors.append(f"Data path is not a directory: {config.data_dir}")
-
-        if getattr(config, "data_dir", None) and os.path.exists(config.data_dir):
-            data_files = FileManager._find_diag_files(config.data_dir)
-            if not data_files:
-                errors.append(f"No diagnostic files found in: {config.data_dir}")
+        errors.extend(FileManager._data_dir_errors(config))
 
         if errors:
             logger.error("Input validation errors:")

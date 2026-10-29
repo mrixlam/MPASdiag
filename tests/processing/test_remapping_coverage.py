@@ -783,7 +783,7 @@ class TestRemapMpasToLatlonErrors:
         lon = np.array([0.0, 90.0, 180.0])
         lat = np.array([0.0, 30.0, 60.0])
         with pytest.raises(ValueError, match="method must be"):
-            remap_mpas_to_latlon(data, lon, lat, method="cubic")
+            remap_mpas_to_latlon(data, lon, lat, method="spline")
 
     def test_missing_scipy_raises_import_error(
         self: "TestRemapMpasToLatlonErrors",

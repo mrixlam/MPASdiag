@@ -24,6 +24,36 @@ from .utils_path import safe_resolve_within
 
 logger = get_logger(__name__)
 
+SUPPORTED_OUTPUT_FORMATS = ("png", "pdf", "svg", "eps", "jpg")
+SUPPORTED_ACCUMULATION_PERIODS = ("a01h", "a03h", "a06h", "a12h", "a24h")
+PRECIPITATION_PLOT_TYPES = ("scatter", "contourf")
+PRECIPITATION_UNITS = ("mm", "in", "cm")
+SURFACE_PLOT_TYPES = ("scatter", "contour", "contourf", "pcolormesh")
+WIND_PLOT_TYPES = ("barbs", "arrows", "streamlines")
+VERTICAL_COORDS = ("pressure", "modlev", "height")
+CROSS_PLOT_STYLES = ("contourf", "contour", "pcolormesh")
+COLORBAR_EXTENDS = ("both", "min", "max", "neither")
+INTERPOLATION_METHODS = ("nearest", "linear", "cubic")
+
+# YAML keys spelled like the command-line flags, mapped to the MPASConfig field they set
+CONFIG_KEY_ALIASES = {
+    "formats": "output_formats",
+    "accumulation": "accumulation_period",
+    "batch_all": "batch_mode",
+    "threshold": "precip_threshold",
+    "units": "precip_units",
+    "subsample": "subsample_factor",
+    "interpolation": "interpolation_method",
+    "lon": "sounding_lon",
+    "lat": "sounding_lat",
+    "max_distance_km": "sounding_max_distance_km",
+}
+
+_TRUE_STRINGS = ("true", "yes")
+_FALSE_STRINGS = ("false", "no")
+_PRECIPITATION_ANALYSIS_TYPES = ("precipitation", "precip", "rain")
+_SURFACE_ANALYSIS_TYPES = ("surface", "surf", "2d")
+
 
 def _validate_config_path(
     filepath: str,
@@ -52,7 +82,7 @@ def _validate_config_path(
 
 @dataclass
 class MPASConfig:
-    """Configuration class for MPAS analysis parameters."""
+    """Configuration class for MPAS analysis parameters. The color limits clim_min and clim_max and the contour levels in levels are expressed in the plotted (display) units of the variable, for example degrees Celsius for t2m or hPa for mslp, after the automatic unit conversion; they are never converted themselves. The vector_color and vector_alpha settings give the color and opacity of the wind barbs and arrows (streamlines keep the speed colormap but honor the opacity)."""
 
     grid_file: str = ""
     data_dir: str = ""
@@ -60,10 +90,10 @@ class MPASConfig:
 
     base_dir: Optional[str] = None
 
-    lat_min: float = -90.0
-    lat_max: float = 90.0
-    lon_min: float = -180.0
-    lon_max: float = 180.0
+    lat_min: Optional[float] = None
+    lat_max: Optional[float] = None
+    lon_min: Optional[float] = None
+    lon_max: Optional[float] = None
 
     variable: str = "rainnc"
     accumulation_period: str = "a01h"
@@ -78,6 +108,11 @@ class MPASConfig:
     grid_resolution: Optional[float] = None
     regrid_method: str = "linear"
 
+    projection: str = "PlateCarree"
+    central_longitude: Optional[float] = None
+    central_latitude: Optional[float] = None
+    proj_kwargs: Optional[Dict[str, Any]] = None
+
     remap_engine: str = "kdtree"
     remap_method: str = "nearest"
 
@@ -85,7 +120,7 @@ class MPASConfig:
     v_variable: str = "v10"
     wind_level: str = "surface"
     wind_plot_type: str = "barbs"
-    subsample_factor: int = 0
+    subsample_factor: int = -1
     wind_scale: Optional[float] = None
     show_background: bool = False
     background_colormap: str = "viridis"
@@ -98,12 +133,12 @@ class MPASConfig:
 
     use_pure_xarray: bool = False
     batch_mode: bool = False
-    verbose: bool = True
+    verbose: bool = False
     quiet: bool = False
     log_level: Optional[str] = None
     log_file: Optional[str] = None
 
-    chunk_size: int = 100000
+    chunk_size: Optional[int] = None
     parallel: bool = False
     workers: Optional[int] = None
 
@@ -114,12 +149,12 @@ class MPASConfig:
     precip_threshold: Optional[float] = None
     precip_units: str = "mm"
 
-    interpolation_method: str = "linear"
-    contour_levels: int = 15
+    interpolation_method: Optional[str] = None
+    contour_levels: Optional[int] = None
     levels: Optional[List[float]] = None
 
     vector_color: str = "black"
-    vector_alpha: float = 0.8
+    vector_alpha: float = 1.0
 
     start_lon: Optional[float] = None
     start_lat: Optional[float] = None
@@ -143,6 +178,7 @@ class MPASConfig:
 
     sounding_lon: Optional[float] = None
     sounding_lat: Optional[float] = None
+    sounding_max_distance_km: Optional[float] = None
     show_indices: bool = False
     show_parcel: bool = False
 
@@ -159,11 +195,12 @@ class MPASConfig:
         if self.output_formats is None:
             self.output_formats = ["png"]
 
+        self._coerce_booleans()
         self.revalidate()
 
     def revalidate(self: "MPASConfig") -> None:
         """
-        This method revalidates the configuration parameters after the dataclass has been initialized. It checks the spatial extent parameters, remap settings, log level, and numeric ranges to ensure that they are all valid. If any of these validations fail, it raises a ValueError with an appropriate message indicating the specific issue. This method can be called at any time to ensure that the configuration remains valid, especially if any parameters have been modified after initialization.
+        This method revalidates the configuration parameters after the dataclass has been initialized. It checks the spatial extent parameters, remap settings, log level, numeric ranges, categorical choices (output formats, accumulation period, plot types), and the time selection to ensure that they are all valid. If any of these validations fail, it raises a ValueError with an appropriate message indicating the specific issue. This method can be called at any time to ensure that the configuration remains valid, especially if any parameters have been modified after initialization.
 
         Parameters:
             None
@@ -171,12 +208,50 @@ class MPASConfig:
         Returns:
             None
         """
-        if not self._validate_spatial_extent():
-            raise ValueError("Invalid spatial extent parameters")
+        # A subsample factor of 0 means "automatic", the same as -1
+        if (
+            isinstance(self.subsample_factor, int)
+            and not isinstance(self.subsample_factor, bool)
+            and self.subsample_factor == 0
+        ):
+            self.subsample_factor = -1
+
+        extent_error = self._spatial_extent_error()
+        if extent_error is not None:
+            raise ValueError(extent_error)
 
         self._validate_remap_settings()
         self._validate_log_level()
         self._validate_numeric_ranges()
+        self._validate_choices()
+        self._validate_time_selection()
+
+    def _coerce_booleans(self: "MPASConfig") -> None:
+        """
+        This method type-checks every boolean field of the configuration. Real booleans pass unchanged, the strings true/false/yes/no (any case, surrounding whitespace ignored) are converted, and any other value raises a ValueError naming the field, so a quoted YAML value such as show_background: "false" is neither silently truthy nor silently ignored.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        for f in fields(self):
+            if f.type is not bool:
+                continue
+            value = getattr(self, f.name)
+            if isinstance(value, bool):
+                continue
+            text = value.strip().lower() if isinstance(value, str) else None
+            if text in _TRUE_STRINGS:
+                setattr(self, f.name, True)
+            elif text in _FALSE_STRINGS:
+                setattr(self, f.name, False)
+            else:
+                raise ValueError(
+                    f"{f.name} must be true or false (also accepted: yes/no), "
+                    f"got {value!r}"
+                )
 
     def resolved_base_dir(self: "MPASConfig") -> Path:
         """
@@ -192,7 +267,7 @@ class MPASConfig:
 
     def _validate_numeric_ranges(self: "MPASConfig") -> None:
         """
-        This method validates the numeric parameters of the configuration to ensure they fall within their allowed ranges. It checks parameters such as dpi, time_index, num_points, chunk_size, subsample_factor, contour_levels, and workers (if specified). If any of these parameters are out of their defined ranges or are not numeric types (int or float), it raises a ValueError with an appropriate message indicating the invalid parameter and its allowed range. This validation step is crucial for preventing runtime errors and ensuring that the configuration parameters are set to reasonable values for processing and plotting operations.
+        This method validates the numeric parameters of the configuration to ensure they fall within their allowed ranges. It checks parameters such as dpi, time_index (any integer; negative values are Python-style indices resolved against the dataset size once it is known), num_points, chunk_size, subsample_factor (-1 or 0 for automatic, where 0 is normalised to -1 by revalidate, or an integer >= 1), contour_levels, transparency and vector_alpha (within [0, 1]), the clim_min/clim_max ordering, and workers (if specified). If any of these parameters are out of their defined ranges or are not numeric types (int or float), it raises a ValueError with an appropriate message indicating the invalid parameter and its allowed range. This validation step is crucial for preventing runtime errors and ensuring that the configuration parameters are set to reasonable values for processing and plotting operations.
 
         Parameters:
             None
@@ -229,6 +304,11 @@ class MPASConfig:
         _check("chunk_size", self.chunk_size, 1, 1_000_000_000)
         _check("subsample_factor", self.subsample_factor, -1, 1_000_000)
         _check("contour_levels", self.contour_levels, 1, 10_000)
+        _check("sounding_max_distance_km", self.sounding_max_distance_km, 0.0, 40_000.0)
+        _check("transparency", self.transparency, 0.0, 1.0)
+        _check("vector_alpha", self.vector_alpha, 0.0, 1.0)
+
+        self._validate_subsample_and_limits()
 
         if self.workers is not None:
             _check("workers", self.workers, 1, 100_000)
@@ -238,6 +318,26 @@ class MPASConfig:
                 raise ValueError("figure_size must have exactly two values")
             for dim in self.figure_size:
                 _check("figure_size", dim, 0.1, 1_000.0)
+
+    def _validate_subsample_and_limits(self: "MPASConfig") -> None:
+        """
+        This method validates the cross-field numeric rule that clim_min must not exceed clim_max when both color limits are specified, raising a ValueError naming the offending values. A wind subsample factor of 0 is not an error: revalidate normalises it to -1 (automatic) before this check runs.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        if (
+            self.clim_min is not None
+            and self.clim_max is not None
+            and self.clim_min > self.clim_max
+        ):
+            raise ValueError(
+                f"clim_min ({self.clim_min}) must not be greater than "
+                f"clim_max ({self.clim_max})"
+            )
 
     def _validate_log_level(self: "MPASConfig") -> None:
         """
@@ -262,9 +362,71 @@ class MPASConfig:
 
         self.log_level = level
 
+    def _spatial_extent_error(self: "MPASConfig") -> Optional[str]:
+        """
+        This method checks the spatial extent parameters (lon_min, lon_max, lat_min, lat_max) and returns a human-readable description of the first problem found, or None when the extent is valid. A bound left as None means unspecified and is resolved from the data extent at run time, so only the specified bounds are checked. Longitudes may lie anywhere in [-360, 360] so that dateline-crossing boxes (e.g. 150 to 210) and 0 to 360 domains are accepted, but lon_max must exceed lon_min and the longitude span must not exceed 360 degrees. Latitudes must lie in [-90, 90] with lat_max greater than lat_min. Every message names the offending values so users can correct them directly.
+
+        Parameters:
+            None
+
+        Returns:
+            Optional[str]: Description of the invalid extent naming the bad values, or None when the extent is valid or unspecified.
+        """
+        for name in ("lon_min", "lon_max", "lat_min", "lat_max"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                return f"Invalid spatial extent: {name} must be a number, got {value!r}"
+
+        for names, low, high, label in (
+            (("lon_min", "lon_max"), -360.0, 360.0, "longitude"),
+            (("lat_min", "lat_max"), -90.0, 90.0, "latitude"),
+        ):
+            for name in names:
+                value = getattr(self, name)
+                if value is not None and not (low <= value <= high):
+                    return (
+                        f"Invalid spatial extent: {name}={value} is outside the "
+                        f"allowed {label} range [{int(low)}, {int(high)}]"
+                    )
+
+        if (
+            self.lon_min is not None
+            and self.lon_max is not None
+            and self.lon_max <= self.lon_min
+        ):
+            return (
+                f"Invalid spatial extent: lon_max ({self.lon_max}) must be greater "
+                f"than lon_min ({self.lon_min})"
+            )
+
+        if (
+            self.lon_min is not None
+            and self.lon_max is not None
+            and self.lon_max - self.lon_min > 360.0
+        ):
+            return (
+                f"Invalid spatial extent: longitude span "
+                f"{self.lon_max - self.lon_min} (lon_min={self.lon_min}, "
+                f"lon_max={self.lon_max}) exceeds 360 degrees"
+            )
+
+        if (
+            self.lat_min is not None
+            and self.lat_max is not None
+            and self.lat_max <= self.lat_min
+        ):
+            return (
+                f"Invalid spatial extent: lat_max ({self.lat_max}) must be greater "
+                f"than lat_min ({self.lat_min})"
+            )
+
+        return None
+
     def _validate_spatial_extent(self: "MPASConfig") -> bool:
         """
-        This method validates the spatial extent parameters (latitude and longitude bounds) of the configuration. It checks if any of the spatial extent parameters (lon_min, lon_max, lat_min, lat_max) are None, in which case it considers the spatial extent to be valid (as it may be unspecified). If all parameters are specified, it ensures that the longitude values are between -180 and 180 degrees, the latitude values are between -90 and 90 degrees, and that the maximum bounds are greater than the minimum bounds. This validation step is crucial for ensuring that any spatial subsetting or plotting operations based on these parameters will function correctly without encountering errors due to invalid geographic bounds.
+        This method validates the spatial extent parameters (latitude and longitude bounds) of the configuration and reports the result as a boolean. Unspecified (None) bounds are valid because they are resolved from the data extent at run time. Specified bounds must satisfy the same rules the plotters accept: longitudes within [-360, 360] with lon_max greater than lon_min and a span of at most 360 degrees (so 0 to 360 and dateline-crossing boxes such as 150 to 210 are valid), and latitudes within [-90, 90] with lat_max greater than lat_min. The detailed reason for a failure is available from _spatial_extent_error, which revalidate uses to raise a descriptive ValueError.
 
         Parameters:
             None
@@ -272,19 +434,88 @@ class MPASConfig:
         Returns:
             bool: True if spatial extent parameters are valid or unspecified, False if invalid bounds detected.
         """
-        if any(
-            x is None for x in [self.lon_min, self.lon_max, self.lat_min, self.lat_max]
-        ):
-            return True
+        return self._spatial_extent_error() is None
 
-        return (
-            -180.0 <= self.lon_min <= 180.0
-            and -180.0 <= self.lon_max <= 180.0
-            and -90.0 <= self.lat_min <= 90.0
-            and -90.0 <= self.lat_max <= 90.0
-            and self.lon_max > self.lon_min
-            and self.lat_max > self.lat_min
+    def _validate_choices(self: "MPASConfig") -> None:
+        """
+        This method validates the categorical configuration parameters against the choices supported by the command-line interface: output formats, accumulation period, plot type (restricted per analysis type for precipitation and surface runs), wind plot type, vertical coordinate, cross-section plot style, and colorbar extension. Each unknown value raises a ValueError that names the offending value and lists the supported options, so a typo in a YAML file is reported before any data is loaded instead of failing deep inside a plotter.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+
+        def _require(name: str, value: Any, allowed: Tuple[str, ...]) -> None:
+            """
+            This helper function raises a ValueError naming the parameter, the invalid value, and the supported options when the value is not one of the allowed choices.
+
+            Parameters:
+                name (str): The name of the parameter being checked (for error messages).
+                value (Any): The value of the parameter to check.
+                allowed (Tuple[str, ...]): The supported values for the parameter.
+
+            Returns:
+                None
+            """
+            if value not in allowed:
+                raise ValueError(
+                    f"Invalid {name} '{value}'. Must be one of: {', '.join(allowed)}"
+                )
+
+        for fmt in self.output_formats or []:
+            _require("output format", fmt, SUPPORTED_OUTPUT_FORMATS)
+
+        _require(
+            "accumulation_period",
+            self.accumulation_period,
+            SUPPORTED_ACCUMULATION_PERIODS,
         )
+
+        if self.analysis_type in _PRECIPITATION_ANALYSIS_TYPES:
+            _require("plot_type", self.plot_type, PRECIPITATION_PLOT_TYPES)
+        else:
+            _require("plot_type", self.plot_type, SURFACE_PLOT_TYPES)
+
+        _require("precip_units", self.precip_units, PRECIPITATION_UNITS)
+        _require("wind_plot_type", self.wind_plot_type, WIND_PLOT_TYPES)
+        _require("vertical_coord", self.vertical_coord, VERTICAL_COORDS)
+        _require("plot_style", self.plot_style, CROSS_PLOT_STYLES)
+        _require("extend", self.extend, COLORBAR_EXTENDS)
+        if self.interpolation_method is not None:
+            _require(
+                "interpolation_method", self.interpolation_method, INTERPOLATION_METHODS
+            )
+
+    def _validate_time_selection(self: "MPASConfig") -> None:
+        """
+        This method validates the optional time range (time_start, time_end) used for batch processing. Both values must be non-negative integers when specified, and time_end must not be smaller than time_start because the range is inclusive. Whether the range lies within the loaded dataset can only be checked once the data are open, so that check is performed by the command-line interface at run time.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        for name in ("time_start", "time_end"):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(
+                    f"{name} must be a non-negative integer, got {value!r}"
+                )
+
+        if (
+            self.time_start is not None
+            and self.time_end is not None
+            and self.time_end < self.time_start
+        ):
+            raise ValueError(
+                f"Invalid time range: time_end ({self.time_end}) is before "
+                f"time_start ({self.time_start})"
+            )
 
     def _validate_remap_settings(self: "MPASConfig") -> None:
         """
@@ -347,6 +578,39 @@ class MPASConfig:
                 config_dict[key] = list(value)
         return config_dict
 
+    @staticmethod
+    def _apply_aliases(config_dict: Dict[str, Any], known: set) -> Dict[str, Any]:
+        """
+        This helper renames YAML keys that use the command-line flag spelling (for example 'formats', 'accumulation', 'subsample') to the MPASConfig field they set, expands figure_width/figure_height into figure_size, and expands time_range into time_start/time_end. A canonical key present in the same mapping always wins over its alias.
+
+        Parameters:
+            config_dict (Dict[str, Any]): Raw configuration mapping.
+            known (set): Names of the declared MPASConfig fields.
+
+        Returns:
+            Dict[str, Any]: A new mapping with aliases resolved.
+        """
+        result = dict(config_dict)
+        for alias, field_name in CONFIG_KEY_ALIASES.items():
+            if alias in result and alias not in known:
+                value = result.pop(alias)
+                result.setdefault(field_name, value)
+        time_range = result.pop("time_range", None)
+        if time_range is not None:
+            if not isinstance(time_range, (list, tuple)) or len(time_range) != 2:
+                raise ValueError(f"time_range must be [start, end], got {time_range!r}")
+            result.setdefault("time_start", time_range[0])
+            result.setdefault("time_end", time_range[1])
+        if "figure_size" not in result and (
+            "figure_width" in result or "figure_height" in result
+        ):
+            default_w, default_h = 12.0, 10.0
+            result["figure_size"] = (
+                result.get("figure_width", default_w),
+                result.get("figure_height", default_h),
+            )
+        return result
+
     @classmethod
     def from_dict(cls: type["MPASConfig"], config_dict: Dict[str, Any]) -> "MPASConfig":
         """
@@ -367,6 +631,7 @@ class MPASConfig:
         # Filter to declared dataclass fields so an untrusted YAML with unknown or
         # extra keys is a warning, not a TypeError-level crash (audit finding F12).
         known = {f.name for f in fields(cls)}
+        config_dict = cls._apply_aliases(config_dict, known)
         unknown = set(config_dict) - known
         if unknown:
             logger.warning(
@@ -413,9 +678,32 @@ class MPASConfig:
         Returns:
             MPASConfig: An instance of MPASConfig initialized with parameters loaded from the specified YAML file.
         """
+        return cls.from_dict(cls.load_dict_from_file(filepath, base_dir))
+
+    @classmethod
+    def load_dict_from_file(
+        cls: type["MPASConfig"], filepath: str, base_dir: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        This class method reads a YAML configuration file and returns its contents as a plain dictionary without constructing or validating an MPASConfig. The command-line interface uses it to layer explicitly passed flags on top of the file (explicit flags > YAML > defaults), which requires knowing exactly which keys the file set instead of seeing every dataclass default. The path is confined to the trusted base directory exactly as in load_from_file, and the parsed document must be a mapping (an empty file yields an empty dictionary).
+
+        Parameters:
+            filepath (str): Path to the YAML file. May be absolute or relative, but must resolve inside base_dir.
+            base_dir (Optional[str]): Trusted directory the path must stay within. Defaults to the current working directory.
+
+        Returns:
+            Dict[str, Any]: The configuration keys and values defined in the file.
+        """
         safe_path = _validate_config_path(filepath, base_dir, must_exist=True)
 
         with open(safe_path, "r") as yaml_file:
             config_dict = yaml.safe_load(yaml_file)
 
-        return cls.from_dict(config_dict)
+        if config_dict is None:
+            return {}
+        if not isinstance(config_dict, dict):
+            raise ValueError(
+                f"Configuration must be a mapping of parameters, got "
+                f"{type(config_dict).__name__}"
+            )
+        return config_dict

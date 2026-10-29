@@ -337,11 +337,11 @@ class TestFindFilesRecursive:
             with pytest.raises(FileNotFoundError, match="No MPAS output files"):
                 proc._find_files_recursive(str(tmp_path / "data"))
 
-    def test_raises_value_error_when_only_one_file(
+    def test_single_file_is_returned(
         self: "TestFindFilesRecursive", proc: "MPAS3DProcessor", tmp_path: Path
     ) -> None:
         """
-        This test verifies that the _find_files_recursive method raises a ValueError when only one MPAS output file is found in the specified directory or its subdirectories. This ensures that the method correctly handles cases where there are not enough files to perform meaningful processing, providing a clear error message to the user and preventing further processing with an insufficient file list. The test simulates a scenario where the glob function returns a list containing only one file path, confirming that the method raises the appropriate exception in this case.
+        This test verifies that the _find_files_recursive method returns a single MPAS output file found in the specified directory or its subdirectories instead of raising, because a single multi-time file is a valid input.
 
         Parameters:
             proc ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset.
@@ -354,8 +354,8 @@ class TestFindFilesRecursive:
             "mpasdiag.processing.processors_3d.glob.glob",
             return_value=[str(tmp_path / "mpasout_2024.nc")],
         ):
-            with pytest.raises(ValueError, match="Insufficient MPAS output files"):
-                proc._find_files_recursive(str(tmp_path / "data"))
+            result = proc._find_files_recursive(str(tmp_path / "data"))
+            assert result == [str(tmp_path / "mpasout_2024.nc")]
 
     def test_returns_sorted_files_silent(
         self: "TestFindFilesRecursive", proc: "MPAS3DProcessor", tmp_path: Path
@@ -639,215 +639,6 @@ class TestResolveStrLevelUnknown:
         """
         proc.dataset = _make_3d_ds(n_vert=4)  # nVertLevels=4 → top=3
         assert proc._resolve_str_level("top") == 3
-
-
-class TestLerpVariableExceptionPath:
-    """Test _lerp_variable exception handling path when interpolation fails, ensuring it falls back to nearest index and prints message in verbose mode."""
-
-    def _make_bad_da(self: "TestLerpVariableExceptionPath") -> MagicMock:
-        """
-        This helper method creates a mock DataArray that simulates a failure during interpolation by raising an ArithmeticError when multiplication is attempted. This mock DataArray is used in tests to trigger the exception handling path in the _lerp_variable method, allowing us to verify that the method correctly falls back to returning the nearest index and prints a message in verbose mode when interpolation fails.
-
-        Parameters:
-            None
-
-        Returns:
-            MagicMock: A mock DataArray that raises an ArithmeticError on multiplication.
-        """
-        bad = MagicMock()
-        bad.__rmul__ = MagicMock(side_effect=ArithmeticError("simulated"))
-        bad.__mul__ = MagicMock(side_effect=ArithmeticError("simulated"))
-        return bad
-
-    def _make_mock_ds(self: "TestLerpVariableExceptionPath") -> MagicMock:
-        """
-        This helper method creates a mock dataset that contains a variable which raises an ArithmeticError when interpolation is attempted. The method constructs a mock variable that simulates the failure during interpolation, and then creates a mock dataset that returns this variable when accessed. This mock dataset is used in tests to trigger the exception handling path in the _lerp_variable method, allowing us to verify that the method correctly falls back to returning the nearest index and prints a message in verbose mode when interpolation fails.
-
-        Parameters:
-            None
-
-        Returns:
-            MagicMock: A mock dataset containing a variable that raises an ArithmeticError on multiplication.
-        """
-        bad_var = MagicMock()
-        bad_var.isel.return_value = self._make_bad_da()
-        mock_ds = MagicMock()
-        mock_ds.__getitem__.return_value = bad_var
-        return mock_ds
-
-    def test_exception_fallback_returns_nearest_idx(
-        self: "TestLerpVariableExceptionPath", proc: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _lerp_variable method correctly falls back to returning the nearest index when an exception occurs during interpolation. This ensures that the method can still provide a meaningful result (the nearest index) even when interpolation fails, allowing the processing to continue without crashing. The test simulates a scenario where the dataset contains a variable that raises an ArithmeticError during interpolation, confirming that the method returns an integer index and None for the result as expected in this case.
-
-        Parameters:
-            proc ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset.
-
-        Returns:
-            None
-        """
-        proc.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        mock_ds = self._make_mock_ds()
-
-        idx, result = proc._lerp_variable(
-            "theta", 0, 1, 0.5, mean_p, 60000.0, mock_ds, "Time", 0, "nVertLevels"
-        )
-
-        assert result is None
-        assert isinstance(idx, int)
-
-    def test_exception_fallback_verbose_prints_message(
-        self: "TestLerpVariableExceptionPath", proc_v: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _lerp_variable method correctly prints a message in verbose mode when an exception occurs during interpolation and it falls back to returning the nearest index. This ensures that the method provides useful feedback to the user about the interpolation failure, enhancing the user experience in verbose mode by informing them of the issue and the fallback behavior. The test simulates a scenario where the dataset contains a variable that raises an ArithmeticError during interpolation, and captures the standard output to confirm that a message indicating the interpolation failure is printed when verbose mode is active.
-
-        Parameters:
-            proc_v ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset in verbose mode.
-
-        Returns:
-            None
-        """
-        proc_v.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        mock_ds = self._make_mock_ds()
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            _, _ = proc_v._lerp_variable(
-                "theta", 0, 1, 0.5, mean_p, 60000.0, mock_ds, "Time", 0, "nVertLevels"
-            )
-
-        assert "Interpolation failed" in captured.getvalue()
-
-
-class TestInterpolateAtPressureVerbosePaths:
-    """Test _interpolate_at_pressure branches related to pressure above surface and below top, ensuring it prints messages in verbose mode and returns expected indices."""
-
-    def test_above_surface_verbose_prints_and_returns_zero(
-        self: "TestInterpolateAtPressureVerbosePaths", proc_v: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _interpolate_at_pressure method correctly prints a message and returns zero when the specified pressure is above the surface in verbose mode. This ensures that the method provides useful feedback to the user about the pressure being above the surface, enhancing the user experience in verbose mode. The test simulates a scenario where the mean pressure values indicate that the specified pressure is above the surface, and captures the standard output to confirm that a message indicating this condition is printed when verbose mode is active.
-
-        Parameters:
-            proc_v ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset in verbose mode.
-
-        Returns:
-            None
-        """
-        proc_v.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        ds_raw = _make_3d_ds()
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            idx, result = proc_v._interpolate_at_pressure(
-                "theta", 110000.0, mean_p, ds_raw, "Time", 0
-            )
-
-        assert idx == 0
-        assert result is None
-        assert "above surface" in captured.getvalue()
-
-    def test_above_surface_silent_returns_zero(
-        self: "TestInterpolateAtPressureVerbosePaths", proc: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _interpolate_at_pressure method correctly returns zero when the specified pressure is above the surface in non-verbose mode. This ensures that the method provides the expected behavior of returning zero for the pressure level when it is above the surface, even when verbose mode is not enabled. The test simulates a scenario where the mean pressure values indicate that the specified pressure is above the surface, confirming that the method returns zero and None for the result as expected in this case.
-
-        Parameters:
-            proc ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset.
-
-        Returns:
-            None
-        """
-        proc.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        ds_raw = _make_3d_ds()
-
-        idx, result = proc._interpolate_at_pressure(
-            "theta", 110000.0, mean_p, ds_raw, "Time", 0
-        )
-
-        assert idx == 0
-        assert result is None
-
-    def test_below_top_verbose_prints_and_returns_last_idx(
-        self: "TestInterpolateAtPressureVerbosePaths", proc_v: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _interpolate_at_pressure method correctly prints a message and returns the last index when the specified pressure is below the top in verbose mode. This ensures that the method provides useful feedback to the user about the pressure being below the top, enhancing the user experience in verbose mode. The test simulates a scenario where the mean pressure values indicate that the specified pressure is below the top, and captures the standard output to confirm that a message indicating this condition is printed when verbose mode is active. Additionally, it confirms that the method returns the last index and None for the result as expected in this case.
-
-        Parameters:
-            proc_v ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset in verbose mode.
-
-        Returns:
-            None
-        """
-        proc_v.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        ds_raw = _make_3d_ds()
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            idx, result = proc_v._interpolate_at_pressure(
-                "theta", 40000.0, mean_p, ds_raw, "Time", 0
-            )
-
-        assert idx == len(mean_p) - 1
-        assert result is None
-        assert "below top" in captured.getvalue()
-
-    def test_below_top_silent_returns_last_idx(
-        self: "TestInterpolateAtPressureVerbosePaths", proc: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _interpolate_at_pressure method correctly returns the last index when the specified pressure is below the top in non-verbose mode. This ensures that the method provides the expected behavior of returning the last index for the pressure level when it is below the top, even when verbose mode is not enabled. The test simulates a scenario where the mean pressure values indicate that the specified pressure is below the top, confirming that the method returns the last index and None for the result as expected in this case.
-
-        Parameters:
-            proc ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset.
-
-        Returns:
-            None
-        """
-        proc.dataset = _make_3d_ds()
-        mean_p = _mean_p_ascending()
-        ds_raw = _make_3d_ds()
-
-        idx, result = proc._interpolate_at_pressure(
-            "theta", 40000.0, mean_p, ds_raw, "Time", 0
-        )
-
-        assert idx == len(mean_p) - 1
-        assert result is None
-
-    def test_boundary_lower_idx_at_last_returns_without_interpolating(
-        self: "TestInterpolateAtPressureVerbosePaths", proc: "MPAS3DProcessor"
-    ) -> None:
-        """
-        This test verifies that the _interpolate_at_pressure method correctly returns without attempting interpolation when the lower index is at the last index of the mean pressure values, which indicates that the specified pressure is below the top. This ensures that the method can handle edge cases where the pressure level is outside the range of available levels, preventing attempts to interpolate when it is not possible and returning None for the result as expected. The test simulates a scenario where the mean pressure values are such that the specified pressure is below the top, confirming that the method returns the last index and None for the result without attempting interpolation in this case.
-
-        Parameters:
-            proc ('MPAS3DProcessor'): An instance of MPAS3DProcessor with dataset set to a valid 3D dataset.
-
-        Returns:
-            None
-        """
-        proc.dataset = _make_3d_ds()
-        mean_p = np.array(
-            [100000.0, 85000.0, 70000.0, 50000.0]
-        )  # descending (surface → top)
-        ds_raw = _make_3d_ds()
-
-        idx, result = proc._interpolate_at_pressure(
-            "theta", 50000.0, mean_p, ds_raw, "Time", 0
-        )
-
-        assert idx == 3
-        assert result is None
 
 
 class TestResolveFloatLevelNoPressure:
@@ -1259,11 +1050,11 @@ class TestExtractNumpyByIndex:
         with pytest.raises(ValueError, match="at least 2D"):
             MPAS3DProcessor._extract_numpy_by_index(arr, 0)
 
-    def test_3d_array_extracts_along_second_dim(
+    def test_3d_array_extracts_along_last_dim(
         self: "TestExtractNumpyByIndex",
     ) -> None:
         """
-        This test verifies that the _extract_numpy_by_index method correctly extracts data along the second dimension when the input data is 3D. It ensures that the method selects the appropriate slice of the array based on the specified index, providing accurate data extraction for 3D arrays. The test simulates a scenario where the input is a 3D numpy array, and the method is called with a specific index, confirming that it returns the expected slice of the array corresponding to that index along the second dimension as expected in this case.
+        This test verifies that the _extract_numpy_by_index method extracts along the final (vertical) axis for a 3D array following the MPAS storage order (Time, nCells, nVertLevels), returning a (Time, nCells) slice. Formerly the method returned arr[:, level, -1], which indexed the wrong axes.
 
         Parameters:
             None
@@ -1273,14 +1064,15 @@ class TestExtractNumpyByIndex:
         """
         arr: np.ndarray = np.arange(60, dtype=float).reshape(5, 4, 3)
         result = MPAS3DProcessor._extract_numpy_by_index(arr, 1)
-        expected = arr[:, 1, -1]
+        expected = arr[:, :, 1]
+        assert result.shape == (5, 4)
         assert np.allclose(result, expected)
 
-    def test_4d_array_extracts_along_second_dim(
+    def test_4d_array_extracts_along_last_dim(
         self: "TestExtractNumpyByIndex",
     ) -> None:
         """
-        This test verifies that the _extract_numpy_by_index method correctly extracts data along the second dimension when the input data is 4D. It ensures that the method selects the appropriate slice of the array based on the specified index, providing accurate data extraction for 4D arrays. The test simulates a scenario where the input is a 4D numpy array, and the method is called with a specific index, confirming that it returns the expected slice of the array corresponding to that index along the second dimension as expected in this case.
+        This test verifies that the _extract_numpy_by_index method extracts along the final (vertical) axis for a 4D array, preserving all leading axes.
 
         Parameters:
             None
@@ -1290,7 +1082,7 @@ class TestExtractNumpyByIndex:
         """
         arr = np.ones((5, 4, 3, 2))
         result = MPAS3DProcessor._extract_numpy_by_index(arr, 1)
-        assert result.shape == (5, 3, 2)
+        assert result.shape == (5, 4, 3)
 
 
 class TestExtract2DFrom3D:
@@ -1386,7 +1178,7 @@ class TestExtract2DFrom3D:
         """
         data = np.ones((5, 4, 3))
         result = MPAS3DProcessor.extract_2d_from_3d(data, level_index=1)
-        assert result.shape == (5,)
+        assert result.shape == (5, 4)
 
 
 if __name__ == "__main__":

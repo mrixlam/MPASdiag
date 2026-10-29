@@ -1315,5 +1315,69 @@ class TestRemapWithMaskingConfigRouting:
         assert "lon" in result.dims
 
 
+class TestDatelineWrappedLinearRemap:
+    """Tests that linear remapping of a global mesh fills the ±180° columns of a [-180, 180] grid."""
+
+    def test_linear_remap_has_no_nan_columns_at_dateline(
+        self: "TestDatelineWrappedLinearRemap",
+    ) -> None:
+        """
+        This regression test verifies that linear remapping of a globally distributed source onto a [-180, 180] grid produces finite values in the -180° and 180° columns. Before the source mesh was wrapped across the dateline, those columns lay outside the convex hull of the source points and came back NaN, which showed up as a seam on maps centered at 180°.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        n = 6000
+        lon = _RNG.uniform(-180.0, 180.0, n)
+        lat = np.degrees(np.arcsin(_RNG.uniform(-1.0, 1.0, n)))
+        data = np.cos(np.radians(lat))
+        result = remap_mpas_to_latlon(
+            data,
+            lon,
+            lat,
+            lon_min=-180.0,
+            lon_max=180.0,
+            lat_min=-60.0,
+            lat_max=60.0,
+            resolution=2.0,
+            method="linear",
+        )
+        values = result.values
+        assert np.isfinite(values[:, 0]).all()
+        assert np.isfinite(values[:, -1]).all()
+        np.testing.assert_allclose(values[:, 0], values[:, -1], atol=0.05)
+
+    def test_regional_source_is_not_wrapped(
+        self: "TestDatelineWrappedLinearRemap",
+    ) -> None:
+        """
+        This test verifies that a regional source mesh (here 10° wide) is not wrapped across the dateline, so target points outside its convex hull stay NaN.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        n = 500
+        lon = _RNG.uniform(-100.0, -90.0, n)
+        lat = _RNG.uniform(30.0, 40.0, n)
+        result = remap_mpas_to_latlon(
+            np.ones(n),
+            lon,
+            lat,
+            lon_min=-110.0,
+            lon_max=-80.0,
+            lat_min=30.0,
+            lat_max=40.0,
+            resolution=1.0,
+            method="linear",
+        )
+        assert np.isnan(result.values[:, 0]).all()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

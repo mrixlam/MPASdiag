@@ -14,6 +14,7 @@ Date: March 2026
 Version: 1.0.0
 """
 
+import hashlib
 import warnings
 import numpy as np
 import xarray as xr
@@ -21,6 +22,8 @@ from pathlib import Path
 from scipy.sparse import coo_matrix
 from typing import Any, Optional, Union, List, Tuple
 
+from .constants import NETCDF_ENGINE
+from .utils_geog import MPASGeographicUtils
 from .utils_logger import get_logger
 from .utils_validator import DataValidator
 from .utils_path import safe_resolve_within
@@ -61,11 +64,76 @@ def _convert_coordinates_to_degrees(
     if isinstance(lat, xr.DataArray):
         lat = lat.values
 
-    lat_is_radians = np.max(np.abs(lat)) <= np.pi
-    lon_deg = np.degrees(lon) if lat_is_radians else lon
-    lat_deg = np.degrees(lat) if lat_is_radians else lat
+    return MPASGeographicUtils.coordinates_to_degrees(lon, lat)
 
-    return lon_deg, lat_deg
+
+def _build_target_axis(
+    start: float, stop: float, step: float, limit: Optional[float] = None
+) -> np.ndarray:
+    """
+    This helper function builds a 1D axis of regularly spaced target-grid coordinates that starts at the requested minimum and never exceeds the requested maximum. The former construction 'np.arange(start, stop + step / 2, step)' rounded the last point up to half a step beyond the bound, so a latitude range of -90 to 90 at 7 degrees produced a latitude of 92. Here the number of points is the largest count whose last coordinate does not pass the bound (with a small tolerance so that ranges that are an exact multiple of the step, such as -90 to 90 at 0.1 degrees, keep their final point), and any floating-point overshoot is clipped to the bound. When an absolute limit is given, such as 90 for latitude, the maximum is first clipped to it.
+
+    Parameters:
+        start (float): Minimum coordinate of the axis in degrees.
+        stop (float): Maximum coordinate of the axis in degrees; no returned value exceeds it.
+        step (float): Positive spacing between coordinates in degrees.
+        limit (Optional[float]): Absolute bound that the axis must not exceed, for example 90.0 for latitude (default: None).
+
+    Returns:
+        np.ndarray: The 1D coordinate array.
+    """
+    if not step > 0:
+        raise ValueError(f"Grid resolution must be positive, got {step}")
+
+    if limit is not None:
+        stop = min(stop, limit)
+
+    n_float = np.floor((stop - start) / step + 1e-9) + 1
+
+    # A tiny step (for example 1e-5 degrees) would allocate an absurd axis or, once the longitude and latitude axes are combined, a multi-terabyte mesh; fail early with a clear message
+    DataValidator.enforce_size_limits(
+        n_tgt=float(n_float) if np.isfinite(n_float) else float("inf"),
+        context=f"building a target axis with spacing {step} degrees (grid resolution too fine)",
+    )
+
+    n_points = max(int(n_float), 1)
+    axis = start + step * np.arange(n_points)
+
+    return np.asarray(np.minimum(axis, stop) if n_points > 1 else axis)
+
+
+def _wrap_longitude_to_frame(lon: np.ndarray, lon_min: float) -> np.ndarray:
+    """
+    This helper function wraps longitudes into the 360-degree window that starts at the target grid's western bound, [lon_min, lon_min + 360). It reconciles a source mesh stored in one longitude convention, for example MPAS lonCell in [0, 360], with a target grid in another, for example [-180, 180], so that nearest-neighbour and linear lookups compare coordinates in the same frame instead of treating a western-hemisphere cell at 350 degrees as being far from a target at -10 degrees.
+
+    Parameters:
+        lon (np.ndarray): Longitudes in degrees in any convention.
+        lon_min (float): Western bound of the target grid in degrees, which defines the start of the window.
+
+    Returns:
+        np.ndarray: Longitudes wrapped into [lon_min, lon_min + 360).
+    """
+    return np.asarray(lon_min + np.mod(np.asarray(lon, dtype=float) - lon_min, 360.0))
+
+
+def _lonlat_to_unit_sphere(lon_deg: np.ndarray, lat_deg: np.ndarray) -> np.ndarray:
+    """
+    This helper function converts longitude and latitude in degrees to Cartesian coordinates on the unit sphere. Nearest-neighbour searches performed on these coordinates use the chord distance, which is monotonic with great-circle distance, so they remain correct at high latitude (where a degree of longitude is much shorter than a degree of latitude) and across the dateline without any longitude wrapping logic.
+
+    Parameters:
+        lon_deg (np.ndarray): Longitudes in degrees.
+        lat_deg (np.ndarray): Latitudes in degrees.
+
+    Returns:
+        np.ndarray: Array of shape (n, 3) with the x, y, z coordinates on the unit sphere.
+    """
+    lon_rad = np.radians(np.asarray(lon_deg, dtype=float))
+    lat_rad = np.radians(np.asarray(lat_deg, dtype=float))
+    cos_lat = np.cos(lat_rad)
+
+    return np.column_stack(
+        [cos_lat * np.cos(lon_rad), cos_lat * np.sin(lon_rad), np.sin(lat_rad)]
+    )
 
 
 def _compute_grid_bounds(coords: np.ndarray, resolution: float) -> np.ndarray:
@@ -79,13 +147,17 @@ def _compute_grid_bounds(coords: np.ndarray, resolution: float) -> np.ndarray:
     Returns:
         np.ndarray: 1D array of grid bounds with length equal to len(coords) + 1, representing the edges of the grid cells.
     """
+    coords = np.asarray(coords, dtype=float)
+
+    if len(coords) < 2:
+        c0 = float(coords[0])
+        return np.array([c0 - resolution / 2, c0 + resolution / 2])
+
+    # Interior edges are midpoints; each end edge extends by half of its own adjacent step (not the first step of the axis)
     bounds: np.ndarray = np.zeros(len(coords) + 1)
-    bounds[0] = coords[0] - resolution / 2
-
-    for i in range(1, len(coords)):
-        bounds[i] = (coords[i - 1] + coords[i]) / 2
-
-    bounds[-1] = coords[-1] + resolution / 2
+    bounds[1:-1] = 0.5 * (coords[:-1] + coords[1:])
+    bounds[0] = coords[0] - 0.5 * (coords[1] - coords[0])
+    bounds[-1] = coords[-1] + 0.5 * (coords[-1] - coords[-2])
 
     return bounds
 
@@ -203,6 +275,12 @@ class MPASRemapper:
             source_grid["lat_b"] = xr.DataArray(lat_bounds, dims=["x", "nv"])
 
         self.source_grid = source_grid
+
+        # Weights built for a previous grid no longer apply
+        self._weights = None
+        self._cell_of_element = None
+        self._n_src = 0
+        self._tgt_shape = (0, 0)
         return source_grid
 
     def create_target_grid(
@@ -228,8 +306,8 @@ class MPASRemapper:
         Returns:
             xr.Dataset: Target grid dataset with 'lon' and 'lat' coordinates.
         """
-        lon = np.arange(lon_min, lon_max + dlon / 2, dlon)
-        lat = np.arange(lat_min, lat_max + dlat / 2, dlat)
+        lon = _build_target_axis(lon_min, lon_max, dlon)
+        lat = _build_target_axis(lat_min, lat_max, dlat, limit=90.0)
 
         DataValidator.enforce_size_limits(
             n_tgt=len(lon) * len(lat), context="creating the target grid"
@@ -243,6 +321,11 @@ class MPASRemapper:
         )
 
         self.target_grid = target_grid
+
+        # Weights built for a previous grid no longer apply
+        self._weights = None
+        self._cell_of_element = None
+        self._tgt_shape = (0, 0)
 
         logger.info("Created target grid: %d x %d points", len(lon), len(lat))
 
@@ -284,7 +367,11 @@ class MPASRemapper:
         source_grid, target_grid = self._resolve_grids(source_grid, target_grid)
         weights_path = self._resolve_weights_path(source_grid, target_grid, filename)
 
-        if self._try_load_cached_weights(weights_path):
+        if self._try_load_cached_weights(
+            weights_path,
+            expected_n_src=len(source_grid["lon"]),
+            expected_tgt_shape=(len(target_grid["lat"]), len(target_grid["lon"])),
+        ):
             return self._weights
 
         using_mpi = comm is not None and comm.Get_size() > 1
@@ -333,7 +420,7 @@ class MPASRemapper:
         filename: Optional[str],
     ) -> Optional[Path]:
         """
-        This helper method determines the file path for caching the computed weights based on the provided filename argument and the internal weights_dir setting. If a filename is explicitly provided, it constructs the path using the weights_dir if available. If no filename is provided but weights_dir is set, it generates a default filename based on the remapping method and the shapes of the source and target grids. If neither a filename nor a weights directory is specified, it returns None, indicating that weights will not be cached to disk. This method centralizes the logic for determining where to save or load weights, making it easier to manage caching behavior across different runs and configurations.
+        This helper method determines the file path for caching the computed weights based on the provided filename argument and the internal weights_dir setting. If a filename is explicitly provided, it constructs the path using the weights_dir if available. If no filename is provided but weights_dir is set, it generates a default filename from the remapping method, the shapes of the source and target grids, and a short SHA-1 digest of their coordinate values, so weights for a different mesh or target domain with the same sizes are never reused by mistake. If neither a filename nor a weights directory is specified, it returns None, indicating that weights will not be cached to disk. This method centralizes the logic for determining where to save or load weights, making it easier to manage caching behavior across different runs and configurations.
 
         Parameters:
             source_grid (xr.Dataset): The source grid dataset, used to determine the shape for default filename generation.
@@ -349,33 +436,86 @@ class MPASRemapper:
         if filename is None:
             src_shape = len(source_grid["lon"])
             tgt_shape = f"{len(target_grid['lon'])}x{len(target_grid['lat'])}"
-            filename = f"weights_{self.method}_{src_shape}to{tgt_shape}.nc"
+            # Grid sizes alone collide across domains and meshes, so add a digest of the coordinate values
+            digest = hashlib.sha1()
+            for grid in (source_grid, target_grid):
+                # Cell-corner coordinates change the conservative weights, so they belong in the key as well
+                for name in ("lon", "lat", "lon_b", "lat_b"):
+                    if name in grid:
+                        digest.update(name.encode())
+                        digest.update(
+                            np.ascontiguousarray(
+                                grid[name].values, dtype=np.float64
+                            ).tobytes()
+                        )
+            # Settings that alter the weight values must also separate cache entries
+            digest.update(
+                repr(
+                    (
+                        self.periodic,
+                        self.extrap_method,
+                        self.extrap_dist_exponent,
+                        self.extrap_num_src_pnts,
+                    )
+                ).encode()
+            )
+            filename = f"weights_{self.method}_{src_shape}to{tgt_shape}_{digest.hexdigest()[:12]}.nc"
 
         return safe_resolve_within(
             filename, self.weights_dir, allowed_suffixes=(".nc",)
         )
 
     def _try_load_cached_weights(
-        self: "MPASRemapper", weights_path: Optional[Path]
+        self: "MPASRemapper",
+        weights_path: Optional[Path],
+        expected_n_src: Optional[int] = None,
+        expected_tgt_shape: Optional[Tuple[int, int]] = None,
     ) -> bool:
         """
         This helper method attempts to load pre-computed weights from a specified file path if caching is enabled and the file exists. It checks the internal reuse_weights setting to determine whether loading from cache is allowed. If the weights are successfully loaded, it updates the internal variables for weights, target shape, and cell_of_element accordingly, and returns True. If the file does not exist or loading is not allowed based on the settings, it returns False, indicating that the regridder will need to be built from scratch. This method provides a mechanism for efficiently reusing previously computed weights across runs, saving time when the same remapping configuration is used multiple times.
 
         Parameters:
             weights_path (Optional[Path]): The file path to the cached weights. If None, the method will not attempt to load weights.
+            expected_n_src (Optional[int]): Number of source points the weights must have been built for; a cache with a different size is ignored (default: None, no check).
+            expected_tgt_shape (Optional[Tuple[int, int]]): Target grid shape (n_lat, n_lon) the weights must match; a cache with a different shape is ignored (default: None, no check).
 
         Returns:
-            bool: True if weights were successfully loaded, False otherwise.
+            bool: True if weights were successfully loaded, False if there is no usable cache (missing, or built for a different method or grid size, in which case the weights are regenerated).
         """
         if weights_path is None or not weights_path.exists() or not self.reuse_weights:
             return False
 
         logger.info("Loading cached weights from %s", weights_path)
 
-        self._weights, self._tgt_shape, self._cell_of_element = (
-            self._load_weights_netcdf(weights_path)
-        )
+        weights, tgt_shape, cell_of_element = self._load_weights_netcdf(weights_path)
 
+        with xr.open_dataset(weights_path, engine=NETCDF_ENGINE) as cached:
+            cached_method = cached.attrs.get("method")
+
+        if cached_method is not None and cached_method != self.method:
+            logger.warning(
+                "Cached weights %s were built with method '%s', not '%s'; regenerating",
+                weights_path.name,
+                cached_method,
+                self.method,
+            )
+            return False
+
+        if (expected_n_src is not None and int(weights.shape[1]) != expected_n_src) or (
+            expected_tgt_shape is not None
+            and tuple(tgt_shape) != tuple(expected_tgt_shape)
+        ):
+            logger.warning(
+                "Cached weights %s do not match the current source/target sizes; regenerating",
+                weights_path.name,
+            )
+            return False
+
+        self._weights, self._tgt_shape, self._cell_of_element = (
+            weights,
+            tgt_shape,
+            cell_of_element,
+        )
         self._n_src = int(self._weights.shape[1])
         logger.info("Weights loaded successfully")
         return True
@@ -501,13 +641,18 @@ class MPASRemapper:
 
         lon_tgt = target_grid["lon"].values
         lat_tgt = target_grid["lat"].values
-        target_lon_esmpy = np.where(lon_tgt < 0, lon_tgt + 360, lon_tgt)
+        is_conservative = self.method in ("conservative", "conservative_normed")
+
+        # Wrapping a [-180, 180] axis to [0, 360] makes it non-monotonic, which corrupts the cell corners built from it; conservative targets keep the monotonic axis (ESMF works on the sphere, so the frame does not matter)
+        target_lon_esmpy = (
+            np.asarray(lon_tgt, dtype=float)
+            if is_conservative
+            else np.where(lon_tgt < 0, lon_tgt + 360, lon_tgt)
+        )
 
         source_esmpy, n_src, src_is_mesh, src_is_grid, norm_type, cell_of_element = (
             self._prepare_source_esmpy(source_grid, source_lon_deg, source_lat_deg)
         )
-
-        is_conservative = self.method in ("conservative", "conservative_normed")
 
         target_grid_esmpy, n_lon, n_lat = self._build_esmpy_target_grid(
             target_lon_esmpy, lat_tgt, add_corners=is_conservative
@@ -795,7 +940,7 @@ class MPASRemapper:
         buffer: float = 2.0,
     ) -> Tuple[xr.DataArray, xr.Dataset]:
         """
-        This static method converts 1-D unstructured MPAS data to a 2-D structured grid using nearest-neighbour interpolation via scipy.spatial.KDTree. It first converts the input longitude and latitude coordinates to degrees if they are in radians, and determines the spatial extent of the target grid based on the coordinate ranges with an optional buffer. It then creates a regular lat-lon grid at the specified intermediate resolution and uses a KDTree to find the nearest source point for each target grid point. The input data is remapped onto the structured grid, and an xarray DataArray is returned along with a Dataset containing the grid specification with coordinate bounds suitable for conservative remapping. This method provides a convenient way to convert unstructured MPAS data into a format that can be used with structured regridders or for visualization purposes.
+        This static method converts 1-D unstructured MPAS data to a 2-D structured grid using nearest-neighbour interpolation via a scipy.spatial.KDTree built on unit-sphere coordinates (great-circle nearest). It first converts the input longitude and latitude coordinates to degrees if they are in radians, and determines the spatial extent of the target grid based on the coordinate ranges with an optional buffer. It then creates a regular lat-lon grid at the specified intermediate resolution and uses a KDTree to find the nearest source point for each target grid point. The input data is remapped onto the structured grid, and an xarray DataArray is returned along with a Dataset containing the grid specification with coordinate bounds suitable for conservative remapping. This method provides a convenient way to convert unstructured MPAS data into a format that can be used with structured regridders or for visualization purposes.
 
         Parameters:
             data (Union[xr.DataArray, np.ndarray]): Input data on unstructured grid, shape (nCells,).
@@ -842,12 +987,12 @@ class MPASRemapper:
         logger.debug("  Lat range: [%.2f, %.2f]°", lat_min, lat_max)
         logger.debug("  Resolution: %s°", intermediate_resolution)
 
-        intermediate_lons = np.arange(
-            lon_min, lon_max + intermediate_resolution / 2, intermediate_resolution
+        intermediate_lons = _build_target_axis(
+            lon_min, lon_max, intermediate_resolution
         )
 
-        intermediate_lats = np.arange(
-            lat_min, lat_max + intermediate_resolution / 2, intermediate_resolution
+        intermediate_lats = _build_target_axis(
+            lat_min, lat_max, intermediate_resolution, limit=90.0
         )
 
         lon_2d, lat_2d = np.meshgrid(
@@ -863,11 +1008,12 @@ class MPASRemapper:
         )
         logger.debug("  Original unstructured points: %s", f"{len(lon_deg):,}")
 
-        source_points = np.column_stack([lon_deg, lat_deg])
-        tree = KDTree(source_points)
+        # Search on the unit sphere so that distances are great-circle based at every latitude and across the dateline
+        tree = KDTree(_lonlat_to_unit_sphere(lon_deg, lat_deg))
 
-        target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
-        _, indices = tree.query(target_points)
+        _, indices = tree.query(
+            _lonlat_to_unit_sphere(lon_2d.flatten(), lat_2d.flatten())
+        )
 
         data_2d = data_values[indices].reshape(lon_2d.shape)
 
@@ -1098,7 +1244,8 @@ class MPASRemapper:
             dlat = float(lat_1d[1] - lat_1d[0]) if len(lat_1d) > 1 else 1.0
 
             lon_b = _compute_grid_bounds(lon_1d, dlon)  # (n_lon + 1,)
-            lat_b = _compute_grid_bounds(lat_1d, dlat)  # (n_lat + 1,)
+            # Pole rows would otherwise reach +-91 degrees; clamp the latitude corners to the sphere
+            lat_b = np.clip(_compute_grid_bounds(lat_1d, dlat), -90.0, 90.0)
 
             grid.add_coords(staggerloc=esmpy.StaggerLoc.CORNER)
             lon_b_2d, lat_b_2d = np.meshgrid(
@@ -1277,7 +1424,7 @@ class MPASRemapper:
         Returns:
             Tuple[Any, Tuple[int, int], Optional[np.ndarray]]: A tuple containing the sparse weight matrix as a scipy.sparse.csr_matrix, the shape of the target grid as a tuple (n_lat, n_lon), and an optional array mapping mesh elements to their parent cells if it was included in the dataset.
         """
-        ds = xr.open_dataset(path)
+        ds = xr.open_dataset(path, engine=NETCDF_ENGINE)
         try:
             row = ds["row"].values.astype(np.intp) - 1
             col = ds["col"].values.astype(np.intp) - 1
@@ -1344,28 +1491,34 @@ def _add_wrapped_boundary_points(
     lon_max: float,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    This helper function adds wrapped boundary points to the source grid for global continuity when the longitude range exceeds 180 degrees. It identifies points near the high and low longitude boundaries and creates additional points by wrapping them around the globe (subtracting 360 degrees for points near the high boundary and adding 360 degrees for points near the low boundary). The corresponding data values for these wrapped points are also duplicated to maintain consistency. This is important for ensuring that interpolation methods, especially those that rely on spatial proximity, can properly handle edge cases at the international date line and provide seamless remapping results across global datasets. The function returns the augmented source points and data values with the added wrapped boundary points included.
+    This helper function adds wrapped boundary points to the source grid for global continuity when the source mesh covers (nearly) the full 360 degrees of longitude, whatever longitude convention the target grid uses. Without them, target points on the dateline seam (e.g. the ±180° columns of a [-180, 180] grid) fall outside the convex hull of the source points, so linear interpolation returns NaN there and nearest-neighbor lookup picks a cell on one side only. It identifies source points near the high and low longitude boundaries of the source mesh and creates additional points by wrapping them around the globe (subtracting 360 degrees for points near the high boundary and adding 360 degrees for points near the low boundary). The corresponding data values for these wrapped points are also duplicated to maintain consistency. This is important for ensuring that interpolation methods, especially those that rely on spatial proximity, can properly handle edge cases at the international date line and provide seamless remapping results across global datasets. The function returns the augmented source points and data values with the added wrapped boundary points included.
 
     Parameters:
         source_points (np.ndarray): Original source points with shape containing longitude and latitude coordinates in degrees.
         data_values (np.ndarray): Original data values corresponding to the source points.
         lon_deg (np.ndarray): Longitude coordinates of the source points in degrees
         lat_deg (np.ndarray): Latitude coordinates of the source points in degrees
-        lon_min (float): Minimum longitude boundary in degrees
-        lon_max (float): Maximum longitude boundary in degrees
+        lon_min (float): Minimum longitude of the target grid in degrees (retained for API compatibility; wrapping is driven by the source mesh's longitude coverage)
+        lon_max (float): Maximum longitude of the target grid in degrees (retained for API compatibility)
 
     Returns:
         Tuple[np.ndarray, np.ndarray]: A tuple containing the augmented source points and data values with wrapped boundary points included for global continuity.
     """
-    lon_range = lon_max - lon_min
+    finite_lon = lon_deg[np.isfinite(lon_deg)]
 
-    if not (lon_range > 180 and lon_min >= 0 and lon_max > 180):
+    if finite_lon.size == 0:
+        return source_points, data_values
+
+    src_lon_min = float(finite_lon.min())
+    src_lon_max = float(finite_lon.max())
+
+    if src_lon_max - src_lon_min < 350.0:
         return source_points, data_values
 
     wrap_threshold = 10.0
 
     original_data = data_values
-    near_high = lon_deg > (lon_max - wrap_threshold)
+    near_high = lon_deg > (src_lon_max - wrap_threshold)
 
     if np.any(near_high):
         source_points = np.vstack(
@@ -1376,7 +1529,7 @@ def _add_wrapped_boundary_points(
         )
         data_values = np.concatenate([data_values, original_data[near_high]])
 
-    near_low = lon_deg < (lon_min + wrap_threshold)
+    near_low = lon_deg < (src_lon_min + wrap_threshold)
 
     if np.any(near_low):
         source_points = np.vstack(
@@ -1390,6 +1543,92 @@ def _add_wrapped_boundary_points(
     n_wrapped = int(np.sum(near_high)) + int(np.sum(near_low))
     logger.debug("Added %d wrapped boundary points for global continuity", n_wrapped)
     return source_points, data_values
+
+
+def _fill_polar_gaps(
+    lon_deg: np.ndarray,
+    lat_deg: np.ndarray,
+    data_values: np.ndarray,
+    target_lon: np.ndarray,
+    target_lat: np.ndarray,
+    result: np.ndarray,
+    lon_min: float,
+    lon_max: float,
+) -> np.ndarray:
+    """
+    This helper fills the NaN rows that planar Delaunay linear interpolation leaves next to the poles. Interpolating in longitude/latitude space triangulates the source cell centres as if they lay on a flat plane, so the convex hull stops at the highest source latitude and every target point between that latitude and the pole (typically 86 to 90 degrees on 1 to 2 degree grids) comes out NaN even though the mesh covers the pole. For each hemisphere whose polar cap is covered by source cells in all longitudes (no longitude gap larger than 90 degrees among cells poleward of 60 degrees), the function builds a small second triangulation from the cells poleward of 60 degrees, their longitude-wrapped copies and a line of synthetic points along the pole latitude carrying the polar value (the value of the cell sitting on the pole, or the mean of the finite cells within 3 degrees of the highest latitude when no cell sits exactly on it), and evaluates it only at target points that are still NaN. Values that were already finite are never altered, and hemispheres that the source does not cover (regional meshes) are left untouched so that genuinely unsupported points stay NaN.
+
+    Parameters:
+        lon_deg (np.ndarray): Source cell longitudes in degrees, already in the target longitude frame.
+        lat_deg (np.ndarray): Source cell latitudes in degrees.
+        data_values (np.ndarray): Source data values, one per cell.
+        target_lon (np.ndarray): Flattened target longitudes in degrees.
+        target_lat (np.ndarray): Flattened target latitudes in degrees.
+        result (np.ndarray): Flattened linear interpolation result, NaN where unsupported.
+        lon_min (float): Minimum longitude of the target grid in degrees.
+        lon_max (float): Maximum longitude of the target grid in degrees.
+
+    Returns:
+        np.ndarray: The result array with polar NaNs filled where the source covers the pole.
+    """
+    from scipy.interpolate import griddata
+
+    filled = np.array(result, copy=True)
+
+    for sign in (1.0, -1.0):
+        pending = np.isnan(filled) & (sign * target_lat >= 60.0)
+
+        if not np.any(pending):
+            continue
+
+        cap = (sign * lat_deg >= 60.0) & np.isfinite(lon_deg)
+
+        if int(cap.sum()) < 3:
+            continue
+
+        cap_lon = np.sort(lon_deg[cap])
+        gaps = np.diff(np.concatenate([cap_lon, [cap_lon[0] + 360.0]]))
+
+        if float(gaps.max()) > 90.0:
+            continue
+
+        top = float(np.max(sign * lat_deg[cap]))
+        on_pole = cap & (sign * lat_deg >= 89.999) & np.isfinite(data_values)
+
+        if np.any(on_pole):
+            pole_value = float(np.mean(data_values[on_pole]))
+        else:
+            ring = cap & (sign * lat_deg >= top - 3.0) & np.isfinite(data_values)
+
+            if not np.any(ring):
+                continue
+
+            pole_value = float(np.mean(data_values[ring]))
+
+        wrap = 20.0
+        pole_lons = np.arange(lon_min - wrap, lon_max + wrap + 1.0, 1.0)
+        points = [np.column_stack([lon_deg[cap], lat_deg[cap]])]
+        values = [data_values[cap]]
+
+        for shift in (-360.0, 360.0):
+            points.append(np.column_stack([lon_deg[cap] + shift, lat_deg[cap]]))
+            values.append(data_values[cap])
+
+        points.append(
+            np.column_stack([pole_lons, np.full_like(pole_lons, sign * 90.0)])
+        )
+        values.append(np.full(pole_lons.shape, pole_value))
+
+        fill_points = np.column_stack([target_lon[pending], target_lat[pending]])
+        filled[pending] = griddata(
+            np.vstack(points),
+            np.concatenate(values),
+            fill_points,
+            method="linear",
+            fill_value=np.nan,
+        )
+
+    return filled
 
 
 def remap_mpas_to_latlon(
@@ -1415,13 +1654,15 @@ def remap_mpas_to_latlon(
         lat_min (float): Minimum latitude for target grid in degrees (default: -90.0).
         lat_max (float): Maximum latitude for target grid in degrees (default: 90.0).
         resolution (float): Grid spacing in degrees for the regular latitude-longitude grid (default: 1.0).
-        method (str): Interpolation method to use, options include 'nearest' and 'linear' (default: 'nearest').
+        method (str): Interpolation method to use: 'nearest', 'linear' or 'cubic' (piecewise cubic, C1-smooth, via scipy griddata) (default: 'nearest').
 
     Returns:
         xr.DataArray: Remapped data on regular latitude-longitude grid as an xarray DataArray with appropriate coordinates.
     """
-    if method not in ["nearest", "linear"]:
-        raise ValueError(f"method must be 'nearest' or 'linear', got '{method}'")
+    if method not in ["nearest", "linear", "cubic"]:
+        raise ValueError(
+            f"method must be 'nearest', 'linear' or 'cubic', got '{method}'"
+        )
 
     try:
         from scipy.spatial import KDTree
@@ -1444,6 +1685,9 @@ def remap_mpas_to_latlon(
 
     lon_deg, lat_deg = _convert_coordinates_to_degrees(lon, lat)
 
+    # Put the source longitudes in the same frame as the target grid so that, for example, raw lonCell in [0, 360] works with a [-180, 180] target
+    lon_deg = _wrap_longitude_to_frame(lon_deg, lon_min)
+
     logger.debug("Original MPAS data statistics [Global Statistics]:")
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", "All-NaN slice encountered", RuntimeWarning)
@@ -1465,10 +1709,14 @@ def remap_mpas_to_latlon(
             float(np.nansum(data_values)),
         )
 
-    target_lons = np.arange(lon_min, lon_max + resolution / 2, resolution)
-    target_lats = np.arange(lat_min, lat_max + resolution / 2, resolution)
+    target_lons = _build_target_axis(lon_min, lon_max, resolution)
+    target_lats = _build_target_axis(lat_min, lat_max, resolution, limit=90.0)
 
     n_target_points = len(target_lons) * len(target_lats)
+    DataValidator.enforce_size_limits(
+        n_tgt=n_target_points,
+        context=f"building a {len(target_lons)} x {len(target_lats)} target grid at {resolution} degrees (grid resolution too fine)",
+    )
     n_source_points = len(data_values)
     grid_expansion_ratio = n_target_points / n_source_points
 
@@ -1502,20 +1750,21 @@ def remap_mpas_to_latlon(
     )  # type: np.ndarray, np.ndarray
 
     if method == "nearest":
-        source_points = np.column_stack([lon_deg, lat_deg])
-        source_points, data_values = _add_wrapped_boundary_points(
-            source_points, data_values, lon_deg, lat_deg, lon_min, lon_max
+        # Search on the unit sphere so that distances are great-circle based at every latitude and across the dateline, which also makes explicit longitude wrapping unnecessary
+        tree = KDTree(_lonlat_to_unit_sphere(lon_deg, lat_deg))
+
+        _, indices = tree.query(
+            _lonlat_to_unit_sphere(lon_2d.flatten(), lat_2d.flatten())
         )
-
-        tree = KDTree(source_points)
-
-        target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
-        _, indices = tree.query(target_points)
 
         data_2d = data_values[indices].reshape(lon_2d.shape)
 
-    else:  # method == 'linear'
+    else:  # method == 'linear' or 'cubic'
         source_points = np.column_stack([lon_deg, lat_deg])
+        original_values = data_values
+        source_points, data_values = _add_wrapped_boundary_points(
+            source_points, data_values, lon_deg, lat_deg, lon_min, lon_max
+        )
         target_points = np.column_stack([lon_2d.flatten(), lat_2d.flatten()])
 
         # fill_value=np.nan so points outside the convex hull of source points
@@ -1524,8 +1773,18 @@ def remap_mpas_to_latlon(
             source_points,
             data_values,
             target_points,
-            method="linear",
+            method=method,
             fill_value=np.nan,
+        )
+        data_flat = _fill_polar_gaps(
+            lon_deg,
+            lat_deg,
+            np.asarray(original_values, dtype=float),
+            target_points[:, 0],
+            target_points[:, 1],
+            data_flat,
+            lon_min,
+            lon_max,
         )
         data_2d = data_flat.reshape(lon_2d.shape)
 
@@ -1600,6 +1859,30 @@ def remap_mpas_to_latlon(
     return result
 
 
+def _source_covers_sphere(lon_deg: np.ndarray, lat_deg: np.ndarray) -> bool:
+    """
+    This helper function decides whether a set of source points covers essentially the whole sphere: the longitudes must leave no gap larger than 60 degrees (a longitude coverage above 300 degrees) and the latitudes must reach within 30 degrees of both poles. It is used to skip convex-hull masking for global meshes, where the planar hull of the cell centres in a longitude/latitude frame excludes the western edge column and the polar rows even though the data are valid there.
+
+    Parameters:
+        lon_deg (np.ndarray): Longitudes of the source points in degrees.
+        lat_deg (np.ndarray): Latitudes of the source points in degrees.
+
+    Returns:
+        bool: True when the source points span more than 300 degrees of longitude and reach within 30 degrees of both poles.
+    """
+    lon_sorted = np.sort(np.mod(np.asarray(lon_deg, dtype=float), 360.0))
+
+    if lon_sorted.size == 0:
+        return False
+
+    gaps = np.diff(np.concatenate([lon_sorted, [lon_sorted[0] + 360.0]]))
+    lon_coverage = 360.0 - float(gaps.max())
+
+    lat = np.asarray(lat_deg, dtype=float)
+
+    return bool(lon_coverage > 300.0 and lat.max() > 60.0 and lat.min() < -60.0)
+
+
 def build_remapped_valid_mask(
     lon_vals: np.ndarray,
     lat_vals: np.ndarray,
@@ -1637,7 +1920,16 @@ def build_remapped_valid_mask(
         )
         return None
 
-    source_coordinate_pairs = np.column_stack((lon_vals, lat_vals))
+    source_coordinate_pairs = np.column_stack(
+        (_wrap_longitude_to_frame(np.asarray(lon_vals), lon_min), lat_vals)
+    )
+
+    # A global mesh covers the whole sphere: its planar hull still misses the western edge column (no cell centre sits exactly on lon_min) and the polar rows, which would be wrongly blanked, so no mask is applied
+    if _source_covers_sphere(
+        source_coordinate_pairs[:, 0], source_coordinate_pairs[:, 1]
+    ):
+        logger.debug("Skipping convex hull masking: source mesh covers the globe")
+        return None
 
     try:
         from scipy.spatial import ConvexHull
@@ -1653,8 +1945,18 @@ def build_remapped_valid_mask(
 
         if remapped_values.ndim == 2:
             n_lat, n_lon = remapped_values.shape
-            lat_coord = np.linspace(lat_min, lat_max, n_lat)
-            lon_coord = np.linspace(lon_min, lon_max, n_lon)
+
+            if (
+                isinstance(remapped_data, xr.DataArray)
+                and "lat" in remapped_data.coords
+                and "lon" in remapped_data.coords
+            ):
+                lat_coord = np.asarray(remapped_data["lat"].values, dtype=float)
+                lon_coord = np.asarray(remapped_data["lon"].values, dtype=float)
+            else:
+                lat_coord = _build_target_axis(lat_min, lat_max, resolution, limit=90.0)
+                lon_coord = _build_target_axis(lon_min, lon_max, resolution)
+
             grid_lon_2d, grid_lat_2d = np.meshgrid(
                 lon_coord, lat_coord
             )  # type: np.ndarray, np.ndarray
@@ -1686,10 +1988,13 @@ def _extract_cell_coordinates(dataset: xr.Dataset) -> Tuple[xr.DataArray, xr.Dat
     if "lonCell" in dataset:
         lon_coords = dataset["lonCell"]
         lat_coords = dataset["latCell"]
-        if float(lon_coords.max()) <= 2 * np.pi:
-            lon_coords = lon_coords * 180.0 / np.pi
-            lat_coords = lat_coords * 180.0 / np.pi
-        return lon_coords, lat_coords
+        lon_deg, lat_deg = MPASGeographicUtils.coordinates_to_degrees(
+            lon_coords.values, lat_coords.values, lon_coords.attrs, lat_coords.attrs
+        )
+        return (
+            lon_coords.copy(data=lon_deg, deep=False),
+            lat_coords.copy(data=lat_deg, deep=False),
+        )
 
     if "lon" in dataset and "lat" in dataset:
         return dataset["lon"], dataset["lat"]
@@ -2049,8 +2354,16 @@ def create_target_grid(
     Returns:
         xr.Dataset: An xarray Dataset containing 1D coordinate arrays for 'lon' and 'lat' that define the target grid specification for remapping. The 'lon' coordinate has dimension ['lon'] and the 'lat' coordinate has dimension ['lat'].
     """
-    lon = np.arange(lon_min, lon_max + dlon / 2, dlon)
-    lat = np.arange(lat_min, lat_max + dlat / 2, dlat)
+    # Check the size of the full 2-D grid before allocating either axis; each axis alone can pass its own limit
+    if dlon > 0 and dlat > 0:
+        n_points = ((lon_max - lon_min) / dlon + 1) * ((lat_max - lat_min) / dlat + 1)
+        DataValidator.enforce_size_limits(
+            n_tgt=float(n_points) if np.isfinite(n_points) else float("inf"),
+            context="creating the target grid",
+        )
+
+    lon = _build_target_axis(lon_min, lon_max, dlon)
+    lat = _build_target_axis(lat_min, lat_max, dlat, limit=90.0)
 
     return xr.Dataset(
         {"lon": xr.DataArray(lon, dims=["lon"]), "lat": xr.DataArray(lat, dims=["lat"])}

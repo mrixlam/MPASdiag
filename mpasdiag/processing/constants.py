@@ -65,7 +65,9 @@ PRELOAD_COORDS_MSG = "Pre-loading coordinates into cache..."
 
 GRAVITY = 9.80665  # Gravitational acceleration (m/s²)
 P0_REF_PA = 100000.0  # Reference pressure for potential temperature (Pa)
-KAPPA = 0.2854  # Poisson constant R_d / c_p (dimensionless)
+KAPPA = (
+    2.0 / 7.0
+)  # Poisson constant R_d / c_p (dimensionless); MPAS uses cp = 7*rgas/2, i.e. rgas/cp = 2/7 exactly
 Rv_OVER_Rd = 1.608  # Ratio of gas constants: water vapour / dry air
 EPSILON_RD_RV = 0.622  # Ratio of molar masses: Rd / Rv
 
@@ -80,6 +82,10 @@ MAX_NUM_POINTS = 1_000_000  # interpolation points along a cross-section transec
 MAX_CELL_VERTICES = 1_000  # per-cell polygon vertices (nVertices) in a source mesh
 MAX_WORKERS = 1_024  # multiprocessing worker processes (fork-bomb guard)
 MAX_INPUT_FILES = 100_000  # data files aggregated by a single open_mfdataset call
+
+# Explicit netCDF engine for every xarray/uxarray open. Without it xarray guesses the engine by loading every
+# installed backend plugin, and MetPy's plugin imports metpy.plots (seconds to tens of seconds) in each process
+NETCDF_ENGINE = "netcdf4"
 
 # ---------------------------------------------------------------------------
 # Dimension names

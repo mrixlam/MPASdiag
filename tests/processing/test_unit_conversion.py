@@ -348,7 +348,7 @@ class TestDisplayUnitPreferencesExtended:
 
     def test_substring_match(self: "TestDisplayUnitPreferencesExtended") -> None:
         """
-        This test validates that the get_display_units method can return preferred display units based on substring matches in variable names when exact matches are not found. The test confirms that variables containing substrings like 'theta' and 'pressure' will return preferred display units of '°C' and 'hPa', respectively, even if the full variable name does not exactly match predefined preferences. This substring matching logic allows for flexible handling of MPAS model output variables that may have varying naming conventions while still applying appropriate display unit preferences based on recognizable patterns. The test also confirms that this substring matching is applied only when no exact match is found, ensuring that specific variable names are correctly handled according to defined preferences.
+        This test validates that the get_display_units method can return preferred display units based on substring matches in variable names when exact matches are not found. The test confirms that variables containing substrings like 'theta' and 'pressure' will return preferred display units of 'K' (potential temperature is not converted to Celsius) and 'hPa', respectively, even if the full variable name does not exactly match predefined preferences. This substring matching logic allows for flexible handling of MPAS model output variables that may have varying naming conventions while still applying appropriate display unit preferences based on recognizable patterns. The test also confirms that this substring matching is applied only when no exact match is found, ensuring that specific variable names are correctly handled according to defined preferences.
 
         Parameters:
             None
@@ -356,7 +356,7 @@ class TestDisplayUnitPreferencesExtended:
         Returns:
             None
         """
-        assert UnitConverter.get_display_units("theta_base", "K") == "°C"
+        assert UnitConverter.get_display_units("theta_base", "K") == "K"
         assert UnitConverter.get_display_units("surface_pressure_field", "Pa") == "hPa"
 
     def test_no_conversion_available(
@@ -372,7 +372,7 @@ class TestDisplayUnitPreferencesExtended:
             None
         """
         result = UnitConverter.get_display_units("t2m", "foo")
-        assert result == "°C"
+        assert result == "foo"
 
     def test_same_unit_already_preferred(
         self: "TestDisplayUnitPreferencesExtended",

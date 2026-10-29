@@ -33,7 +33,6 @@ from .constants import (
     KG_PER_M2,
     KG_PER_M3,
     KG_PER_M_PER_S,
-    MICRONS,
     PER_KG,
     M3_PER_M3,
     J_PER_KG,
@@ -41,6 +40,17 @@ from .constants import (
     W_PER_M2,
     NOUNIT,
 )
+
+# Potential temperature is displayed in K; the preset covers the troposphere finely and the stratosphere (theta up to ~1700 K near the model top) coarsely
+THETA_LEVELS_K: List[float] = [float(v) for v in range(260, 400, 10)] + [
+    450.0,
+    500.0,
+    600.0,
+    800.0,
+    1000.0,
+    1500.0,
+    2000.0,
+]
 
 
 class MPASFileMetadata:
@@ -421,17 +431,17 @@ class MPASFileMetadata:
                 "spatial_dim": "nCells",
             },
             "re_cloud": {
-                "units": MICRONS,
+                "units": METER,
                 "long_name": "Cloud Droplet Effective Radius",
                 "spatial_dim": "nCells",
             },
             "re_ice": {
-                "units": MICRONS,
+                "units": METER,
                 "long_name": "Ice Crystal Effective Radius",
                 "spatial_dim": "nCells",
             },
             "re_snow": {
-                "units": MICRONS,
+                "units": METER,
                 "long_name": "Snow Effective Radius",
                 "spatial_dim": "nCells",
             },
@@ -463,7 +473,7 @@ class MPASFileMetadata:
         visualization_metadata = {
             "t2m": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(16, 32, 2)),
+                "levels": list(range(-50, 55, 5)),
                 "spatial_dims": 2,
             },
             "temperature": {
@@ -478,7 +488,7 @@ class MPASFileMetadata:
             },
             "surface_pressure": {
                 "colormap": "viridis",
-                "levels": list(range(960, 1050, 4)),
+                "levels": list(range(500, 1070, 20)),
                 "spatial_dims": 2,
             },
             "mslp": {
@@ -548,7 +558,7 @@ class MPASFileMetadata:
             },
             "q2": {
                 "colormap": "BuGn",
-                "levels": list(range(14, 22, 1)),
+                "levels": list(range(0, 42, 2)),
                 "spatial_dims": 2,
             },
             "rh2": {
@@ -558,7 +568,7 @@ class MPASFileMetadata:
             },
             "th2m": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(-40, 45, 5)),
+                "levels": list(range(225, 340, 5)),
                 "spatial_dims": 2,
             },
             "temperature_50hpa": {
@@ -578,7 +588,7 @@ class MPASFileMetadata:
             },
             "temperature_250hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(-60, -20, 2)),
+                "levels": list(range(-76, -30, 2)),
                 "spatial_dims": 2,
             },
             "temperature_500hpa": {
@@ -603,7 +613,7 @@ class MPASFileMetadata:
             },
             "relhum_50hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(0, 105, 5)),
+                "levels": list(range(0, 42, 2)),
                 "spatial_dims": 2,
             },
             "relhum_100hpa": {
@@ -613,32 +623,32 @@ class MPASFileMetadata:
             },
             "relhum_200hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(100, 132, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "relhum_250hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(100, 132, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "relhum_500hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(70, 112, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "relhum_700hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(60, 102, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "relhum_850hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(60, 102, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "relhum_925hpa": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(60, 102, 2)),
+                "levels": list(range(0, 105, 5)),
                 "spatial_dims": 2,
             },
             "precipw": {
@@ -668,7 +678,7 @@ class MPASFileMetadata:
             },
             "height_100hpa": {
                 "colormap": "viridis",
-                "levels": list(range(15500, 17000, 50)),
+                "levels": list(range(14300, 17050, 50)),
                 "spatial_dims": 2,
             },
             "height_200hpa": {
@@ -1067,7 +1077,7 @@ class MPASFileMetadata:
             },
             "olrtoa": {
                 "colormap": "viridis",
-                "levels": list(range(120, 320, 10)),
+                "levels": list(range(80, 360, 20)),
                 "spatial_dims": 2,
             },
             "refl10cm": {
@@ -1107,7 +1117,7 @@ class MPASFileMetadata:
             },
             "ni": {
                 "colormap": "plasma",
-                "levels": [1e6, 5e6, 1e7, 5e7, 1e8, 5e8, 1e9, 5e9, 1e10, 5e10, 1e11],
+                "levels": [0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11],
                 "spatial_dims": 3,
             },
             "u": {
@@ -1153,7 +1163,7 @@ class MPASFileMetadata:
             },
             "theta": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(-40, 45, 5)),
+                "levels": THETA_LEVELS_K,
                 "spatial_dims": 3,
             },
             "relhum": {
@@ -1168,17 +1178,17 @@ class MPASFileMetadata:
             },
             "theta_base": {
                 "colormap": "RdYlBu_r",
-                "levels": list(range(-40, 45, 5)),
+                "levels": THETA_LEVELS_K,
                 "spatial_dims": 3,
             },
             "uReconstructZonal": {
                 "colormap": "RdBu_r",
-                "levels": list(range(-50, 55, 5)),
+                "levels": list(range(-80, 90, 10)),
                 "spatial_dims": 3,
             },
             "uReconstructMeridional": {
                 "colormap": "RdBu_r",
-                "levels": list(range(-30, 35, 2)),
+                "levels": list(range(-40, 45, 5)),
                 "spatial_dims": 3,
             },
             "cldfrac": {
@@ -1193,22 +1203,22 @@ class MPASFileMetadata:
             },
             "re_ice": {
                 "colormap": "Purples",
-                "levels": [10, 20, 30, 40, 50, 60, 80, 100, 120, 150, 180, 200],
+                "levels": [5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 150, 200],
                 "spatial_dims": 3,
             },
             "re_snow": {
                 "colormap": "Greys",
-                "levels": [50, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000],
+                "levels": [10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 300, 500, 1000],
                 "spatial_dims": 3,
             },
             "sh2o": {
                 "colormap": "Blues",
-                "levels": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],
+                "levels": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                 "spatial_dims": 3,
             },
             "smois": {
                 "colormap": "BuGn",
-                "levels": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5],
+                "levels": [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
                 "spatial_dims": 3,
             },
             "tslb": {
@@ -1228,9 +1238,17 @@ class MPASFileMetadata:
             # }
         }
 
-        metadata: Dict[str, Any] = standard_metadata.get(
-            var_name.lower(),
-            {"units": "", "long_name": var_name, "spatial_dim": "nCells"},
+        # Registry keys such as 'uReconstructZonal' are mixed case but lookups use the lower-cased name
+        standard_metadata = {k.lower(): v for k, v in standard_metadata.items()}
+        visualization_metadata = {
+            k.lower(): v for k, v in visualization_metadata.items()
+        }
+
+        metadata: Dict[str, Any] = dict(
+            standard_metadata.get(
+                var_name.lower(),
+                {"units": "", "long_name": var_name, "spatial_dim": "nCells"},
+            )
         )
 
         if "spatial_dim" not in metadata:

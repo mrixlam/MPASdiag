@@ -109,11 +109,11 @@ class TestFindFilesByPatternErrors:
         with pytest.raises(FileNotFoundError, match="No diag files found"):
             proc._find_files_by_pattern(str(tmp_path), "*.nc", "diag files")
 
-    def test_raises_when_only_one_file_found(
+    def test_single_file_is_accepted(
         self: "TestFindFilesByPatternErrors", tmp_path: "Path"
     ) -> None:
         """
-        This test verifies that _find_files_by_pattern raises ValueError with an appropriate message when only one file in the specified directory matches the given glob pattern. The test creates a single dummy NetCDF file in a temporary directory provided by pytest, ensuring that the method finds exactly one matching file. The test then confirms that the method raises the expected exception with a clear error message indicating that insufficient diagnostic files were found, which is important for cases where multiple files are required for processing.
+        This test verifies that _find_files_by_pattern accepts a single matching file instead of raising, because a single multi-time file is a valid input. The test creates one file in a temporary directory, calls the method with a pattern matching it, and asserts that the returned list contains exactly that file.
 
         Parameters:
             tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
@@ -123,8 +123,8 @@ class TestFindFilesByPatternErrors:
         """
         (tmp_path / "single.nc").touch()
         proc = _make_proc()
-        with pytest.raises(ValueError, match="Insufficient files"):
-            proc._find_files_by_pattern(str(tmp_path), "*.nc", "diag files")
+        files = proc._find_files_by_pattern(str(tmp_path), "*.nc", "diag files")
+        assert files == [str(tmp_path / "single.nc")]
 
 
 class TestValidateFiles:
@@ -522,11 +522,11 @@ class TestDiscoverDataFilesCustomPattern:
         with pytest.raises(FileNotFoundError, match="wiso.\\*.nc"):
             proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")
 
-    def test_raises_when_single_file_found_recursively(
+    def test_single_file_found_recursively_is_accepted(
         self: "TestDiscoverDataFilesCustomPattern", tmp_path: "Path"
     ) -> None:
         """
-        This test verifies that _find_custom_pattern_files raises a ValueError with an informative message when only one file matching the custom pattern is found, even if it is found through a recursive search. The test writes a single custom stream file into a subdirectory and confirms that the method raises the expected exception, indicating that insufficient files were found for processing.
+        This test verifies that _find_custom_pattern_files accepts a single matching file found by the recursive search instead of raising, because a single multi-time file is a valid input. The test writes one stream file beneath a subdirectory and asserts that exactly one path is returned.
 
         Parameters:
             tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
@@ -538,8 +538,7 @@ class TestDiscoverDataFilesCustomPattern:
 
         proc = _make_proc()
 
-        with pytest.raises(ValueError, match="Insufficient files"):
-            proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")
+        assert len(proc._find_custom_pattern_files(str(tmp_path), "wiso.*.nc")) == 1
 
 
 class TestLoadDataSelectiveVariables:
@@ -703,13 +702,51 @@ class TestLoadDataSelectiveVariables:
 
 
 class TestLoadDataAllStrategiesFail:
-    """Tests for the MPASBaseProcessor _load_data method to verify that it calls sys.exit(1) when all loading strategies (primary, fallback, single-file) raise exceptions."""
+    """Tests for the MPASBaseProcessor _load_data method to verify that it raises RuntimeError (instead of exiting the interpreter) when all loading strategies (primary, fallback, single-file) raise exceptions."""
 
-    def test_sys_exit_when_every_loading_strategy_raises(
+    def test_runtime_error_when_every_loading_strategy_raises(
         self: "TestLoadDataAllStrategiesFail", tmp_path: "Path"
     ) -> None:
         """
-        This test verifies that if all loading strategies (primary, fallback, single-file) raise exceptions in _load_data, the method calls sys.exit(1) to terminate the program. The test uses unittest.mock.patch to configure the primary load attempt, fallback load attempt, and single-file load attempt to all raise exceptions when called. It then asserts that sys.exit was called with an argument of 1, which confirms that the method correctly handles the scenario where all loading strategies fail by exiting the program with the appropriate status code, ensuring that users are informed of the failure and that the processor does not continue in an invalid state.
+        This test verifies that if all loading strategies (primary, fallback, single-file) raise exceptions in _load_data, the method raises RuntimeError rather than terminating the interpreter, since library code must leave exiting to the caller. The test uses unittest.mock.patch to configure the primary load attempt, fallback load attempt, and single-file load attempt to all raise exceptions when called. It then asserts that sys.exit was called with an argument of 1, which confirms that the method correctly handles the scenario where all loading strategies fail by exiting the program with the appropriate status code, ensuring that users are informed of the failure and that the processor does not continue in an invalid state.
+
+        Parameters:
+            tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
+
+        Returns:
+            None
+        """
+        proc = _make_proc()
+        times = [datetime(2024, 1, 1)]
+        fake_files = [str(tmp_path / "f0.nc")]
+
+        with (
+            patch.object(proc, "_discover_data_files", return_value=fake_files),
+            patch(
+                "mpasdiag.processing.base.MPASDateTimeUtils.parse_file_datetimes",
+                return_value=times,
+            ),
+            patch.object(
+                proc, "_prepare_chunking_config", return_value=({"Time": 1}, None)
+            ),
+            patch.object(
+                proc, "_attempt_primary_load", side_effect=Exception("primary fail")
+            ),
+            patch.object(
+                proc, "_attempt_fallback_load", side_effect=Exception("fallback fail")
+            ),
+            patch.object(
+                proc, "_load_single_file_fallback", side_effect=Exception("single fail")
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="single fail"):
+                proc._load_data(str(tmp_path))
+
+    def test_multi_file_failure_raises_instead_of_loading_first_file(
+        self: "TestLoadDataAllStrategiesFail", tmp_path: "Path"
+    ) -> None:
+        """
+        This regression test verifies that when the primary and multi-file fallback strategies both fail for several files, _load_data raises a RuntimeError rather than silently falling back to a dataset that contains only the first file. The single-file fallback must never be invoked in this situation because it would discard every other file's data without the caller noticing.
 
         Parameters:
             tmp_path (Path): A pytest fixture that provides a temporary directory for the test.
@@ -736,12 +773,12 @@ class TestLoadDataAllStrategiesFail:
             patch.object(
                 proc, "_attempt_fallback_load", side_effect=Exception("fallback fail")
             ),
-            patch.object(
-                proc, "_load_single_file_fallback", side_effect=Exception("single fail")
-            ),
+            patch.object(proc, "_load_single_file_fallback") as single,
         ):
-            with pytest.raises(SystemExit):
+            with pytest.raises(RuntimeError, match="Could not load 2"):
                 proc._load_data(str(tmp_path))
+
+        single.assert_not_called()
 
 
 class TestSelectFallbackFile:
@@ -1098,7 +1135,7 @@ class TestLoadGridFileProbeException:
         with patch("xarray.open_dataset", side_effect=side_effect):
             result = proc._load_grid_file(needed_vars=["latCell"])
 
-        assert result is loaded
+        assert result is loaded.copy.return_value
         assert call_n[0] == 2
         clear_grid_cache()
 

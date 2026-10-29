@@ -152,7 +152,7 @@ class TestValidateCoordinates:
 
     def test_invalid_lon_exceeds_upper(self: "TestValidateCoordinates") -> None:
         """
-        This test verifies that the validation method correctly identifies longitude arrays containing values that exceed the upper limit of 180 degrees as invalid. It uses a longitude array with a value of 181.0, which is outside the valid range for longitude, and a valid latitude array. The test asserts that the validation method returns False for these coordinate arrays.
+        This test verifies that the validation method correctly identifies longitude arrays containing values that exceed the upper limit of 180 degrees as invalid. It uses a longitude array with a value of 361.0 (the accepted range is [-180, 360] so that MPAS [0, 360] longitudes are valid), which is outside the valid range for longitude, and a valid latitude array. The test asserts that the validation method returns False for these coordinate arrays.
 
         Parameters:
             None
@@ -160,7 +160,7 @@ class TestValidateCoordinates:
         Returns:
             None
         """
-        lon = np.array([0.0, 45.0, 181.0])
+        lon = np.array([0.0, 45.0, 361.0])
         lat = np.array([10.0, 20.0, 30.0])
         assert DataValidator.validate_coordinates(lon, lat) is False
 

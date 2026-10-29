@@ -16,6 +16,7 @@ Version: 1.0.0
 
 # Load standard libraries
 import glob
+import numbers
 import os
 import numpy as np
 import xarray as xr
@@ -24,13 +25,17 @@ from typing import Dict, List, Tuple, Any, Optional, Union, cast
 
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
-from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG
+from .utils_geog import MPASGeographicUtils
+from .constants import MPASOUT_GLOB, DATASET_NOT_LOADED_3D_MSG, NETCDF_ENGINE
 from .utils_logger import get_logger
 from .utils_path import safe_label
 
 logger = get_logger(__name__)
 
 _TOP_PRESSURE_LEVEL_MSG = "  Top: %.1f Pa"
+
+# Smallest float level accepted as a pressure in Pa; anything lower is almost certainly hPa passed by mistake
+_MIN_PLAUSIBLE_PRESSURE_PA = 1100.0
 
 
 class MPAS3DProcessor(MPASBaseProcessor):
@@ -84,6 +89,23 @@ class MPAS3DProcessor(MPASBaseProcessor):
     }
 
     @staticmethod
+    def _coord_attrs(grid_ds: xr.Dataset, names: List[str]) -> Dict[str, Any]:
+        """
+        Return the attributes of the first name found as a coord or data var, or an empty dict, so that a 'units' attribute can steer the radians-versus-degrees decision.
+
+        Parameters:
+            grid_ds (xr.Dataset): The xarray Dataset containing the grid data.
+            names (List[str]): A list of possible coordinate variable names to look for.
+
+        Returns:
+            Dict[str, Any]: Attributes of the first matching variable, or an empty dict.
+        """
+        for name in names:
+            if name in grid_ds.coords or name in grid_ds.data_vars:
+                return dict(grid_ds[name].attrs)
+        return {}
+
+    @staticmethod
     def _lookup_coord(grid_ds: xr.Dataset, names: List[str]) -> Optional[np.ndarray]:
         """
         Return values of the first name found as a coord or data var, or None.
@@ -99,6 +121,52 @@ class MPAS3DProcessor(MPASBaseProcessor):
             if name in grid_ds.coords or name in grid_ds.data_vars:
                 return cast(np.ndarray, grid_ds[name].values)
         return None
+
+    def _variable_sizes(
+        self: "MPAS3DProcessor",
+        var_name: str,
+        data_array: Optional[xr.DataArray],
+    ) -> Any:
+        """
+        This helper method returns the dimension sizes used to detect the spatial dimension of a variable: those of the provided data array, otherwise those of the variable in the loaded dataset, otherwise an empty mapping.
+
+        Parameters:
+            var_name (str): Name of the 3D atmospheric variable.
+            data_array (Optional[xr.DataArray]): Optional data array of the variable.
+
+        Returns:
+            Any: Mapping of dimension names to sizes (empty when the variable is unknown).
+        """
+        if data_array is not None:
+            return data_array.sizes
+        if self.dataset is not None and var_name in self.dataset:
+            return self.dataset[var_name].sizes
+        return {}
+
+    def _grid_open_kwargs(
+        self: "MPAS3DProcessor", needed_vars: List[str]
+    ) -> Dict[str, Any]:
+        """
+        This helper method builds the keyword arguments for opening the grid file so that only the needed variables are read. The variables of the grid file that are not needed are listed in 'drop_variables'; if the grid file cannot be probed, no variables are dropped.
+
+        Parameters:
+            needed_vars (List[str]): Names of the grid variables that must be kept.
+
+        Returns:
+            Dict[str, Any]: Keyword arguments for xr.open_dataset, always including decode_times=False.
+        """
+        open_kwargs: Dict[str, Any] = {"decode_times": False}
+        try:
+            with xr.open_dataset(
+                self.grid_file, decode_times=False, engine=NETCDF_ENGINE
+            ) as probe:
+                all_vars = list(probe.data_vars)
+            vars_to_drop = [v for v in all_vars if v not in needed_vars]
+            if vars_to_drop:
+                open_kwargs["drop_variables"] = vars_to_drop
+        except Exception:
+            pass
+        return open_kwargs
 
     def extract_2d_coordinates_for_variable(
         self: "MPAS3DProcessor",
@@ -120,12 +188,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         try:
             # Determine which coordinate variables we need before opening the grid file
-            if data_array is not None:
-                sizes = data_array.sizes
-            elif var_name in self.dataset:
-                sizes = self.dataset[var_name].sizes
-            else:
-                sizes = {}
+            sizes = self._variable_sizes(var_name, data_array)
 
             spatial_dim = self._detect_spatial_dim(sizes)
 
@@ -146,17 +209,11 @@ class MPAS3DProcessor(MPASBaseProcessor):
             needed_vars = list(lon_names) + list(lat_names)
 
             # Build drop_variables list to avoid loading unneeded grid data
-            open_kwargs: dict = {"decode_times": False}
-            try:
-                with xr.open_dataset(self.grid_file, decode_times=False) as probe:
-                    all_vars = list(probe.data_vars)
-                vars_to_drop = [v for v in all_vars if v not in needed_vars]
-                if vars_to_drop:
-                    open_kwargs["drop_variables"] = vars_to_drop
-            except Exception:
-                pass
+            open_kwargs = self._grid_open_kwargs(needed_vars)
 
-            with xr.open_dataset(self.grid_file, **open_kwargs) as grid_ds:
+            with xr.open_dataset(
+                self.grid_file, **open_kwargs, engine=NETCDF_ENGINE
+            ) as grid_ds:
                 lon_coords = self._lookup_coord(grid_ds, lon_names)
                 lat_coords = self._lookup_coord(grid_ds, lat_names)
 
@@ -169,9 +226,12 @@ class MPAS3DProcessor(MPASBaseProcessor):
                         f"Available variables: {safe_label(available_vars)}"
                     )
 
-                if np.nanmax(np.abs(lat_coords)) <= np.pi:
-                    lat_coords = lat_coords * 180.0 / np.pi
-                    lon_coords = lon_coords * 180.0 / np.pi
+                lon_coords, lat_coords = MPASGeographicUtils.coordinates_to_degrees(
+                    lon_coords,
+                    lat_coords,
+                    self._coord_attrs(grid_ds, lon_names),
+                    self._coord_attrs(grid_ds, lat_names),
+                )
 
                 lon_coords = ((lon_coords.ravel() + 180) % 360) - 180
                 lat_coords = lat_coords.ravel()
@@ -194,7 +254,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
     def _find_files_recursive(self: "MPAS3DProcessor", data_dir: str) -> List[str]:
         """
-        This helper method performs a recursive search for MPAS output files in the specified directory and all its subdirectories using a predefined glob pattern. It collects all matching files, sorts them, and checks that at least two files are found to allow for temporal analysis. If no files are found, it raises a FileNotFoundError with information about the search path. If files are found, it provides verbose output about the number of files and their names before returning the list of file paths.
+        This helper method performs a recursive search for MPAS output files in the specified directory and all its subdirectories using a predefined glob pattern. It collects all matching files, sorts them, and checks that at least one file is found. If no files are found, it raises a FileNotFoundError with information about the search path. If files are found, it provides verbose output about the number of files and their names before returning the list of file paths.
 
         Parameters:
             data_dir (str): The directory path to search for MPAS output files.
@@ -203,16 +263,14 @@ class MPAS3DProcessor(MPASBaseProcessor):
             List[str]: A sorted list of file paths to the found MPAS output files.
         """
         files = sorted(
-            glob.glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True)
+            glob.glob(
+                os.path.join(glob.escape(data_dir), "**", MPASOUT_GLOB), recursive=True
+            ),
+            key=MPASDateTimeUtils.file_sort_key,
         )
 
         if not files:
             raise FileNotFoundError(f"No MPAS output files found under: {data_dir}")
-
-        if len(files) < 2:
-            raise ValueError(
-                f"Insufficient MPAS output files for temporal analysis. Found {len(files)}, need at least 2."
-            )
 
         if self.verbose:
             logger.info("Found %d MPAS output files (recursive search):", len(files))
@@ -223,7 +281,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
     def find_mpasout_files(self: "MPAS3DProcessor", data_dir: str) -> List[str]:
         """
-        This method searches for MPAS output files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a common subdirectory named 'mpasout' if no files are found. If still no files are found, it performs a recursive search through all subdirectories. The method ensures that at least two MPAS output files are found to allow for temporal analysis, and it provides verbose output about the number of files found and their names. If no files are found after all search attempts, it raises a FileNotFoundError with information about the search path.
+        This method searches for MPAS output files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a common subdirectory named 'mpasout' if no files are found. If still no files are found, it performs a recursive search through all subdirectories. The method ensures that at least one MPAS output file is found, and it provides verbose output about the number of files found and their names. If no files are found after all search attempts, it raises a FileNotFoundError with information about the search path.
 
         Parameters:
             data_dir (str): Directory path to search for MPAS output files.
@@ -250,6 +308,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         use_pure_xarray: bool = False,
         reference_file: str = "",
         variables: Optional[List[str]] = None,
+        chunk_size: Optional[int] = None,
     ) -> "MPAS3DProcessor":
         """
         This method loads 3D atmospheric data from MPAS output files in the specified directory. It uses the find_mpasout_files method to locate the relevant files, then loads them into an xarray Dataset using either the pure xarray backend or UXarray based on the use_pure_xarray flag. The method applies appropriate chunking for efficient loading of 3D data and handles time coordinate ordering using an optional reference file. After loading, it adds spatial coordinates to the dataset using the add_spatial_coordinates method. The loaded dataset and its type are stored as attributes of the processor for use in subsequent processing steps. The method returns a self reference to allow for method chaining.
@@ -259,12 +318,25 @@ class MPAS3DProcessor(MPASBaseProcessor):
             use_pure_xarray (bool): If True, uses pure xarray for loading; if False, uses UXarray for potentially faster loading (default: False).
             reference_file (str): Optional file path to use as a reference for time coordinate ordering (default: "").
             variables (Optional[List[str]]): List of variable names to retain. If provided, only these variables are loaded from data files to reduce memory usage (default: None).
+            chunk_size (Optional[int]): Number of cells per dask chunk along the nCells dimension (Time stays at one record per chunk). None keeps the default behaviour of one chunk per Time record spanning all cells; a positive integer enables finer spatial chunking to bound peak memory on very large meshes (default: None).
 
         Returns:
             MPAS3DProcessor: Returns self reference after loading the dataset and adding spatial coordinates.
         """
         self.data_dir = data_dir
-        chunks_3d = {"Time": 1}
+        if chunk_size is not None and (
+            isinstance(chunk_size, bool)
+            or not isinstance(chunk_size, (int, np.integer))
+            or chunk_size <= 0
+        ):
+            raise ValueError(
+                f"chunk_size must be a positive integer, got {chunk_size!r}"
+            )
+
+        chunks_3d: Dict[str, int] = {"Time": 1}
+
+        if chunk_size is not None:
+            chunks_3d["nCells"] = int(chunk_size)
 
         dataset, data_type = self._load_data(
             data_dir,
@@ -346,221 +418,115 @@ class MPAS3DProcessor(MPASBaseProcessor):
         ):
             raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
 
-    def _resolve_int_level(self: "MPAS3DProcessor", level: int) -> int:
+    def _level_count(self: "MPAS3DProcessor", var_name: Optional[str] = None) -> int:
         """
-        This helper method validates that the provided integer level index is within the bounds of available model levels in the dataset. It checks the maximum number of vertical levels based on the presence of 'nVertLevels' or 'nVertLevelsP1' dimensions and raises a ValueError if the specified level index exceeds the available levels. If the level index is valid, it returns the index for use in data extraction.
+        This helper method returns the number of vertical levels along the vertical dimension of the requested variable, so that index-based level requests are validated against the staggering the variable actually uses (nVertLevels for mass levels, nVertLevelsP1 for interface levels such as 'w'). When no variable is given, or the variable has no recognized vertical dimension, it falls back to the dataset-wide nVertLevels (or nVertLevelsP1) size.
+
+        Parameters:
+            var_name (Optional[str]): Name of the variable whose vertical dimension defines the level count (default: None).
+
+        Returns:
+            int: The number of vertical levels available for the variable.
+        """
+        assert self.dataset is not None
+
+        if var_name is not None and var_name in self.dataset.data_vars:
+            var_sizes = self.dataset[var_name].sizes
+
+            for vertical_dim in ("nVertLevels", "nVertLevelsP1"):
+                if vertical_dim in var_sizes:
+                    return int(var_sizes[vertical_dim])
+
+        return int(
+            self.dataset.sizes.get(
+                "nVertLevels", self.dataset.sizes.get("nVertLevelsP1", 0)
+            )
+        )
+
+    def _resolve_int_level(
+        self: "MPAS3DProcessor", level: int, var_name: Optional[str] = None
+    ) -> int:
+        """
+        This helper method validates that the provided integer level index is within the bounds of available model levels in the dataset. It checks the number of vertical levels of the requested variable (or the dataset-wide count when no variable is given) and raises a ValueError if the requested level lies outside that range. Python-style negative indices within range (-1 is the top level) are normalized to the equivalent non-negative index. NumPy integer scalars are accepted and returned as plain Python integers.
 
         Parameters:
             level (int): The model level index to validate.
+            var_name (Optional[str]): Name of the variable whose vertical dimension bounds the index (default: None).
 
         Returns:
             int: The validated model level index.
         """
-        assert self.dataset is not None
-        max_levels = self.dataset.sizes.get(
-            "nVertLevels", self.dataset.sizes.get("nVertLevelsP1", 0)
-        )
-        if level >= max_levels:
-            raise ValueError(
-                f"Model level {level} exceeds available levels {max_levels}"
-            )
-        return level
+        max_levels = self._level_count(var_name)
+        level = int(level)
 
-    def _resolve_str_level(self: "MPAS3DProcessor", level: str) -> int:
+        if not -max_levels <= level < max_levels:
+            raise ValueError(
+                f"Model level {level} exceeds available levels {max_levels} (valid indices are 0 to {max_levels - 1})"
+            )
+
+        return level + max_levels if level < 0 else level
+
+    def _resolve_str_level(
+        self: "MPAS3DProcessor", level: str, var_name: Optional[str] = None
+    ) -> int:
         """
-        This helper method resolves special string level specifications to corresponding model level indices. It recognizes 'surface' as level index 0 and 'top' as the highest model level index based on the dataset's vertical structure. If an unrecognized string is provided, it raises a ValueError indicating the unknown level specification.
+        This helper method resolves special string level specifications to corresponding model level indices. It recognizes 'surface' as level index 0 and 'top' as the highest level index along the vertical dimension of the requested variable (so 'top' of an interface-level variable is its last interface). If an unrecognized string is provided, it raises a ValueError.
 
         Parameters:
             level (str): The level specification as a string ('surface' or 'top').
+            var_name (Optional[str]): Name of the variable whose vertical dimension defines 'top' (default: None).
 
         Returns:
             int: The corresponding model level index.
         """
         assert self.dataset is not None
+
         if level.lower() == "surface":
             return 0
+
         if level.lower() == "top":
-            return (
-                int(
-                    self.dataset.sizes.get(
-                        "nVertLevels", self.dataset.sizes.get("nVertLevelsP1", 1)
-                    )
-                )
-                - 1
-            )
+            return max(self._level_count(var_name), 1) - 1
+
         raise ValueError(f"Unknown level specification: {level}")
 
-    def _compute_mean_pressure_levels(
-        self: "MPAS3DProcessor",
-        ds_raw: xr.Dataset,
-        time_dim: str,
-        time_idx: int,
+    @staticmethod
+    def _interpolate_columns_log_p(
+        values: np.ndarray, pressure: np.ndarray, level: float
     ) -> np.ndarray:
         """
-        This helper method computes the column-mean total pressure values for each model level using the 'pressure_p' and 'pressure_base' variables in the raw dataset. It identifies the vertical dimension, averages over horizontal dimensions, and returns a 1D array of mean pressure values for use in pressure-level interpolation.
+        This static helper interpolates a field to a single pressure surface independently in every model column, using linear interpolation in the logarithm of pressure between the two model levels that bracket the requested pressure in that column. The computation is fully vectorized: for each column the number of levels with pressure at or above the target locates the bracketing pair, and the weights come from the log-pressure distances. Columns whose pressure range does not contain the requested level, because the level lies below the ground or above the model top, or because the column holds non-finite pressure, are set to NaN instead of being clamped to the nearest level. Pressure is assumed to decrease monotonically with level index, as in MPAS.
 
         Parameters:
-            ds_raw (xr.Dataset): The raw dataset containing pressure variables.
-            time_dim (str): The name of the time dimension in the dataset.
-            time_idx (int): The index of the time step to extract.
+            values (np.ndarray): Field values with shape (n_columns, n_levels).
+            pressure (np.ndarray): Total pressure in Pa with shape (n_columns, n_levels), decreasing with level index.
+            level (float): The target pressure in Pa.
 
         Returns:
-            np.ndarray: A 1D array of column-mean total pressure values for each model level.
+            np.ndarray: Interpolated values with shape (n_columns,), NaN where the level lies outside a column's pressure range.
         """
-        pressure_p = ds_raw["pressure_p"].isel({time_dim: time_idx})
-        pressure_base = ds_raw["pressure_base"].isel({time_dim: time_idx})
-        total_pressure = pressure_p + pressure_base
-        vertical_dim = (
-            "nVertLevels" if "nVertLevels" in total_pressure.dims else "nVertLevelsP1"
-        )
-        horizontal_dims = [d for d in total_pressure.dims if d != vertical_dim]
-        mean_pressure = (
-            total_pressure.mean(dim=horizontal_dims)
-            if horizontal_dims
-            else total_pressure
-        )
-        return cast(np.ndarray, np.asarray(mean_pressure.values).ravel())
+        n_levels = pressure.shape[1]
+        pressure = np.asarray(pressure, dtype=float)
+        values = np.asarray(values, dtype=float)
 
-    def _lerp_variable(
-        self: "MPAS3DProcessor",
-        var_name: str,
-        lower_idx: int,
-        upper_idx: int,
-        w: float,
-        mean_p_vals: np.ndarray,
-        level: float,
-        ds_raw: xr.Dataset,
-        time_dim: str,
-        time_idx: int,
-        vertical_dim: str,
-    ) -> Tuple[int, Optional[xr.DataArray]]:
-        """
-        This helper method performs linear interpolation of the specified variable between two vertical levels based on the provided interpolation weight. It extracts the variable values at the lower and upper bounding levels, computes the interpolated field, and attaches appropriate attributes. If interpolation fails for any reason, it falls back to returning the nearest mean level index. The method returns a tuple containing either the index of the selected level or -1 if interpolation was successful, along with the interpolated DataArray if applicable.
+        valid = (pressure[:, 0] >= level) & (pressure[:, -1] <= level)
+        lower = np.clip((pressure >= level).sum(axis=1) - 1, 0, max(n_levels - 2, 0))
+        upper = np.minimum(lower + 1, n_levels - 1)
 
-        Parameters:
-            var_name (str): The name of the variable to interpolate.
-            lower_idx (int): The index of the lower bounding level.
-            upper_idx (int): The index of the upper bounding level.
-            w (float): The interpolation weight between the lower and upper levels.
-            mean_p_vals (np.ndarray): The column-mean pressure values for each model level.
-            level (float): The target pressure value for interpolation.
-            ds_raw (xr.Dataset): The raw dataset containing the variable.
-            time_dim (str): The name of the time dimension in the dataset.
-            time_idx (int): The index of the time step to extract.
-            vertical_dim (str): The name of the vertical dimension in the dataset.
+        rows = np.arange(pressure.shape[0])
+        p_lower = pressure[rows, lower]
+        p_upper = pressure[rows, upper]
+        v_lower = values[rows, lower]
+        v_upper = values[rows, upper]
 
-        Returns:
-            Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the interpolated DataArray (or None if index-based extraction is used).
-        """
-        var_lower = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: lower_idx})
-        var_upper = ds_raw[var_name].isel({time_dim: time_idx, vertical_dim: upper_idx})
-        try:
-            interp_field = (1.0 - w) * var_lower + w * var_upper
-            if hasattr(interp_field, "compute"):
-                interp_field = cast(Any, interp_field).compute()
-            interp_field.attrs = getattr(var_lower, "attrs", {})
-            if self.verbose:
-                finite_values = interp_field.values.flatten()
-                finite_values = finite_values[np.isfinite(finite_values)]
-                if len(finite_values) > 0:
-                    logger.debug(
-                        "Interpolated field range: %.3f to %.3f",
-                        float(finite_values.min()),
-                        float(finite_values.max()),
-                    )
-            return -1, interp_field
-        except Exception:
-            level_idx = int(np.argmin(np.abs(mean_p_vals - level)))
-            if self.verbose:
-                logger.warning(
-                    "Interpolation failed, falling back to nearest mean level %d",
-                    level_idx,
-                )
-            return level_idx, None
-
-    def _interpolate_at_pressure(
-        self: "MPAS3DProcessor",
-        var_name: str,
-        level: float,
-        mean_p_vals: np.ndarray,
-        ds_raw: xr.Dataset,
-        time_dim: str,
-        time_idx: int,
-    ) -> Tuple[int, Optional[xr.DataArray]]:
-        """
-        This helper method performs interpolation of the specified variable at a given pressure level using the provided mean pressure values for each model level. It checks if the requested pressure level is outside the range of mean pressures and handles those cases by returning the nearest surface or top level. If interpolation is needed, it identifies the bounding levels, computes the interpolation weight, and attempts to interpolate the variable between those levels. If interpolation fails for any reason, it falls back to returning the nearest mean level index. The method returns a tuple containing either the index of the selected level or -1 if interpolation was successful, along with the interpolated DataArray if applicable.
-
-        Parameters:
-            var_name (str): The name of the variable to interpolate.
-            level (float): The target pressure value.
-            mean_p_vals (np.ndarray): The column-mean pressure values for each model level.
-            ds_raw (xr.Dataset): The raw dataset containing the variable.
-            time_dim (str): The name of the time dimension in the dataset.
-            time_idx (int): The index of the time step to extract.
-
-        Returns:
-            Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the interpolated DataArray (or None if index-based extraction is used).
-        """
-        if level >= float(mean_p_vals.max()):
-            if self.verbose:
-                logger.debug(
-                    "Requested pressure %.1f Pa above surface mean; using surface level 0",
-                    level,
-                )
-            return 0, None
-
-        if level <= float(mean_p_vals.min()):
-            level_idx = len(mean_p_vals) - 1
-            if self.verbose:
-                logger.debug(
-                    "Requested pressure %.1f Pa below top mean; using top level %d",
-                    level,
-                    level_idx,
-                )
-            return level_idx, None
-
-        lower_idx = max(0, int(np.sum(mean_p_vals >= level)) - 1)
-
-        if lower_idx >= len(mean_p_vals) - 1:
-            return lower_idx, None
-
-        upper_idx = lower_idx + 1
-        p_lower = float(mean_p_vals[lower_idx])  # higher pressure (surface side)
-        p_upper = float(mean_p_vals[upper_idx])  # lower pressure (top side)
-        # w=0 → var_lower (at p_lower), w=1 → var_upper (at p_upper)
-        w = 0.0 if p_lower == p_upper else (p_lower - level) / (p_lower - p_upper)
-
-        if self.verbose:
-            logger.debug(
-                "Requested pressure: %.1f Pa, interpolating between mean levels "
-                "%d (%.1f Pa) and %d (%.1f Pa) w=%.3f",
-                level,
-                lower_idx,
-                p_lower,
-                upper_idx,
-                p_upper,
-                w,
+        with np.errstate(divide="ignore", invalid="ignore"):
+            weight = (np.log(p_lower) - np.log(level)) / (
+                np.log(p_lower) - np.log(p_upper)
             )
 
-        assert self.dataset is not None
-        vertical_dim = (
-            "nVertLevels"
-            if "nVertLevels" in self.dataset[var_name].sizes
-            else "nVertLevelsP1"
-        )
+        weight = np.where(np.isfinite(weight), weight, 0.0)
+        result = (1.0 - weight) * v_lower + weight * v_upper
 
-        return self._lerp_variable(
-            var_name,
-            lower_idx,
-            upper_idx,
-            w,
-            mean_p_vals,
-            level,
-            ds_raw,
-            time_dim,
-            time_idx,
-            vertical_dim,
-        )
+        return np.where(valid, result, np.nan)
 
     def _resolve_float_level(
         self: "MPAS3DProcessor",
@@ -570,7 +536,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         time_idx: int,
     ) -> Tuple[int, Optional[xr.DataArray]]:
         """
-        This helper method resolves a float level specification as a pressure level by computing mean pressure levels and performing interpolation if necessary. It checks for the presence of required pressure variables, computes mean pressures, and calls the interpolation helper to determine the appropriate level index or interpolated field. If pressure data is not available, it raises a ValueError indicating that pressure-level interpolation cannot be performed.
+        This helper method resolves a float level specification as a pressure level in Pa by interpolating the requested variable in every column separately, in log-pressure, using the total pressure ('pressure_p' + 'pressure_base') of that column. Cells where the requested pressure lies below the ground or above the model top are returned as NaN rather than being clamped to the nearest model level, so no value is ever reported at a pressure it does not belong to; a level outside the pressure range of every column raises a ValueError instead of returning an all-NaN field. Variables on interface levels (nVertLevelsP1, such as 'w') are first averaged to the mass levels, the standard MPAS destaggering, so that they share the pressure of the mass levels. A float below 1100 Pa is rejected with an error suggesting Pa, since values such as 850.0 are almost certainly hPa and would silently select a layer near the model top. The returned DataArray carries the variable attributes plus 'selected_level', 'level_index' (-1 because no single model level is selected), and 'actual_pressure_level'.
 
         Parameters:
             var_name (str): The name of the variable to extract at the specified pressure level.
@@ -579,18 +545,90 @@ class MPAS3DProcessor(MPASBaseProcessor):
             time_idx (int): The index of the time step to extract.
 
         Returns:
-            Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the interpolated DataArray (or None if index-based extraction is used).
+            Tuple[int, Optional[xr.DataArray]]: A tuple of the level index (-1 for interpolated data) and the interpolated 1D DataArray.
         """
         assert self.dataset is not None
+
+        if not np.isfinite(level) or level < _MIN_PLAUSIBLE_PRESSURE_PA:
+            raise ValueError(
+                f"Pressure level {level:g} Pa ({level / 100.0:g} hPa) is not plausible "
+                f"(minimum {_MIN_PLAUSIBLE_PRESSURE_PA:.0f} Pa). Pressure levels are given in Pa; "
+                f"if {level:g} was meant in hPa, use {level * 100.0:g} Pa."
+            )
+
         if "pressure_p" not in self.dataset or "pressure_base" not in self.dataset:
             raise ValueError("Cannot find pressure level - pressure data not available")
 
         ds_raw = self._get_plain_dataset(self.dataset)
-        mean_p_vals = self._compute_mean_pressure_levels(ds_raw, time_dim, time_idx)
+        total_pressure = (
+            ds_raw["pressure_p"].isel({time_dim: time_idx})
+            + ds_raw["pressure_base"].isel({time_dim: time_idx})
+        ).compute()
+        field = ds_raw[var_name].isel({time_dim: time_idx}).compute()
 
-        return self._interpolate_at_pressure(
-            var_name, level, mean_p_vals, ds_raw, time_dim, time_idx
+        vertical_dim = (
+            "nVertLevelsP1" if "nVertLevelsP1" in field.dims else "nVertLevels"
         )
+        horizontal_dims = [d for d in field.dims if d != vertical_dim]
+
+        if sorted(horizontal_dims) != sorted(
+            d for d in total_pressure.dims if d != "nVertLevels"
+        ):
+            raise ValueError(
+                f"Cannot interpolate '{var_name}' to pressure: its horizontal dimensions "
+                f"{horizontal_dims} differ from those of the pressure field"
+            )
+
+        field_values = field.transpose(*horizontal_dims, vertical_dim).values
+
+        if vertical_dim == "nVertLevelsP1":
+            # Destagger interface values to mass levels so they share the mass-level pressure
+            field_values = 0.5 * (field_values[..., :-1] + field_values[..., 1:])
+
+        pressure_values = total_pressure.transpose(
+            *horizontal_dims, "nVertLevels"
+        ).values
+        n_levels = pressure_values.shape[-1]
+
+        # A level outside every column would give an all-NaN field and an empty plot
+        p_min, p_max = float(np.nanmin(pressure_values)), float(
+            np.nanmax(pressure_values)
+        )
+        if not p_min <= level <= p_max:
+            raise ValueError(
+                f"Pressure level {level:g} Pa ({level / 100.0:g} hPa) is outside the model's "
+                f"pressure range {p_min / 100.0:.1f}-{p_max / 100.0:.1f} hPa"
+            )
+
+        result = self._interpolate_columns_log_p(
+            field_values.reshape(-1, n_levels),
+            pressure_values.reshape(-1, n_levels),
+            float(level),
+        ).reshape(field_values.shape[:-1])
+
+        if np.issubdtype(field.dtype, np.floating):
+            result = result.astype(field.dtype)
+
+        interp_field = field.isel({vertical_dim: 0}, drop=True).copy(data=result)
+        interp_field.attrs = dict(ds_raw[var_name].attrs)
+        interp_field.attrs["selected_level"] = level
+        interp_field.attrs["level_index"] = -1
+        interp_field.attrs["actual_pressure_level"] = f"{level:.1f} Pa"
+        interp_field.attrs["vertical_interpolation"] = (
+            "linear in log(pressure), per column"
+        )
+
+        if self.verbose:
+            n_missing = int(np.isnan(result).sum())
+            logger.debug(
+                "Interpolated %s to %.1f Pa per column; %d of %d columns outside the model pressure range",
+                var_name,
+                level,
+                n_missing,
+                result.size,
+            )
+
+        return -1, interp_field
 
     def _resolve_level_index(
         self: "MPAS3DProcessor",
@@ -611,14 +649,18 @@ class MPAS3DProcessor(MPASBaseProcessor):
         Returns:
             Tuple[int, Optional[xr.DataArray]]: A tuple containing the level index and the extracted or interpolated DataArray (or None if index-based extraction is used).
         """
-        if isinstance(level, int):
-            return self._resolve_int_level(level), None
+        # Typed as Any so NumPy scalar types (np.int64, np.float32) are accepted alongside builtins
+        spec: Any = level
+        is_bool = type(spec) is bool
 
-        if isinstance(level, float):
-            return self._resolve_float_level(var_name, level, time_dim, time_idx)
+        if isinstance(spec, numbers.Integral) and not is_bool:
+            return self._resolve_int_level(int(spec), var_name), None
+
+        if isinstance(spec, numbers.Real) and not is_bool:
+            return self._resolve_float_level(var_name, float(spec), time_dim, time_idx)
 
         if isinstance(level, str):
-            return self._resolve_str_level(level), None
+            return self._resolve_str_level(level, var_name), None
 
         raise ValueError(f"Invalid level specification: {level}")
 
@@ -715,7 +757,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
 
         Parameters:
             var_name (str): Name of the 3D atmospheric variable to extract.
-            level (Union[str, int, float]): Vertical level specification, which can be an integer model level index, a float pressure level in Pa, or a string identifier like 'surface' or 'top'.
+            level (Union[str, int, float]): Vertical level specification, which can be an integer model level index, a float pressure level in Pa, or a string identifier like 'surface' or 'top'. Integer levels and 'surface'/'top' index the variable's own vertical dimension, so for an interface variable such as 'w' (nVertLevelsP1) they select layer interfaces ('top' is the model lid), whereas WindDiagnostics destaggers 'w' to the mass level co-located with u and v; pressure levels are destaggered in both.
             time_index (int): Time index to extract data from (default: 0).
 
         Returns:
@@ -776,19 +818,34 @@ class MPAS3DProcessor(MPASBaseProcessor):
         levels: np.ndarray, num_levels: int, vertical_dim: str
     ) -> np.ndarray:
         """
-        This helper method pads the levels array for 'nVertLevelsP1' if it has one fewer level than expected by appending a value slightly below the last level. This is necessary because 'nVertLevelsP1' typically includes an extra level at the surface, and if the computed levels only include the model levels, we need to add a surface level to match the expected count. The method checks if the vertical dimension is 'nVertLevelsP1' and if the number of levels is one less than expected, then appends a new level that is 10% below the last level. If these conditions are not met, it returns the original levels array unchanged.
+        This helper method converts a mass-level pressure profile into an interface-level profile when the variable lives on 'nVertLevelsP1', which has exactly one more level than the mass levels. Interior interface pressures are the geometric means of the adjacent mass-level pressures (the midpoint in log-pressure), and the bottom and top interfaces are obtained by extending the profile half a level beyond the lowest and highest mass levels in log-pressure, so every value is derived from the data rather than invented. If the profile contains non-positive values, arithmetic midpoints and linear extension are used instead. Profiles that do not need conversion, or that have fewer than two levels, are returned unchanged.
 
         Parameters:
-            levels (np.ndarray): The array of pressure levels to potentially pad.
+            levels (np.ndarray): The array of mass-level pressures to convert.
             num_levels (int): The expected number of levels based on the dataset's vertical dimension.
             vertical_dim (str): The name of the vertical dimension ('nVertLevels' or 'nVertLevelsP1').
 
         Returns:
-            np.ndarray: The potentially padded array of pressure levels, with an additional level added if necessary for 'nVertLevelsP1'.
+            np.ndarray: The interface-level pressures with num_levels entries when conversion applies, otherwise the input levels.
         """
-        if vertical_dim == "nVertLevelsP1" and num_levels == len(levels) + 1:
-            return cast(np.ndarray, np.append(levels, levels[-1] * 0.9))
-        return levels
+        if vertical_dim != "nVertLevelsP1" or num_levels != len(levels) + 1:
+            return levels
+
+        if len(levels) < 2:
+            return levels
+
+        use_log = bool(np.all(levels > 0))
+        work = np.log(levels) if use_log else np.asarray(levels, dtype=float)
+
+        interfaces = np.concatenate(
+            (
+                [work[0] + 0.5 * (work[0] - work[1])],
+                0.5 * (work[:-1] + work[1:]),
+                [work[-1] + 0.5 * (work[-1] - work[-2])],
+            )
+        )
+
+        return cast(np.ndarray, np.exp(interfaces) if use_log else interfaces)
 
     def _get_vertical_dim(self: "MPAS3DProcessor", var_name: str) -> Tuple[str, int]:
         """
@@ -1174,7 +1231,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
     @staticmethod
     def _extract_numpy_by_index(data_3d: np.ndarray, level_index: int) -> np.ndarray:
         """
-        This helper method extracts a 2D horizontal slice from a 3D numpy array based on a specified level index. It checks the number of dimensions in the input array and uses the appropriate indexing to extract the slice. If the array has three dimensions, it assumes the vertical dimension is the second one and extracts accordingly; if it has more than three dimensions, it uses the second dimension for indexing without assuming a specific structure. The resulting slice is returned as a 2D numpy array for further processing or visualization.
+        This helper method extracts a 2D horizontal slice from a 3D numpy array based on a specified level index. Arrays are assumed to follow the MPAS storage order in which the vertical dimension is the last axis, for example (nCells, nVertLevels) or (Time, nCells, nVertLevels), so the slice is taken along the final axis and all leading axes are preserved (a (Time, nCells, nVertLevels) array yields a (Time, nCells) slice). Arrays with fewer than two dimensions are rejected.
 
         Parameters:
             data_3d (np.ndarray): The 3D numpy array from which to extract the slice.
@@ -1186,10 +1243,7 @@ class MPAS3DProcessor(MPASBaseProcessor):
         if data_3d.ndim < 2:
             raise ValueError("Data must be at least 2D for level extraction")
 
-        if data_3d.ndim == 3:
-            return data_3d[:, level_index, -1]
-
-        return data_3d[:, level_index]
+        return cast(np.ndarray, data_3d[..., level_index])
 
     @staticmethod
     def extract_2d_from_3d(
