@@ -293,7 +293,7 @@ def test_n_workers_with_cli_integration() -> None:
 
 def test_mpi_import_fallback_warning() -> None:
     """
-    This test checks that the `MPASParallelManager` correctly handles the absence of the `mpi4py` library by issuing a warning and falling back to a non-MPI backend. It uses `unittest.mock.patch` to simulate the environment where `mpi4py` is not available, reloads the parallel module to trigger the import logic, and asserts that a warning is raised indicating that MPI functionality is unavailable. The test also confirms that the manager's MPI availability flag is set to False and that the MPI attribute is None, ensuring that the fallback behavior is correctly implemented without causing crashes or unexpected errors.
+    This test checks that the lazy MPI loader correctly handles the absence of the `mpi4py` library by issuing a warning and leaving the MPI attribute unset, so the manager falls back to a non-MPI backend. Importing the parallel module must not import mpi4py (the import is lazy), so the test simulates a missing library, resets the loader's cached state, and calls `load_mpi` directly, asserting that the warning is raised, MPI_AVAILABLE is False, and the MPI attribute stays None.
 
     Parameters:
         None
@@ -302,21 +302,20 @@ def test_mpi_import_fallback_warning() -> None:
         None
     """
     import sys
-    import importlib
     from unittest.mock import patch
     import mpasdiag.processing.parallel as parallel_mod
 
-    saved_state = dict(parallel_mod.__dict__)
-
-    try:
-        with patch.dict(sys.modules, {"mpi4py": None}):
+    with patch.dict(sys.modules, {"mpi4py": None}):
+        with (
+            patch.object(parallel_mod, "MPI", None),
+            patch.object(parallel_mod, "MPI_AVAILABLE", False),
+            patch.object(parallel_mod, "_MPI_IMPORT_ATTEMPTED", False),
+        ):
             with pytest.warns(UserWarning, match="mpi4py is not available"):
-                importlib.reload(parallel_mod)
+                assert parallel_mod.load_mpi() is None
 
             assert parallel_mod.MPI_AVAILABLE is False
             assert parallel_mod.MPI is None
-    finally:
-        parallel_mod.__dict__.update(saved_state)
 
 
 if __name__ == "__main__":

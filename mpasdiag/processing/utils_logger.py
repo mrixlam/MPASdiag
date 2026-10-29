@@ -14,32 +14,115 @@ Date: November 2025
 Version: 1.0.0
 """
 
+import os
 import sys
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 ROOT_LOGGER_NAME = "mpasdiag"
 
 _configured: bool = False
 
 
+_MPI_RANK_ENV_VARS = (
+    "PMI_RANK",
+    "OMPI_COMM_WORLD_RANK",
+    "PMIX_RANK",
+    "MV2_COMM_WORLD_RANK",
+    "PALS_RANKID",
+)
+_MPI_SIZE_ENV_VARS = (
+    "PMI_SIZE",
+    "OMPI_COMM_WORLD_SIZE",
+    "PMIX_SIZE",
+    "MV2_COMM_WORLD_SIZE",
+    "PALS_NRANKS",
+    "SLURM_STEP_NUM_TASKS",
+    "SLURM_NTASKS",
+)
+
+
+def _env_int(name: str) -> Optional[int]:
+    """
+    This helper reads an environment variable and converts it to an integer, returning None when the variable is unset, empty, or not a valid integer.
+
+    Parameters:
+        name (str): Name of the environment variable.
+
+    Returns:
+        Optional[int]: The integer value, or None if it is missing or malformed.
+    """
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
 def _detect_mpi_rank_and_size() -> "tuple[int, int]":
     """
-    This function attempts to detect the MPI rank and size using the mpi4py library. If mpi4py is available and can be imported successfully, it retrieves the rank and size from the MPI communicator. If mpi4py is not available or an error occurs during import, it defaults to returning a rank of 0 and a size of 1, indicating a serial execution context. This allows the logging system to adapt its behavior based on whether it is running in a parallel environment, ensuring that log messages are appropriately filtered and formatted based on the execution context.
+    This function detects the MPI rank and size from the environment variables that the standard MPI launchers export (PMI_RANK/PMI_SIZE for MPICH and Intel MPI, OMPI_COMM_WORLD_* for Open MPI, MV2_COMM_WORLD_* for MVAPICH2, PMIX_RANK/PMIX_SIZE, PALS_RANKID/PALS_NRANKS for Cray PALS, and SLURM_PROCID with SLURM_STEP_NUM_TASKS/SLURM_NTASKS under srun; the size may come from a different launcher's variable than the rank, e.g. PMIX_RANK with SLURM_NTASKS under srun --mpi=pmix), without importing mpi4py. Importing mpi4py initialises MPI as a side effect, which on some installations aborts every process (even a serial one) at exit, so the logging system must never trigger it. It defaults to a rank of 0 and a size of 1, indicating a serial execution context, when no launcher variables are found. This allows the logging system to adapt its behavior based on whether it is running in a parallel environment, ensuring that log messages are appropriately filtered and formatted based on the execution context.
 
     Parameters:
         None
 
     Returns:
-        tuple[int, int]: A tuple containing the MPI rank and size. Defaults to (0, 1) if MPI is not available.
+        tuple[int, int]: A tuple containing the MPI rank and size. Defaults to (0, 1) when no MPI launcher is detected.
     """
-    try:
-        from mpi4py import MPI
+    rank: Optional[int] = None
+    for name in _MPI_RANK_ENV_VARS:
+        rank = _env_int(name)
+        if rank is not None:
+            break
 
-        comm = MPI.COMM_WORLD
-        return comm.Get_rank(), comm.Get_size()
-    except Exception:
+    size: Optional[int] = None
+    for name in _MPI_SIZE_ENV_VARS:
+        size = _env_int(name)
+        if size is not None:
+            break
+
+    if rank is None:
+        slurm_tasks = _env_int("SLURM_NTASKS")
+        slurm_rank = _env_int("SLURM_PROCID")
+        if slurm_rank is not None and slurm_tasks is not None and slurm_tasks > 1:
+            rank, size = slurm_rank, slurm_tasks
+
+    if rank is None:
         return 0, 1
+    if size is None:
+        # A launcher set a rank but no known size variable. Every rank must reach the same verdict
+        # (rank 0 calling itself serial while the others pick MPI would split the run), so assume a
+        # parallel world; mpi4py then reports the true size and a one-rank world runs without MPI.
+        size = max(2, rank + 1)
+    return rank, max(1, size)
+
+
+def mpi_launcher_detected() -> bool:
+    """
+    This function reports whether the process was started by an MPI launcher with more than one rank, judged only from environment variables (no mpi4py import). It is the gate for importing mpi4py lazily: serial and multiprocessing runs never import it.
+
+    Parameters:
+        None
+
+    Returns:
+        bool: True if launcher variables are present and the world size is greater than one.
+    """
+    return _detect_mpi_rank_and_size()[1] > 1
+
+
+def is_root_process() -> bool:
+    """
+    This function reports whether the current process is the root (rank 0) process of an MPI run, or a serial/multiprocessing parent. It is derived from the launcher environment variables only, so calling it never imports mpi4py. Callers use it to print plain-text summaries from a single rank.
+
+    Parameters:
+        None
+
+    Returns:
+        bool: True for rank 0 and for any non-MPI process, False for non-zero MPI ranks.
+    """
+    return _detect_mpi_rank_and_size()[0] == 0
 
 
 class MPIRankFilter(logging.Filter):
@@ -107,6 +190,76 @@ def get_logger(name: str = ROOT_LOGGER_NAME) -> logging.Logger:
     return logging.getLogger(f"{ROOT_LOGGER_NAME}.{name}")
 
 
+def snapshot_logging_config() -> Dict[str, Any]:
+    """
+    This function captures the parent process's "mpasdiag" logger configuration (effective level, log-file path, and whether a console handler is attached) as a small picklable dictionary. The parallel manager passes it to every pool worker through the pool initializer so that worker processes, which start with an unconfigured logger, honour the same level, --log-file, and --quiet settings as the parent.
+
+    Parameters:
+        None
+
+    Returns:
+        Dict[str, Any]: Dictionary with keys 'level' (int), 'log_file' (Optional[str]), and 'console' (bool).
+    """
+    root = logging.getLogger(ROOT_LOGGER_NAME)
+    log_file: Optional[str] = None
+    console = False
+    for handler in root.handlers:
+        if isinstance(handler, logging.FileHandler):
+            log_file = log_file or handler.baseFilename
+        elif isinstance(handler, logging.StreamHandler):
+            console = True
+    return {"level": root.getEffectiveLevel(), "log_file": log_file, "console": console}
+
+
+def configure_worker_logging(config: Optional[Dict[str, Any]]) -> None:
+    """
+    This function configures the "mpasdiag" logger inside a pool worker process from a snapshot produced by snapshot_logging_config. It sets the level, replaces any handlers inherited through fork with fresh ones, and attaches a console handler and/or a file handler in append mode. Every worker record carries the process id in its format so interleaved lines from different workers can be told apart. A None or empty config leaves the logger untouched.
+
+    Parameters:
+        config (Optional[Dict[str, Any]]): Snapshot with keys 'level', 'log_file', and 'console', or None.
+
+    Returns:
+        None
+    """
+    if not config:
+        return
+
+    root = logging.getLogger(ROOT_LOGGER_NAME)
+    root.setLevel(config.get("level", logging.INFO))
+
+    for handler in root.handlers[:]:
+        root.removeHandler(handler)
+        try:
+            handler.close()
+        except Exception:
+            pass
+
+    formatter = logging.Formatter(
+        "%(asctime)s - [pid %(process)d] - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    added = False
+
+    if config.get("console"):
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        root.addHandler(console_handler)
+        added = True
+
+    log_file = config.get("log_file")
+    if log_file:
+        try:
+            file_handler = logging.FileHandler(log_file, mode="a")
+            file_handler.setFormatter(formatter)
+            root.addHandler(file_handler)
+            added = True
+        except OSError:
+            pass
+
+    if added:
+        root.propagate = False
+
+
 class MPASLogger:
     """Root logger configurator for MPASdiag processing code."""
 
@@ -135,8 +288,18 @@ class MPASLogger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
 
+        # Replaced handlers must be closed as well as detached, otherwise every reconfiguration leaks the file
+        # descriptor of a previous FileHandler.
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
+            try:
+                handler.close()
+            except Exception:
+                pass
+
+        # Handlers live on this logger only, so records must not also bubble up to the root logger's handlers
+        # (that would print every line twice whenever the application configured logging.basicConfig).
+        self.logger.propagate = False
 
         rank_filter = MPIRankFilter()
         formatter = _build_formatter(rank_filter.size)

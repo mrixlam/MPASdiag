@@ -304,6 +304,13 @@ class TestMPIModeBranches:
             np.zeros(10),
             np.zeros(10),
         )
+        # the surface worker reads data and coordinates like the serial path
+        mock_proc.extract_2d_coordinates_for_variable.return_value = (
+            mock_proc.extract_spatial_coordinates.return_value
+        )
+        mock_proc.get_2d_variable_data.side_effect = (
+            lambda var, t, _ds=mock_proc.dataset: _ds[var].isel(Time=t)
+        )
 
         kwargs = self._make_mpi_kwargs(str(tmp_path))
 

@@ -16,6 +16,7 @@ Version: 1.0.0
 
 import argparse
 import logging
+from typing import Any
 from collections.abc import Iterator
 
 import pytest
@@ -104,21 +105,56 @@ def test_get_logger_namespaces_non_mpasdiag_names() -> None:
     assert bare.name == "mpasdiag.foo.bar"
 
 
-def test_child_propagates_to_root_handlers(caplog: pytest.LogCaptureFixture) -> None:
+def test_child_propagates_to_root_handlers(tmp_path: Any) -> None:
     """
-    This test verifies that log messages emitted from a child logger created by get_logger are properly propagated to the handlers of the root logger configured by MPASLogger. It creates an instance of MPASLogger with the root logger name and a specific log level, then obtains a child logger using get_logger. The test emits a log message from the child logger and uses the caplog fixture to capture log records at the DEBUG level for the root logger. Finally, it checks that the captured log records include the message emitted from the child logger, confirming that messages from child loggers are correctly propagated to the root logger's handlers as intended.
+    This test verifies that log messages emitted from a child logger created by get_logger reach the handlers of the 'mpasdiag' logger configured by MPASLogger (a file handler is used so the delivery can be observed), and that the configured logger no longer propagates to the Python root logger, which would print every record a second time whenever the application already configured logging.basicConfig.
 
     Parameters:
-        caplog (pytest.LogCaptureFixture): A pytest fixture that captures log records emitted during the test.
+        tmp_path (Any): pytest temporary directory fixture used for the log file.
 
     Returns:
         None
     """
-    MPASLogger(name=ROOT_LOGGER_NAME, level=logging.DEBUG, verbose=True)
+    log_file = tmp_path / "mpasdiag.log"
+    configured = MPASLogger(
+        name=ROOT_LOGGER_NAME,
+        level=logging.DEBUG,
+        log_file=str(log_file),
+        verbose=False,
+    )
     child = get_logger("mpasdiag.test_propagation")
-    with caplog.at_level(logging.DEBUG, logger=ROOT_LOGGER_NAME):
-        child.info("hello propagation")
-    assert any("hello propagation" in record.message for record in caplog.records)
+    child.info("hello propagation")
+
+    for handler in configured.logger.handlers:
+        handler.flush()
+
+    assert "hello propagation" in log_file.read_text()
+    assert configured.logger.propagate is False
+    MPASLogger(name=ROOT_LOGGER_NAME, level=logging.INFO, verbose=False)
+
+
+def test_reconfiguration_closes_replaced_file_handler(tmp_path: Any) -> None:
+    """
+    This test verifies that re-creating an MPASLogger closes the FileHandler it replaces, so repeated configuration does not leak file descriptors.
+
+    Parameters:
+        tmp_path (Any): pytest temporary directory fixture used for the log file.
+
+    Returns:
+        None
+    """
+    first = MPASLogger(
+        name=ROOT_LOGGER_NAME,
+        level=logging.INFO,
+        log_file=str(tmp_path / "a.log"),
+        verbose=False,
+    )
+    old_handler = first.logger.handlers[0]
+    assert old_handler.stream is not None
+
+    MPASLogger(name=ROOT_LOGGER_NAME, level=logging.INFO, verbose=False)
+
+    assert old_handler.stream is None
 
 
 def test_rank_filter_injects_rank_and_size() -> None:
