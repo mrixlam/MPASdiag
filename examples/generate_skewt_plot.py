@@ -65,6 +65,7 @@ indices = diagnostics.compute_thermodynamic_indices(
     u_wind_kt=u_wind,
     v_wind_kt=v_wind,
     height_m=profile.get("height"),
+    surface_height_m=profile.get("surface_height"),
 )
 
 # Define the Skew-T plotter with desired figure size and resolution

@@ -31,28 +31,28 @@ conda create -n mpasdiag python=3.11 -y
 conda activate mpasdiag
 
 # Install required scientific python libraries
-conda install -y -c conda-forge numpy pandas scipy xarray dask numba -y
+conda install -y -c conda-forge numpy pandas scipy xarray dask numba
 
 # Install additional dependencies
-conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil -y
+conda install -y -c conda-forge netcdf4 h5netcdf llvmlite pyyaml psutil
 
 # Install testing suite dependencies
-conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet pytest-mock mypy -y
+conda install -y -c conda-forge pytest pytest-cov pytest-xdist pluggy coverage execnet pytest-mock mypy
 
 # Install matplotlib and cartopy for plotting support
-conda install -y -c conda-forge matplotlib cartopy -y
+conda install -y -c conda-forge matplotlib cartopy
 
 # Install UXarray (for unstructured grid support)
-conda install -y -c conda-forge uxarray -y
+conda install -y -c conda-forge uxarray
 
 # Install MPI support for parallel processing
-conda install -y -c conda-forge mpi4py -y
+conda install -y -c conda-forge mpi4py
 
 # Install esmpy and xESMF for remapping capabilities
-conda install -y -c conda-forge esmpy xesmf -y
+conda install -y -c conda-forge esmpy xesmf
 
 # Install MetPy for thermodynamic diagnostics
-conda install -y -c conda-forge metpy -y
+conda install -y -c conda-forge metpy
 
 # Install the package
 pip install -e .
@@ -304,9 +304,19 @@ controlling the map projection aesthetic:
   constructor for full control (e.g. `standard_parallels`). Keys here take
   precedence over `central_longitude` / `central_latitude`.
 
-Supported projections: `PlateCarree` (default), `Mercator`, `LambertConformal`,
-`Robinson`, `Mollweide`, `Orthographic`, `NorthPolarStereo`, `SouthPolarStereo`,
-`NearsidePerspective`. An unrecognized name falls back to `PlateCarree`.
+Supported projections (case-insensitive): `PlateCarree` (default), `Mercator`,
+`LambertConformal`, `Robinson`, `Mollweide`, `Orthographic`, `NorthPolarStereo`,
+`SouthPolarStereo`, `NearsidePerspective`, `AlbersEqualArea`,
+`AzimuthalEquidistant`, `LambertAzimuthalEqualArea`, `Stereographic`,
+`TransverseMercator`, `Gnomonic`, `EckertIV`, `EqualEarth`, `LambertCylindrical`,
+`Miller`, `Sinusoidal`, `InterruptedGoodeHomolosine`, `Geostationary`. An
+unrecognized name falls back to `PlateCarree` with a warning.
+
+A regional box that crosses the dateline is written with `lon_max > 180`, e.g.
+`md.GeographicBounds(150, 210, -30, 30)` for the western Pacific; global-style
+projections are centered on such a box automatically. Extents a projection
+cannot show (e.g. a full globe on `Orthographic`, which only shows one
+hemisphere) fall back to the projection's global view with a warning.
 
 ```python
 import mpasdiag as md
@@ -334,16 +344,19 @@ fig, ax = plotter.create_surface_map(
 ```
 
 See [examples/example_projection_centering.py](examples/example_projection_centering.py)
-for a runnable version. Defaults are unchanged: without these fields, `PlateCarree`
-stays centered on 0° and existing plots render exactly as before.
+for a runnable version. Without these fields, `PlateCarree` stays centered on 0°
+and regional maps render as before; global maps now span the full ±180° (see the
+changelog).
 
 ## CLI Examples
 
 **Path confinement (security):** By default, every input/output path the CLI
 touches — `--grid-file`, `--data-dir`, `--output-dir`, `--output`, `--log-file`,
-`--config`, and the weights cache — must resolve **inside the current working
-directory**. A path that points outside it (via `..` or an absolute path) is
-refused. This protects you from a shared/untrusted config file redirecting reads
+`--config`, and the weights cache — is first resolved against the **current
+working directory** (relative paths are relative to where you run the command)
+and must then lie **inside the trusted base directory**, which is the current
+working directory unless you pass `--base-dir`. A path that points outside it
+(via `..` or an absolute path) is refused. This protects you from a shared/untrusted config file redirecting reads
 or writes elsewhere on your filesystem. The examples below use paths relative to
 the current directory, so they work as-is.
 
@@ -398,6 +411,12 @@ mpasdiag surface \
   --variable mslp --plot-type contourf \
   --remap-engine esmf --remap-method conservative --grid-resolution 0.1
 
+# Explicit contour levels (plotted units, here degC) and linear gridding
+mpasdiag surface \
+  --grid-file grid.nc --data-dir ./data \
+  --variable t2m --plot-type contourf --levels -10 0 10 20 30 \
+  --interpolation linear --grid-resolution 0.25
+
 # Batch processing all time steps with KDTree nearest
 mpasdiag surface \
   --grid-file grid.nc --data-dir ./data \
@@ -424,7 +443,7 @@ mpasdiag wind \
 mpasdiag wind \
   --grid-file grid.nc --data-dir ./data \
   --u-variable u10 --v-variable v10 --wind-plot-type arrows \
-  --scale 300 --grid-resolution 0.1 --subsample -1 \
+  --wind-scale 300 --grid-resolution 0.1 --subsample -1 \
   --remap-engine kdtree --remap-method linear
 
 # Wind streamlines with ESMPy conservative background shading
@@ -480,7 +499,48 @@ mpasdiag cross \
   --variable theta --start-lon -100 --start-lat 30 \
   --end-lon -90 --end-lat 50 --time-index 12 --max-height 10 \
   --num-points 100 --dpi 400 --formats png pdf
+
+# Fixed colour range (plotted units)
+mpasdiag cross \
+  --grid-file grid.nc --data-dir ./data \
+  --variable theta --start-lon -105.0 --start-lat 39.7 \
+  --end-lon -94.6 --end-lat 39.1 --clim-min 280 --clim-max 340
 ```
+
+### Overlay Analysis
+```bash
+# Accumulated precipitation with 10-m wind barbs
+mpasdiag overlay \
+  --grid-file grid.nc --data-dir ./data \
+  --overlay-type precip_wind --variable rainnc --u-variable u10 --v-variable v10
+
+# 2-m temperature (filled) with MSLP contour lines
+mpasdiag overlay \
+  --grid-file grid.nc --data-dir ./data \
+  --overlay-type temp_pressure --variable t2m --pressure-variable mslp
+
+# 2-m temperature with wind barbs
+mpasdiag overlay \
+  --grid-file grid.nc --data-dir ./data --overlay-type wind_temp --variable t2m
+
+# Filled temperature, MSLP contours and wind: the first variable is the filled
+# base field, u10/v10 (or --u-variable/--v-variable) become wind vectors and every
+# other variable is drawn as contour lines
+mpasdiag overlay \
+  --grid-file grid.nc --data-dir ./data \
+  --overlay-type multi_level --variables t2m,mslp,u10,v10
+
+# Two scalar fields: a transparent filled secondary layer, with contour lines on top
+mpasdiag overlay \
+  --grid-file grid.nc --data-dir ./data --overlay-type custom \
+  --primary-variable t2m --secondary-variable q2 --secondary-colormap Greens \
+  --transparency 0.5 --contour-overlay
+```
+
+Files are named `mpas_overlay_<type>_<variables>_valid_<time>` unless `--output`
+is given. `--batch-all`, `--time-range`, the extent and projection options and
+`--formats` work as for the other analyses; overlays are always rendered serially
+(`--parallel` is accepted and ignored with a message).
 
 ### Skew-T Log-P Sounding Analysis
 ```bash
@@ -513,8 +573,8 @@ Create YAML configuration files for repeatable analysis. All `MPASConfig` datacl
 # config.yaml - Full MPASConfig reference (select fields relevant to your analysis)
 
 # --- I/O paths ---
-# NOTE: these paths must resolve within the current working directory (or the
-# directory passed via --base-dir). Absolute or '..' paths outside that base are
+# NOTE: relative paths are relative to the current working directory and must
+# resolve within it (or within the directory passed via --base-dir). Absolute or '..' paths outside that base are
 # refused; run with `--base-dir /scratch/...` to use data/output on another mount.
 grid_file:   "./data/grids/x1.10242.init.nc"
 data_dir:    "./data/u240k"
@@ -543,7 +603,7 @@ precip_units:       "mm"      # mm | cm | in
 # variable:          "t2m"    # Any 2D variable name in the MPAS files
 # plot_type:         "contourf"  # scatter | contour | contourf | pcolormesh
 # grid_resolution:   0.1      # Degrees; auto-adaptive if omitted
-# interpolation_method: "linear"  # linear | cubic | nearest
+# interpolation_method: null    # nearest | linear | cubic; null = plotter default
 # contour_levels:    15       # Number of contour levels
 
 # --- Wind vector analysis ---
@@ -566,7 +626,7 @@ regrid_method: "linear"      # linear | nearest
 # start_lat:      39.7       # Cross-section start latitude
 # end_lon:        -94.6      # Cross-section end longitude
 # end_lat:         39.1      # Cross-section end latitude
-vertical_coord: "pressure"   # pressure | model_levels | height
+vertical_coord: "pressure"   # pressure | modlev | height
 num_points:     100          # Interpolation points along the path
 # max_height:    null        # Maximum height km for vertical axis; auto if omitted
 plot_style:  "contourf"      # contourf | contour | pcolormesh
@@ -582,9 +642,8 @@ show_parcel:  false          # Plot lifted parcel profile with CAPE/CIN shading
 colormap:        "default"       # Colormap name; "default" = auto-selected per variable
 # clim_min: null                 # Manual color-scale minimum
 # clim_max: null                 # Manual color-scale maximum
+# levels: [0, 5, 10, 20]        # Explicit contour/color levels, plotted units (CLI: --levels)
 figure_size:     [12.0, 10.0]   # Figure width and height in inches
-figure_width:    12.0
-figure_height:   10.0
 dpi:             400
 output_formats:  ["png", "pdf"]
 # title: null                    # Custom plot title; auto-generated if omitted

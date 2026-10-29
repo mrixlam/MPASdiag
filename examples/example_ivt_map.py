@@ -52,9 +52,24 @@ else:
 u_3d = processor.dataset["uReconstructZonal"].isel(Time=tindex)
 v_3d = processor.dataset["uReconstructMeridional"].isel(Time=tindex)
 
-# Initialize moisture transport diagnostics and compute IWV, IVT_u, IVT_v, and IVT magnitude
+# Surface pressure lets the column integrals include the layer below the lowest model level
+surface_pressure = (
+    processor.dataset["surface_pressure"].isel(Time=tindex)
+    if "surface_pressure" in processor.dataset
+    else None
+)
+
+# Initialize moisture transport diagnostics and compute IWV, IVT_u, IVT_v, and IVT magnitude.
+# MPAS qv is a water vapor mixing ratio, so convert it to specific humidity for the integrals.
 diag = md.MoistureTransportDiagnostics(verbose=True)
-result = diag.analyze_moisture_transport(qv, u_3d, v_3d, pressure)
+result = diag.analyze_moisture_transport(
+    qv,
+    u_3d,
+    v_3d,
+    pressure,
+    surface_pressure=surface_pressure,
+    is_mixing_ratio=True,
+)
 
 # Extract 1-D IVT DataArrays (nCells) for magnitude and components
 ivt_da = result["ivt"]["data"]

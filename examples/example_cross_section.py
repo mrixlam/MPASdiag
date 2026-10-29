@@ -69,8 +69,8 @@ os.makedirs("./output", exist_ok=True)
 # Base output path (without extension; save_plot appends '.png')
 output_base = f"./output/{var_name}_cross_section_{valtime_str}"
 
-# Define custom levels
-custom_levels = np.arange(15, 100, 10)
+# Define custom levels (potential temperature is plotted in kelvin)
+custom_levels = np.arange(290, 346, 5)
 
 # Generate vertical cross-section from the surface to 10 km
 fig, ax = plotter.create_vertical_cross_section(
