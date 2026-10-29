@@ -22,6 +22,7 @@ from io import StringIO
 from unittest.mock import MagicMock, patch
 
 from mpasdiag import PrecipitationDiagnostics
+from mpasdiag.diagnostics import InsufficientLookbackError
 
 
 @pytest.fixture
@@ -112,11 +113,11 @@ class TestGetAccumulationHours:
         """
         assert diag.get_accumulation_hours(period) == hours
 
-    def test_unknown_period_defaults_to_24(
+    def test_unknown_period_raises(
         self: "TestGetAccumulationHours", diag: "PrecipitationDiagnostics"
     ) -> None:
         """
-        This test verifies that the get_accumulation_hours method defaults to returning 24 hours when an unknown accumulation period string is provided. This ensures that the method has a fallback behavior for unrecognized input.
+        This test verifies that the get_accumulation_hours method raises a ValueError (instead of silently returning 24 hours) when an unknown accumulation period string is provided.
 
         Parameters:
             diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class.
@@ -124,7 +125,8 @@ class TestGetAccumulationHours:
         Returns:
             None
         """
-        assert diag.get_accumulation_hours("unknown") == 24
+        with pytest.raises(ValueError, match="Unknown accumulation period"):
+            diag.get_accumulation_hours("unknown")
 
 
 class TestComputePrecipitationDifference:
@@ -160,7 +162,7 @@ class TestComputePrecipitationDifference:
         Returns:
             None
         """
-        with pytest.raises(ValueError, match="exceeds dataset size"):
+        with pytest.raises(ValueError, match="out of range"):
             diag.compute_precipitation_difference(precip_ds, 999)
 
     def test_normal_accumulation_rainnc(
@@ -230,13 +232,13 @@ class TestComputePrecipitationDifference:
             "range" in captured.getvalue().lower() or "Computing" in captured.getvalue()
         )
 
-    def test_time_index_zero_returns_data(
+    def test_time_index_zero_raises_insufficient_lookback(
         self: "TestComputePrecipitationDifference",
         diag: "PrecipitationDiagnostics",
         precip_ds: xr.Dataset,
     ) -> None:
         """
-        This test verifies that the compute_precipitation_difference method correctly handles the case when the time index is zero. It ensures that the method returns a DataArray for the specified variable at time index zero, which is expected to be valid since it should not require a lookback period. This test confirms that the method can handle edge cases related to time indexing without errors.
+        This test verifies that compute_precipitation_difference raises InsufficientLookbackError at time index zero, where no earlier output exists to difference against. Previously the raw cumulative field was returned and presented as an accumulation, which was misleading; callers are expected to catch the error and skip the step.
 
         Parameters:
             diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class.
@@ -245,16 +247,16 @@ class TestComputePrecipitationDifference:
         Returns:
             None
         """
-        result = diag.compute_precipitation_difference(precip_ds, 0, "rainnc", "a01h")
-        assert isinstance(result, xr.DataArray)
+        with pytest.raises(InsufficientLookbackError):
+            diag.compute_precipitation_difference(precip_ds, 0, "rainnc", "a01h")
 
-    def test_insufficient_lookback_returns_zero_field(
+    def test_insufficient_lookback_raises(
         self: "TestComputePrecipitationDifference",
         diag: "PrecipitationDiagnostics",
         precip_ds: xr.Dataset,
     ) -> None:
         """
-        This test verifies that the compute_precipitation_difference method returns a zero field when the lookback period is insufficient. It ensures that the method returns a DataArray with a "note" attribute indicating the insufficient lookback, which is expected behavior when there is not enough data to compute a valid difference. This test confirms that the method can gracefully handle cases where the lookback period cannot be satisfied without producing errors.
+        This test verifies that compute_precipitation_difference raises InsufficientLookbackError instead of returning a zero-filled field when the accumulation window starts before the first available time step.
 
         Parameters:
             diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class.
@@ -263,9 +265,8 @@ class TestComputePrecipitationDifference:
         Returns:
             None
         """
-        result = diag.compute_precipitation_difference(precip_ds, 2, "rainnc", "a06h")
-        assert isinstance(result, xr.DataArray)
-        assert "note" in result.attrs
+        with pytest.raises(InsufficientLookbackError):
+            diag.compute_precipitation_difference(precip_ds, 2, "rainnc", "a06h")
 
     def test_verbose_mode_prints_output(
         self: "TestComputePrecipitationDifference",
@@ -398,129 +399,6 @@ class TestExtractSampleDataForVariable:
             precip_ds, "rainnc", 0, "Time", "xarray"
         )
         assert np.allclose(result.values, precip_ds["rainnc"].isel(Time=0).values)
-
-
-class TestHandleFirstTimeStep:
-    """Tests for PrecipitationDiagnostics._handle_first_time_step and _handle_insufficient_lookback, covering verbose output, return values, and error handling."""
-
-    def test_time_index_zero_verbose_prints_message(
-        self: "TestHandleFirstTimeStep",
-        diag_v: "PrecipitationDiagnostics",
-        precip_ds: xr.Dataset,
-    ) -> None:
-        """
-        This test verifies that the _handle_time_index_zero method correctly prints a message when the time index is zero and verbose mode is enabled. It captures the standard output during the method call and checks that it contains a message indicating that the time index is zero, which is expected behavior for this edge case. This ensures that the method provides useful diagnostic information to the user when handling the first time step in verbose mode.
-
-        Parameters:
-            diag_v ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class with verbose mode enabled.
-            precip_ds (xr.Dataset): A dataset containing precipitation data.
-
-        Returns:
-            None
-        """
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            result = diag_v._handle_time_index_zero(
-                precip_ds, "Time", "rainnc", "a01h", 1, "xarray"
-            )
-
-        assert "Time index 0" in captured.getvalue()
-        assert isinstance(result, xr.DataArray)
-
-    def test_insufficient_lookback_verbose(
-        self: "TestHandleFirstTimeStep",
-        diag_v: "PrecipitationDiagnostics",
-        precip_ds: xr.Dataset,
-    ) -> None:
-        """
-        This test verifies that the _handle_insufficient_lookback method correctly prints a warning message when verbose mode is enabled. It captures the standard output during the method call and checks that it contains a warning about insufficient lookback, which is expected behavior when there is not enough data to compute a valid difference. This ensures that the method provides useful feedback to the user about potential issues with the lookback period when verbose mode is active.
-
-        Parameters:
-            diag_v ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class with verbose mode enabled.
-            precip_ds (xr.Dataset): A dataset containing precipitation data.
-
-        Returns:
-            None
-        """
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            result = diag_v._handle_insufficient_lookback(
-                precip_ds, "Time", 2, "rainnc", "a06h", 6, "xarray"
-            )
-
-        output = captured.getvalue()
-
-        assert "lookback" in output.lower() or "zero" in output.lower()
-        assert isinstance(result, xr.DataArray)
-
-    def test_insufficient_lookback_silent(
-        self: "TestHandleFirstTimeStep",
-        diag: "PrecipitationDiagnostics",
-        precip_ds: xr.Dataset,
-    ) -> None:
-        """
-        This test verifies that the _handle_insufficient_lookback method returns a DataArray with a "note" attribute when verbose mode is disabled. It checks that the method returns a DataArray even when there is insufficient lookback, and that the "note" attribute is present to indicate the issue. This ensures that the method can handle insufficient lookback cases gracefully without producing verbose output, while still providing information about the situation through attributes.
-
-        Parameters:
-            diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class with verbose mode disabled.
-            precip_ds (xr.Dataset): A dataset containing precipitation data.
-
-        Returns:
-            None
-        """
-        result = diag._handle_insufficient_lookback(
-            precip_ds, "Time", 2, "rainnc", "a06h", 6, "xarray"
-        )
-
-        assert isinstance(result, xr.DataArray)
-        assert result.attrs.get("note") is not None
-
-    def test_exception_in_handle_first_time_step_raises_value_error(
-        self: "TestHandleFirstTimeStep",
-        diag: "PrecipitationDiagnostics",
-        precip_ds: xr.Dataset,
-    ) -> None:
-        """
-        This test verifies that the _handle_first_time_step method raises a ValueError when an exception occurs while handling the first time step. It simulates an error by providing a nonexistent variable name, which should trigger an exception in the method. The test checks that the exception is properly raised and that it contains a message indicating the issue with handling the first time step. This ensures that the method has robust error handling for unexpected issues during the processing of the first time step.
-
-        Parameters:
-            diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class.
-            precip_ds (xr.Dataset): A dataset containing precipitation data.
-
-        Returns:
-            None
-        """
-        with pytest.raises(ValueError, match="Cannot handle time index"):
-            diag._handle_first_time_step(
-                precip_ds, "Time", 0, "NONEXISTENT", "a01h", 1, "xarray"
-            )
-
-    def test_exception_in_handle_first_time_step_verbose_prints_error(
-        self: "TestHandleFirstTimeStep",
-        diag_v: "PrecipitationDiagnostics",
-        precip_ds: xr.Dataset,
-    ) -> None:
-        """
-        This test verifies that the _handle_first_time_step method correctly prints an error message when an exception occurs while handling the first time step in verbose mode. It simulates an error by providing a nonexistent variable name, which should trigger an exception in the method. The test captures the standard output during the method call and checks that it contains an error message indicating the issue with handling the first time step, confirming that the method provides useful diagnostic information when verbose mode is enabled. This ensures that the method has robust error handling and informative output for users when issues arise during processing.
-
-        Parameters:
-            diag_v ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class with verbose mode enabled.
-            precip_ds (xr.Dataset): A dataset containing precipitation data.
-
-        Returns:
-            None
-        """
-        captured = StringIO()
-
-        with patch("sys.stdout", new=captured):
-            with pytest.raises(ValueError):
-                diag_v._handle_first_time_step(
-                    precip_ds, "Time", 0, "NONEXISTENT", "a01h", 1, "xarray"
-                )
-
-        assert "Error handling first time step" in captured.getvalue()
 
 
 class TestPrintCurrentPreviousComparison:
@@ -910,12 +788,12 @@ class TestCreatePrecipitationFieldWithAttributes:
         assert "insufficient" in result.attrs["note"].lower()
         assert "insufficient" in result.attrs["long_name"].lower()
 
-    def test_negative_values_clamped_to_zero(
+    def test_negative_values_become_nan(
         self: "TestCreatePrecipitationFieldWithAttributes",
         diag: "PrecipitationDiagnostics",
     ) -> None:
         """
-        This test verifies that the _create_precipitation_field_with_attributes method correctly clamps negative values to zero in the resulting precipitation field. It checks that when the input data contains negative values, the output DataArray has all values greater than or equal to zero, confirming that the method enforces non-negativity for precipitation fields. This ensures that the method produces physically meaningful results, as negative precipitation values are not valid in this context.
+        This test verifies that the _create_precipitation_field_with_attributes method sets negative differences (bucket/restart resets) to NaN in the resulting precipitation field rather than silently clamping them to zero, while valid values are kept unchanged.
 
         Parameters:
             diag ('PrecipitationDiagnostics'): An instance of the PrecipitationDiagnostics class.
@@ -927,7 +805,10 @@ class TestCreatePrecipitationFieldWithAttributes:
         result = diag._create_precipitation_field_with_attributes(
             data, "rainnc", "a01h", 1
         )
-        assert np.all(result.values >= 0)
+
+        # Negative differences (resets) become NaN rather than being clamped to zero
+        assert np.isnan(result.values[0])
+        assert np.all(result.values[1:] >= 0)
 
 
 if __name__ == "__main__":

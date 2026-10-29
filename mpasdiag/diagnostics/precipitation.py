@@ -15,6 +15,8 @@ Version: 1.0.0
 """
 
 # Load necessary libraries
+import re
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -23,6 +25,10 @@ from typing import Any, Optional, cast
 from mpasdiag.processing.utils_logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class InsufficientLookbackError(ValueError):
+    """Raised when an accumulation period reaches back before the first available time step, so the accumulation cannot be computed from the loaded data."""
 
 
 class PrecipitationDiagnostics:
@@ -50,7 +56,7 @@ class PrecipitationDiagnostics:
         data_type: str = "xarray",
     ) -> xr.DataArray:
         """
-        This function computes the precipitation accumulation for a specified variable and accumulation period by performing temporal differencing on the MPAS dataset. It handles edge cases such as the first time step where differencing is not possible by returning the actual data with appropriate metadata. The function applies quality filters to ensure physically realistic precipitation values and annotates the resulting DataArray with CF-compliant attributes. When verbose mode is enabled, it provides detailed diagnostic output about the time slice selection, current and previous data comparisons, and statistics of the computed accumulation to help users identify potential data issues during processing.
+        This function computes the precipitation accumulation for a specified variable and accumulation period by performing temporal differencing on the MPAS dataset. The start of the accumulation window is located from the dataset's time coordinate (the output at exactly accum_hours before the valid time), so the result is correct for any output interval; if the dataset has no usable time coordinate an hourly output interval is assumed and a warning is logged. If the window would begin before the first available time step (including time index 0 for any period) no accumulation can be formed and InsufficientLookbackError is raised instead of returning a placeholder field. Negative or out-of-range time indices raise ValueError. The function applies quality filters to ensure physically realistic precipitation values and annotates the resulting DataArray with CF-compliant attributes. When verbose mode is enabled, it provides detailed diagnostic output about the time slice selection, current and previous data comparisons, and statistics of the computed accumulation to help users identify potential data issues during processing.
 
         Parameters:
             dataset (xr.Dataset): MPAS dataset containing precipitation variables.
@@ -61,6 +67,10 @@ class PrecipitationDiagnostics:
 
         Returns:
             xr.DataArray: Precipitation accumulation data array in millimeters with CF-compliant attributes including long_name, accumulation_period, and accumulation_hours metadata.
+
+        Raises:
+            InsufficientLookbackError: If the accumulation window starts before the first available time step or no output exists at the window start.
+            ValueError: If the dataset is missing, the time index is out of range (negative indices count from the end) or the accumulation period is not of the form 'aNNh'.
         """
         # Validate dataset input and raise error if not provided
         if dataset is None:
@@ -70,31 +80,22 @@ class PrecipitationDiagnostics:
         time_dim = "Time" if "Time" in dataset.dims else "time"
         time_size = dataset.sizes[time_dim]
 
-        # Validate time index is within bounds of the dataset size
-        if time_index >= time_size:
+        # Validate time index is within bounds of the dataset size; negative indices count from the end (Python-style)
+        if time_index < -time_size or time_index >= time_size:
             raise ValueError(
-                f"Time index {time_index} exceeds dataset size {time_size}"
+                f"Time index {time_index} out of range for dataset size {time_size}"
             )
+        if time_index < 0:
+            time_index += time_size
 
-        # Validate variable name and raise error if not recognized
+        # Determine the accumulation length in hours from the period identifier
         accum_hours = self.get_accumulation_hours(accum_period)
-        time_step_diff = accum_hours
 
-        # Handle edge case for first time step where differencing is not possible
-        if time_index < time_step_diff:
-            first_step = self._handle_first_time_step(
-                dataset,
-                time_dim,
-                time_index,
-                var_name,
-                accum_period,
-                accum_hours,
-                data_type,
-            )
-            self._attach_time_metadata(
-                first_step, dataset, time_dim, time_index, time_index - time_step_diff
-            )
-            return first_step
+        # Locate the start of the accumulation window from the actual time coordinate (raises InsufficientLookbackError when unavailable)
+        previous_index = self._resolve_previous_index(
+            dataset, time_dim, time_index, accum_hours, accum_period
+        )
+        time_step_diff = time_index - previous_index
 
         # Perform temporal differencing to compute accumulation for the specified variable and accumulation period
         if self.verbose:
@@ -104,9 +105,6 @@ class PrecipitationDiagnostics:
                 accum_period,
             )
             self._print_time_slice_info(dataset, time_index, var_name, time_step_diff)
-
-        # Calculate previous time index for differencing
-        previous_index = time_index - time_step_diff
 
         # Compute the accumulated precipitation based on the specified variable name, handling 'total' as a special case that sums 'rainc' and 'rainnc'
         if var_name == "total":
@@ -150,6 +148,76 @@ class PrecipitationDiagnostics:
 
         # Return accumulated precipitation DataArray
         return accumulated_precipitation
+
+    def _resolve_previous_index(
+        self: "PrecipitationDiagnostics",
+        dataset: xr.Dataset,
+        time_dim: str,
+        time_index: int,
+        accum_hours: int,
+        accum_period: str,
+    ) -> int:
+        """
+        This helper function finds the time index at which an accumulation window starts, i.e. the output time exactly accum_hours before the valid time at time_index, using the dataset's time coordinate rather than assuming hourly output. When the time coordinate is missing or not interpretable as datetimes (for example undecoded numeric times or all-NaT values) it falls back to the legacy assumption of one output per hour, logging a warning, so the start index is time_index minus accum_hours. If the window would begin before the first available time step, or the output interval has no time step exactly at the window start (for example a 1-hour accumulation from 3-hourly output), InsufficientLookbackError is raised with a descriptive message so callers can skip the step instead of plotting a misleading field.
+
+        Parameters:
+            dataset (xr.Dataset): MPAS dataset containing the time coordinate.
+            time_dim (str): Name of the time dimension in the dataset.
+            time_index (int): Index of the valid (end) time of the accumulation.
+            accum_hours (int): Accumulation length in hours.
+            accum_period (str): Accumulation period identifier used in error messages.
+
+        Returns:
+            int: Index of the time step at which the accumulation window starts.
+        """
+        # Try to read the time coordinate as datetimes
+        times = None
+        if time_dim in dataset.variables or time_dim in dataset.coords:
+            try:
+                raw_times = dataset[time_dim].values
+                if raw_times.dtype.kind in ("M", "O"):
+                    times = pd.to_datetime(raw_times)
+                    if times.isna().any():
+                        times = None
+            except (TypeError, ValueError):
+                times = None
+
+        # Without a usable time coordinate, assume hourly output and warn
+        if times is None:
+            logger.warning(
+                "No usable time coordinate for '%s'; assuming hourly output when computing %s accumulation",
+                time_dim,
+                accum_period,
+            )
+            previous_index = time_index - accum_hours
+            if previous_index < 0:
+                raise InsufficientLookbackError(
+                    f"Insufficient lookback for {accum_period} at time index {time_index}: "
+                    f"{accum_hours} hourly steps are required but only {time_index} precede it"
+                )
+            return int(previous_index)
+
+        # Compute the start time of the accumulation window from the valid time
+        valid_time = times[time_index]
+        start_time = valid_time - pd.Timedelta(hours=accum_hours)
+
+        # The window cannot start before the first available time step
+        if start_time < times[0]:
+            raise InsufficientLookbackError(
+                f"Insufficient lookback for {accum_period} at time index {time_index} "
+                f"(valid {valid_time.isoformat()}): window starts at {start_time.isoformat()}, "
+                f"before the first available time {times[0].isoformat()}"
+            )
+
+        # Find the output exactly at the window start (allowing one minute of tolerance)
+        offsets = np.abs((times - start_time).total_seconds())
+        match = int(np.argmin(offsets[: time_index + 1]))
+        if offsets[match] > 60.0:
+            raise InsufficientLookbackError(
+                f"No output at {start_time.isoformat()} to start the {accum_period} accumulation "
+                f"ending {valid_time.isoformat()}; the output interval does not divide {accum_hours} h"
+            )
+        return match
 
     def _attach_time_metadata(
         self: "PrecipitationDiagnostics",
@@ -196,25 +264,26 @@ class PrecipitationDiagnostics:
         self: "PrecipitationDiagnostics", accum_period: str
     ) -> int:
         """
-        This helper function maps standard MPAS accumulation period identifiers (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h') to their corresponding number of hours. If the provided identifier is not recognized, it defaults to 24 hours. This centralizes the mapping logic for accumulation periods and allows for easy extension in the future if additional periods are needed.
+        This helper function converts an accumulation period identifier of the form 'aNNh' (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h', 'a48h') into its number of hours. Any whole number of hours from 1 to 240 is accepted (case-insensitive, optional zero padding), matching the plotter's rule. An identifier that does not match raises a ValueError instead of silently falling back to 24 hours, which would label and difference the wrong window.
 
         Parameters:
             accum_period (str): Accumulation period identifier following standard MPAS convention (e.g., 'a01h', 'a03h', 'a06h', 'a12h', 'a24h').
 
         Returns:
-            int: Number of hours corresponding to the accumulation period, with default value of 24 hours if identifier is not recognized.
-        """
-        # Define mapping of accumulation period identifiers to hours
-        accumulation_hours_map = {
-            "a01h": 1,
-            "a03h": 3,
-            "a06h": 6,
-            "a12h": 12,
-            "a24h": 24,
-        }
+            int: Number of hours corresponding to the accumulation period.
 
-        # Return accumulation hours (default to 24 if identifier is not recognized)
-        return accumulation_hours_map.get(accum_period, 24)
+        Raises:
+            ValueError: If the identifier is not of the form 'aNNh' with 1 to 240 hours.
+        """
+        match = re.fullmatch(r"a(\d{1,3})h", str(accum_period).strip().lower())
+
+        if match is None or not 1 <= int(match.group(1)) <= 240:
+            raise ValueError(
+                f"Unknown accumulation period '{accum_period}'. Use the form 'aNNh' "
+                "with 1 to 240 hours, e.g. 'a01h', 'a03h', 'a06h', 'a12h', 'a24h'"
+            )
+
+        return int(match.group(1))
 
     def _extract_variable_at_time(
         self: "PrecipitationDiagnostics",
@@ -431,9 +500,8 @@ class PrecipitationDiagnostics:
         Returns:
             xr.DataArray: Filtered and metadata-annotated precipitation DataArray.
         """
-        # Apply quality filters to ensure precipitation values are non-negative and below an upper threshold to maintain physical realism
-        filtered_data = data.where(data >= 0, 0)
-        filtered_data = filtered_data.where(filtered_data < 1e5, 0)
+        # Apply quality filters: NaN is preserved, negative differences (resets) and absurdly large values become NaN
+        filtered_data = self._mask_invalid_precipitation(data, var_name)
 
         if is_insufficient_data:
             # If there is insufficient data for accumulation, indicate this in the long_name for clarity in downstream use
@@ -462,140 +530,43 @@ class PrecipitationDiagnostics:
         # Return the filtered and annotated precipitation DataArray
         return filtered_data
 
-    def _handle_time_index_zero(
-        self: "PrecipitationDiagnostics",
-        dataset: xr.Dataset,
-        time_dim: str,
-        var_name: str,
-        accum_period: str,
-        accum_hours: int,
-        data_type: str,
+    def _mask_invalid_precipitation(
+        self: "PrecipitationDiagnostics", data: xr.DataArray, var_context: str = ""
     ) -> xr.DataArray:
         """
-        This routine handles the special case of time index 0 for precipitation accumulation calculations, where temporal differencing cannot be performed due to the lack of a previous time slice. In this case, it returns the actual precipitation data from the file for the specified variable and accumulation period, applying appropriate filtering and metadata annotation to indicate that this is the initial time step. This allows downstream code to still have access to valid precipitation data at time index 0 while clearly indicating that it is not an accumulated value. By centralizing this logic in a dedicated function, it promotes code reuse and ensures consistent handling of the first time step across different variables and accumulation periods in the precipitation diagnostics.
+        This helper function applies the physical-realism quality filter to a precipitation accumulation field without hiding problems. Missing values (NaN) are preserved as NaN. Differences more negative than -1e-6 mm, which indicate a bucket or restart reset or corrupted data, are set to NaN rather than clamped to zero, and a warning with the count of affected points is logged. Tiny negative values between -1e-6 and 0 mm are treated as floating-point round-off and set to zero. Values at or above 1e5 mm (and infinities) fail the upper sanity check and are set to NaN, also with a logged count. The input attributes are preserved.
 
         Parameters:
-            dataset (xr.Dataset): Source MPAS dataset.
-            time_dim (str): Name of the time dimension.
-            var_name (str): Precipitation variable to extract.
-            accum_period (str): Accumulation period identifier.
-            accum_hours (int): Number of hours for the accumulation period.
-            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
+            data (xr.DataArray): Precipitation accumulation field in millimeters.
+            var_context (str): Variable context used in the warning messages (default: "").
 
         Returns:
-            xr.DataArray: DataArray representing the precipitation at time index 0 with attributes.
+            xr.DataArray: Filtered field with invalid points set to NaN.
         """
-        # For verbose output, indicate that time index 0 is being handled with actual data from the file
-        if self.verbose:
-            logger.info(
-                "Time index 0 requested - using actual data from file, variable: %s",
-                var_name,
-            )
+        # Identify points that are genuinely negative (beyond round-off) and points that exceed the upper sanity threshold
+        negative = data < -1.0e-6
+        too_large = (data >= 1.0e5) | np.isinf(data)
 
-        # Extract the sample data for the specified variable at time index 0
-        sample_data = self._extract_sample_data_for_variable(
-            dataset, var_name, 0, time_dim, data_type
-        )
-
-        # Return the sample data with appropriate filtering and attributes
-        return self._create_precipitation_field_with_attributes(
-            sample_data, var_name, accum_period, accum_hours, is_insufficient_data=False
-        )
-
-    def _handle_insufficient_lookback(
-        self: "PrecipitationDiagnostics",
-        dataset: xr.Dataset,
-        time_dim: str,
-        time_index: int,
-        var_name: str,
-        accum_period: str,
-        accum_hours: int,
-        data_type: str,
-    ) -> xr.DataArray:
-        """
-        This routine handles cases where the requested time index does not have sufficient historical data for the specified accumulation period (e.g., time index < required lookback hours). In such cases, it generates a zero-filled precipitation field with appropriate metadata indicating that the accumulation calculation could not be performed due to insufficient data. This allows downstream code to still have a valid DataArray to work with while clearly communicating the limitation of the data for that time step. By centralizing this logic in a dedicated function, it promotes code reuse and ensures consistent handling of insufficient lookback cases across different variables and accumulation periods in the precipitation diagnostics.
-
-        Parameters:
-            dataset (xr.Dataset): Source MPAS dataset.
-            time_dim (str): Name of the time dimension.
-            time_index (int): Current time index being processed.
-            var_name (str): Precipitation variable name.
-            accum_period (str): Accumulation period identifier.
-            accum_hours (int): Number of hours for the accumulation period.
-            data_type (str): Dataset access style, either 'xarray' or 'uxarray'.
-
-        Returns:
-            xr.DataArray: Zero-filled precipitation DataArray with metadata indicating insufficient data.
-        """
-        # For verbose output, indicate that there is insufficient lookback for the requested accumulation period
-        if self.verbose:
+        # Log the number of rejected points so that resets are not silently ignored
+        n_negative = int(negative.sum())
+        n_large = int(too_large.sum())
+        label = var_context if var_context else "precipitation"
+        if n_negative:
             logger.warning(
-                "Time index %d < required %d-hour lookback",
-                time_index,
-                accum_hours,
+                "%s: %d point(s) with negative accumulation (bucket/restart reset?) set to NaN",
+                label,
+                n_negative,
             )
-            logger.warning("Creating zero precipitation field for insufficient data")
+        if n_large:
+            logger.warning("%s: %d point(s) >= 1e5 mm set to NaN", label, n_large)
 
-        # Generate a zero-filled precipitation field with the same shape and coordinates as the sample data for the specified variable at the current time index
-        sample_data = self._extract_sample_data_for_variable(
-            dataset, var_name, time_index, time_dim, data_type
-        )
-        zero_precip = sample_data * 0.0
+        # Set invalid points to NaN, clamp round-off negatives to zero, and keep NaN as NaN
+        filtered = data.where(~(negative | too_large))
+        filtered = filtered.where(~((filtered < 0) & (filtered >= -1.0e-6)), 0.0)
+        filtered.attrs = dict(data.attrs)
 
-        # Return a zero-filled precipitation field with attributes indicating insufficient data for accumulation calculation
-        return self._create_precipitation_field_with_attributes(
-            zero_precip, var_name, accum_period, accum_hours, is_insufficient_data=True
-        )
-
-    def _handle_first_time_step(
-        self: "PrecipitationDiagnostics",
-        dataset: xr.Dataset,
-        time_dim: str,
-        time_index: int,
-        var_name: str,
-        accum_period: str,
-        accum_hours: int,
-        data_type: str,
-    ) -> xr.DataArray:
-        """
-        This routine handles the special case of the first time step (time index 0) for precipitation accumulation calculations, where temporal differencing cannot be performed due to the lack of a previous time slice. It extracts the actual precipitation data for the specified variable at time index 0, applies quality filters to ensure physically realistic values, and annotates the resulting DataArray with CF-compliant attributes that indicate this is the initial time step. This allows downstream code to still have access to valid precipitation data at time index 0 while clearly indicating that it is not an accumulated value. By centralizing this logic in a dedicated function, it promotes code reuse and ensures consistent handling of the first time step across different variables and accumulation periods in the precipitation diagnostics.
-
-        Parameters:
-            dataset (xr.Dataset): MPAS dataset containing precipitation variables.
-            time_dim (str): Name of the time dimension in the dataset.
-            time_index (int): Current time index being processed.
-            var_name (str): Precipitation variable name ('rainc', 'rainnc', or 'total').
-            accum_period (str): Accumulation period identifier (e.g., 'a01h', 'a24h').
-            accum_hours (int): Number of hours for the accumulation period.
-            data_type (str): Dataset type specification, either 'xarray' or 'uxarray'.
-
-        Returns:
-            xr.DataArray: Precipitation data array at the specified time index with appropriate filtering and metadata, or zero precipitation field with explanatory note attribute if insufficient data is available.
-        """
-        try:
-            # Handle the first time step by extracting the actual data for the specified variable
-            if time_index == 0:
-                return self._handle_time_index_zero(
-                    dataset, time_dim, var_name, accum_period, accum_hours, data_type
-                )
-            # Handle cases where time index is greater than 0 but still does not have sufficient lookback for the requested accumulation period
-            else:
-                return self._handle_insufficient_lookback(
-                    dataset,
-                    time_dim,
-                    time_index,
-                    var_name,
-                    accum_period,
-                    accum_hours,
-                    data_type,
-                )
-        # Catch any exceptions that occur during the handling of the first time step
-        except Exception as e:
-            if self.verbose:
-                logger.exception("Error handling first time step: %s", e)
-            raise ValueError(
-                f"Cannot handle time index {time_index} for variable {var_name}: {e}"
-            )
+        # Return the filtered field
+        return filtered
 
     def _apply_precipitation_filters_and_attributes(
         self: "PrecipitationDiagnostics", data: xr.DataArray, var_context: str = ""
@@ -610,9 +581,8 @@ class PrecipitationDiagnostics:
         Returns:
             xr.DataArray: Filtered precipitation data array with updated CF-compliant attributes including units in millimeters, standard_name as 'precipitation', and customized long_name.
         """
-        # Apply quality filters to ensure precipitation values are non-negative and below an upper threshold to maintain physical realism
-        data = data.where(data >= 0, 0)
-        data = data.where(data < 1e5, 0)
+        # Apply quality filters: NaN is preserved, negative differences (resets) and absurdly large values become NaN
+        data = self._mask_invalid_precipitation(data, var_context)
 
         # Construct a long_name that incorporates the variable context for clarity in downstream use
         long_name = (

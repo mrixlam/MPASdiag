@@ -16,7 +16,7 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any
 
 from mpasdiag.processing.utils_logger import get_logger
 from mpasdiag.processing.constants import (
@@ -29,29 +29,64 @@ from mpasdiag.processing.constants import (
 logger = get_logger(__name__)
 
 
+def mixing_ratio_to_specific_humidity(mixing_ratio: xr.DataArray) -> xr.DataArray:
+    """
+    This function converts a water vapour mixing ratio w (kg of vapour per kg of dry air), which is what MPAS stores in the qv variable, into specific humidity q (kg of vapour per kg of moist air) using q = w / (1 + w). The distinction matters for IWV and IVT because those quantities are defined with specific humidity; using the mixing ratio directly overestimates them by roughly the mixing ratio itself (up to about 2-3 percent in the tropics). The input attributes are preserved except that the units are set to kg kg-1 and the long_name and standard_name are set to those of specific humidity (not the mixing ratio's).
+
+    Parameters:
+        mixing_ratio (xr.DataArray): Water vapour mixing ratio in kg kg⁻¹.
+
+    Returns:
+        xr.DataArray: Specific humidity in kg kg⁻¹.
+    """
+    # Apply q = w / (1 + w) element-wise
+    specific_humidity = mixing_ratio / (1.0 + mixing_ratio)
+    specific_humidity.attrs = dict(mixing_ratio.attrs)
+    specific_humidity.attrs["units"] = "kg kg-1"
+    specific_humidity.attrs["long_name"] = "Specific humidity"
+    specific_humidity.attrs["standard_name"] = "specific_humidity"
+    return specific_humidity
+
+
 def _trapezoidal_column_integral(
-    integrand_arr: np.ndarray, pressure_arr: np.ndarray
+    integrand_arr: np.ndarray,
+    pressure_arr: np.ndarray,
+    surface_pressure_arr: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
-    This function performs the column integration of a given quantity (integrand_arr) over the vertical dimension in pressure coordinates using the trapezoidal rule. It calculates the pressure thickness (dp) between model levels and applies the trapezoidal rule to compute the integral of integrand_arr weighted by dp. The resulting column-integrated quantity is then divided by gravity to convert from mass flux to a column-integrated value. The function assumes that the vertical dimension is the last axis of the input arrays and that pressure_arr represents total atmospheric pressure in Pascals at each model level. The output is an array with the vertical dimension removed, containing the column-integrated quantity in units consistent with integrand_arr and pressure_arr.
+    This function performs the column integration of a given quantity (integrand_arr) over the vertical dimension in pressure coordinates using the trapezoidal rule. It calculates the pressure thickness (dp) between model levels and applies the trapezoidal rule to compute the integral of integrand_arr weighted by dp. The resulting column-integrated quantity is then divided by gravity to convert from mass flux to a column-integrated value. The function assumes that the vertical dimension is the last axis of the input arrays and that pressure_arr represents total atmospheric pressure in Pascals at each model level. When surface_pressure_arr is supplied, the layer between the surface and the lowest model level is included by extending the lowest-level value down to the surface (constant extrapolation), counting only positive thicknesses; when it is omitted that layer is ignored, so the integral is biased low by the mass below the lowest level (typically a few tens of Pa to a few hPa). The level ordering is not assumed: in every column the end of the profile with the larger pressure is treated as the bottom, so bottom-first (MPAS) and top-first inputs give the same integral and the surface layer is never added at the wrong end. The output is an array with the vertical dimension removed, containing the column-integrated quantity in units consistent with integrand_arr and pressure_arr.
 
     Parameters:
         integrand_arr (np.ndarray): Array of the quantity to integrate, with the vertical dimension as the last axis.
         pressure_arr (np.ndarray): Array of total atmospheric pressure in Pascals with the same shape as integrand_arr.
+        surface_pressure_arr (Optional[np.ndarray]): Surface pressure in Pascals with the vertical axis removed; if provided, the surface-to-lowest-level layer is included.
 
     Returns:
         np.ndarray: Array with the vertical axis removed, containing the column-integrated quantity divided by gravity.
     """
+    # Put the highest-pressure level first in every column so the surface-layer term is applied at the bottom
+    integrand_arr = np.asarray(integrand_arr)
+    pressure_arr = np.asarray(pressure_arr)
+    top_first = (pressure_arr[..., 0] < pressure_arr[..., -1])[..., np.newaxis]
+    integrand_arr = np.where(top_first, integrand_arr[..., ::-1], integrand_arr)
+    pressure_arr = np.where(top_first, pressure_arr[..., ::-1], pressure_arr)
+
     # Calculate the pressure thickness (dp) between model levels using the difference in pressure values
     pressure_thickness = np.abs(np.diff(pressure_arr, axis=-1))
 
     # Compute the integrand at the midpoints between model levels using the trapezoidal rule
     integrand_midpoints = (integrand_arr[..., :-1] + integrand_arr[..., 1:]) / 2.0
 
+    # Sum the interior layers
+    layer_sum = np.sum(integrand_midpoints * pressure_thickness, axis=-1)
+
+    # Add the surface-to-lowest-level layer using the lowest-level value when surface pressure is known
+    if surface_pressure_arr is not None:
+        surface_dp = np.clip(surface_pressure_arr - pressure_arr[..., 0], 0.0, None)
+        layer_sum = layer_sum + integrand_arr[..., 0] * surface_dp
+
     # Return the column-integrated quantity divided by gravity to convert from mass flux to a column-integrated value
-    column_integral: np.ndarray = (
-        np.sum(integrand_midpoints * pressure_thickness, axis=-1) / GRAVITY
-    )
+    column_integral: np.ndarray = layer_sum / GRAVITY
     return column_integral
 
 
@@ -75,6 +110,7 @@ class MoistureTransportDiagnostics:
         self: "MoistureTransportDiagnostics",
         integrand: xr.DataArray,
         pressure: xr.DataArray,
+        surface_pressure: Optional[xr.DataArray] = None,
     ) -> xr.DataArray:
         """
         This function performs the column integration of a given quantity (integrand) over the vertical dimension in pressure coordinates using the trapezoidal rule. It applies the _trapezoidal_column_integral function to compute the integral of the integrand weighted by the pressure thickness (dp) between model levels. The resulting column-integrated quantity is then divided by gravity to convert from mass flux to a column-integrated value. The function uses xarray's apply_ufunc to apply the integration across the vertical dimension while maintaining compatibility with dask for parallelized computations. The output is an xarray DataArray with the vertical dimension removed, containing the column-integrated quantity in units consistent with the input integrand and pressure.
@@ -82,10 +118,24 @@ class MoistureTransportDiagnostics:
         Parameters:
             integrand (xr.DataArray): Quantity to integrate, defined at each model level (must share the nVertLevels dimension with pressure).
             pressure (xr.DataArray): Total atmospheric pressure in Pascals at each model level.
+            surface_pressure (Optional[xr.DataArray]): Surface pressure in Pascals; if provided, the layer between the surface and the lowest model level is included in the integral.
 
         Returns:
             xr.DataArray: Column-integrated quantity divided by gravity, with the vertical dimension removed.
         """
+        # Without surface pressure, the surface-to-lowest-level layer is not included
+        if surface_pressure is not None:
+            return xr.apply_ufunc(
+                _trapezoidal_column_integral,
+                integrand,
+                pressure,
+                surface_pressure,
+                input_core_dims=[[NVERT_LEVELS_DIM], [NVERT_LEVELS_DIM], []],
+                output_core_dims=[[]],
+                dask="parallelized",
+                output_dtypes=[float],
+            )
+
         # Use xarray's apply_ufunc to apply the trapezoidal column integral function
         return xr.apply_ufunc(
             _trapezoidal_column_integral,
@@ -101,6 +151,8 @@ class MoistureTransportDiagnostics:
         self: "MoistureTransportDiagnostics",
         specific_humidity: xr.DataArray,
         pressure: xr.DataArray,
+        surface_pressure: Optional[xr.DataArray] = None,
+        is_mixing_ratio: bool = False,
     ) -> xr.DataArray:
         """
         This function computes the vertically integrated water vapor (IWV) by integrating the specific humidity over the vertical dimension in pressure coordinates. It applies the _integrate_column method to the specific humidity and pressure fields to calculate IWV in kg m⁻². The resulting DataArray is assigned CF-compliant attributes, including units of kg m⁻² and standard_name 'atmosphere_water_vapor_content'. If verbose mode is enabled, the function prints the range and mean of the computed IWV to provide immediate feedback on the results. This diagnostic is essential for analyzing moisture content in the atmosphere and can be used to identify features such as atmospheric rivers in model simulations.
@@ -108,12 +160,18 @@ class MoistureTransportDiagnostics:
         Parameters:
             specific_humidity (xr.DataArray): Specific humidity in kg kg⁻¹ at each model level with a nVertLevels dimension.
             pressure (xr.DataArray): Total atmospheric pressure in Pascals at each model level, with the same nVertLevels dimension as specific_humidity.
+            surface_pressure (Optional[xr.DataArray]): Surface pressure in Pascals; if given, the layer below the lowest model level is included, otherwise it is neglected.
+            is_mixing_ratio (bool): Set True when the first argument is the MPAS qv mixing ratio (kg kg⁻¹ of dry air); it is converted to specific humidity via q = w / (1 + w) (default: False).
 
         Returns:
             xr.DataArray: Vertically integrated water vapor in kg m⁻² with CF-compliant attributes.
         """
+        # Convert MPAS mixing ratio to specific humidity when requested
+        if is_mixing_ratio:
+            specific_humidity = mixing_ratio_to_specific_humidity(specific_humidity)
+
         # Compute IWV by integrating specific humidity over the vertical dimension
-        iwv = self._integrate_column(specific_humidity, pressure)
+        iwv = self._integrate_column(specific_humidity, pressure, surface_pressure)
 
         # Assign CF-compliant attributes to the IWV DataArray
         iwv.attrs.update(
@@ -141,6 +199,8 @@ class MoistureTransportDiagnostics:
         u_component: xr.DataArray,
         v_component: xr.DataArray,
         pressure: xr.DataArray,
+        surface_pressure: Optional[xr.DataArray] = None,
+        is_mixing_ratio: bool = False,
     ) -> Tuple[xr.DataArray, xr.DataArray]:
         """
         This function computes the vertically integrated water vapor transport (IVT) components by integrating the product of specific humidity and horizontal wind components over the vertical dimension in pressure coordinates. It calculates the eastward (IVT_u) and northward (IVT_v) components of IVT by applying the _integrate_column method to the products of specific humidity with the zonal (u_component) and meridional (v_component) wind fields, respectively. The resulting DataArrays are assigned CF-compliant attributes, including units of kg m⁻¹ s⁻¹ and standard_names 'eastward_water_vapor_flux' and 'northward_water_vapor_flux'. If verbose mode is enabled, the function prints the range and mean of both IVT components to provide immediate feedback on the results. These diagnostics are essential for analyzing moisture transport patterns and can be used to identify features such as atmospheric rivers in model simulations.
@@ -150,13 +210,23 @@ class MoistureTransportDiagnostics:
             u_component (xr.DataArray): Zonal (eastward) wind component in m s⁻¹ at each model level with a nVertLevels dimension.
             v_component (xr.DataArray): Meridional (northward) wind component in m s⁻¹ at each model level with a nVertLevels dimension.
             pressure (xr.DataArray): Total atmospheric pressure in Pascals at each model level with a nVertLevels dimension.
+            surface_pressure (Optional[xr.DataArray]): Surface pressure in Pascals; if given, the layer below the lowest model level is included, otherwise it is neglected.
+            is_mixing_ratio (bool): Set True when specific_humidity holds the MPAS qv mixing ratio; it is converted via q = w / (1 + w) (default: False).
 
         Returns:
             Tuple[xr.DataArray, xr.DataArray]: Two DataArrays containing the vertically integrated eastward (IVT_u) and northward (IVT_v) water vapor flux components in kg m⁻¹ s⁻¹ with CF-compliant attributes.
         """
+        # Convert MPAS mixing ratio to specific humidity when requested
+        if is_mixing_ratio:
+            specific_humidity = mixing_ratio_to_specific_humidity(specific_humidity)
+
         # Compute IVT components by integrating the product of specific humidity and wind components
-        ivt_u = self._integrate_column(specific_humidity * u_component, pressure)
-        ivt_v = self._integrate_column(specific_humidity * v_component, pressure)
+        ivt_u = self._integrate_column(
+            specific_humidity * u_component, pressure, surface_pressure
+        )
+        ivt_v = self._integrate_column(
+            specific_humidity * v_component, pressure, surface_pressure
+        )
 
         # Assign CF-compliant attributes to the eastward IVT component DataArray
         ivt_u.attrs.update(
@@ -238,6 +308,8 @@ class MoistureTransportDiagnostics:
         u_component: xr.DataArray,
         v_component: xr.DataArray,
         pressure: xr.DataArray,
+        surface_pressure: Optional[xr.DataArray] = None,
+        is_mixing_ratio: bool = False,
     ) -> Dict[str, Any]:
         """
         This function provides a convenience method to compute all moisture transport diagnostics (IWV, IVT_u, IVT_v, and IVT) in a single call. It takes the specific humidity, zonal and meridional wind components, and pressure fields as inputs, and returns a dictionary containing the computed diagnostics along with their summary statistics (min, max, mean, std) and units. The function first computes IWV using the compute_iwv method, then computes the IVT components using compute_ivt_components, and finally calculates the total IVT magnitude using compute_ivt. If verbose mode is enabled, it prints a summary of the computed diagnostics for quick assessment of the results. This method is designed to streamline the analysis of moisture transport patterns in MPAS model output data.
@@ -247,6 +319,8 @@ class MoistureTransportDiagnostics:
             u_component (xr.DataArray): Zonal (eastward) wind component in m s⁻¹ at each model level.
             v_component (xr.DataArray): Meridional (northward) wind component in m s⁻¹ at each model level.
             pressure (xr.DataArray): Total atmospheric pressure in Pascals at each model level.
+            surface_pressure (Optional[xr.DataArray]): Surface pressure in Pascals; if given, the layer below the lowest model level is included, otherwise it is neglected.
+            is_mixing_ratio (bool): Set True when specific_humidity holds the MPAS qv mixing ratio; it is converted via q = w / (1 + w) (default: False).
 
         Returns:
             Dict[str, Any]: A dictionary containing the computed diagnostics (IWV, IVT_u, IVT_v, IVT) along with their summary statistics and units.
@@ -256,9 +330,16 @@ class MoistureTransportDiagnostics:
         self.verbose = False
 
         # Compute IWV, IVT components, and total IVT magnitude using the respective methods
-        iwv = self.compute_iwv(specific_humidity, pressure)
+        iwv = self.compute_iwv(
+            specific_humidity, pressure, surface_pressure, is_mixing_ratio
+        )
         ivt_u, ivt_v = self.compute_ivt_components(
-            specific_humidity, u_component, v_component, pressure
+            specific_humidity,
+            u_component,
+            v_component,
+            pressure,
+            surface_pressure,
+            is_mixing_ratio,
         )
         ivt = self.compute_ivt(ivt_u, ivt_v)
 

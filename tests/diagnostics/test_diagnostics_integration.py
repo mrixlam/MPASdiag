@@ -59,7 +59,7 @@ class TestDiagnosticsIntegration:
 
         rainnc = mock_mpas_2d_data["rainnc"].isel(Time=0)
         tp = precip_diag.compute_precipitation_difference(
-            mock_mpas_2d_data, time_index=0, var_name="rainnc", accum_period="a01h"
+            mock_mpas_2d_data, time_index=1, var_name="rainnc", accum_period="a01h"
         )
 
         assert speed is not None

@@ -9,9 +9,9 @@ This module provides tools for computing thermodynamic diagnostics from MPAS mod
 
 The density potential temperature is defined as:
 
-    theta_rho = theta * (1 + (Rv/Rd) * qv - qt)
+    theta_rho = theta * (1 + qv/eps) / (1 + qt)
 
-where theta is potential temperature (K), qv is the water vapor mixing ratio (kg/kg), qt is the total water mixing ratio (kg/kg), and Rv/Rd ≈ 1.61 is the ratio of the gas constants for water vapor and dry air.
+where theta is potential temperature (K), qv is the water vapor mixing ratio (kg/kg), qt is the total water mixing ratio (kg/kg), and eps = Rd/Rv ≈ 0.622 is the ratio of the gas constants for dry air and water vapor. This is the exact form; it equals the virtual potential temperature when there is no condensate (qt = qv).
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -25,6 +25,11 @@ import xarray as xr
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from mpasdiag.processing.utils_logger import get_logger
+from mpasdiag.diagnostics._vertical import (
+    as_dataarray,
+    interpolate_to_pressure,
+    is_lazy,
+)
 
 logger = get_logger(__name__)
 
@@ -34,7 +39,7 @@ RD = 287.04  # Gas constant for dry air         [J kg-1 K-1]
 RV = 461.6  # Gas constant for water vapor     [J kg-1 K-1]
 EPSILON = RD / RV  # Rd / Rv  ≈ 0.622
 RV_OVER_RD = RV / RD  # Rv / Rd  ≈ 1.61
-CP = 1004.0  # Specific heat of dry air at constant pressure [J kg-1 K-1]
+CP = 3.5 * RD  # Specific heat of dry air [J kg-1 K-1]; Rd/cp = 2/7 (MPAS)
 P0 = 1.0e5  # Reference pressure                [Pa]
 G = 9.81  # Gravitational acceleration        [m s-2]
 
@@ -78,30 +83,30 @@ class ThermodynamicDiagnostics:
 
     def compute_density_potential_temperature(
         self: "ThermodynamicDiagnostics",
-        theta: xr.DataArray,
-        qv: xr.DataArray,
-        qt: Optional[xr.DataArray] = None,
-        qc: Optional[xr.DataArray] = None,
-        qr: Optional[xr.DataArray] = None,
-        qi: Optional[xr.DataArray] = None,
-        qs: Optional[xr.DataArray] = None,
-        qg: Optional[xr.DataArray] = None,
-    ) -> xr.DataArray:
+        theta: Any,
+        qv: Any,
+        qt: Optional[Any] = None,
+        qc: Optional[Any] = None,
+        qr: Optional[Any] = None,
+        qi: Optional[Any] = None,
+        qs: Optional[Any] = None,
+        qg: Optional[Any] = None,
+    ) -> Any:
         """
-        This method computes the density potential temperature (theta_rho) from the potential temperature (theta), water vapor mixing ratio (qv), and optionally the total water mixing ratio (qt) or individual condensate species (qc, qr, qi, qs, qg). If qt is not provided directly, it will be computed as the sum of qv and any available condensate species. The method returns theta_rho with CF-compliant attributes and prints summary statistics for the inputs and result if verbosity is enabled.
+        This method computes the density potential temperature (theta_rho) from the potential temperature (theta), water vapor mixing ratio (qv), and optionally the total water mixing ratio (qt) or individual condensate species (qc, qr, qi, qs, qg). If qt is not provided directly, it will be computed as the sum of qv and any available condensate species. The exact relation theta_rho = theta * (1 + qv/eps) / (1 + qt), eps = Rd/Rv, is used, which reduces to the virtual potential temperature of compute_virtual_potential_temperature when there is no condensate (qt = qv); the earlier linearised form theta * (1 + (Rv/Rd) qv - qt) is not used. Inputs may be numpy- or dask-backed DataArrays or plain arrays: dask inputs give a lazy result and plain arrays give a plain array. The method returns theta_rho with CF-compliant attributes (DataArrays) and prints summary statistics for the inputs and result if verbosity is enabled.
 
         Parameters:
-            theta (xr.DataArray): Potential temperature in Kelvin.
-            qv (xr.DataArray): Water vapor mixing ratio in kg/kg.
-            qt (Optional[xr.DataArray]): Total water mixing ratio in kg/kg. If not provided, it will be computed from qv and condensate species.
-            qc (Optional[xr.DataArray]): Cloud water mixing ratio in kg/kg (default: None).
-            qr (Optional[xr.DataArray]): Rain water mixing ratio in kg/kg (default: None).
-            qi (Optional[xr.DataArray]): Cloud ice mixing ratio in kg/kg (default: None).
-            qs (Optional[xr.DataArray]): Snow mixing ratio in kg/kg (default: None).
-            qg (Optional[xr.DataArray]): Graupel mixing ratio in kg/kg (default: None).
+            theta (Union[xr.DataArray, np.ndarray]): Potential temperature in Kelvin.
+            qv (Union[xr.DataArray, np.ndarray]): Water vapor mixing ratio in kg/kg.
+            qt (Optional[Union[xr.DataArray, np.ndarray]]): Total water mixing ratio in kg/kg. If not provided, it will be computed from qv and condensate species.
+            qc (Optional[Union[xr.DataArray, np.ndarray]]): Cloud water mixing ratio in kg/kg (default: None).
+            qr (Optional[Union[xr.DataArray, np.ndarray]]): Rain water mixing ratio in kg/kg (default: None).
+            qi (Optional[Union[xr.DataArray, np.ndarray]]): Cloud ice mixing ratio in kg/kg (default: None).
+            qs (Optional[Union[xr.DataArray, np.ndarray]]): Snow mixing ratio in kg/kg (default: None).
+            qg (Optional[Union[xr.DataArray, np.ndarray]]): Graupel mixing ratio in kg/kg (default: None).
 
         Returns:
-            xr.DataArray: Density potential temperature in Kelvin with CF-compliant attributes.
+            Union[xr.DataArray, np.ndarray]: Density potential temperature in Kelvin, a DataArray with CF-compliant attributes or a plain array when no input is a DataArray.
         """
         # Check that required inputs are provided
         if theta is None or qv is None:
@@ -110,16 +115,26 @@ class ThermodynamicDiagnostics:
                 "mixing ratio) must be provided."
             )
 
+        # Plain arrays are computed through DataArrays and returned as plain arrays
+        inputs = (theta, qv, qt, qc, qr, qi, qs, qg)
+        return_array = not any(isinstance(x, xr.DataArray) for x in inputs)
+        theta = as_dataarray(theta)
+        qv = as_dataarray(qv)
+        qt, qc, qr, qi, qs, qg = (
+            None if x is None else as_dataarray(x) for x in (qt, qc, qr, qi, qs, qg)
+        )
+
         # If qt is not provided, compute it from qv and any available condensate species
         if qt is None:
             qt = self.compute_total_water_mixing_ratio(qv, qc, qr, qi, qs, qg)
 
         # If verbose, print summary statistics for the inputs
-        if self.verbose:
+        verbose = self.verbose and not is_lazy(theta)
+        if verbose:
             self._print_input_summary(theta, qv, qt)
 
-        # Compute density potential temperature
-        theta_rho: xr.DataArray = theta * (1.0 + RV_OVER_RD * qv - qt)
+        # Compute density potential temperature (exact form, consistent with theta_v)
+        theta_rho: xr.DataArray = theta * (1.0 + qv / EPSILON) / (1.0 + qt)
 
         # Add CF-compliant attributes to the result
         theta_rho.attrs.update(
@@ -133,11 +148,11 @@ class ThermodynamicDiagnostics:
         )
 
         # If verbose, print summary statistics for the result
-        if self.verbose:
+        if verbose:
             self._print_result_summary(theta_rho)
 
         # Return the computed density potential temperature
-        return theta_rho
+        return theta_rho.values if return_array else theta_rho
 
     def compute_density_potential_temperature_from_dataset(
         self: "ThermodynamicDiagnostics",
@@ -150,7 +165,7 @@ class ThermodynamicDiagnostics:
         data_type: str = "xarray",
     ) -> xr.DataArray:
         """
-        This method computes the density potential temperature (theta_rho) directly from an MPAS dataset by extracting the necessary fields (potential temperature, water vapor mixing ratio, and optionally condensate species) at a specified time index and vertical level. The method handles both xarray and uxarray datasets, allowing for flexible data access patterns. It also includes error handling for missing variables and invalid level specifications. The resulting theta_rho is returned with CF-compliant attributes, and summary statistics are printed if verbosity is enabled.
+        This method computes the density potential temperature (theta_rho) directly from an MPAS dataset by extracting the necessary fields (potential temperature, water vapor mixing ratio, and optionally condensate species) at a specified time index and vertical level. The method handles both xarray and uxarray datasets, allowing for flexible data access patterns. A float level is a pressure in Pa and is interpolated per column, linearly in log(pressure), using each column's own total pressure (NaN where the pressure lies below the ground or above the model top, with 'actual_pressure_level' recorded in the attrs). It also includes error handling for missing variables and invalid level specifications. The resulting theta_rho is returned with CF-compliant attributes, and summary statistics are printed if verbosity is enabled.
 
         Parameters:
             dataset (xr.Dataset): MPAS dataset containing the necessary variables.
@@ -231,25 +246,30 @@ class ThermodynamicDiagnostics:
 
     def compute_virtual_potential_temperature(
         self: "ThermodynamicDiagnostics",
-        theta: xr.DataArray,
-        qv: xr.DataArray,
-    ) -> xr.DataArray:
+        theta: Any,
+        qv: Any,
+    ) -> Any:
         """
-        This method computes the virtual potential temperature (theta_v) from the potential temperature (theta) and water vapor mixing ratio (qv) using the formula theta_v = theta * (1 + (Rv/Rd) * qv). This diagnostic accounts for the buoyancy effect of water vapor without considering condensate loading, making it a useful comparison to the density potential temperature. The method returns theta_v with CF-compliant attributes and prints summary statistics if verbosity is enabled.
+        This method computes the virtual potential temperature (theta_v) from the potential temperature (theta) and water vapor mixing ratio (qv) using the exact mixing-ratio formula theta_v = theta * (1 + qv/eps) / (1 + qv) with eps = Rd/Rv, which is approximately theta * (1 + 0.608 qv); the earlier theta * (1 + (Rv/Rd) * qv) form overstated the vapour effect by a factor of about 2.6 and is not a virtual-temperature relation. Here qv is the MPAS water vapour mixing ratio (kg/kg), not specific humidity. This diagnostic accounts for the buoyancy effect of water vapor without considering condensate loading, making it a useful comparison to the density potential temperature. Inputs may be numpy- or dask-backed DataArrays (the result is then lazy) or plain arrays (a plain array is returned). The method returns theta_v with CF-compliant attributes (DataArrays) and prints summary statistics if verbosity is enabled.
 
         Parameters:
-            theta (xr.DataArray): Potential temperature in Kelvin.
-            qv (xr.DataArray): Water vapor mixing ratio in kg/kg.
+            theta (Union[xr.DataArray, np.ndarray]): Potential temperature in Kelvin.
+            qv (Union[xr.DataArray, np.ndarray]): Water vapor mixing ratio in kg/kg.
 
         Returns:
-            xr.DataArray: Virtual potential temperature in Kelvin with CF-compliant attributes.
+            Union[xr.DataArray, np.ndarray]: Virtual potential temperature in Kelvin, a DataArray with CF-compliant attributes or a plain array when no input is a DataArray.
         """
         # Check that required inputs are provided
         if theta is None or qv is None:
             raise ValueError("Both 'theta' and 'qv' must be provided.")
 
+        return_array = not (
+            isinstance(theta, xr.DataArray) or isinstance(qv, xr.DataArray)
+        )
+        theta, qv = as_dataarray(theta), as_dataarray(qv)
+
         # Compute virtual potential temperature without condensate loading
-        theta_v: xr.DataArray = theta * (1.0 + RV_OVER_RD * qv)
+        theta_v: xr.DataArray = theta * (1.0 + qv / EPSILON) / (1.0 + qv)
 
         # Add CF-compliant attributes to the result
         theta_v.attrs.update(
@@ -257,11 +277,12 @@ class ThermodynamicDiagnostics:
                 "units": THETA_RHO_UNITS,
                 "standard_name": "virtual_potential_temperature",
                 "long_name": "virtual potential temperature",
+                "formula": "theta * (1 + qv/eps) / (1 + qv), eps = Rd/Rv, qv = water vapour mixing ratio",
             }
         )
 
-        # If verbose, print summary statistics for the result
-        if self.verbose:
+        # If verbose, print summary statistics for the result (skipped for lazy results)
+        if self.verbose and not is_lazy(theta_v):
             tv_min, tv_max = float(theta_v.min()), float(theta_v.max())
             tv_mean = float(theta_v.mean())
             logger.debug(
@@ -272,33 +293,37 @@ class ThermodynamicDiagnostics:
             )
 
         # Return the computed virtual potential temperature
-        return theta_v
+        return theta_v.values if return_array else theta_v
 
     def compute_total_water_mixing_ratio(
         self: "ThermodynamicDiagnostics",
-        qv: xr.DataArray,
-        qc: Optional[xr.DataArray] = None,
-        qr: Optional[xr.DataArray] = None,
-        qi: Optional[xr.DataArray] = None,
-        qs: Optional[xr.DataArray] = None,
-        qg: Optional[xr.DataArray] = None,
-    ) -> xr.DataArray:
+        qv: Any,
+        qc: Optional[Any] = None,
+        qr: Optional[Any] = None,
+        qi: Optional[Any] = None,
+        qs: Optional[Any] = None,
+        qg: Optional[Any] = None,
+    ) -> Any:
         """
-        This method computes the total water mixing ratio (qt) as the sum of the water vapor mixing ratio (qv) and any available condensate species (qc, qr, qi, qs, qg). If a particular condensate species is not provided, it is treated as zero. The method returns qt with CF-compliant attributes and prints summary statistics for the inputs and result if verbosity is enabled.
+        This method computes the total water mixing ratio (qt) as the sum of the water vapor mixing ratio (qv) and any available condensate species (qc, qr, qi, qs, qg). If a particular condensate species is not provided, it is treated as zero. Inputs may be numpy- or dask-backed DataArrays (the result is then lazy) or plain arrays (a plain array is returned). The method returns qt with CF-compliant attributes (DataArrays) and prints summary statistics for the inputs and result if verbosity is enabled.
 
         Parameters:
-            qv (xr.DataArray): Water vapor mixing ratio in kg/kg.
-            qc (Optional[xr.DataArray]): Cloud water mixing ratio in kg/kg (default: None).
-            qr (Optional[xr.DataArray]): Rain water mixing ratio in kg/kg (default: None).
-            qi (Optional[xr.DataArray]): Cloud ice mixing ratio in kg/kg (default: None).
-            qs (Optional[xr.DataArray]): Snow mixing ratio in kg/kg (default: None).
-            qg (Optional[xr.DataArray]): Graupel mixing ratio in kg/kg (default: None).
+            qv (Union[xr.DataArray, np.ndarray]): Water vapor mixing ratio in kg/kg.
+            qc (Optional[Union[xr.DataArray, np.ndarray]]): Cloud water mixing ratio in kg/kg (default: None).
+            qr (Optional[Union[xr.DataArray, np.ndarray]]): Rain water mixing ratio in kg/kg (default: None).
+            qi (Optional[Union[xr.DataArray, np.ndarray]]): Cloud ice mixing ratio in kg/kg (default: None).
+            qs (Optional[Union[xr.DataArray, np.ndarray]]): Snow mixing ratio in kg/kg (default: None).
+            qg (Optional[Union[xr.DataArray, np.ndarray]]): Graupel mixing ratio in kg/kg (default: None).
 
         Returns:
-            xr.DataArray: Total water mixing ratio in kg/kg with CF-compliant attributes.
+            Union[xr.DataArray, np.ndarray]: Total water mixing ratio in kg/kg, a DataArray with CF-compliant attributes or a plain array when no input is a DataArray.
         """
+        return_array = not any(
+            isinstance(x, xr.DataArray) for x in (qv, qc, qr, qi, qs, qg)
+        )
+
         # Start with qv as the base for qt
-        qt = qv.copy(deep=True)
+        qt = as_dataarray(qv).copy(deep=True)
 
         # Initialize a list to keep track of which condensate species are included
         species_names: List[str] = []
@@ -312,7 +337,7 @@ class ThermodynamicDiagnostics:
             ("qg", qg),
         ]:
             if species is not None:
-                qt = qt + species
+                qt = qt + as_dataarray(species)
                 species_names.append(name)
 
         # Add CF-compliant attributes to the total water mixing ratio
@@ -325,8 +350,8 @@ class ThermodynamicDiagnostics:
             }
         )
 
-        # If verbose, print summary statistics for the total water mixing ratio
-        if self.verbose:
+        # If verbose, print summary statistics for the total water mixing ratio (skipped for lazy results)
+        if self.verbose and not is_lazy(qt):
             qt_min, qt_max = float(qt.min()), float(qt.max())
             qt_mean = float(qt.mean())
             logger.debug(
@@ -341,7 +366,7 @@ class ThermodynamicDiagnostics:
             )
 
         # Return the computed total water mixing ratio
-        return qt
+        return qt.values if return_array else qt
 
     def analyze_density_potential_temperature(
         self: "ThermodynamicDiagnostics",
@@ -543,6 +568,17 @@ class ThermodynamicDiagnostics:
                 plain_ds = dataset
             data = plain_ds[var_name].isel({time_dim: time_index})
 
+        # A pressure level is interpolated in every column separately (log-p); NaN below ground / above the model top
+        if (
+            level is not None
+            and isinstance(level, (float, np.floating))
+            and not isinstance(level, bool)
+            and self._resolve_vertical_dim(data) is not None
+        ):
+            return interpolate_to_pressure(
+                dataset, var_name, float(level), time_dim, time_index
+            )
+
         # If a vertical level is specified, resolve it to an index and select that level
         if level is not None:
             vert_dim = self._resolve_vertical_dim(data)
@@ -588,7 +624,7 @@ class ThermodynamicDiagnostics:
         vert_dim: str,
     ) -> int:
         """
-        This helper method resolves a vertical level specification to an index for selecting data from the dataset. The level specification can be an integer index, a float representing pressure in Pascals, or a string indicating 'surface' or 'top'. The method includes error handling for invalid specifications and checks that the resolved index is within the bounds of the available vertical levels in the dataset. If the level is specified as a pressure, it calls another helper method to convert that pressure to the nearest vertical level index based on the total pressure profile in the dataset.
+        This helper method resolves a vertical level specification to an index for selecting data from the dataset. The level specification can be an integer index, a float representing pressure in Pascals, or a string indicating 'surface' or 'top'. The method includes error handling for invalid specifications and checks that the resolved index is within the bounds of the available vertical levels in the dataset. A pressure level cannot be reduced to one model level index (the model level at a given pressure differs from column to column), so a float level raises here; _extract_field handles pressure levels by per-column log-pressure interpolation instead.
 
         Parameters:
             dataset (xr.Dataset): Dataset containing the vertical coordinate information.
@@ -605,17 +641,20 @@ class ThermodynamicDiagnostics:
         max_levels = dataset.sizes.get(vert_dim, 0)
 
         # If the level is an integer, use it directly as an index (with bounds checking)
-        if isinstance(level, int):
+        if isinstance(level, (int, np.integer)) and not isinstance(level, bool):
             if level >= max_levels:
                 raise ValueError(
                     f"Level {level} exceeds available levels ({max_levels}) "
                     f"for '{var_name}'."
                 )
-            return level
+            return int(level)
 
-        # If the level is a float, treat it as a pressure in Pascals
-        if isinstance(level, float):
-            return self._pressure_to_level_index(dataset, level, time_dim, time_index)
+        # Pressure levels are interpolated per column in _extract_field and never reduced to a model level index
+        if isinstance(level, (float, np.floating)) and not isinstance(level, bool):
+            raise ValueError(
+                f"Pressure level {level} Pa for '{var_name}' has no single model level index; "
+                f"use _extract_field, which interpolates to the pressure in every column."
+            )
 
         # Handle string specifications for surface and top levels
         if isinstance(level, str):
@@ -627,67 +666,6 @@ class ThermodynamicDiagnostics:
 
         # If we reach this point, the level specification type is invalid
         raise ValueError(f"Invalid level specification type: {type(level)}")
-
-    def _pressure_to_level_index(
-        self: "ThermodynamicDiagnostics",
-        dataset: xr.Dataset,
-        pressure_pa: float,
-        time_dim: str,
-        time_index: int,
-    ) -> int:
-        """
-        This helper method converts a target pressure in Pascals to the nearest vertical level index in the dataset by computing the total pressure profile (perturbation plus base pressure) at the specified time index, averaging it over horizontal dimensions to get a 1D vertical profile, and finding the index of the level with the closest mean pressure to the target. The method includes error handling for missing pressure fields and prints diagnostic messages if verbosity is enabled, showing the requested pressure and the actual pressure at the resolved level.
-
-        Parameters:
-            dataset (xr.Dataset): Dataset containing 'pressure_p' and 'pressure_base'.
-            pressure_pa (float): Target pressure in Pascals to find the nearest level for.
-            time_dim (str): Name of the time dimension for selecting pressure fields.
-            time_index (int): Time index for selecting pressure fields.
-
-        Returns:
-            int: Nearest vertical level index.
-        """
-        # Check for the presence of pressure fields in the dataset
-        if "pressure_p" not in dataset or "pressure_base" not in dataset:
-            raise ValueError(
-                "Cannot resolve pressure-based level — 'pressure_p' and/or "
-                "'pressure_base' not found in dataset."
-            )
-
-        # Extract the pressure fields at the specified time index and compute total pressure
-        if type(dataset) is not xr.Dataset and isinstance(dataset, xr.Dataset):
-            plain_ds = xr.Dataset(
-                dict(dataset.data_vars), coords=dataset.coords, attrs=dataset.attrs
-            )
-        else:
-            plain_ds = dataset
-
-        # Compute total pressure as the sum of perturbation and base pressure
-        pp = plain_ds["pressure_p"].isel({time_dim: time_index})
-        pb = plain_ds["pressure_base"].isel({time_dim: time_index})
-        total_p = pp + pb
-
-        # Average total pressure over horizontal dimensions to get a 1D profile
-        vert_dim = "nVertLevels" if "nVertLevels" in total_p.dims else "nVertLevelsP1"
-        horiz_dims = [d for d in total_p.dims if d != vert_dim]
-        mean_p = total_p.mean(dim=horiz_dims)
-        pressure_values = np.array(mean_p.values).flatten()
-
-        # Find the index of the level with the closest mean pressure to the target pressure
-        level_idx = int(np.argmin(np.abs(pressure_values - pressure_pa)))
-
-        # If verbose, print the requested pressure and the actual pressure
-        if self.verbose:
-            actual_p = pressure_values[level_idx]
-            logger.debug(
-                "Requested pressure: %.1f Pa, using level %d: %.1f Pa",
-                pressure_pa,
-                level_idx,
-                actual_p,
-            )
-
-        # Return the resolved level index
-        return level_idx
 
     @staticmethod
     def _vert_dim(da: xr.DataArray) -> Optional[str]:

@@ -46,7 +46,7 @@ def wind_pair() -> tuple:
 @pytest.fixture
 def ds_3d() -> xr.Dataset:
     """
-    This fixture provides a 3D xarray Dataset containing u, pressure_p, and pressure_base variables for testing the _compute_level_index_from_pressure method in the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains values designed to allow for testing the method's ability to compute a level index based on a specified pressure level. The pressure_p variable is set to a constant value across all levels, while the pressure_base variable is defined as a linear gradient from 100,000 Pa at the surface to 20,000 Pa at the top level. This setup allows for verifying that the method can correctly identify the appropriate vertical level corresponding to a given pressure level when both pressure_p and pressure_base variables are present in the dataset.
+    This fixture provides a 3D xarray Dataset containing u, pressure_p, and pressure_base variables for testing the get_3d_variable_at_level method (pressure-level path) in the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains values designed to allow for testing the method's ability to compute a level index based on a specified pressure level. The pressure_p variable is set to a constant value across all levels, while the pressure_base variable is defined as a linear gradient from 100,000 Pa at the surface to 20,000 Pa at the top level. This setup allows for verifying that the method can correctly identify the appropriate vertical level corresponding to a given pressure level when both pressure_p and pressure_base variables are present in the dataset.
 
     Parameters:
         None
@@ -77,7 +77,7 @@ def ds_3d() -> xr.Dataset:
 @pytest.fixture
 def ds_3d_no_pressure() -> xr.Dataset:
     """
-    This fixture provides a 3D xarray Dataset containing only the u variable, without any pressure variables, for testing the error handling in the _compute_level_index_from_pressure method of the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains constant values for the u variable. This setup allows for verifying that the method correctly raises a ValueError when it attempts to compute a level index based on pressure but finds no pressure data available in the dataset.
+    This fixture provides a 3D xarray Dataset containing only the u variable, without any pressure variables, for testing the error handling in the get_3d_variable_at_level method (pressure-level path) of the WindDiagnostics class. The dataset is structured with dimensions "Time", "nVertLevels", and "nCells", and contains constant values for the u variable. This setup allows for verifying that the method correctly raises a ValueError when it attempts to compute a level index based on pressure but finds no pressure data available in the dataset.
 
     Parameters:
         None
@@ -251,31 +251,29 @@ class TestValidate3DVariable:
 
 
 class TestComputeLevelIndexFromPressure:
-    """Covers error branches in _compute_level_index_from_pressure: missing pressure vars, verbose prints."""
+    """Covers error branches in get_3d_variable_at_level: missing pressure vars, verbose prints."""
 
     def test_missing_pressure_vars_raises(
         self: "TestComputeLevelIndexFromPressure", ds_3d_no_pressure: xr.Dataset
     ) -> None:
         """
-        This test validates that the _compute_level_index_from_pressure method in the WindDiagnostics class raises a ValueError when the input dataset does not contain any pressure variables (neither pressure_p nor pressure_base). It checks that the error message contains the expected string indicating that pressure data is not available. This ensures that the method correctly identifies when it cannot perform the level index computation due to the absence of necessary pressure information in the dataset, providing clear feedback to the user about the issue.
+        This test validates that the get_3d_variable_at_level method (pressure-level path) in the WindDiagnostics class raises a ValueError when the input dataset does not contain any pressure variables (neither pressure_p nor pressure_base). It checks that the error message contains the expected string indicating that pressure data is not available. This ensures that the method correctly identifies when it cannot perform the level index computation due to the absence of necessary pressure information in the dataset, providing clear feedback to the user about the issue.
 
         Parameters:
-            ds_3d_no_pressure (xr.Dataset): A 3D xarray Dataset that does not contain any pressure variables, used to test the error handling in the _compute_level_index_from_pressure method when pressure data is missing.
+            ds_3d_no_pressure (xr.Dataset): A 3D xarray Dataset that does not contain any pressure variables, used to test the error handling in the get_3d_variable_at_level method (pressure-level path) when pressure data is missing.
 
         Returns:
             None
         """
         diag = WindDiagnostics(verbose=False)
         with pytest.raises(ValueError, match="pressure data not available"):
-            diag._compute_level_index_from_pressure(
-                ds_3d_no_pressure, 85_000.0, "Time", 0
-            )
+            diag.get_3d_variable_at_level(ds_3d_no_pressure, "u", 85_000.0, 0)
 
     def test_missing_only_pressure_p_raises(
         self: "TestComputeLevelIndexFromPressure",
     ) -> None:
         """
-        This test validates that the _compute_level_index_from_pressure method in the WindDiagnostics class raises a ValueError when the input dataset contains only the pressure_base variable and not the pressure_p variable. It checks that the error message contains the expected string indicating that pressure data is not available. This ensures that the method correctly identifies when it cannot perform the level index computation due to the absence of the necessary pressure_p information in the dataset, providing clear feedback to the user about the issue.
+        This test validates that the get_3d_variable_at_level method (pressure-level path) in the WindDiagnostics class raises a ValueError when the input dataset contains only the pressure_base variable and not the pressure_p variable. It checks that the error message contains the expected string indicating that pressure data is not available. This ensures that the method correctly identifies when it cannot perform the level index computation due to the absence of the necessary pressure_p information in the dataset, providing clear feedback to the user about the issue.
 
         Parameters:
             None
@@ -296,28 +294,27 @@ class TestComputeLevelIndexFromPressure:
         diag = WindDiagnostics(verbose=False)
 
         with pytest.raises(ValueError, match="pressure data not available"):
-            diag._compute_level_index_from_pressure(ds, 85_000.0, "Time", 0)
+            diag.get_3d_variable_at_level(ds, "u", 85_000.0, 0)
 
-    def test_verbose_prints_pressure_info(
+    def test_pressure_level_attrs_and_values(
         self: "TestComputeLevelIndexFromPressure", ds_3d: xr.Dataset
     ) -> None:
         """
-        This test validates that the _compute_level_index_from_pressure method in the WindDiagnostics class prints the expected information about the requested pressure level and the available pressure levels in the dataset when verbose is True. It captures the standard output during the execution of the method and checks that the printed output contains the phrase "Requested pressure" along with the requested pressure value, as well as information about the available pressure levels. This ensures that when verbose mode is enabled, the method provides informative output about the pressure level being requested and how it relates to the pressure data available in the dataset, which can be useful for debugging and understanding how the level index is being computed based on pressure.
+        This test validates that the get_3d_variable_at_level method (pressure-level path) in the WindDiagnostics class prints the expected information about the requested pressure level and the available pressure levels in the dataset when verbose is True. It captures the standard output during the execution of the method and checks that the printed output contains the phrase "Requested pressure" along with the requested pressure value, as well as information about the available pressure levels. This ensures that when verbose mode is enabled, the method provides informative output about the pressure level being requested and how it relates to the pressure data available in the dataset, which can be useful for debugging and understanding how the level index is being computed based on pressure.
 
         Parameters:
-            ds_3d (xr.Dataset): A 3D xarray Dataset containing the necessary pressure variables for testing the verbose output of the _compute_level_index_from_pressure method when it successfully computes a level index based on a specified pressure level.
+            ds_3d (xr.Dataset): A 3D xarray Dataset containing the necessary pressure variables for testing the verbose output of the get_3d_variable_at_level method (pressure-level path) when it successfully computes a level index based on a specified pressure level.
 
         Returns:
             None
         """
-        diag = WindDiagnostics(verbose=True)
-        captured = StringIO()
+        diag = WindDiagnostics(verbose=False)
+        result = diag.get_3d_variable_at_level(ds_3d, "u", 70_000.0, 0)
 
-        with patch("sys.stdout", new=captured):
-            idx = diag._compute_level_index_from_pressure(ds_3d, 70_000.0, "Time", 0)
-
-        assert "Requested pressure" in captured.getvalue()
-        assert isinstance(idx, int)
+        assert result.attrs["actual_pressure_level"] == "70000.0 Pa"
+        assert result.attrs["level_index"] == -1
+        assert result.dims == ("nCells",)
+        assert np.allclose(result.values, 1.0)
 
 
 class TestComputeLevelIndex:
@@ -401,7 +398,7 @@ class TestComputeLevelIndex:
         """
         diag = WindDiagnostics(verbose=False)
         with pytest.raises(ValueError, match="pressure data not available"):
-            diag._compute_level_index(ds_3d_no_pressure, "u", 85_000.0, "Time", 0)
+            diag.get_3d_variable_at_level(ds_3d_no_pressure, "u", 85_000.0, 0)
 
 
 class TestGet2DWindComponentsNoneDataset:
