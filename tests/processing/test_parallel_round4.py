@@ -205,3 +205,22 @@ class TestSigtermUnwinds:
                     manager, MagicMock(), [], "2d", {"grid_file": "/g.nc"}, None
                 )
         assert not seed_path.exists()
+
+
+@pytest.mark.skipif(not hasattr(os, "getuid"), reason="POSIX ownership only")
+def test_seed_not_loaded_when_others_can_write_it(tmp_path: Path) -> None:
+    """A seed file that another user could have replaced is never unpickled."""
+    import pickle
+
+    path = tmp_path / "seed.pkl"
+    path.write_bytes(pickle.dumps("processor"))
+    pw._rank_processor_cache.clear()
+    try:
+        path.chmod(0o666)
+        pw._install_processor_seed(("key", str(path)))
+        assert "key" not in pw._rank_processor_cache
+        path.chmod(0o600)
+        pw._install_processor_seed(("key", str(path)))
+        assert pw._rank_processor_cache["key"] == "processor"
+    finally:
+        pw._rank_processor_cache.clear()

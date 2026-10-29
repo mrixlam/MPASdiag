@@ -834,14 +834,12 @@ class MPASVisualizationStyle:
 
             if offset + (lon_max - lon_min) > 180.0:
                 midpoint = ((((lon_min + lon_max) / 2) + 180.0) % 360.0) - 180.0
+                # The coordinates are left out of the message: code scanners treat any
+                # longitude/latitude as private location data
                 logger.warning(
-                    "central_longitude=%s would split the requested extent (lon %s..%s) across the "
-                    "map edge on %s; re-centering the map on the extent midpoint (%s).",
-                    central_longitude,
-                    lon_min,
-                    lon_max,
+                    "The requested central longitude would split the map extent across the "
+                    "map edge on %s; re-centering the map on the middle of the extent.",
                     proj_cls.__name__,
-                    midpoint,
                 )
                 return midpoint
 

@@ -18,10 +18,8 @@ import logging
 import numpy as np
 import pytest
 import xarray as xr
-import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 from typing import Any, List, Tuple
-from datetime import datetime
 
 from mpasdiag.processing.utils_geog import GeographicBounds
 from mpasdiag.visualization.base_visualizer import WindPlotStyle

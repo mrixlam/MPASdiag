@@ -747,9 +747,10 @@ class TestRemappingFixes:
             None
         """
         lon, lat = _global_mesh()
-        field = lambda lo, la: np.cos(np.radians(la)) * np.cos(
-            np.radians(lo)
-        )  # noqa: E731
+
+        def field(lo: np.ndarray, la: np.ndarray) -> np.ndarray:
+            return np.cos(np.radians(la)) * np.cos(np.radians(lo))
+
         out = remap_mpas_to_latlon(
             field(lon, lat), lon, lat, -180, 180, -90, 90, 10.0, "nearest"
         )

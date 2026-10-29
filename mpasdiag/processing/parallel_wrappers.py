@@ -638,6 +638,22 @@ def _parallel_map_batch(
     return manager.parallel_map(worker, tasks)
 
 
+def _is_private_seed(fd: int) -> bool:
+    """
+    This helper checks that an open processor seed file is still the private file the parent created with tempfile.mkstemp: owned by the current user and not writable by the group or by others. Unpickling runs code chosen by whoever wrote the file, so a seed that another user could have replaced is not loaded. On platforms without POSIX ownership (Windows) only the existence of the file is checked, as mkstemp's own permissions apply there.
+
+    Parameters:
+        fd (int): File descriptor of the opened seed file.
+
+    Returns:
+        bool: True if the file may be loaded.
+    """
+    info = os.fstat(fd)
+    if not hasattr(os, "getuid"):
+        return True
+    return info.st_uid == os.getuid() and not info.st_mode & 0o022
+
+
 def _install_processor_seed(processor_seed: Optional[Tuple[str, str]]) -> None:
     """
     This helper is called by every batch worker before it looks up its processor. When the parent shipped a processor seed and this worker has no processor under the seed's key yet, it loads the pickled processor from the seed file into the worker cache so the lookup becomes a cache hit. Any failure leaves the cache untouched and the worker reloads from disk as before.
@@ -655,7 +671,13 @@ def _install_processor_seed(processor_seed: Optional[Tuple[str, str]]) -> None:
         return
     try:
         with open(path, "rb") as handle:
-            _rank_processor_cache[cache_key] = pickle.load(handle)
+            if not _is_private_seed(handle.fileno()):
+                logger.debug(
+                    "Ignoring a shipped processor file that is not private to this user"
+                )
+                return
+            # the parent wrote this file with mkstemp (owner-only) for this batch, checked above
+            _rank_processor_cache[cache_key] = pickle.load(handle)  # nosec B301
     except Exception as exc:
         logger.debug("Could not use the shipped processor (%s); reloading", exc)
 

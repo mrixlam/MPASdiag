@@ -523,7 +523,8 @@ def _ensure_transferable(
         TaskResult: The original result when it can be transferred, otherwise a failed TaskResult describing the transfer error.
     """
     try:
-        pickle.loads(pickle.dumps(outcome))
+        # round trip of this worker's own result object, not of external data
+        pickle.loads(pickle.dumps(outcome))  # nosec B301
         return outcome
     except Exception as exc:
         message = (

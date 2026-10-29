@@ -275,7 +275,7 @@ jobs:
 
     - name: Install security tooling
       run: |
-        python -m pip install --only-binary=:all: pip==26.2.1 setuptools==83.0.0
+        python -m pip install --only-binary=:all: pip==26.2.1 setuptools==84.1.0
         pip install --only-binary=:all: bandit==1.8.0 pip-audit==2.7.3
 
     - name: Static analysis with bandit

@@ -25,7 +25,6 @@ import xarray as xr
 
 from mpasdiag.diagnostics.thermodynamic import (
     ThermodynamicDiagnostics,
-    RV_OVER_RD,
     EPSILON,
     CONDENSATE_VARS,
     THETA_RHO_UNITS,

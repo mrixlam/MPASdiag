@@ -6,7 +6,7 @@
 Regression tests for the third round of diagnostics fixes: Bunkers-relative SRH, accumulation period parsing and negative time indices, dask/numpy support in the wind and thermodynamic diagnostics, sounding input validation, circular wind direction statistics, exact density potential temperature, mass-level destaggering of interface variables, specific humidity metadata and terrain-referenced sounding layers.
 """
 
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
 import numpy as np
 import pandas as pd

@@ -3,7 +3,7 @@
 """
 MPASdiag Example: Density Potential Temperature (Emanuel 1994)
 
-This example script demonstrates how to compute and visualize density potential temperature (theta_rho) from MPAS model output using the ThermodynamicDiagnostics helper class. The script generates a 2x2 panel of filled contour maps of theta_rho at the lowest model level (near the surface) for a sequence of time steps, with consistent contour levels and a shared colorbar. Cross-section transects are overlaid on each map for reference. 
+This example script demonstrates how to compute and visualize density potential temperature (theta_rho) from MPAS model output using the ThermodynamicDiagnostics helper class. The script generates a 2x2 panel of filled contour maps of theta_rho at the lowest model level (near the surface) for a sequence of time steps, with consistent contour levels and a shared colorbar. Cross-section transects are overlaid on each map for reference.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -101,13 +101,13 @@ lon = lat = None
 # Mappable kept from the last drawn panel for the shared colorbar
 cs = None
 
-# Loop over the time indices and corresponding axes to compute and plot theta_rho for each time step. 
+# Loop over the time indices and corresponding axes to compute and plot theta_rho for each time step.
 for i, ax in enumerate(axes_flat):
     # Hide any unused trailing axes if fewer than 4 time indices are given
     if i >= len(TINDICES):
         ax.set_visible(False)
         continue
-    
+
     # Current time index for this panel
     tindex = TINDICES[i]
 
@@ -193,4 +193,3 @@ fig.savefig(out_file, dpi=300, bbox_inches='tight')
 plt.close(fig)
 
 print(f"\nPlot saved to {out_file}")
-

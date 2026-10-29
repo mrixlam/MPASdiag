@@ -437,7 +437,7 @@ class MPASRemapper:
             src_shape = len(source_grid["lon"])
             tgt_shape = f"{len(target_grid['lon'])}x{len(target_grid['lat'])}"
             # Grid sizes alone collide across domains and meshes, so add a digest of the coordinate values
-            digest = hashlib.sha1()
+            digest = hashlib.sha256()
             for grid in (source_grid, target_grid):
                 # Cell-corner coordinates change the conservative weights, so they belong in the key as well
                 for name in ("lon", "lat", "lon_b", "lat_b"):

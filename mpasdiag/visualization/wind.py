@@ -427,7 +427,7 @@ class MPASWindPlotter(MPASVisualizer):
         center = float(getattr(projection, "proj4_params", {}).get("lon_0", 0.0))
         lon_1d = np.asarray(lon_1d, dtype=float)
 
-        if center == 0.0 and lon_1d.min() >= -180.0 and lon_1d.max() <= 180.0:
+        if abs(center) < 1e-9 and lon_1d.min() >= -180.0 and lon_1d.max() <= 180.0:
             return lon_1d, u_data, v_data, speed, ccrs.PlateCarree()
 
         x = ((lon_1d - center + 180.0) % 360.0) - 180.0

@@ -60,7 +60,7 @@ fig, axes = plt.subplots(
 axes_flat = axes.flat
 
 # Initialize variables to hold the cell coordinates and the mappable from the last panel
-lon = lat = None 
+lon = lat = None
 cs = None
 
 for i, ax in enumerate(axes_flat):
@@ -68,7 +68,7 @@ for i, ax in enumerate(axes_flat):
     if i >= len(TINDICES):
         ax.set_visible(False)
         continue
-    
+
     # Get the time index for this panel
     tindex = TINDICES[i]
 
@@ -126,7 +126,7 @@ for i, ax in enumerate(axes_flat):
 fig.subplots_adjust(wspace=0.08, hspace=0.18, bottom=0.13, top=0.90)
 cax = fig.add_axes([0.25, 0.08, 0.50, 0.02])
 
-# Draw the colorbar 
+# Draw the colorbar
 cbar = fig.colorbar(cs, cax=cax, orientation='horizontal',
                     ticks=custom_levels[::2], extend='both')
 cbar.set_label('2-m Temperature [°C]')

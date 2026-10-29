@@ -1,7 +1,6 @@
 """Regression tests for the second round of CLI / configuration / parallel orchestration fixes."""
 
 import pickle
-from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd

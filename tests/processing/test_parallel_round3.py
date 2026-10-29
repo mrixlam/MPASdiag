@@ -13,7 +13,7 @@ import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest

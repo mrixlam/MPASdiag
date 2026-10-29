@@ -18,7 +18,7 @@ import runpy
 import sys
 import contextlib
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import numpy as np
