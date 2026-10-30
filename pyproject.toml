@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=83.0.0", "wheel"]
+requires = ["setuptools>=84.1.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -90,7 +90,14 @@ mpasdiag = "mpasdiag.cli:main"
 "Documentation" = "https://github.com/mrixlam/MPASdiag#readme"
 
 [tool.uv]
-constraint-dependencies = ["setuptools>=83.0.0"]
+# Floors set by security advisories (see the Dependabot alerts); they keep a re-lock
+# from resolving an affected release of these transitive or tooling packages.
+constraint-dependencies = [
+    "setuptools>=84.1.0",
+    "pillow>=13.0.0",
+    "filelock>=4.2.1",
+    "black>=26.10.1",
+]
 
 [tool.uv.sources]
 esmpy = { git = "https://github.com/esmf-org/esmf", subdirectory = "src/addon/esmpy", rev = "v8.9.1" }
