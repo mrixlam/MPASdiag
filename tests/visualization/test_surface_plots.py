@@ -27,6 +27,7 @@ from matplotlib.figure import Figure
 from tests.test_data_helpers import load_mpas_coords_from_processor
 
 from mpasdiag import MPASSurfacePlotter
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from mpasdiag import GeographicBounds
 from mpasdiag import SurfaceMapStyle
 
@@ -142,6 +143,60 @@ class TestPlotTypes:
         )
 
         assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_central_longitude_flows_through_to_axes(
+        self: "TestPlotTypes",
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on SurfaceMapStyle flows all the way through create_surface_map to the GeoAxes projection, confirming the projection-centering control is wired correctly.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_surface_map(
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(plot_type="scatter", central_longitude=150.0),
+        )
+
+        assert isinstance(fig, Figure)
+        assert projection_central_longitude(ax.projection) == 150.0
+        plt.close(fig)
+
+    def test_proj_kwargs_flows_through_to_axes(
+        self: "TestPlotTypes",
+    ) -> None:
+        """
+        This end-to-end test verifies that proj_kwargs on SurfaceMapStyle is passed through create_surface_map to the cartopy projection constructor, using a non-default projection with an explicit central_longitude keyword.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_surface_map(
+            self.lon,
+            self.lat,
+            self.data,
+            "t2m",
+            GeographicBounds(*self.extent_bounds),
+            style=SurfaceMapStyle(
+                plot_type="scatter",
+                projection="Robinson",
+                proj_kwargs={"central_longitude": -60.0},
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert projection_central_longitude(ax.projection) == -60.0
         plt.close(fig)
 
     def test_plot_with_custom_levels(self: "TestPlotTypes") -> None:
@@ -317,17 +372,16 @@ class TestColormapHandling:
         Returns:
             None
         """
-        fig, _ = self.plotter.create_surface_map(
-            self.lon,
-            self.lat,
-            self.data,
-            "t2m",
-            GeographicBounds(*self.extent_bounds),
-            style=SurfaceMapStyle(plot_type="scatter", colormap="invalid_cmap"),
-        )
-
-        assert isinstance(fig, Figure)
-        plt.close(fig)
+        # An unknown colormap name is an error (as for the precipitation plotter), not a silent switch to viridis
+        with pytest.raises(ValueError, match="colormap"):
+            self.plotter.create_surface_map(
+                self.lon,
+                self.lat,
+                self.data,
+                "t2m",
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type="scatter", colormap="invalid_cmap"),
+            )
 
     def test_none_colormap_object(self: "TestColormapHandling") -> None:
         """
@@ -735,6 +789,43 @@ class TestContourPlotting:
         )
 
         assert isinstance(fig, Figure)
+        plt.close(fig)
+
+
+class TestDatelineCrossingSurface:
+    """Tests that surface scatter maps keep cells on both sides of the dateline for extents written with lon_max > 180."""
+
+    def test_scatter_keeps_cells_east_of_dateline(
+        self: "TestDatelineCrossingSurface",
+    ) -> None:
+        """
+        This regression test verifies that a surface scatter map of a 150..210 box plots the cells stored at -180..-150, which were previously filtered out and left the eastern half of the map empty, and that the map is centered on the dateline.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        rng = np.random.default_rng(5)
+        lon = rng.uniform(-180.0, 180.0, 3000)
+        lat = rng.uniform(-40.0, 40.0, 3000)
+        plotter = MPASSurfacePlotter(figsize=(6, 4), dpi=50)
+        fig, ax = plotter.create_surface_map(
+            lon,
+            lat,
+            280.0 + rng.uniform(0.0, 10.0, 3000),
+            "t2m",
+            GeographicBounds(150.0, 210.0, -30.0, 30.0),
+            style=SurfaceMapStyle(plot_type="scatter"),
+        )
+        offsets = max(
+            (c.get_offsets() for c in ax.collections if hasattr(c, "get_offsets")),
+            key=len,
+        )
+        plotted = np.asarray(offsets)[:, 0]
+        assert projection_central_longitude(ax.projection) == 180.0
+        assert (plotted > 180.0).any() and (plotted < 180.0).any()
         plt.close(fig)
 
 

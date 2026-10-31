@@ -34,9 +34,13 @@ from typing import Tuple, Optional, List, Union, Any, cast, Dict
 # Import MPASdiag modules for configuration, data processing, remapping, and visualization
 from mpasdiag.visualization.wind import MPASWindPlotter
 from mpasdiag.processing.utils_unit import UnitConverter
-from mpasdiag.processing.utils_geog import GeographicBounds
+from mpasdiag.processing.utils_datetime import MPASDateTimeUtils
+from mpasdiag.processing.utils_geog import GeographicBounds, MPASGeographicUtils
 from mpasdiag.processing.utils_metadata import MPASFileMetadata
-from mpasdiag.visualization.base_visualizer import MPASVisualizer
+from mpasdiag.visualization.base_visualizer import (
+    MPASVisualizer,
+    close_figure_on_error,
+)
 from mpasdiag.processing.remapping import (
     remap_mpas_to_latlon_with_masking,
     dispatch_remap,
@@ -49,7 +53,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class SurfaceMapStyle:
-    """Optional rendering and appearance settings for a surface map, grouping the title, plot type, colormap, contour levels, color limits, projection, grid resolution, and wind/surface overlay configurations into a single value object."""
+    """Optional rendering and appearance settings for a surface map, grouping the title, plot type, colormap, contour levels, color limits, projection, projection centering/keyword controls, grid resolution, wind/surface overlay configurations, the number of automatically generated contour levels (num_levels, used only when levels is None), and the gridding method (interpolation: 'nearest', 'linear' or 'cubic'; None keeps the default) used by the contour, contourf and pcolormesh plot types into a single value object."""
 
     title: Optional[str] = None
     plot_type: str = "scatter"
@@ -58,15 +62,20 @@ class SurfaceMapStyle:
     clim_min: Optional[float] = None
     clim_max: Optional[float] = None
     projection: str = "PlateCarree"
+    central_longitude: Optional[float] = None
+    central_latitude: Optional[float] = None
+    proj_kwargs: Optional[Dict[str, Any]] = None
     grid_resolution: Optional[float] = None
     wind_overlay: Optional[dict] = None
     surface_overlay: Optional[dict] = None
+    num_levels: Optional[int] = None
+    interpolation: Optional[str] = None
 
 
 class MPASSurfacePlotter(MPASVisualizer):
     """Specialized plotter for creating professional cartographic visualizations of MPAS 2D/3D surface variables."""
 
-    _TIME_FMT = "%Y%m%dT%H"
+    _current_level_label: Optional[str] = None
 
     @staticmethod
     def _apply_level_index_slice(
@@ -91,48 +100,132 @@ class MPASSurfacePlotter(MPASVisualizer):
             return sliced
         return data
 
+    @staticmethod
+    def _resolve_level_value(
+        data: Union[np.ndarray, xr.DataArray],
+        data_array: Optional[xr.DataArray],
+        level_value: float,
+    ) -> Tuple[int, Optional[str]]:
+        """
+        This helper converts a vertical coordinate value into a level index by matching it against the vertical coordinate carried by the data array. The vertical dimension is the single dimension of the array that is neither a horizontal mesh dimension (nCells, nVertices, nEdges) nor Time and whose length equals the second dimension of the data. The value must equal one of the coordinate values (to a tight tolerance); otherwise a ValueError lists the available values, so level_value is never silently ignored. A ValueError is also raised when no data array or no vertical coordinate is available to match against.
+
+        Parameters:
+            data (Union[np.ndarray, xr.DataArray]): The 2D or 3D data being sliced; a DataArray with coordinates is used when data_array is None.
+            data_array (Optional[xr.DataArray]): The DataArray carrying the vertical coordinate.
+            level_value (float): The requested vertical coordinate value.
+
+        Returns:
+            Tuple[int, Optional[str]]: The matching level index and the coordinate units attribute (None when absent).
+        """
+        source = data_array if data_array is not None else data
+
+        if not isinstance(source, xr.DataArray):
+            raise ValueError(
+                "level_value needs a data_array that carries the vertical coordinate to match against; "
+                "pass data_array or use level_index instead"
+            )
+
+        horizontal = ("ncells", "nvertices", "nedges", "time")
+        n_levels = int(np.shape(data)[1])
+        candidates = [
+            dim
+            for dim in source.dims
+            if str(dim).lower() not in horizontal and int(source.sizes[dim]) == n_levels
+        ]
+
+        if len(candidates) != 1 or candidates[0] not in source.coords:
+            raise ValueError(
+                f"level_value={level_value} cannot be matched: the data array has no vertical "
+                f"coordinate (dims {tuple(source.dims)}); use level_index instead"
+            )
+
+        dim = candidates[0]
+        values = np.asarray(source.coords[dim].values, dtype=float)
+        matches = np.flatnonzero(
+            np.isclose(values, float(level_value), rtol=1e-9, atol=1e-9)
+        )
+
+        if matches.size == 0:
+            preview = ", ".join(f"{v:g}" for v in values[:12])
+            raise ValueError(
+                f"level_value={level_value} does not match any value of the vertical coordinate "
+                f"'{dim}' (available: {preview}{', ...' if values.size > 12 else ''})"
+            )
+
+        units = source.coords[dim].attrs.get("units")
+        return int(matches[0]), (str(units) if units else None)
+
     def _extract_2d_from_multidimensional(
         self: "MPASSurfacePlotter",
         data: Union[np.ndarray, xr.DataArray],
         level_index: Optional[int],
         level_value: Optional[float],
+        data_array: Optional[xr.DataArray] = None,
     ) -> np.ndarray:
         """
-        This helper function extracts a 2D surface-level slice from input data that may be 1D, 2D, or 3D. It handles various cases based on the number of dimensions and the presence of optional level_index or level_value parameters. If the data is already 1D or 2D, it converts it to a numpy array and returns it directly. For 3D data, it checks if level_index or level_value is specified to select the appropriate vertical level; if neither is provided, it defaults to taking the last level as the surface. After extracting the relevant slice, it flattens any remaining dimensions to ensure a 1D array of surface values ready for plotting. The function also includes error handling for unsupported dimensions and debug print statements to confirm the extraction process, which can assist in troubleshooting and verifying that the correct slice of data is being used for visualization.
+        This helper function extracts a 2D surface-level slice from input data that may be 1D, 2D, or 3D. It handles various cases based on the number of dimensions and the presence of optional level_index or level_value parameters. If the data is already 1D, it is converted to a numpy array and returned directly. For 2D or 3D data, level_value is first matched against the vertical coordinate of the data array and converted to a level index (a ValueError is raised when it cannot be matched, or when it disagrees with an explicit level_index); then the level_index selects the vertical level. If neither is provided, it defaults to level index 0, the lowest model level (MPAS orders levels bottom-up, so the last index is the model top), and a warning says so. After extracting the relevant slice, it flattens any remaining dimensions to ensure a 1D array of surface values ready for plotting. A short description of the selected level is stored in self._current_level_label for the plot title; it is None for 1D input. The function also includes error handling for unsupported dimensions.
 
         Parameters:
             data (Union[np.ndarray, xr.DataArray]): Input data array that may be 1D, 2D, or 3D.
             level_index (Optional[int]): Optional index of the vertical level to extract (e.g., 0 for surface).
-            level_value (Optional[float]): Optional value of the vertical coordinate to extract (not yet implemented).
+            level_value (Optional[float]): Optional value of the vertical coordinate to extract, matched against the coordinate carried by data_array (or by data when it is a DataArray).
+            data_array (Optional[xr.DataArray]): Optional DataArray carrying the vertical coordinate used to resolve level_value.
 
         Returns:
             np.ndarray: 1D array of surface-level data values ready for plotting.
         """
-        # If data is already 1D or 2D, convert to numpy and return directly
+        self._current_level_label = None
+
+        # If data is already 1D, convert to numpy and return directly
         if data.ndim <= 1:
+            if level_value is not None:
+                raise ValueError(
+                    "level_value was given but the data has no vertical dimension"
+                )
             return self.convert_to_numpy(data)
 
-        # For 2D data, assume the last dimension is vertical and extract the surface level if level_index or level_value is specified, otherwise take the last level as surface
         if data.ndim > 3:
             raise ValueError(
                 f"only 1D, 2D and 3D data are supported, got {data.ndim}D data with shape {data.shape}"
             )
 
-        # Extract the appropriate 2D slice based on level_index or level_value, defaulting to surface level if neither is provided.
+        # Resolve a vertical coordinate value to a level index through the coordinate of the data array
+        coord_text: Optional[str] = None
+
+        if level_value is not None:
+            value_index, units = self._resolve_level_value(
+                data, data_array, level_value
+            )
+
+            if level_index is not None and level_index != value_index:
+                raise ValueError(
+                    f"level_index={level_index} and level_value={level_value} select different "
+                    f"levels (index {value_index}); give only one of them"
+                )
+
+            level_index = value_index
+            coord_text = f"{level_value:g}" + (f" {units}" if units else "")
+
+        # Extract the appropriate 2D slice based on the level index, defaulting to the lowest model level if none was given
         if level_index is not None:
             data = self._apply_level_index_slice(data, level_index)
             logger.debug("Extracted 2D data using level_index=%s", level_index)
+            used_index = level_index
         else:
-            data = data[:, -1] if data.ndim == 2 else data[:, -1, ...]
+            logger.warning(
+                "No level_index or level_value given for %sD data; plotting the lowest model level (index 0)",
+                data.ndim,
+            )
+            data = data[:, 0] if data.ndim == 2 else data[:, 0, ...]
             if data.ndim > 1:
                 data = data[..., 0]
-            if level_value is not None:
-                logger.debug(
-                    "Extracted 2D data using surface level (level_value=%s not yet implemented)",
-                    level_value,
-                )
-            else:
-                logger.debug("Extracted 2D data using surface level (default)")
+            used_index = 0
+
+        self._current_level_label = (
+            f"Level: {coord_text} (index {used_index})"
+            if coord_text
+            else f"Level index {used_index}"
+        )
 
         if data.ndim > 1:
             data = data.flatten()
@@ -161,6 +254,52 @@ class MPASSurfacePlotter(MPASVisualizer):
             return converted
 
         return cast(np.ndarray, np.asarray(converted))
+
+    def _clip_negative_moisture(
+        self: "MPASSurfacePlotter",
+        data: np.ndarray,
+        var_name: str,
+    ) -> np.ndarray:
+        """
+        This helper function enforces the physical constraint that moisture-related variables (e.g., humidity, mixing ratios) are non-negative. For such variables, any negative values are counted, a warning with the count and the minimum value is logged, and the data are clipped to 0. Other variables are returned unchanged.
+
+        Parameters:
+            data (np.ndarray): Data array to check.
+            var_name (str): Variable name used to decide whether the variable is moisture-related and for logging.
+
+        Returns:
+            np.ndarray: The data array, clipped to non-negative values for moisture variables.
+        """
+        # Specify the list of moisture-related variable names to check for physical constraints (e.g., non-negative values)
+        moisture_vars = [
+            "q2",
+            "qv",
+            "qc",
+            "qr",
+            "qi",
+            "qs",
+            "qg",
+            "qv2m",
+            "humidity",
+            "mixing_ratio",
+        ]
+
+        # For moisture variables, check for negative values and clip to 0 if found, since negative moisture is physically invalid.
+        if any(moisture_var in var_name.lower() for moisture_var in moisture_vars):
+            # Count the number of negative values in the data array to log a warning if any are found
+            n_negative = int(np.sum(data < 0))
+
+            # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
+            if n_negative > 0:
+                logger.warning(
+                    "Found %s negative %s values (min: %.4f). Clipping to 0 (physically invalid).",
+                    f"{n_negative:,}",
+                    var_name,
+                    float(np.min(data)),
+                )
+                data = np.clip(data, 0, None)
+
+        return data
 
     def _extract_and_convert_units(
         self: "MPASSurfacePlotter",
@@ -206,9 +345,9 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Query UnitConverter for display units based on variable name and original unit, defaulting to original unit if no specific display unit is defined
         display_unit = UnitConverter.get_display_units(var_name, original_unit or "")
 
-        # Store original and display units in metadata for downstream use in titles and colorbar labels
+        # Store original units in metadata; the display unit is only recorded once the conversion has succeeded so labels never claim a unit the data is not in
         var_metadata["original_units"] = original_unit
-        var_metadata["units"] = display_unit
+        var_metadata["units"] = original_unit if original_unit else display_unit
 
         # Convert units if needed
         if original_unit != display_unit:
@@ -219,6 +358,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 )
                 # Ensure the converted data is a numpy array regardless of the input type
                 data = self._coerce_converted_data(converted_data)
+                var_metadata["units"] = display_unit
                 logger.debug(
                     "Converted %s from %s to %s", var_name, original_unit, display_unit
                 )
@@ -231,34 +371,21 @@ class MPASSurfacePlotter(MPASVisualizer):
                     e,
                 )
 
-        # Specify the list of moisture-related variable names to check for physical constraints (e.g., non-negative values)
-        moisture_vars = [
-            "q2",
-            "qv",
-            "qc",
-            "qr",
-            "qi",
-            "qs",
-            "qg",
-            "qv2m",
-            "humidity",
-            "mixing_ratio",
-        ]
+        # Use the canonical long name when the file's attribute only differs in capitalisation, so titles do not depend on whether data_array was passed
+        canonical = MPASFileMetadata.get_2d_variable_metadata(var_name, None).get(
+            "long_name"
+        )
+        current = var_metadata.get("long_name")
+        if (
+            canonical
+            and isinstance(current, str)
+            and current != canonical
+            and current.lower() == str(canonical).lower()
+        ):
+            var_metadata["long_name"] = canonical
 
-        # For moisture variables, check for negative values and clip to 0 if found, since negative moisture is physically invalid.
-        if any(moisture_var in var_name.lower() for moisture_var in moisture_vars):
-            # Count the number of negative values in the data array to log a warning if any are found
-            n_negative = int(np.sum(data < 0))
-
-            # If negative values are found, log a warning with the count and minimum value, then clip the data to 0 to enforce physical constraints.
-            if n_negative > 0:
-                logger.warning(
-                    "Found %s negative %s values (min: %.4f). Clipping to 0 (physically invalid).",
-                    f"{n_negative:,}",
-                    var_name,
-                    float(np.min(data)),
-                )
-                data = np.clip(data, 0, None)
+        # Moisture variables cannot be negative, so clip any negative values to 0
+        data = self._clip_negative_moisture(data, var_name)
 
         # Return the converted data as a numpy array along with the variable metadata
         return data, var_metadata
@@ -291,6 +418,21 @@ class MPASSurfacePlotter(MPASVisualizer):
             else var_metadata.get("colormap", "viridis")
         )
 
+        # An explicit colormap must exist (ValueError otherwise); a metadata default that is not registered falls back to viridis with a warning
+        if isinstance(final_colormap, str):
+            try:
+                plt.get_cmap(final_colormap)
+            except ValueError:
+                if colormap is not None:
+                    raise ValueError(
+                        f"Unknown colormap '{colormap}'; use a valid matplotlib colormap name"
+                    ) from None
+                logger.warning(
+                    "Default colormap '%s' is not available; using viridis",
+                    final_colormap,
+                )
+                final_colormap = "viridis"
+
         # Determine levels to use: prioritize explicit levels from caller, then metadata levels, otherwise None.
         if levels is None:
             levels = var_metadata.get("levels", None)
@@ -317,6 +459,9 @@ class MPASSurfacePlotter(MPASVisualizer):
         lat_min: float,
         lat_max: float,
         projection: str,
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[
         ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float
     ]:
@@ -329,17 +474,40 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat_min (float): Minimum latitude for the map extent.
             lat_max (float): Maximum latitude for the map extent.
             projection (str): Map projection type (e.g., 'PlateCarree', 'Mercator', etc.) to use for the plot.
+            central_longitude (Optional[float]): Explicit central longitude in degrees, overriding the auto-derived value.
+            central_latitude (Optional[float]): Explicit central latitude in degrees for projections that accept it, overriding the auto-derived value.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor.
 
         Returns:
             Tuple[ccrs.CRS, ccrs.CRS, float, float, float, float, float, float, float, float]: Map projection, data CRS, and filter bounds for plotting and data selection.
         """
         # Set up the map projection and data CRS using the base visualizer's setup function
         map_proj, data_crs = self.setup_map_projection(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=central_longitude,
+            central_latitude=central_latitude,
+            proj_kwargs=proj_kwargs,
         )
 
-        # Mercator cannot project latitudes at ±90° (the math diverges to ±∞). To avoid issues with cartopy when using a Mercator projection, we clamp the latitude bounds to a safe range just below ±90° to ensure that the CRS transformation does not encounter singularities at the poles.
-        if projection.lower() == "mercator":
+        # Determine if the requested extent is global in longitude and latitude.
+        # This is evaluated on the originally requested bounds (before any
+        # projection-specific clamping below) so a global request is still
+        # recognized as global for projections whose valid latitude range is
+        # narrower than ±90° (e.g. Mercator).
+        is_global_lon = (lon_max - lon_min) >= 359.0
+        is_global_lat = (lat_max - lat_min) >= 179.0
+        is_global = is_global_lon and is_global_lat
+
+        # Mercator cannot project latitudes at ±90° (the math diverges to ±∞). For
+        # regional extents we clamp the latitude bounds to a safe range just below
+        # ±90° so the CRS transformation does not hit the pole singularity. Global
+        # extents use set_global() below, which already respects Mercator's native
+        # latitude limits, so no clamping is needed there.
+        if projection.lower() == "mercator" and not is_global:
             _LAT_MERCATOR_MAX = 85.051
             lat_min = max(lat_min, -_LAT_MERCATOR_MAX)
             lat_max = min(lat_max, _LAT_MERCATOR_MAX)
@@ -351,30 +519,21 @@ class MPASSurfacePlotter(MPASVisualizer):
         # Ensure that the axes is a GeoAxes instance for cartopy plotting and raise an error if not
         assert isinstance(self.ax, GeoAxes), "Axes must be GeoAxes for cartopy plots"
 
-        # Determine if the requested extent is global in longitude and latitude to apply a safe extent that avoids dateline wrapping issues.
-        is_global_lon = (lon_max - lon_min) >= 359.0
-        is_global_lat = (lat_max - lat_min) >= 179.0
+        # If the extent is global, show the projection's full natural domain via
+        # set_global(). This is independent of the projection type and of any
+        # central_longitude: a set_extent() with a lon/lat box collapses for
+        # projected CRSs (e.g. Mercator, Robinson) centered near the antimeridian,
+        # because both longitude bounds map to nearly the same projected x.
+        if is_global:
+            self.ax.set_global()
 
-        # If the extent is global in longitude and latitude, we set a slightly smaller extent to avoid issues with dateline wrapping in cartopy.
-        if is_global_lon and is_global_lat:
-            # Apply a small buffer to the global extent to avoid dateline artifacts
+            # Nominal global bounds retained for downstream return values/logging.
             filter_lon_min = max(lon_min, -179.99)
             filter_lon_max = min(lon_max, 179.99)
             filter_lat_min = max(lat_min, -89.99)
             filter_lat_max = min(lat_max, 89.99)
 
-            # Set the map extent to the adjusted global bounds and log the chosen extent for debugging
-            self.ax.set_extent(
-                [filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max],
-                crs=data_crs,
-            )
-            logger.debug(
-                "Using global extent (adjusted to avoid dateline): [%s, %s, %s, %s]",
-                filter_lon_min,
-                filter_lon_max,
-                filter_lat_min,
-                filter_lat_max,
-            )
+            logger.debug("Using global extent via set_global() for projection view")
 
             # Use original lon/lat bounds for filtering data since we want to include all points in the dataset for global plots
             filter_lon_min_data = -180.01
@@ -389,7 +548,9 @@ class MPASSurfacePlotter(MPASVisualizer):
             filter_lat_max = lat_max
 
             # Set the map extent to the requested regional bounds and log the chosen extent for debugging
-            self.ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
+            self._apply_map_extent(
+                self.ax, [lon_min, lon_max, lat_min, lat_max], data_crs
+            )
 
             # Use the same lon/lat bounds for filtering data since we want to restrict to the regional area for non-global plots
             filter_lon_min_data = lon_min
@@ -404,7 +565,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         self.ax.add_feature(
             cfeature.BORDERS, linewidth=0.6, edgecolor="gray", alpha=0.7
         )
-        self.ax.add_feature(cfeature.OCEAN, facecolor="lightblue", alpha=0.3)
+        self._add_ocean_feature(self.ax, facecolor="lightblue", alpha=0.3)
         self.ax.add_feature(cfeature.LAND, facecolor="lightgray", alpha=0.2)
 
         # Add gridlines and labels for longitude and latitude with appropriate formatting
@@ -430,7 +591,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         cmap_obj: mcolors.Colormap,
     ) -> Optional[mcolors.Normalize]:
         """
-        This helper function constructs a BoundaryNorm instance for the colormap based on the provided contour levels. It first checks if valid levels are provided (i.e., a non-empty list of finite values) and then creates a list of bounds that includes the minimum level, all the sorted levels, and an additional upper bound that is one unit above the maximum level to ensure proper mapping of colors. The BoundaryNorm is then created using these bounds and the number of colors in the colormap, with clipping enabled to handle values outside the specified levels. If no valid levels are provided, the function returns None to indicate that default normalization should be used for continuous colormaps. Debug print statements can be included to confirm the construction of the BoundaryNorm and the bounds used, which can assist in troubleshooting and verifying that the correct normalization is being applied to the plot based on the provided levels.
+        This helper function constructs a BoundaryNorm instance for the colormap based on the provided contour levels. It first checks if valid levels are provided (i.e., a non-empty list of finite values) and then creates the bounds from exactly the sorted unique levels, so the colorbar spans the first to the last level and no phantom upper bound is shown. The BoundaryNorm is created with an open-ended over region (extend='max') so values above the top level take the top colour, while values below the first level take the colormap's under colour (its first colour); the colorbar extend arrows are derived separately from the plotted data. If fewer than two valid levels are provided, the function returns None to indicate that default normalization should be used for continuous colormaps. Debug print statements can be included to confirm the construction of the BoundaryNorm and the bounds used, which can assist in troubleshooting and verifying that the correct normalization is being applied to the plot based on the provided levels.
 
         Parameters:
             levels (Optional[List[float]]): Optional list of contour levels that may influence the construction of the BoundaryNorm.
@@ -439,20 +600,23 @@ class MPASSurfacePlotter(MPASVisualizer):
         Returns:
             Optional[mcolors.Normalize]: A BoundaryNorm instance if valid levels are provided, otherwise None to indicate default normalization should be used.
         """
+        if levels is None:
+            return None
+
+        color_levels_sorted = sorted(
+            {float(level_value) for level_value in levels if np.isfinite(level_value)}
+        )
+
+        # A single level cannot bound a colour interval, so the default continuous normalization is used instead
+        if len(color_levels_sorted) < 2:
+            return None
+
+        # Exactly the levels bound the colour scale; values above the top level take the over region (extend='max'), values below the first level the colormap's under colour (its first colour)
         try:
-            if levels is not None:
-                color_levels_sorted = sorted(
-                    {level_value for level_value in levels if np.isfinite(level_value)}
-                )
-                if color_levels_sorted:
-                    last_bound = max(color_levels_sorted) + 1
-                    bounds = (
-                        [min(color_levels_sorted)] + color_levels_sorted + [last_bound]
-                    )
-                    return BoundaryNorm(bounds, ncolors=cmap_obj.N, clip=True)
-        except Exception:
-            pass
-        return None
+            return BoundaryNorm(color_levels_sorted, ncolors=cmap_obj.N, extend="max")
+        except (ValueError, AttributeError):
+            # More colour regions than colours in the colormap (or no usable colormap): fall back to continuous normalization
+            return None
 
     def _create_colormap_normalization(
         self: "MPASSurfacePlotter",
@@ -463,7 +627,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         data: np.ndarray,
     ) -> Tuple[mcolors.Colormap, Optional[mcolors.Normalize]]:
         """
-        This helper function creates a matplotlib colormap object and an optional normalization instance based on the provided colormap name, contour levels, color limits, and data range. It first attempts to get the colormap object from matplotlib using the provided colormap name or identifier, and falls back to a default if the specified colormap is not found or invalid. Then it determines the appropriate normalization for the colormap based on the presence of explicit color limits (clim_min and clim_max) or contour levels. If explicit color limits are provided, it uses a simple Normalize to scale the colormap between those limits. If contour levels are provided, it creates a BoundaryNorm that maps the specified levels to the colormap. The function includes error handling to ensure that a valid colormap is always returned and debug print statements to confirm the chosen colormap and normalization parameters, which can assist in troubleshooting and verifying that the correct styling is being applied to the plot.
+        This helper function creates a matplotlib colormap object and an optional normalization instance based on the provided colormap name, contour levels, color limits, and data range. It first attempts to get the colormap object from matplotlib using the provided colormap name or identifier, and raises a ValueError if the specified colormap is not found or invalid (the plot is never silently drawn with a different colormap). Then it determines the appropriate normalization for the colormap based on the presence of explicit color limits (clim_min and clim_max) or contour levels. If explicit color limits are provided, it uses a simple Normalize to scale the colormap between those limits (a one-sided limit takes the other end from the finite data, and a resulting vmin >= vmax raises a ValueError). If contour levels are provided, it creates a BoundaryNorm that maps the specified levels to the colormap. The function includes error handling to ensure that a valid colormap is always returned and debug print statements to confirm the chosen colormap and normalization parameters, which can assist in troubleshooting and verifying that the correct styling is being applied to the plot.
 
         Parameters:
             colormap (str): Colormap name or identifier to use for plotting.
@@ -479,10 +643,12 @@ class MPASSurfacePlotter(MPASVisualizer):
             # Attempt to get the colormap object from matplotlib using the provided colormap name or identifier.
             cmap_obj = plt.get_cmap(colormap) if isinstance(colormap, str) else colormap
         except Exception:
-            # If the specified colormap is not found or invalid, log a warning and fall back to the default 'viridis' colormap.
-            cmap_obj = plt.get_cmap("viridis")
+            # A colormap that matplotlib does not know is an error the caller must see rather than a silent switch to viridis.
+            raise ValueError(
+                f"Unknown colormap '{colormap}'; use a valid matplotlib colormap name"
+            ) from None
 
-        # Determine the appropriate normalization for the colormap based on provided color limits or contour levels.
+        # A lookup that yields no colormap object falls back to the default
         if cmap_obj is None:
             cmap_obj = plt.get_cmap("viridis")
 
@@ -491,8 +657,24 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         # If explicit color limits are provided, we use a simple Normalize to scale the colormap between clim_min and clim_max.
         if clim_min is not None or clim_max is not None:
-            vmin = clim_min if clim_min is not None else float(np.nanmin(data))
-            vmax = clim_max if clim_max is not None else float(np.nanmax(data))
+            finite = np.asarray(data, dtype=float)
+            finite = finite[np.isfinite(finite)]
+            vmin = (
+                clim_min
+                if clim_min is not None
+                else (float(finite.min()) if finite.size else 0.0)
+            )
+            vmax = (
+                clim_max
+                if clim_max is not None
+                else (float(finite.max()) if finite.size else 1.0)
+            )
+            if not vmin < vmax:
+                raise ValueError(
+                    f"The color limits give vmin ({vmin:g}) >= vmax ({vmax:g}); a one-sided "
+                    f"clim_min/clim_max must lie inside the data range ({finite.min() if finite.size else 'n/a'} "
+                    f"to {finite.max() if finite.size else 'n/a'}) in the plotted units"
+                )
             norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         else:
             norm = self._build_boundary_norm(levels, cmap_obj)
@@ -543,6 +725,10 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         # For scatter plots, we enforce both finite values and geographic bounds to ensure we only plot valid points within the desired extent.
         if plot_type == "scatter":
+            # Re-express longitudes in the extent's frame so dateline-crossing boxes (e.g. 150..210) keep the cells east of 180°
+            lon = MPASGeographicUtils.wrap_longitude_to_extent(
+                lon, filter_lon_min_data, filter_lon_max_data
+            )
             valid_mask = (
                 np.isfinite(data)
                 & np.isfinite(lon)
@@ -601,9 +787,10 @@ class MPASSurfacePlotter(MPASVisualizer):
         grid_resolution: Optional[float],
         dataset: Optional[xr.Dataset],
         config: Optional[Any] = None,
+        interpolation: Optional[str] = None,
     ) -> None:
         """
-        This helper function renders the plot based on the specified plot type ('scatter', 'contour', 'contourf', or 'both') using the filtered valid longitude, latitude, and data points. It calls the appropriate internal helper functions to create scatter plots directly from the valid points or to create contour/filled contour plots by interpolating the valid data onto a regular lat-lon grid. For the 'both' option, it first creates contour lines and then overlays a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization. The function ensures that all rendering is done directly onto the GeoAxes instance (self.ax) and that the figure is updated accordingly. Debug print statements can be included to confirm which rendering mode is being used and to verify that the plotting functions are being called with the correct parameters, which can assist in troubleshooting and verifying that the plot is being rendered as intended based on the inputs provided.
+        This helper function renders the plot based on the specified plot type ('scatter', 'contour', 'contourf', 'pcolormesh', or 'both') using the filtered valid longitude, latitude, and data points. It calls the appropriate internal helper functions to create scatter plots directly from the valid points or to create contour/filled contour plots by interpolating the valid data onto a regular lat-lon grid. For the 'both' option, it first creates contour lines and then overlays a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization. The function ensures that all rendering is done directly onto the GeoAxes instance (self.ax) and that the figure is updated accordingly. Debug print statements can be included to confirm which rendering mode is being used and to verify that the plotting functions are being called with the correct parameters, which can assist in troubleshooting and verifying that the plot is being rendered as intended based on the inputs provided.
 
         Parameters:
             plot_type (str): Type of plot to render ('scatter', 'contour', 'contourf', or 'both').
@@ -618,6 +805,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             grid_resolution (Optional[float]): Optional grid resolution for contour interpolation.
             dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for contour interpolation.
             config (Optional[Any]): Optional configuration object that may contain additional settings for plotting.
+            interpolation (Optional[str]): Optional gridding method ('nearest', 'linear' or 'cubic') for the contour, contourf, pcolormesh and both plot types.
 
         Returns:
             None: This function renders the plot directly onto the GeoAxes instance and does not return any value.
@@ -646,6 +834,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 grid_resolution,
                 dataset,
                 config=config,
+                interpolation=interpolation,
             )
         elif plot_type == "contourf":
             # For filled contour plots, we call the helper that creates filled contours by interpolating the valid data points onto a regular lat-lon grid
@@ -663,6 +852,25 @@ class MPASSurfacePlotter(MPASVisualizer):
                 grid_resolution,
                 dataset,
                 config=config,
+                interpolation=interpolation,
+            )
+        elif plot_type == "pcolormesh":
+            # For pcolormesh, grid the data the same way as contourf and draw one coloured cell per grid box with the same norm and levels
+            self._create_pcolormesh_plot(
+                lon_valid,
+                lat_valid,
+                data_valid,
+                GeographicBounds(
+                    filter_lon_min, filter_lon_max, filter_lat_min, filter_lat_max
+                ),
+                cmap_obj,
+                norm,
+                levels,
+                data_crs,
+                grid_resolution,
+                dataset,
+                config=config,
+                interpolation=interpolation,
             )
         elif plot_type == "both":
             # For the 'both' option, we first create contour lines and then overlay a scatter plot of the valid points to show the original data locations on top of the contours
@@ -680,6 +888,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                 grid_resolution,
                 dataset,
                 config=config,
+                interpolation=interpolation,
             )
             # After plotting the contours, we overlay a scatter plot of the valid points to show the original data locations on top of the contours for enhanced visualization.
             self._create_scatter_plot(
@@ -693,7 +902,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         var_metadata: Dict[str, Any],
     ) -> Tuple[str, bool]:
         """
-        This helper function generates the title for the plot based on an optional user-provided title, an optional timestamp, and variable metadata. If a custom title is not provided, it constructs a default title using the variable's long name from the metadata. If a timestamp is provided and no custom title is given, it appends a formatted timestamp to the default title with a 'Valid Time:' prefix for clarity. If a custom title is provided along with a timestamp, it checks if the formatted timestamp or common time indicators are already included in the title to avoid redundant time annotations. The function returns the final title string to be used for the plot and a boolean flag indicating whether the timestamp is already included in the title, which can be useful for determining whether to add additional time annotations elsewhere in the plot (e.g., in subtitles or captions). Debug print statements can be included to confirm the generated title and whether the timestamp is included, which can assist in troubleshooting and verifying that the title is being created as intended based on the inputs provided.
+        This helper function generates the title for the plot based on an optional user-provided title, an optional timestamp, and variable metadata. If a custom title is not provided, it constructs a default title using the variable's long name from the metadata, followed by the selected vertical level when the field was sliced from a 3D variable. If a timestamp is provided and no custom title is given, it appends a formatted timestamp to the default title with a 'Valid Time:' prefix for clarity. If a custom title is provided along with a timestamp, it checks if the formatted timestamp or common time indicators are already included in the title to avoid redundant time annotations. The function returns the final title string to be used for the plot and a boolean flag indicating whether the timestamp is already included in the title, which can be useful for determining whether to add additional time annotations elsewhere in the plot (e.g., in subtitles or captions). Debug print statements can be included to confirm the generated title and whether the timestamp is included, which can assist in troubleshooting and verifying that the title is being created as intended based on the inputs provided.
 
         Parameters:
             title (Optional[str]): Optional custom title provided by the user.
@@ -709,15 +918,17 @@ class MPASSurfacePlotter(MPASVisualizer):
         if title is None:
             # If no custom title is provided, we construct a default title using the variable's long name from the metadata.
             title = f"MPAS {var_metadata['long_name']}"
+            if self._current_level_label:
+                title += f" | {self._current_level_label}"
             if time_stamp:
                 # If a timestamp is provided, we format it as 'YYYYMMDDTHH' and append it to the title with a 'Valid Time:' prefix for clarity.
-                time_str = time_stamp.strftime(self._TIME_FMT)
+                time_str = MPASDateTimeUtils.format_time_tag(time_stamp)
                 title += f" | Valid Time: {time_str}"
                 time_in_title = True
         else:
             if time_stamp:
                 # If a custom title is provided, we check if the formatted timestamp is already included in the title to avoid redundant time annotations
-                time_str = time_stamp.strftime(self._TIME_FMT)
+                time_str = MPASDateTimeUtils.format_time_tag(time_stamp)
                 time_in_title = (
                     time_str in title or "Valid Time:" in title or "Valid:" in title
                 )
@@ -763,7 +974,15 @@ class MPASSurfacePlotter(MPASVisualizer):
             try:
                 wind_plotter = MPASWindPlotter()
                 wind_plotter.add_wind_overlay(
-                    self.ax, lon, lat, wind_overlay, config=config
+                    self.ax,
+                    lon,
+                    lat,
+                    wind_overlay,
+                    lon_min=filter_lon_min,
+                    lon_max=filter_lon_max,
+                    lat_min=filter_lat_min,
+                    lat_max=filter_lat_max,
+                    config=config,
                 )
                 logger.info("Added wind overlay to surface map")
             except ValueError:
@@ -792,6 +1011,138 @@ class MPASSurfacePlotter(MPASVisualizer):
             except Exception as e:
                 logger.warning("Failed to add surface overlay: %s", e)
 
+    @staticmethod
+    def _sanitize_levels(levels: Optional[List[float]]) -> Optional[List[float]]:
+        """
+        This helper normalizes user-supplied contour levels into a sorted list of unique finite values, so duplicated or unsorted levels no longer make matplotlib raise from deep inside the contouring call. None passes through unchanged and an input with no finite value raises a ValueError.
+
+        Parameters:
+            levels (Optional[List[float]]): Contour levels as supplied by the caller or metadata.
+
+        Returns:
+            Optional[List[float]]: Sorted unique finite levels, or None when no levels were given.
+        """
+        if levels is None:
+            return None
+
+        cleaned = sorted({float(v) for v in levels if np.isfinite(v)})
+
+        if not cleaned:
+            raise ValueError("levels must contain at least one finite value")
+
+        return cleaned
+
+    @staticmethod
+    def _auto_levels(
+        data: np.ndarray,
+        num_levels: int,
+        clim_min: Optional[float],
+        clim_max: Optional[float],
+    ) -> List[float]:
+        """
+        This helper generates num_levels evenly spaced contour levels spanning the finite data range (or the supplied color limits). The values are rounded to a precision derived from the level spacing so the colorbar ticks stay readable, falling back to the unrounded values if rounding would merge levels; a constant field is widened into a small band so at least two strictly increasing levels always result.
+
+        Parameters:
+            data (np.ndarray): Data values (non-finite entries are ignored) used to find the range.
+            num_levels (int): Number of levels to generate (at least 2).
+            clim_min (Optional[float]): Optional lower end of the range overriding the data minimum.
+            clim_max (Optional[float]): Optional upper end of the range overriding the data maximum.
+
+        Returns:
+            List[float]: Strictly increasing levels.
+        """
+        finite = np.asarray(data, dtype=float)
+        finite = finite[np.isfinite(finite)]
+        vmin = (
+            clim_min
+            if clim_min is not None
+            else (float(finite.min()) if finite.size else 0.0)
+        )
+        vmax = (
+            clim_max
+            if clim_max is not None
+            else (float(finite.max()) if finite.size else 1.0)
+        )
+
+        if not vmax > vmin:
+            pad = abs(vmin) * 0.01 if vmin != 0 else 0.5
+            vmin, vmax = vmin - pad, vmax + pad
+
+        raw = np.linspace(vmin, vmax, int(num_levels))
+        step = (vmax - vmin) / max(int(num_levels) - 1, 1)
+        decimals = int(max(0, 2 - np.floor(np.log10(step)))) if step > 0 else 2
+        rounded = np.round(raw, decimals)
+
+        if np.all(np.diff(rounded) > 0):
+            return [float(v) for v in rounded]
+
+        return [float(v) for v in raw]
+
+    @staticmethod
+    def _validate_map_request(
+        bounds: GeographicBounds,
+        clim_min: Optional[float],
+        clim_max: Optional[float],
+        num_levels: Optional[int],
+    ) -> None:
+        """
+        This helper validates the geometry and numeric options of a surface map request before any figure is created: the extent must have a positive size with latitudes inside [-90, 90], a reversed color range (minimum not below maximum) is rejected, and num_levels, when given, must be an integer of at least 2. Each violation raises a ValueError with a clear message.
+
+        Parameters:
+            bounds (GeographicBounds): Requested map extent.
+            clim_min (Optional[float]): Optional minimum color limit.
+            clim_max (Optional[float]): Optional maximum color limit.
+            num_levels (Optional[int]): Optional number of automatic contour levels.
+
+        Returns:
+            None
+        """
+        lon_min, lon_max, lat_min, lat_max = bounds
+
+        if not (
+            lon_max > lon_min
+            and lat_max > lat_min
+            and -90 <= lat_min <= 90
+            and -90 <= lat_max <= 90
+        ):
+            raise ValueError(
+                f"Invalid plot extent (lon {lon_min}..{lon_max}, lat {lat_min}..{lat_max}): "
+                "the maximum must exceed the minimum and latitudes must lie within [-90, 90]"
+            )
+
+        if clim_min is not None and clim_max is not None and clim_min >= clim_max:
+            raise ValueError(
+                f"clim_min ({clim_min}) must be smaller than clim_max ({clim_max})"
+            )
+
+        if num_levels is not None and (
+            isinstance(num_levels, bool)
+            or not isinstance(num_levels, (int, np.integer))
+            or num_levels < 2
+        ):
+            raise ValueError(f"num_levels must be an integer >= 2, got {num_levels!r}")
+
+    @staticmethod
+    def _validated_interpolation(interpolation: Optional[str]) -> Optional[str]:
+        """
+        This helper function validates the requested gridding method. The value is normalised (stripped and lower-cased) and must be 'nearest', 'linear' or 'cubic'; None is passed through so the default gridding applies.
+
+        Parameters:
+            interpolation (Optional[str]): Requested gridding method, or None.
+
+        Returns:
+            Optional[str]: The normalised gridding method, or None.
+        """
+        normalised = interpolation
+        if normalised is not None:
+            normalised = str(normalised).strip().lower()
+            if normalised not in ("nearest", "linear", "cubic"):
+                raise ValueError(
+                    f"interpolation must be 'nearest', 'linear' or 'cubic', got '{interpolation}'"
+                )
+        return normalised
+
+    @close_figure_on_error
     def create_surface_map(
         self: "MPASSurfacePlotter",
         lon: np.ndarray,
@@ -816,11 +1167,11 @@ class MPASSurfacePlotter(MPASVisualizer):
             data (Union[np.ndarray, xr.DataArray]): Array of data values to be plotted, which can be a numpy array or an xarray DataArray.
             var_name (str): Variable name used for labeling and metadata extraction.
             bounds (GeographicBounds): Map extent as (lon_min, lon_max, lat_min, lat_max) longitude/latitude boundaries in degrees.
-            style (Optional[SurfaceMapStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, grid_resolution, wind_overlay, surface_overlay). If None, defaults are used.
+            style (Optional[SurfaceMapStyle]): Rendering and appearance settings (title, plot_type, colormap, levels, clim_min, clim_max, projection, central_longitude, central_latitude, proj_kwargs, grid_resolution, wind_overlay, surface_overlay, num_levels, interpolation). plot_type may be 'scatter', 'contour', 'contourf', 'pcolormesh' or 'both'; interpolation ('nearest', 'linear' or 'cubic') selects the gridding method of the gridded plot types. When levels is None and num_levels is set, that many evenly spaced levels spanning the data in the map extent (or the color limits) are generated. Degenerate input (empty or all-NaN data, a reversed or one-sided color range that leaves vmin >= vmax, an unknown colormap name, fewer than two distinct contour levels or a zero-size extent) raises a ValueError, and the figure is always closed when an exception escapes.
             time_stamp (Optional[datetime]): Optional timestamp to include in the title or annotations.
             data_array (Optional[xr.DataArray]): Optional xarray DataArray containing the data, used for metadata extraction and unit conversion.
-            level_index (Optional[int]): Optional index for selecting a vertical level from a multi-dimensional data array.
-            level_value (Optional[float]): Optional value for selecting a vertical level from a multi-dimensional data array based on coordinate values.
+            level_index (Optional[int]): Optional index for selecting a vertical level from a multi-dimensional data array; when 2D/3D data is given without a level the lowest level (index 0) is used with a warning, and the selected level appears in the default title.
+            level_value (Optional[float]): Optional vertical coordinate value for selecting a level; it is matched against the vertical coordinate carried by data_array (or by data) and a ValueError is raised when it cannot be matched, so it is never silently ignored.
             dataset (Optional[xr.Dataset]): Optional xarray Dataset that may be needed for remapping or interpolation of data for plotting.
 
         Returns:
@@ -843,13 +1194,26 @@ class MPASSurfacePlotter(MPASVisualizer):
         surface_overlay = style.surface_overlay
 
         # Validate that the requested plot_type is one of the supported options and raise a ValueError if not
-        if plot_type not in ["scatter", "contour", "both", "contourf"]:
+        if plot_type not in ["scatter", "contour", "both", "contourf", "pcolormesh"]:
             raise ValueError(
-                f"plot_type must be 'scatter', 'contour', 'contourf', or 'both', got '{plot_type}'"
+                f"plot_type must be 'scatter', 'contour', 'contourf', 'pcolormesh', or 'both', got '{plot_type}'"
             )
 
+        # Validate the gridding method before any figure is created
+        interpolation = self._validated_interpolation(style.interpolation)
+
+        # Close the figure left over from an earlier call on this plotter so reusing the plotter does not leak figures
+        self._release_previous_figure()
+
+        # Validate the requested extent, color limits and number of levels before any figure is created
+        self._validate_map_request(bounds, clim_min, clim_max, style.num_levels)
+        num_levels = style.num_levels
+        levels = self._sanitize_levels(levels)
+
         # If the data is a multi-dimensional array (e.g., 3D with vertical levels), we attempt to extract a 2D slice based on the provided level_index or level_value.
-        data = self._extract_2d_from_multidimensional(data, level_index, level_value)
+        data = self._extract_2d_from_multidimensional(
+            data, level_index, level_value, data_array
+        )
 
         # Validate coordinate and data array lengths match
         if len(data) != len(lon) or len(data) != len(lat):
@@ -859,9 +1223,22 @@ class MPASSurfacePlotter(MPASVisualizer):
             )
 
         # Convert inputs to numpy arrays if they are xarray DataArrays to ensure compatibility with matplotlib plotting functions.
-        lon = self.convert_to_numpy(lon)
+        # Longitudes may arrive in 0..360 (e.g. lonCell in degrees); the extent filters, the remapper
+        # back-mapping and the dataset alignment all work in [-180, 180]
+        lon = MPASGeographicUtils.normalize_longitude(
+            np.asarray(self.convert_to_numpy(lon), dtype=float)
+        )
         lat = self.convert_to_numpy(lat)
         data = self.convert_to_numpy(data)
+
+        # Reject empty or entirely missing data up front with a clear message
+        if data.size == 0:
+            raise ValueError(f"No data points were provided for {var_name}")
+
+        if not np.any(np.isfinite(data)):
+            raise ValueError(
+                f"No valid data points found: all data values are missing (NaN/inf) for {var_name}"
+            )
 
         # Perform unit conversion if necessary and extract variable metadata for use in titles and colorbar labels.
         data, var_metadata = self._extract_and_convert_units(data, var_name, data_array)
@@ -887,7 +1264,14 @@ class MPASSurfacePlotter(MPASVisualizer):
             filter_lat_min_data,
             filter_lat_max_data,
         ) = self._setup_map_extent_and_features(
-            lon_min, lon_max, lat_min, lat_max, projection
+            lon_min,
+            lon_max,
+            lat_min,
+            lat_max,
+            projection,
+            central_longitude=style.central_longitude,
+            central_latitude=style.central_latitude,
+            proj_kwargs=style.proj_kwargs,
         )
 
         # At this point, self.fig and self.ax should be initialized by _setup_map_extent_and_features, so we assert that they are not None
@@ -897,6 +1281,30 @@ class MPASSurfacePlotter(MPASVisualizer):
         assert (
             self.ax is not None
         ), "Axes must be created by _setup_map_extent_and_features"
+
+        # Generate the requested number of automatic levels from the data inside the map extent when the caller gave no explicit levels
+        if num_levels is not None and style.levels is None:
+            lon_for_levels = MPASGeographicUtils.wrap_longitude_to_extent(
+                lon, filter_lon_min_data, filter_lon_max_data
+            )
+            in_extent = (
+                (lon_for_levels >= filter_lon_min_data)
+                & (lon_for_levels <= filter_lon_max_data)
+                & (lat >= filter_lat_min_data)
+                & (lat <= filter_lat_max_data)
+            )
+            level_source = (
+                data[in_extent] if np.any(in_extent & np.isfinite(data)) else data
+            )
+            levels = self._auto_levels(
+                level_source, int(num_levels), clim_min, clim_max
+            )
+
+        # Contouring needs at least two distinct levels
+        if levels is not None and len(levels) < 2 and plot_type != "scatter":
+            raise ValueError(
+                f"At least two distinct contour levels are required for plot_type '{plot_type}', got {levels}"
+            )
 
         # Create the colormap object and normalization based on the final colormap name and levels or color limits.
         cmap_obj, norm = self._create_colormap_normalization(
@@ -933,6 +1341,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             grid_resolution,
             dataset,
             config=config,
+            interpolation=interpolation,
         )
 
         # Generate and set title based on variable metadata and timestamp information
@@ -941,7 +1350,7 @@ class MPASSurfacePlotter(MPASVisualizer):
 
         # Add timestamp annotation if not in title
         if time_stamp and not time_in_title:
-            time_str = time_stamp.strftime(self._TIME_FMT)
+            time_str = MPASDateTimeUtils.format_time_tag(time_stamp)
             self.ax.text(
                 0.02,
                 0.98,
@@ -998,6 +1407,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         resolution_bounds: Optional[Tuple[float, float]] = None,
         comm: Optional[Any] = None,
         config: Optional[dict] = None,
+        interpolation: Optional[str] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         This helper function performs interpolation of the original longitude, latitude, and data points onto a regular lat-lon grid defined by the specified geographic bounds and grid resolution. It uses the specified interpolation method (e.g., 'nearest', 'linear', 'cubic') to interpolate the data values onto the new grid. The function can optionally take an xarray Dataset to assist with interpolation, such as providing coordinate information or metadata, but it can also operate solely based on the provided lon/lat/data arrays. The resolution_bounds parameter can be used to specify minimum and maximum allowable grid resolutions for adaptive interpolation if a specific grid resolution is not provided. The function returns the interpolated longitude, latitude, and data arrays corresponding to the regular grid for use in contour plotting or other visualizations that require gridded data.
@@ -1016,6 +1426,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             resolution_bounds (Optional[Tuple[float, float]]): Minimum and maximum allowable grid resolutions for adaptive interpolation.
             comm (Optional[Any]): Optional MPI communicator for parallel execution in distributed computing environments (default: None).
             config (Optional[dict]): Optional configuration dictionary for additional parameters.
+            interpolation (Optional[str]): Explicit gridding method ('nearest', 'linear' or 'cubic') overriding method and the config remap method (default: None).
 
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Interpolated longitude, latitude, and data arrays corresponding to the regular grid.
@@ -1035,6 +1446,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             resolution_bounds=resolution_bounds,
             comm=comm,
             config=config,
+            interpolation=interpolation,
         )
         return grid
 
@@ -1156,7 +1568,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         surface_config: Dict[str, Any],
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        This helper function prepares the overlay data for plotting by performing unit inference and conversion, handling multi-dimensional data by extracting a 2D slice if necessary, and filtering valid data points based on finite values in the overlay data and corresponding longitude and latitude arrays. It first attempts to infer the original units of the overlay data based on the variable name and mean value if explicit units are not provided in the surface_config. If original units are determined, it uses the UnitConverter to convert the overlay data to display units for consistency with the main plot. If the overlay data is multi-dimensional (e.g., 3D with vertical levels), it extracts a 2D slice based on a specified level index or defaults to the last level. Finally, it creates a valid mask to filter out any points where the overlay data or corresponding longitude/latitude values are not finite, ensuring that only valid points are returned for interpolation and rendering of the surface overlay. If no valid points are found after filtering, it raises a ValueError to indicate that the overlay cannot be rendered due to lack of valid data. The function returns the filtered longitude, latitude, and overlay data arrays containing only valid points for use in subsequent plotting steps. Debug print statements can be included to confirm unit conversions, handling of multi-dimensional data, and results of filtering for valid points, which can assist in troubleshooting and verifying that the overlay data is being prepared correctly based on the inputs provided.
+        This helper function prepares the overlay data for plotting by performing unit inference and conversion, handling multi-dimensional data by extracting a 2D slice if necessary, and filtering valid data points based on finite values in the overlay data and corresponding longitude and latitude arrays. It first attempts to infer the original units of the overlay data based on the variable name and mean value if explicit units are not provided in the surface_config. If original units are determined, it uses the UnitConverter to convert the overlay data to display units for consistency with the main plot. If the overlay data is multi-dimensional (e.g., 3D with vertical levels), it extracts a 2D slice based on a specified level index or defaults to level 0, the lowest model level. Finally, it creates a valid mask to filter out any points where the overlay data or corresponding longitude/latitude values are not finite, ensuring that only valid points are returned for interpolation and rendering of the surface overlay. If no valid points are found after filtering, it raises a ValueError to indicate that the overlay cannot be rendered due to lack of valid data. The function returns the filtered longitude, latitude, and overlay data arrays containing only valid points for use in subsequent plotting steps. Debug print statements can be included to confirm unit conversions, handling of multi-dimensional data, and results of filtering for valid points, which can assist in troubleshooting and verifying that the overlay data is being prepared correctly based on the inputs provided.
 
         Parameters:
             overlay_data (np.ndarray): The original overlay data array that may require unit conversion and filtering.
@@ -1186,7 +1598,7 @@ class MPASSurfacePlotter(MPASVisualizer):
             overlay_data = (
                 overlay_data[:, level_index]
                 if level_index is not None
-                else overlay_data[:, -1]
+                else overlay_data[:, 0]
             )
             logger.debug("Extracted 2D overlay data from multi-dimensional array")
 
@@ -1547,8 +1959,9 @@ class MPASSurfacePlotter(MPASVisualizer):
             lat_max,
         )
 
-        # If no dataset is provided for remapping, we create one from the valid longitude and latitude arrays
-        dataset = self._create_overlay_dataset(lon, lat, dataset)
+        # If no dataset is provided for remapping, we create one from the valid longitude and latitude arrays; otherwise the valid values are placed back on the dataset's cells
+        dataset = self._create_overlay_dataset(lon_valid, lat_valid, dataset)
+        data_valid = self._align_to_dataset(dataset, lon_valid, lat_valid, data_valid)
 
         # Interpolate the valid overlay data onto a regular lat-lon grid defined by the calculated bounds and resolution
         lon_mesh, lat_mesh, data_interp = self._interpolate_overlay(
@@ -1642,7 +2055,7 @@ class MPASSurfacePlotter(MPASVisualizer):
                     time_end = pd.Timestamp(
                         processor.dataset.Time.values[time_idx]
                     ).to_pydatetime()
-                    time_str = time_end.strftime(self._TIME_FMT)
+                    time_str = MPASDateTimeUtils.format_time_tag(time_end)
                 else:
                     time_end = None
                     time_str = f"t{time_idx:03d}"
@@ -1685,8 +2098,9 @@ class MPASSurfacePlotter(MPASVisualizer):
                 self.save_plot(output_path, formats=formats)
 
                 # Append the paths of the created files to the list for tracking
-                for fmt in formats:
-                    created_files.append(f"{output_path}.{fmt}")
+                created_files.extend(
+                    MPASVisualizationStyle.saved_file_paths(output_path, formats)
+                )
 
                 # After saving the plot, we close the figure to free up memory before processing the next time step
                 self.close_plot()
@@ -1703,6 +2117,9 @@ class MPASSurfacePlotter(MPASVisualizer):
                 logger.exception(
                     "Error creating surface map for time index %d: %s", time_idx, e
                 )
+
+                # Close the partially built figure so failed steps do not leak open figures
+                self.close_plot()
                 continue
 
         logger.info("Batch processing completed. Created %d files.", len(created_files))
@@ -1727,6 +2144,7 @@ class MPASSurfacePlotter(MPASVisualizer):
         metadata = MPASFileMetadata.get_2d_variable_metadata(var_name, data_array)
         return metadata["colormap"], metadata["levels"]
 
+    @close_figure_on_error
     def create_simple_scatter_plot(
         self: "MPASSurfacePlotter",
         lon: np.ndarray,

@@ -25,7 +25,7 @@ import xarray as xr
 
 from mpasdiag.diagnostics.thermodynamic import (
     ThermodynamicDiagnostics,
-    RV_OVER_RD,
+    EPSILON,
     CONDENSATE_VARS,
     THETA_RHO_UNITS,
 )
@@ -272,8 +272,8 @@ class TestComputeDensityPotentialTemperature:
 
         result = diag_silent.compute_density_potential_temperature(theta, qv)
 
-        # qt == qv → theta_rho = theta * (1 + (Rv/Rd - 1) * qv)
-        expected = theta.values * (1.0 + RV_OVER_RD * qv.values - qv.values)
+        # qt == qv → theta_rho = theta * (1 + qv/eps) / (1 + qv)
+        expected = theta.values * (1.0 + qv.values / EPSILON) / (1.0 + qv.values)
         assert np.allclose(result.values, expected)
         assert result.attrs["units"] == THETA_RHO_UNITS
         assert result.attrs["standard_name"] == "density_potential_temperature"
@@ -297,7 +297,7 @@ class TestComputeDensityPotentialTemperature:
         qt = xr.DataArray(np.array([0.012]), dims=["x"])  # qv + condensate
 
         result = diag_silent.compute_density_potential_temperature(theta, qv, qt=qt)
-        expected = 300.0 * (1.0 + RV_OVER_RD * 0.01 - 0.012)
+        expected = 300.0 * (1.0 + 0.01 / EPSILON) / (1.0 + 0.012)
         assert np.allclose(result.values, expected)
 
     def test_computes_with_individual_condensates(
@@ -331,7 +331,7 @@ class TestComputeDensityPotentialTemperature:
             qg=qg,
         )
         qt_expected = 0.01 + 0.0005 + 0.0001 + 0.00005 + 0.00002 + 0.00001
-        expected = 300.0 * (1.0 + RV_OVER_RD * 0.01 - qt_expected)
+        expected = 300.0 * (1.0 + 0.01 / EPSILON) / (1.0 + qt_expected)
         assert np.allclose(result.values, expected)
 
     def test_verbose_runs_print_helpers_2d(
@@ -552,7 +552,7 @@ class TestComputeFromDataset:
         # With no condensates, qt == qv → known closed form
         theta = ds["theta"].isel(Time=0).values
         qv = ds["qv"].isel(Time=0).values
-        expected = theta * (1.0 + RV_OVER_RD * qv - qv)
+        expected = theta * (1.0 + qv / EPSILON) / (1.0 + qv)
         assert np.allclose(result.values, expected)
 
     def test_time_index_clamped_when_out_of_range(
@@ -570,12 +570,12 @@ class TestComputeFromDataset:
         Returns:
             None
         """
-        # n_time=2 → time_index=99 is clamped to 1; should not raise.
-        result = diag_silent.compute_density_potential_temperature_from_dataset(
-            ds_3d,
-            time_index=99,
-        )
-        assert result is not None
+        # n_time=2 → time_index=99 is out of range; it must raise rather than be silently clamped.
+        with pytest.raises(IndexError):
+            diag_silent.compute_density_potential_temperature_from_dataset(
+                ds_3d,
+                time_index=99,
+            )
 
     def test_uxarray_data_type_branch(
         self: "TestComputeFromDataset",
@@ -676,7 +676,7 @@ class TestVirtualPotentialTemperature:
         diag_silent: ThermodynamicDiagnostics,
     ) -> None:
         """
-        This test verifies that the compute_virtual_potential_temperature method computes correct values based on the formula θ_v = θ * (1 + Rv/Rd * qv). It provides valid theta and qv DataArrays, computes the virtual potential temperature, and asserts that the computed values match the expected values calculated from the formula. It also checks that the resulting DataArray has the correct units and standard_name attributes, confirming that the method correctly computes virtual potential temperature with the appropriate metadata. This test ensures that the method's implementation of the virtual potential temperature formula is correct and that it returns results with the expected attributes.
+        This test verifies that the compute_virtual_potential_temperature method computes correct values based on the formula θ_v = θ * (1 + qv/ε) / (1 + qv) with ε = Rd/Rv. It provides valid theta and qv DataArrays, computes the virtual potential temperature, and asserts that the computed values match the expected values calculated from the formula. It also checks that the resulting DataArray has the correct units and standard_name attributes, confirming that the method correctly computes virtual potential temperature with the appropriate metadata. This test ensures that the method's implementation of the virtual potential temperature formula is correct and that it returns results with the expected attributes.
 
         Parameters:
             diag_silent (ThermodynamicDiagnostics): An instance of the diagnostics class with verbose=False.
@@ -687,7 +687,7 @@ class TestVirtualPotentialTemperature:
         theta = xr.DataArray(np.array([300.0, 290.0]), dims=["x"])
         qv = xr.DataArray(np.array([0.01, 0.005]), dims=["x"])
         result = diag_silent.compute_virtual_potential_temperature(theta, qv)
-        expected = theta.values * (1.0 + RV_OVER_RD * qv.values)
+        expected = theta.values * (1.0 + qv.values / EPSILON) / (1.0 + qv.values)
         assert np.allclose(result.values, expected)
         assert result.attrs["units"] == THETA_RHO_UNITS
         assert result.attrs["standard_name"] == "virtual_potential_temperature"

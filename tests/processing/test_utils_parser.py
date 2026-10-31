@@ -15,7 +15,7 @@ Version: 1.0.0
 """
 
 # Load necessary libraries and modules for testing
-from typing import Optional, cast
+from typing import Any, Optional, cast
 import pytest
 import argparse
 from pathlib import Path
@@ -1144,6 +1144,21 @@ class TestRemapEngineMethodCLIArgs:
         argv = [subcommand] + base + extra_args
         return cast(argparse.Namespace, parser.parse_args(argv))
 
+    @staticmethod
+    def _config(ns: argparse.Namespace) -> Any:
+        """
+        This helper converts a parsed namespace into an MPASConfig through the unified CLI so the tests can check the dataclass defaults that replace suppressed argparse defaults.
+
+        Parameters:
+            ns (argparse.Namespace): The parsed namespace.
+
+        Returns:
+            Any: The resulting MPASConfig.
+        """
+        from mpasdiag import MPASUnifiedCLI
+
+        return MPASUnifiedCLI().parse_args_to_config(ns)
+
     def test_precipitation_default_engine(self: "TestRemapEngineMethodCLIArgs") -> None:
         """
         This test verifies that when parsing command-line arguments for the 'precipitation' subcommand with a specified variable (e.g., 'rainnc') but without explicitly providing remap engine or method options, the resulting parsed namespace defaults to using the 'kdtree' remap engine and 'nearest' remap method. This ensures that the CLI provides sensible defaults for remapping when users do not specify these options, allowing for a functional precipitation plotting experience without requiring additional input for remapping configuration.
@@ -1155,8 +1170,12 @@ class TestRemapEngineMethodCLIArgs:
             None
         """
         ns = self._parse("precipitation", ["--variable", "rainnc"])
-        assert ns.remap_engine == "kdtree"
-        assert ns.remap_method == "nearest"
+        # Defaults are suppressed so YAML values are never overwritten by argparse
+        # defaults; the kdtree/nearest defaults come from MPASConfig.
+        assert not hasattr(ns, "remap_engine")
+        config = self._config(ns)
+        assert config.remap_engine == "kdtree"
+        assert config.remap_method == "nearest"
 
     def test_precipitation_esmf_engine(self: "TestRemapEngineMethodCLIArgs") -> None:
         """
@@ -1193,7 +1212,8 @@ class TestRemapEngineMethodCLIArgs:
             None
         """
         ns = self._parse("surface", ["--variable", "t2m"])
-        assert ns.remap_engine == "kdtree"
+        assert not hasattr(ns, "remap_engine")
+        assert self._config(ns).remap_engine == "kdtree"
 
     def test_surface_custom_method(self: "TestRemapEngineMethodCLIArgs") -> None:
         """
@@ -1237,7 +1257,8 @@ class TestRemapEngineMethodCLIArgs:
                 "uReconstructMeridional",
             ],
         )
-        assert ns.remap_engine == "kdtree"
+        assert not hasattr(ns, "remap_engine")
+        assert self._config(ns).remap_engine == "kdtree"
 
     def test_parse_args_to_config_maps_remap_fields(
         self: "TestRemapEngineMethodCLIArgs",

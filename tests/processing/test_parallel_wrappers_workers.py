@@ -321,6 +321,13 @@ class TestSurfaceWorker:
             self.mock_dataset["lonCell"].values,
             self.mock_dataset["latCell"].values,
         )
+        # the surface worker reads data and coordinates like the serial path
+        self.mock_processor.extract_2d_coordinates_for_variable.return_value = (
+            self.mock_processor.extract_spatial_coordinates.return_value
+        )
+        self.mock_processor.get_2d_variable_data.side_effect = (
+            lambda var, t, _ds=self.mock_processor.dataset: _ds[var].isel(Time=t)
+        )
 
     def teardown_method(self: "TestSurfaceWorker") -> None:
         """
@@ -786,6 +793,15 @@ class TestWorkerCacheKeyErrorFallback:
         self.mock_processor_surface.extract_spatial_coordinates.return_value = (
             lon,
             lat,
+        )
+        # the surface worker reads data and coordinates like the serial path
+        self.mock_processor_surface.extract_2d_coordinates_for_variable.return_value = (
+            self.mock_processor_surface.extract_spatial_coordinates.return_value
+        )
+        self.mock_processor_surface.get_2d_variable_data.side_effect = (
+            lambda var, t, _ds=self.mock_processor_surface.dataset: _ds[var].isel(
+                Time=t
+            )
         )
 
         self.mock_processor_wind = Mock()

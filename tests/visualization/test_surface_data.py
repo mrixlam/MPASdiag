@@ -108,18 +108,17 @@ class TestDataExtraction:
         """
         data_3d = np.tile(self.temp_data, (10, 5, 1)).T
 
-        fig, _ = self.plotter.create_surface_map(
-            self.lon,
-            self.lat,
-            data_3d,
-            "t2m",
-            GeographicBounds(*self.extent_bounds),
-            style=SurfaceMapStyle(plot_type="scatter"),
-            level_value=850,
-        )
-
-        assert isinstance(fig, Figure)
-        plt.close(fig)
+        # level_value can no longer be silently ignored: without a data_array carrying the vertical coordinate it raises
+        with pytest.raises(ValueError, match="level_value"):
+            self.plotter.create_surface_map(
+                self.lon,
+                self.lat,
+                data_3d,
+                "t2m",
+                GeographicBounds(*self.extent_bounds),
+                style=SurfaceMapStyle(plot_type="scatter"),
+                level_value=850,
+            )
 
     def test_3d_data_no_level_specified(self: "TestDataExtraction") -> None:
         """

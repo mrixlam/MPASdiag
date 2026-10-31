@@ -113,11 +113,9 @@ class TestParseFileDatetimes:
         assert result[0] == datetime(2024, 1, 15, 6, 0, 0)
         assert result[1] == datetime(2024, 1, 15, 12, 0, 0)
 
-    def test_no_match_silent_generates_synthetic(
-        self: "TestParseFileDatetimes",
-    ) -> None:
+    def test_no_match_raises_value_error(self: "TestParseFileDatetimes") -> None:
         """
-        This test verifies that the parse_file_datetimes method generates a synthetic datetime (January 1, 2000) when it fails to find a valid datetime string in the provided filename and verbose is set to False. The test checks that when the filename does not contain any recognizable datetime format, the method returns a list containing a single datetime object set to January 1, 2000, confirming that it correctly handles the absence of valid datetime information in silent mode without raising an error.
+        This test verifies that parse_file_datetimes raises a ValueError naming the offending file when a filename carries no recognizable MPAS timestamp, instead of silently substituting a synthetic January 1, 2000 datetime. This regression test protects against output being labelled with invented times.
 
         Parameters:
             None
@@ -126,32 +124,14 @@ class TestParseFileDatetimes:
             None
         """
         files = ["no_date_in_this_filename.nc"]
-        result = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
-        assert len(result) == 1
-        assert result[0] == datetime(2000, 1, 1)
+        with pytest.raises(ValueError, match="no_date_in_this_filename.nc"):
+            MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
 
-    def test_no_match_verbose_prints_warning(self: "TestParseFileDatetimes") -> None:
-        """
-        This test verifies that the parse_file_datetimes method prints a warning when it fails to find a valid datetime string in the provided filename and verbose is set to True. The test checks that when the filename does not contain any recognizable datetime format, the method prints a warning message to the standard output, confirming that it correctly notifies the user of the issue in verbose mode while still returning a list containing a single datetime object set to January 1, 2000.
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-        files = ["no_date_in_this_filename.nc"]
-        captured = StringIO()
-        with patch("sys.stdout", new=captured):
-            result = MPASDateTimeUtils.parse_file_datetimes(files, verbose=True)
-        assert len(result) == 1
-        assert "Could not parse datetime" in captured.getvalue()
-
-    def test_invalid_datetime_match_silent_fallback(
+    def test_no_match_among_valid_files_names_bad_file(
         self: "TestParseFileDatetimes",
     ) -> None:
         """
-        This test verifies that the parse_file_datetimes method generates a synthetic datetime (January 1, 2000) when it encounters a filename that matches the datetime regex pattern but contains an invalid datetime value (e.g., month 13) and verbose is set to False. The test checks that when the filename contains a string that looks like a datetime but fails to convert to a valid datetime object, the method returns a list containing a single datetime object set to January 1, 2000, confirming that it correctly handles invalid datetime values in silent mode without raising an error.
+        This test verifies that when only one file in a list has an unparseable name, parse_file_datetimes raises a ValueError that names that file rather than returning a list that contains a made-up time for it.
 
         Parameters:
             None
@@ -159,16 +139,15 @@ class TestParseFileDatetimes:
         Returns:
             None
         """
-        files = ["/data/diag.2024-13-01_00.00.00.nc"]
-        result = MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
-        assert len(result) == 1
-        assert result[0] == datetime(2000, 1, 1)
+        files = ["/d/diag.2024-01-01_05.00.00.nc", "/d/diag.foo.nc"]
+        with pytest.raises(ValueError, match="diag.foo.nc"):
+            MPASDateTimeUtils.parse_file_datetimes(files, verbose=False)
 
-    def test_invalid_datetime_match_verbose_prints_warning(
+    def test_invalid_calendar_date_raises_value_error(
         self: "TestParseFileDatetimes",
     ) -> None:
         """
-        This test verifies that the parse_file_datetimes method prints a warning when it encounters a filename that matches the datetime regex pattern but contains an invalid datetime value (e.g., month 13) and verbose is set to True. The test checks that when the filename contains a string that looks like a datetime but fails to convert to a valid datetime object, the method prints a warning message to the standard output, confirming that it correctly notifies the user of the issue in verbose mode while still returning a list containing a single datetime object set to January 1, 2000.
+        This test verifies that a filename matching the timestamp pattern but holding an impossible calendar date (for example month 13 or February 30) raises a ValueError naming the file instead of being replaced by a synthetic datetime.
 
         Parameters:
             None
@@ -176,12 +155,29 @@ class TestParseFileDatetimes:
         Returns:
             None
         """
-        files = ["/data/diag.2024-13-01_00.00.00.nc"]
-        captured = StringIO()
-        with patch("sys.stdout", new=captured):
-            result = MPASDateTimeUtils.parse_file_datetimes(files, verbose=True)
-        assert "Invalid datetime" in captured.getvalue()
-        assert len(result) == 1
+        for name in ("diag.2024-13-01_00.00.00.nc", "diag.2024-02-30_00.00.00.nc"):
+            with pytest.raises(ValueError, match="Invalid datetime"):
+                MPASDateTimeUtils.parse_file_datetimes(["/data/" + name], False)
+
+    def test_file_sort_key_orders_chronologically_across_directories(
+        self: "TestParseFileDatetimes",
+    ) -> None:
+        """
+        This test verifies that file_sort_key orders files by the timestamp in their names rather than by full path, so that files collected from several subdirectories are chronological, and that names without a timestamp sort last.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        files = [
+            "/a/diag.2024-01-02_00.00.00.nc",
+            "/b/diag.2024-01-01_00.00.00.nc",
+            "/c/notime.nc",
+        ]
+        ordered = sorted(files, key=MPASDateTimeUtils.file_sort_key)
+        assert ordered == [files[1], files[0], files[2]]
 
 
 class TestValidateTimeParameters:
@@ -217,11 +213,11 @@ class TestValidateTimeParameters:
         assert idx == 2
         assert size == 5
 
-    def test_out_of_range_index_clamped_silent(
+    def test_out_of_range_index_raises(
         self: "TestValidateTimeParameters", time_dataset: xr.Dataset
     ) -> None:
         """
-        This test verifies that the validate_time_parameters method clamps the index to the maximum valid value when the provided index is out of range and verbose is set to False. The test checks that when the time index exceeds the size of the Time dimension, the method returns a tuple with the dimension name "Time", the index clamped to the last valid index (size - 1), and the size of the Time dimension, confirming that it correctly handles out-of-range indices in silent mode without printing any warnings.
+        This test verifies that validate_time_parameters raises an IndexError with a message stating the valid range when the requested time index lies beyond the dataset, instead of silently clamping to the last time step.
 
         Parameters:
             time_dataset (xr.Dataset): The dataset containing the time dimension.
@@ -229,30 +225,46 @@ class TestValidateTimeParameters:
         Returns:
             None
         """
-        _, idx, size = MPASDateTimeUtils.validate_time_parameters(
-            time_dataset, 99, verbose=False
+        with pytest.raises(IndexError, match="out of range"):
+            MPASDateTimeUtils.validate_time_parameters(time_dataset, 99, verbose=False)
+
+        with pytest.raises(IndexError):
+            MPASDateTimeUtils.validate_time_parameters(time_dataset, -99, verbose=False)
+
+    def test_negative_index_within_range_is_normalized(
+        self: "TestValidateTimeParameters", time_dataset: xr.Dataset
+    ) -> None:
+        """
+        This test verifies that a Python-style negative index within the dimension is accepted and normalized to the equivalent non-negative index (-1 selects the last time step).
+
+        Parameters:
+            time_dataset (xr.Dataset): The dataset containing the time dimension.
+
+        Returns:
+            None
+        """
+        _, idx, size = MPASDateTimeUtils.validate_time_parameters(time_dataset, -1)
+        assert idx == size - 1
+
+    def test_get_time_info_out_of_range_raises(
+        self: "TestValidateTimeParameters",
+    ) -> None:
+        """
+        This test verifies that get_time_info raises an IndexError for a time index beyond the Time coordinate instead of returning a fabricated 'time_99' label, keeping it consistent with validate_time_parameters.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        ds = xr.Dataset(
+            coords={"Time": pd.to_datetime(["2024-01-01 00:00", "2024-01-01 01:00"])}
         )
-        assert idx == size - 1
+        with pytest.raises(IndexError, match="out of range"):
+            MPASDateTimeUtils.get_time_info(ds, 99, verbose=False)
 
-    def test_out_of_range_index_clamped_verbose(
-        self: "TestValidateTimeParameters", time_dataset: xr.Dataset
-    ) -> None:
-        """
-        This test verifies that the validate_time_parameters method clamps the index to the maximum valid value and prints a warning when the provided index is out of range and verbose is set to True. The test checks that when the time index exceeds the size of the Time dimension, the method returns a tuple with the dimension name "Time", the index clamped to the last valid index (size - 1), and the size of the Time dimension, while also printing a warning message to the standard output indicating that the provided index exceeds the available range, confirming that it correctly handles out-of-range indices in verbose mode with appropriate logging.
-
-        Parameters:
-            time_dataset (xr.Dataset): The dataset containing the time dimension.
-
-        Returns:
-            None
-        """
-        captured = StringIO()
-        with patch("sys.stdout", new=captured):
-            _, idx, size = MPASDateTimeUtils.validate_time_parameters(
-                time_dataset, 99, verbose=True
-            )
-        assert idx == size - 1
-        assert "exceeds" in captured.getvalue()
+        assert MPASDateTimeUtils.get_time_info(ds, 1, verbose=False) == "20240101T01"
 
     def test_lowercase_time_dim_used(
         self: "TestValidateTimeParameters", lowercase_time_dataset: xr.Dataset

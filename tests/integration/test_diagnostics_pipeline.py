@@ -21,6 +21,7 @@ import xarray as xr
 from mpasdiag import MPAS2DProcessor
 from mpasdiag import MPAS3DProcessor
 from mpasdiag import PrecipitationDiagnostics
+from mpasdiag.diagnostics import InsufficientLookbackError
 from mpasdiag import WindDiagnostics
 from mpasdiag import SoundingDiagnostics
 
@@ -86,8 +87,14 @@ class TestPrecipitationDiagnosticsPipeline:
         assert dataset is not None
 
         diag = PrecipitationDiagnostics(verbose=False)
+        # The first output time has no earlier step to difference against, so a01h raises
+        with pytest.raises(InsufficientLookbackError):
+            diag.compute_precipitation_difference(
+                dataset, time_index=0, var_name="rainnc", accum_period="a01h"
+            )
+
         accum = diag.compute_precipitation_difference(
-            dataset, time_index=0, var_name="rainnc", accum_period="a01h"
+            dataset, time_index=1, var_name="rainnc", accum_period="a01h"
         )
 
         assert isinstance(accum, xr.DataArray)

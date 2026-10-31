@@ -15,12 +15,14 @@ Version: 1.0.0
 """
 
 # Load necessary libraries
+import dataclasses
 import threading
 import numpy as np
 import xarray as xr
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Tuple
 
+from .utils_geog import MPASGeographicUtils
 from .utils_logger import get_logger
 from .utils_validator import DataValidator
 
@@ -64,6 +66,25 @@ class MPASDataCache:
         self.max_variables = max_variables
         self.max_coordinates = max_coordinates
         self._access_count: Dict[str, int] = {}
+        self._coordinate_sources: Dict[str, str] = {}
+        self._variable_sources: Dict[str, str] = {}
+
+    @staticmethod
+    def _dataset_token(dataset: Any) -> str:
+        """
+        This static helper builds a string identity for a dataset so that cached arrays can be tied to the dataset (and therefore the file or files) they were read from. The token combines the file path recorded in the dataset's encoding when one exists, the Python object identity of the dataset, and the sizes of its dimensions. Two different datasets, such as two diagnostic files opened one after the other, therefore never share a token, which prevents a cache hit from returning arrays that were read from a different file under the same variable name and indices.
+
+        Parameters:
+            dataset (Any): The xarray Dataset (or Dataset-like object) to identify.
+
+        Returns:
+            str: A token identifying the dataset.
+        """
+        encoding = getattr(dataset, "encoding", None) or {}
+        sizes = getattr(dataset, "sizes", None) or {}
+        return (
+            f"{encoding.get('source', '')}|{id(dataset)}|{sorted(dict(sizes).items())}"
+        )
 
     def _get_lock(self: "MPASDataCache") -> threading.RLock:
         """
@@ -107,7 +128,10 @@ class MPASDataCache:
         self._lock = None
 
     def load_coordinates_from_dataset(
-        self: "MPASDataCache", dataset: xr.Dataset, var_name: Optional[str] = None
+        self: "MPASDataCache",
+        dataset: xr.Dataset,
+        var_name: Optional[str] = None,
+        refresh: bool = False,
     ) -> None:
         """
         This method loads and caches spatial coordinates (longitude and latitude) from the provided MPAS dataset for a specific variable or default cell-centered coordinates. It checks if the coordinates for the given variable name or default key are already cached to avoid redundant loading, extracts the appropriate coordinate variables based on the dimensions of the specified variable, converts them from radians to degrees if necessary, normalizes longitude values to the [-180, 180] range, and stores the resulting longitude and latitude arrays in the cache under a key derived from the variable name or 'default'. This method must be called before get_coordinates to ensure that the required coordinates are available in the cache for retrieval.
@@ -115,16 +139,25 @@ class MPASDataCache:
         Parameters:
             dataset (xr.Dataset): MPAS dataset containing the coordinate variables to cache.
             var_name (Optional[str]): Variable name to determine which coordinates to load, None for default cell-centered coordinates (default: None).
+            refresh (bool): If True, discard any cached entry and re-read from the dataset, which is required after the dataset was modified in place because the identity token cannot see in-place edits (default: False).
 
         Returns:
             None
         """
         with self._get_lock():
             cache_key = var_name or "default"
+            token = self._dataset_token(dataset)
 
-            # Check if already cached
+            if refresh:
+                self._coordinates.pop(cache_key, None)
+                self._coordinate_sources.pop(cache_key, None)
+
+            # Reuse the cached coordinates only when they came from this same dataset; a different dataset invalidates the entry
             if cache_key in self._coordinates:
-                return
+                if self._coordinate_sources.get(cache_key, token) == token:
+                    return
+                self._coordinates.pop(cache_key, None)
+                self._coordinate_sources.pop(cache_key, None)
 
             # Extract coordinates based on variable dimensions
             if var_name and var_name in dataset.data_vars:
@@ -157,28 +190,38 @@ class MPASDataCache:
             lat = dataset[lat_coord_name].values
 
             # Convert from radians to degrees if needed
-            if np.max(np.abs(lon)) <= 2 * np.pi:
-                lon = np.degrees(lon)
-                lat = np.degrees(lat)
+            lon, lat = MPASGeographicUtils.coordinates_to_degrees(
+                lon, lat, dataset[lon_coord_name].attrs, dataset[lat_coord_name].attrs
+            )
 
             # Normalize longitude to [-180, 180] range
             lon = ((lon + 180) % 360) - 180
 
             # Evict least accessed coordinates if at capacity
-            if len(self._coordinates) >= self.max_coordinates:
+            while self._coordinates and len(self._coordinates) >= self.max_coordinates:
                 self._evict_least_accessed_coordinates()
 
+            lon = np.array(lon, copy=True)
+            lat = np.array(lat, copy=True)
+            lon.flags.writeable = False
+            lat.flags.writeable = False
             self._coordinates[cache_key] = (lon, lat)
+            self._coordinate_sources[cache_key] = token
             logger.debug("Cached coordinates for '%s': %d points", cache_key, len(lon))
 
     def get_coordinates(
-        self: "MPASDataCache", var_name: Optional[str] = None
+        self: "MPASDataCache",
+        var_name: Optional[str] = None,
+        dataset: Optional[xr.Dataset] = None,
+        writable: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        This method retrieves cached spatial coordinates (longitude and latitude) for a specific variable or default cell-centered coordinates. It checks the cache for the requested coordinates based on a key derived from the variable name or 'default', and returns the longitude and latitude arrays as 1D numpy arrays in degrees. If the requested coordinates are not found in the cache, it raises a KeyError indicating that load_coordinates_from_dataset must be called first to populate the cache. This method provides thread-safe access to cached coordinates for use in subsequent processing steps that require spatial information.
+        This method retrieves cached spatial coordinates (longitude and latitude) for a specific variable or default cell-centered coordinates. It checks the cache for the requested coordinates based on a key derived from the variable name or 'default', and returns the cached longitude and latitude arrays as read-only views (no copy is made, so a hit costs nothing even for multi-million-cell meshes) unless writable=True, in which case independent writable copies are returned; the most recently loaded coordinates for that key are returned as 1D numpy arrays in degrees. If a dataset is supplied, its identity token is compared with the one the entry was cached from and a KeyError is raised on mismatch, so a cache reused with a different dataset or grid can never return stale arrays. Staleness detection is based on the dataset object identity, file source and dimension sizes only: a dataset modified in place (same object, same sizes) is not detected, so call load_coordinates_from_dataset with refresh=True or clear() after mutating data in place. If the requested coordinates are not found in the cache, it raises a KeyError indicating that load_coordinates_from_dataset must be called first to populate the cache. This method provides thread-safe access to cached coordinates for use in subsequent processing steps that require spatial information.
 
         Parameters:
             var_name (Optional[str]): Variable name to determine which coordinates to retrieve, None for default cell-centered coordinates (default: None).
+            dataset (Optional[xr.Dataset]): Dataset the caller is currently working with; when given, the entry must have been cached from this same dataset, otherwise a KeyError reports the stale entry (default: None, no check).
+            writable (bool): If True return independent writable copies instead of read-only views (default: False).
 
         Returns:
             Tuple[np.ndarray, np.ndarray]: Tuple of (longitude, latitude) arrays in degrees for the requested variable or default coordinates.
@@ -191,8 +234,22 @@ class MPASDataCache:
                     f"Coordinates for '{cache_key}' not loaded. Call load_coordinates_from_dataset first."
                 )
 
-            self._access_count[cache_key] = self._access_count.get(cache_key, 0) + 1
-            return self._coordinates[cache_key]
+            if dataset is not None and self._coordinate_sources.get(
+                cache_key
+            ) != self._dataset_token(dataset):
+                raise KeyError(
+                    f"Coordinates for '{cache_key}' were cached from a different dataset. "
+                    "Call load_coordinates_from_dataset with the current dataset first."
+                )
+
+            access_key = f"coords:{cache_key}"
+            self._access_count[access_key] = self._access_count.get(access_key, 0) + 1
+            lon, lat = self._coordinates[cache_key]
+
+            if writable:
+                return lon.copy(), lat.copy()
+
+            return lon, lat
 
     def load_variable_data(
         self: "MPASDataCache",
@@ -200,6 +257,7 @@ class MPASDataCache:
         var_name: str,
         time_index: Optional[int] = None,
         level_index: Optional[int] = None,
+        refresh: bool = False,
     ) -> None:
         """
         This method loads and caches variable data from the provided MPAS dataset for a specific variable name and optional time and vertical level indices. It checks if the variable data for the given combination of variable name and indices is already cached to avoid redundant loading, extracts the specified variable from the dataset, applies time and vertical level indexing if provided, retrieves metadata such as units and long_name, converts the data to a numpy array, checks the cache size against the maximum allowed variables and evicts the least accessed variable if necessary, and stores the resulting data array along with metadata in the cache under a key derived from the variable name and indices. This method must be called before get_variable_data to ensure that the required variable data is available in the cache for retrieval.
@@ -209,16 +267,27 @@ class MPASDataCache:
             var_name (str): Name of the variable to load and cache from the dataset.
             time_index (Optional[int]): Time index to select from the variable, None for unindexed data (default: None).
             level_index (Optional[int]): Vertical level index to select from the variable, None for unindexed data (default: None).
+            refresh (bool): If True, discard any cached entry and re-read from the dataset; needed after the dataset was modified in place because the identity token only covers dataset identity, file source and dimension sizes (default: False).
 
         Returns:
             None
         """
         with self._get_lock():
             cache_key = self._make_cache_key(var_name, time_index, level_index)
+            token = self._dataset_token(dataset)
 
-            # Check if already cached
+            if refresh:
+                self._variables.pop(cache_key, None)
+                self._variable_sources.pop(cache_key, None)
+                self._access_count.pop(cache_key, None)
+
+            # Reuse the cached array only when it came from this same dataset; a different dataset invalidates the entry
             if cache_key in self._variables:
-                return
+                if self._variable_sources.get(cache_key, token) == token:
+                    return
+                self._variables.pop(cache_key, None)
+                self._variable_sources.pop(cache_key, None)
+                self._access_count.pop(cache_key, None)
 
             if var_name not in dataset.data_vars:
                 raise ValueError(f"Variable '{var_name}' not found in dataset")
@@ -248,10 +317,11 @@ class MPASDataCache:
             )
 
             # Convert to numpy array
-            data_array = var_data.values
+            data_array = np.array(var_data.values, copy=True)
+            data_array.flags.writeable = False
 
-            # Check cache size and evict if needed
-            if len(self._variables) >= self.max_variables:
+            # Evict until there is room for the new entry
+            while self._variables and len(self._variables) >= self.max_variables:
                 self._evict_least_accessed()
 
             # Store in cache
@@ -265,6 +335,7 @@ class MPASDataCache:
             )
 
             self._variables[cache_key] = cached_var
+            self._variable_sources[cache_key] = token
             self._access_count[cache_key] = 0
 
             logger.debug(
@@ -279,14 +350,18 @@ class MPASDataCache:
         var_name: str,
         time_index: Optional[int] = None,
         level_index: Optional[int] = None,
+        dataset: Optional[xr.Dataset] = None,
+        writable: bool = False,
     ) -> CachedVariable:
         """
-        This method retrieves cached variable data for a specific variable name and optional time and vertical level indices. It checks the cache for the requested variable data based on a key derived from the variable name and indices, and returns a CachedVariable object containing the data array and metadata for the requested variable. If the requested variable data is not found in the cache, it raises a KeyError indicating that load_variable_data must be called first to populate the cache. This method provides thread-safe access to cached variable data for use in subsequent processing steps that require the variable values and associated metadata.
+        This method retrieves cached variable data for a specific variable name and optional time and vertical level indices. It checks the cache for the requested variable data based on a key derived from the variable name and indices, and returns a CachedVariable object whose data array is the cached read-only array itself (no copy, so hits are free; in-place writes raise ValueError) unless writable=True, in which case the data are an independent writable copy. If a dataset is supplied, its identity token must match the one the entry was cached from, otherwise a KeyError reports the stale entry; the token covers dataset identity, file source and dimension sizes only, so a dataset mutated in place is not detected and must be reloaded with refresh=True in load_variable_data. If the requested variable data is not found in the cache, it raises a KeyError indicating that load_variable_data must be called first to populate the cache. This method provides thread-safe access to cached variable data for use in subsequent processing steps that require the variable values and associated metadata.
 
         Parameters:
             var_name (str): Name of the variable to retrieve from the cache.
             time_index (Optional[int]): Time index to select from the variable, None for unindexed data (default: None).
             level_index (Optional[int]): Vertical level index to select from the variable, None for unindexed data (default: None).
+            dataset (Optional[xr.Dataset]): Dataset the caller is currently working with; when given, a cached entry that came from a different dataset raises KeyError instead of returning stale data (default: None, no check).
+            writable (bool): If True the returned data array is an independent writable copy (default: False).
 
         Returns:
             CachedVariable: CachedVariable object containing the data array and metadata for the requested variable.
@@ -299,8 +374,21 @@ class MPASDataCache:
                     f"Variable data '{cache_key}' not loaded. Call load_variable_data first."
                 )
 
+            if dataset is not None and self._variable_sources.get(
+                cache_key
+            ) != self._dataset_token(dataset):
+                raise KeyError(
+                    f"Variable data '{cache_key}' was cached from a different dataset. "
+                    "Call load_variable_data with the current dataset first."
+                )
+
             self._access_count[cache_key] = self._access_count.get(cache_key, 0) + 1
-            return self._variables[cache_key]
+            cached = self._variables[cache_key]
+
+            if writable:
+                return dataclasses.replace(cached, data=cached.data.copy())
+
+            return dataclasses.replace(cached)
 
     def clear(self: "MPASDataCache") -> None:
         """
@@ -318,6 +406,8 @@ class MPASDataCache:
             self._grid_data.clear()
             self._metadata.clear()
             self._access_count.clear()
+            self._coordinate_sources.clear()
+            self._variable_sources.clear()
             logger.debug("Cache cleared")
 
     def get_cache_info(self: "MPASDataCache") -> Dict[str, Any]:
@@ -382,16 +472,19 @@ class MPASDataCache:
         if not self._variables:
             return
 
-        least_accessed = min(self._access_count.items(), key=lambda x: x[1])[0]
-
-        if least_accessed in self._variables:
-            evicted = self._variables.pop(least_accessed)
-            self._access_count.pop(least_accessed, None)
-            logger.debug(
-                "Evicted variable '%s' from cache (%.2f MB freed)",
-                least_accessed,
-                evicted.data.nbytes / 1024 / 1024,
-            )
+        # Only variable keys are candidates; ties go to the oldest entry
+        least_accessed = min(
+            self._variables,
+            key=lambda k: (self._access_count.get(k, 0), self._variables[k].timestamp),
+        )
+        evicted = self._variables.pop(least_accessed)
+        self._variable_sources.pop(least_accessed, None)
+        self._access_count.pop(least_accessed, None)
+        logger.debug(
+            "Evicted variable '%s' from cache (%.2f MB freed)",
+            least_accessed,
+            evicted.data.nbytes / 1024 / 1024,
+        )
 
     def _evict_least_accessed_coordinates(self: "MPASDataCache") -> None:
         """
@@ -407,11 +500,12 @@ class MPASDataCache:
             return
 
         coord_keys = set(self._coordinates.keys())
-        coord_access = {k: self._access_count.get(k, 0) for k in coord_keys}
+        coord_access = {k: self._access_count.get(f"coords:{k}", 0) for k in coord_keys}
         least_accessed = min(coord_access.items(), key=lambda x: x[1])[0]
 
         evicted_lon, evicted_lat = self._coordinates.pop(least_accessed)
-        self._access_count.pop(least_accessed, None)
+        self._access_count.pop(f"coords:{least_accessed}", None)
+        self._coordinate_sources.pop(least_accessed, None)
         mem_freed = (evicted_lon.nbytes + evicted_lat.nbytes) / 1024 / 1024
 
         logger.debug(

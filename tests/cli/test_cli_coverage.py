@@ -207,9 +207,14 @@ class TestRunSingleCrossSectionLowerHalf:
 
         with tempfile.TemporaryDirectory() as safe_tmp_dir:
             config = SimpleNamespace(
+                levels=None,
+                extend="both",
+                plot_style="contourf",
+                batch_mode=False,
                 time_index=0,
                 title=None,
                 variable="temperature",
+                vertical_coord="pressure",
                 colormap="default",
                 output=None,
                 output_dir=safe_tmp_dir,
@@ -249,9 +254,14 @@ class TestRunSingleCrossSectionLowerHalf:
         output_dir = str(tmp_path / "cross_out")
 
         config = SimpleNamespace(
+            levels=None,
+            extend="both",
+            plot_style="contourf",
+            batch_mode=False,
             time_index=0,
             title=None,
             variable="temperature",
+            vertical_coord="pressure",
             colormap="default",
             output="explicit_plot",
             output_dir=output_dir,
@@ -423,6 +433,12 @@ class TestRunSoundingBatch:
         mock_sounding_diag.extract_sounding_profile.return_value = _make_profile()
 
         config = SimpleNamespace(
+            levels=None,
+            extend="both",
+            plot_style="contourf",
+            output=None,
+            output_formats=["png"],
+            batch_mode=False,
             time_start=0,
             time_end=1,
             output_dir=str(tmp_path),
@@ -471,6 +487,12 @@ class TestRunSoundingBatch:
         mock_sounding_diag.extract_sounding_profile.return_value = _make_profile()
 
         config = SimpleNamespace(
+            levels=None,
+            extend="both",
+            plot_style="contourf",
+            output=None,
+            output_formats=["png"],
+            batch_mode=False,
             time_start=None,
             time_end=None,
             output_dir=str(tmp_path),
@@ -519,6 +541,11 @@ class TestRunSoundingSingle:
         mock_sounding_diag.extract_sounding_profile.return_value = _make_profile()
 
         config = SimpleNamespace(
+            levels=None,
+            extend="both",
+            plot_style="contourf",
+            output_formats=["png"],
+            batch_mode=False,
             time_index=0,
             output=None,
             output_dir=str(tmp_path),
@@ -565,6 +592,11 @@ class TestRunSoundingSingle:
         mock_sounding_diag.extract_sounding_profile.return_value = _make_profile()
 
         config = SimpleNamespace(
+            levels=None,
+            extend="both",
+            plot_style="contourf",
+            output_formats=["png"],
+            batch_mode=False,
             time_index=0,
             output="custom_sounding",
             output_dir=str(tmp_path),
@@ -588,7 +620,8 @@ class TestRunSoundingSingle:
 
         call_kwargs = mock_plotter.create_skewt_diagram.call_args.kwargs
         assert call_kwargs["title"] == "My custom title"
-        assert "custom_sounding" in call_kwargs["save_path"]
+        # The diagram is now saved through plotter.save_plot (honoring --formats)
+        assert "custom_sounding" in mock_plotter.save_plot.call_args.args[0]
 
 
 class TestRunSoundingAnalysis:

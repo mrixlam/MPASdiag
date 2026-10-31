@@ -109,13 +109,14 @@ class TestEnhancedSurfacePlotting:
         temp_base = 220.0 + 80.0 * (
             (u_arr - u_arr.min()) / (u_arr.max() - u_arr.min() + 1e-12)
         )
+        # Modified: the vertical axis is now the LAST axis, so use (Time, nCells, nVertLevels)
         data_3d = np.tile(
-            temp_base.reshape((self.n_cells, 1, 1)), (1, self.n_levels, 1)
-        )
+            temp_base.reshape((1, self.n_cells, 1)), (1, 1, self.n_levels)
+        ) + np.arange(self.n_levels)
         result = self.visualizer.extract_2d_from_3d(data_3d, level_index=5)
 
-        assert result.shape == (self.n_cells,)
-        assert np.allclose(result, data_3d[:, 5, 0])
+        assert result.shape == (1, self.n_cells)
+        assert np.allclose(result, data_3d[..., 5])
 
     def test_extract_2d_from_3d_with_coordinate_value(
         self: "TestEnhancedSurfacePlotting",
@@ -470,8 +471,9 @@ class TestEnhancedSurfacePlotting:
                 self.lon, self.lat, temp_2d, "t2m", bounds, style=style
             )
 
-        assert "plot_type must be 'scatter', 'contour', 'contourf', or 'both'" in str(
-            context.value
+        assert (
+            "plot_type must be 'scatter', 'contour', 'contourf', 'pcolormesh', or 'both'"
+            in str(context.value)
         )
 
     def test_wind_overlay_error_handling(self: "TestEnhancedSurfacePlotting") -> None:
@@ -1269,8 +1271,14 @@ class TestDataTypeAgnosticFeatures:
         assert colormap == "terrain"
         assert isinstance(levels, list)
         assert levels is not None
-        assert levels is not None
-        assert all(1200 <= level <= 1600 for level in levels)
+
+        # A (near-)constant field gets a small strictly increasing band around the value;
+        # a varying field gets levels inside its range
+        if float(np.nanmax(geop_data) - np.nanmin(geop_data)) > 0:
+            assert all(1200 <= level <= 1600 for level in levels)
+        else:
+            assert len(levels) >= 2
+            assert all(b > a for a, b in zip(levels[:-1], levels[1:]))
 
     def test_variable_specific_humidity_settings(
         self: "TestDataTypeAgnosticFeatures",

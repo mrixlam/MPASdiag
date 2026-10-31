@@ -26,18 +26,37 @@ from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from scipy.spatial import KDTree
 from dataclasses import dataclass
-from math import radians, degrees, sin, cos, atan2, sqrt, asin
+from math import radians, sin, cos, atan2
 from typing import Tuple, Optional, List, Dict, Any, Union, cast
 
-from .base_visualizer import MPASVisualizer
+from .base_visualizer import MPASVisualizer, close_figure_on_error
 from .styling import MPASVisualizationStyle
+from ..processing.constants import NETCDF_ENGINE
 from ..processing.processors_3d import MPAS3DProcessor
+from ..processing.utils_geog import MPASGeographicUtils
 from ..processing.utils_unit import UnitConverter
+from ..processing.utils_datetime import MPASDateTimeUtils
 from ..processing.utils_metadata import MPASFileMetadata
 from ..processing.utils_logger import get_logger
 from ..processing.utils_validator import DataValidator
 
 logger = get_logger(__name__)
+
+# Potential-temperature variables stay in kelvin (the standard unit) rather than being converted to degrees Celsius
+_POTENTIAL_TEMPERATURE_VARS = ("theta", "theta_m", "theta_base", "theta_rho")
+
+# Explicit wind-component variable names used to choose symmetric diverging contour levels
+_WIND_VARS = (
+    "u",
+    "v",
+    "w",
+    "uzonal",
+    "umeridional",
+    "ureconstructzonal",
+    "ureconstructmeridional",
+    "u10",
+    "v10",
+)
 
 _PATH_NEIGHBOR_CACHE: Dict[Any, np.ndarray] = {}
 _PATH_NEIGHBOR_CACHE_MAX = 8
@@ -84,13 +103,15 @@ def _path_neighbor_fingerprint(
 
 @dataclass
 class CrossSectionStyle:
-    """Optional appearance and file-naming settings for batch cross-section plots, grouping contour levels, colormap, colorbar extend direction, plot type, and output filename prefix into a single value object."""
+    """Optional appearance and file-naming settings for batch cross-section plots, grouping contour levels, colormap, colorbar extend direction, plot type, output filename prefix, and optional colour limits (clim_min/clim_max, in plotted units, bounding the automatic levels when levels is None) into a single value object."""
 
     levels: Optional[np.ndarray] = None
     colormap: Optional[Union[str, mcolors.Colormap]] = None
     extend: str = "both"
     plot_type: str = "contourf"
     file_prefix: str = "mpas_cross_section"
+    clim_min: Optional[float] = None
+    clim_max: Optional[float] = None
 
 
 class MPASVerticalCrossSectionPlotter(MPASVisualizer):
@@ -100,6 +121,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         self: "MPASVerticalCrossSectionPlotter",
         figsize: Tuple[float, float] = (10, 12),
         dpi: int = 100,
+        verbose: bool = True,
     ) -> None:
         """
         This constructor initializes the MPASVerticalCrossSectionPlotter instance with specified figure dimensions and resolution. It calls the parent class constructor to set up the base visualization environment, allowing for consistent styling and branding across different plot types. The figsize parameter determines the size of the output figure in inches, while the dpi parameter controls the resolution of the saved figure for high-quality output. This setup ensures that the vertical cross-section plots are rendered with appropriate dimensions and clarity for analysis and presentation purposes.
@@ -107,11 +129,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Parameters:
             figsize (Tuple[float, float]): Figure size in inches (width, height) for the cross-section plot (default: (10, 12)).
             dpi (int): Dots per inch resolution for saved figure output (default: 100).
+            verbose (bool): Enable verbose informational output, forwarded to MPASVisualizer so every plotter constructor accepts the same keyword (default: True).
 
         Returns:
             None
         """
-        super().__init__(figsize, dpi)
+        super().__init__(figsize, dpi, verbose)
         self._phase_timings: Dict[str, float] = {}
 
     def _validate_cross_section_inputs(
@@ -146,13 +169,30 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         if "nVertLevels" not in var_dims and "nVertLevelsP1" not in var_dims:
             raise ValueError(f"Variable '{var_name}' is not a 3D atmospheric variable")
 
+        # The transect is sampled at model cells, so only cell-centred variables can be used; edge or vertex fields would silently reuse their indices as cell indices
+        spatial_dims = [
+            str(d)
+            for d in var_dims
+            if d not in ("Time", "time", "nVertLevels", "nVertLevelsP1")
+        ]
+
+        if spatial_dims and "nCells" not in spatial_dims:
+            hint = (
+                " Use a cell-centred variable such as 'uReconstructZonal' / 'uReconstructMeridional' instead of the edge-normal wind 'u'."
+                if "nEdges" in spatial_dims
+                else ""
+            )
+            raise ValueError(
+                f"Variable '{var_name}' lives on {spatial_dims} rather than nCells; vertical cross-sections require a cell-centred variable.{hint}"
+            )
+
     def _convert_and_clip_data(
         self: "MPASVerticalCrossSectionPlotter",
         data_values: Union[np.ndarray, xr.DataArray, float],
         var_name: str,
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
         """
-        This internal method performs unit conversion and physical clipping on the data values for the specified variable. It retrieves the original units from the variable metadata and determines the appropriate display units using the UnitConverter utility. If a conversion is needed, it applies the conversion to the data values and updates the metadata accordingly. Additionally, if the variable is identified as a moisture variable (e.g., specific humidity, mixing ratio), it checks for any negative values in the data, which are physically invalid, and clips them to zero while issuing a warning with the count of negative values and their range. This method ensures that the data values are in the correct units for display and that any physically unrealistic values are handled appropriately before plotting. Accepts np.ndarray, xr.DataArray, or float as input for data_values.
+        This internal method performs unit conversion and physical clipping on the data values for the specified variable. It retrieves the original units from the variable metadata and determines the appropriate display units using the UnitConverter utility. If a conversion is needed, it applies the conversion to the data values and updates the metadata accordingly (potential temperature is deliberately kept in kelvin). Additionally, if the variable is identified as a moisture variable (e.g., specific humidity, mixing ratio), it checks for any negative values in the data, which are physically invalid, and clips them to zero while issuing a warning with the count of negative values and their range. This method ensures that the data values are in the correct units for display and that any physically unrealistic values are handled appropriately before plotting. Accepts np.ndarray, xr.DataArray, or float as input for data_values.
 
         Parameters:
             data_values (Union[np.ndarray, xr.DataArray, float]): The data values to be processed.
@@ -169,6 +209,10 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             metadata = MPASFileMetadata.get_variable_metadata(var_name)
             original_units = metadata.get("units", "")
             display_units = UnitConverter.get_display_units(var_name, original_units)
+
+            # Keep potential temperature in kelvin; only the other temperature variables are shown in degrees Celsius
+            if var_name.lower() in _POTENTIAL_TEMPERATURE_VARS:
+                display_units = original_units
 
             if original_units != display_units and original_units:
                 logger.debug(
@@ -289,11 +333,53 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             ), "pressure_hPa"
 
         if desired_display == "modlev":
-            return vertical_coords, "modlev"
+            # Model levels are indices (0 at the lowest level), never the pressure or height values the levels were resolved from
+            return np.arange(len(vertical_coords), dtype=float), "modlev"
 
         return self._convert_vertical_to_height(
             vertical_coords, vertical_coord_type, mpas_3d_processor, time_index
         )
+
+    @staticmethod
+    def _filter_columns_below(
+        vertical_display: np.ndarray, data_values: np.ndarray, max_height: float
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        This static helper applies the maximum-height filter to a per-column (two-dimensional) vertical coordinate. Rows are kept up to and including the first row that lies above the limit in every column, so each column still has a level on or above the limit and the filled field reaches the top of the axes instead of stopping at, say, 11.6 km under a 12 km limit; the axes limits then clip the drawing at the limit. Within each column, data on levels beyond the first level above the limit are masked (set to NaN) rather than rows being dropped for all columns at once. If no level lies at or below the limit the unfiltered arrays are returned after a warning.
+
+        Parameters:
+            vertical_display (np.ndarray): Vertical coordinate in km with shape (levels, points).
+            data_values (np.ndarray): Data with the same shape.
+            max_height (float): Maximum height in km to keep.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: The filtered vertical coordinate and data (the data is a float copy with the masked entries set to NaN).
+        """
+        limit = float(max_height)
+
+        with np.errstate(invalid="ignore"):
+            below_any = np.nanmin(vertical_display, axis=1) <= limit
+
+        if not np.any(below_any):
+            logger.warning(
+                "No vertical levels are below the requested max_height; showing full range"
+            )
+            return vertical_display, data_values
+
+        # Keep every row up to one past the last row that is below the limit in some column (the bracketing row)
+        last = int(np.max(np.nonzero(below_any)[0]))
+        stop = min(last + 2, vertical_display.shape[0])
+        vertical_kept = vertical_display[:stop, :]
+        data_kept = np.array(data_values[:stop, :], dtype=float, copy=True)
+
+        # Mask, per column, everything beyond the first level above the limit
+        with np.errstate(invalid="ignore"):
+            above = vertical_kept > limit
+
+        prior_above = np.vstack([np.zeros((1, above.shape[1]), dtype=bool), above[:-1]])
+        data_kept[above & prior_above] = np.nan
+
+        return vertical_kept, data_kept
 
     def _apply_max_height_filter(
         self: "MPASVerticalCrossSectionPlotter",
@@ -303,7 +389,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         max_height: Optional[float],
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        This internal method applies a maximum height filter to the vertical coordinates and corresponding data values for display. It checks if the vertical coordinate being displayed is in height units (e.g., 'height_km') and if a max_height value is provided. If so, it creates a boolean mask to filter out any vertical levels that exceed the specified maximum height. The method then returns the filtered vertical coordinates and data values for plotting. If no filtering is applied (e.g., if the vertical coordinate is not in height units or if max_height is None), it returns the original vertical coordinates and data values without modification.
+        This internal method applies a maximum height filter to the vertical coordinates and corresponding data values for display. It checks if the vertical coordinate being displayed is in height units (e.g., 'height_km') and if a max_height value is provided. If so, it creates a boolean mask to filter out any vertical levels that exceed the specified maximum height (for a per-column two-dimensional vertical coordinate a level is kept when it lies below the limit in at least one column). The method then returns the filtered vertical coordinates and data values for plotting. If no filtering is applied (e.g., if the vertical coordinate is not in height units or if max_height is None), it returns the original vertical coordinates and data values without modification.
 
         Parameters:
             vertical_display (Union[np.ndarray, xr.DataArray, float]): The vertical coordinate values for display.
@@ -327,6 +413,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         if vertical_coord_display != "height_km" or max_height is None:
             return vertical_display, data_values
         try:
+            if np.asarray(vertical_display).ndim == 2:
+                return self._filter_columns_below(
+                    np.asarray(vertical_display), np.asarray(data_values), max_height
+                )
+
             mask = np.asarray(vertical_display) <= float(max_height)
             if np.any(mask):
                 return (
@@ -341,33 +432,135 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         return vertical_display, data_values
 
-    def _resolve_plot_style(
+    @staticmethod
+    def _visible_data_for_levels(
+        vertical_display: np.ndarray,
+        vertical_coord_display: str,
+        data_values: np.ndarray,
+        max_height: Optional[float],
+    ) -> np.ndarray:
+        """
+        This static helper returns the data that actually lies inside the visible vertical range, so automatic contour levels are derived from what is drawn rather than from the whole column. For a height display the visible range is below max_height (km); for a pressure display it is the pressure above the barometric equivalent of max_height (the same conversion the pressure axis limit uses). Hidden values are set to NaN in a copy. Model-level displays have no height axis, so the data are returned unchanged (the caller warns that max_height does not apply), as they are when max_height is None or nothing would remain visible.
+
+        Parameters:
+            vertical_display (np.ndarray): Vertical coordinate, one-dimensional (levels) or two-dimensional (levels, points).
+            vertical_coord_display (str): Displayed vertical coordinate type ('height_km', 'pressure_hPa', 'modlev', ...).
+            data_values (np.ndarray): Data with shape (levels, points).
+            max_height (Optional[float]): Maximum height in km shown on the vertical axis, or None.
+
+        Returns:
+            np.ndarray: The data with values outside the visible range masked as NaN, or the unchanged data.
+        """
+        if max_height is None:
+            return data_values
+
+        vertical = np.asarray(vertical_display, dtype=float)
+
+        if vertical.ndim == 1:
+            vertical = vertical[:, None]
+
+        with np.errstate(invalid="ignore"):
+            if vertical_coord_display == "height_km":
+                visible = vertical <= float(max_height)
+            elif vertical_coord_display == "pressure_hPa":
+                visible = vertical >= 1013.25 * np.exp(-float(max_height) / 8.4)
+            else:
+                return data_values
+
+        visible = np.broadcast_to(visible, data_values.shape)
+
+        if not np.any(visible):
+            return data_values
+
+        return np.where(visible, np.asarray(data_values, dtype=float), np.nan)
+
+    @staticmethod
+    def _apply_clim_to_levels(
+        levels: np.ndarray, clim_min: Optional[float], clim_max: Optional[float]
+    ) -> np.ndarray:
+        """
+        This static helper bounds a set of contour levels to the requested colour limits: levels outside the limits are dropped and the limits themselves become the first and last level, so the colours span exactly [clim_min, clim_max] (values beyond them fall in the extend regions).
+
+        Parameters:
+            levels (np.ndarray): Contour levels in ascending order.
+            clim_min (Optional[float]): Lower colour limit in plotted units, or None.
+            clim_max (Optional[float]): Upper colour limit in plotted units, or None.
+
+        Returns:
+            np.ndarray: The bounded levels.
+        """
+        bounded = np.asarray(levels, dtype=float)
+
+        if clim_min is not None:
+            bounded = np.concatenate([[float(clim_min)], bounded[bounded > clim_min]])
+
+        if clim_max is not None:
+            bounded = np.concatenate([bounded[bounded < clim_max], [float(clim_max)]])
+
+        return bounded
+
+    @staticmethod
+    def _ensure_contourable_levels(levels: Any) -> np.ndarray:
+        """
+        This static helper guarantees the contour levels can be drawn: contouring needs at least two levels, so a single level (as produced for a constant field) is widened into a small band around it, and an empty set becomes a band around zero.
+
+        Parameters:
+            levels (Any): Contour levels as any array-like.
+
+        Returns:
+            np.ndarray: Array of at least two contour levels.
+        """
+        levels_arr = np.asarray(levels)
+
+        if levels_arr.size < 2:
+            centre = float(levels_arr.ravel()[0]) if levels_arr.size else 0.0
+            half_width = max(abs(centre) * 1e-3, 0.5)
+            return np.array([centre - half_width, centre + half_width])
+
+        return levels_arr
+
+    @staticmethod
+    def _validate_clim_range(
+        clim_min: Optional[float], clim_max: Optional[float]
+    ) -> None:
+        """
+        This helper method checks that the colour limits, when both are given, form a valid range and raises a ValueError when the lower limit is not smaller than the upper limit.
+
+        Parameters:
+            clim_min (Optional[float]): Lower colour limit in plotted units, or None.
+            clim_max (Optional[float]): Upper colour limit in plotted units, or None.
+
+        Returns:
+            None
+        """
+        if (
+            clim_min is not None
+            and clim_max is not None
+            and float(clim_min) >= float(clim_max)
+        ):
+            raise ValueError(
+                f"clim_min ({clim_min}) must be smaller than clim_max ({clim_max})"
+            )
+
+    def _variable_style_defaults(
         self: "MPASVerticalCrossSectionPlotter",
         var_name: str,
-        data_values: Union[np.ndarray, xr.DataArray, float],
+        data_values: np.ndarray,
         colormap: Optional[Union[str, mcolors.Colormap]],
         levels: Optional[np.ndarray],
-    ) -> Tuple[Any, np.ndarray]:
+    ) -> Tuple[Any, Any]:
         """
-        This internal method resolves the plot style for the cross-section visualization by determining the appropriate colormap and contour levels based on the variable name and data values. It first checks if the data values are in a compatible format (np.ndarray or xr.DataArray) and converts them to np.ndarray if necessary. If both colormap and levels are provided, it returns them directly. Otherwise, it attempts to retrieve variable-specific styling information from the MPASVisualizationStyle class using a dummy DataArray with the same shape as the data values. If styling information is available, it uses the specified colormap and levels; if not, it falls back to default values (e.g., 'viridis' for colormap and automatically determined levels based on data range). This method ensures that the plot is styled appropriately for the variable being visualized while allowing for user overrides when desired.
+        This helper method fills in the colormap and contour levels that the caller left unset, using the variable-specific style when it is available. If the style lookup fails, the colormap falls back to 'viridis' and the levels to the automatically determined default levels.
 
         Parameters:
             var_name (str): The name of the variable being plotted, used to determine styling.
-            data_values (Union[np.ndarray, xr.DataArray, float]): The data values for the variable, used to determine contour levels if not provided.
-            colormap (Optional[Union[str, mcolors.Colormap]]): An optional colormap specified by the user; if None, a default or variable-specific colormap will be used.
-            levels (Optional[np.ndarray]): An optional array of contour levels specified by the user; if None, levels will be automatically determined based on data range and variable type.
+            data_values (np.ndarray): The data values for the variable, used to determine default contour levels.
+            colormap (Optional[Union[str, mcolors.Colormap]]): The user-specified colormap, or None.
+            levels (Optional[np.ndarray]): The user-specified contour levels, or None.
 
         Returns:
-            Tuple[Any, np.ndarray]: The resolved colormap and contour levels for plotting the cross-section.
+            Tuple[Any, Any]: The colormap and levels, with every value that was None replaced by its default.
         """
-        if isinstance(data_values, xr.DataArray):
-            data_values = data_values.values
-        elif not isinstance(data_values, np.ndarray):
-            data_values = np.asarray(data_values)
-
-        if colormap is not None and levels is not None:
-            return colormap, levels
-
         try:
             dummy_data = xr.DataArray(
                 data_values, dims=["level", "distance"], name=var_name
@@ -388,8 +581,63 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             if levels is None:
                 levels = self._get_default_levels(data_values, var_name)
 
+        return colormap, levels
+
+    def _resolve_plot_style(
+        self: "MPASVerticalCrossSectionPlotter",
+        var_name: str,
+        data_values: Union[np.ndarray, xr.DataArray, float],
+        colormap: Optional[Union[str, mcolors.Colormap]],
+        levels: Optional[np.ndarray],
+        clim_min: Optional[float] = None,
+        clim_max: Optional[float] = None,
+    ) -> Tuple[Any, np.ndarray]:
+        """
+        This internal method resolves the plot style for the cross-section visualization by determining the appropriate colormap and contour levels based on the variable name and data values. It first checks if the data values are in a compatible format (np.ndarray or xr.DataArray) and converts them to np.ndarray if necessary. If both colormap and levels are provided, it returns them directly. Otherwise, it attempts to retrieve variable-specific styling information from the MPASVisualizationStyle class using a dummy DataArray with the same shape as the data values. If styling information is available, it uses the specified colormap and levels; if not, it falls back to default values (e.g., 'viridis' for colormap and automatically determined levels based on data range). This method ensures that the plot is styled appropriately for the variable being visualized while allowing for user overrides when desired.
+
+        Parameters:
+            var_name (str): The name of the variable being plotted, used to determine styling.
+            data_values (Union[np.ndarray, xr.DataArray, float]): The data values for the variable, used to determine contour levels if not provided.
+            colormap (Optional[Union[str, mcolors.Colormap]]): An optional colormap specified by the user; if None, a default or variable-specific colormap will be used.
+            levels (Optional[np.ndarray]): An optional array of contour levels specified by the user; if None, levels will be automatically determined based on data range and variable type.
+            clim_min (Optional[float]): Lower colour limit in plotted units; bounds the automatic levels (ignored when levels is given).
+            clim_max (Optional[float]): Upper colour limit in plotted units; bounds the automatic levels (ignored when levels is given).
+
+        Returns:
+            Tuple[Any, np.ndarray]: The resolved colormap and contour levels for plotting the cross-section.
+        """
+        if isinstance(data_values, xr.DataArray):
+            data_values = data_values.values
+        elif not isinstance(data_values, np.ndarray):
+            data_values = np.asarray(data_values)
+
+        self._validate_clim_range(clim_min, clim_max)
+
+        if colormap is not None and levels is not None:
+            return colormap, self._ensure_contourable_levels(levels)
+
+        levels_given = levels is not None
+
+        if not levels_given and (clim_min is not None or clim_max is not None):
+            data_values = np.clip(
+                data_values,
+                None if clim_min is None else float(clim_min),
+                None if clim_max is None else float(clim_max),
+            )
+
+        colormap, levels = self._variable_style_defaults(
+            var_name, data_values, colormap, levels
+        )
+
         if levels is None:
             levels = self._get_default_levels(data_values, var_name)
+
+        if not levels_given and (clim_min is not None or clim_max is not None):
+            levels = self._apply_clim_to_levels(
+                np.asarray(levels, dtype=float), clim_min, clim_max
+            )
+
+        levels = self._ensure_contourable_levels(levels)
 
         return colormap, levels
 
@@ -446,13 +694,22 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             )
             self.ax.clabel(contour_set, inline=True, fontsize=8, fmt="%.1f")
         elif plot_type == "pcolormesh":
+            # Colour by the same level boundaries (and extend regions) the filled-contour plot uses
+            if "norm" not in kwargs:
+                cmap_obj = (
+                    plt.get_cmap(colormap) if isinstance(colormap, str) else colormap
+                )
+                kwargs["norm"] = mcolors.BoundaryNorm(
+                    np.asarray(levels, dtype=float), cmap_obj.N, extend=extend
+                )
+
             contour_set = self.ax.pcolormesh(X, Y, data_values, cmap=colormap, **kwargs)
         else:
             raise ValueError(
                 f"Unknown plot_type: {plot_type}. Use 'contourf', 'contour', or 'pcolormesh'"
             )
 
-        if plot_type in ["contourf", "pcolormesh"]:
+        if plot_type in ["contourf", "contour", "pcolormesh"]:
             label = (
                 f"{metadata.get('long_name', var_name)} [{metadata.get('units', '')}]"
                 if metadata.get("units", "")
@@ -463,7 +720,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 self.fig is not None
             ), "Figure must be initialized before adding a colorbar"
 
-            MPASVisualizationStyle.add_colorbar(
+            cbar = MPASVisualizationStyle.add_colorbar(
                 self.fig,
                 self.ax,
                 contour_set,
@@ -477,6 +734,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 label_pos="right",
                 tick_labelsize=10,
             )
+
+            # Keep the tick labels on the outer (right) side so they never overlap the axes frame
+            if cbar is not None:
+                cbar.ax.yaxis.set_ticks_position("right")
+                cbar.ax.yaxis.set_label_position("right")
 
     def _generate_cross_section_title(
         self: "MPASVerticalCrossSectionPlotter",
@@ -528,6 +790,31 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         self.fig.savefig(save_path, **save_kwargs)
         logger.info("Vertical cross-section saved to: %s", save_path)
 
+    @staticmethod
+    def _normalize_time_index(
+        mpas_3d_processor: "MPAS3DProcessor", var_name: str, time_index: int
+    ) -> int:
+        """
+        This static helper validates the requested time index once, up front, and returns the equivalent non-negative index. Python-style negative indices are accepted; an index outside [-n, n) raises an IndexError stating the valid range (instead of being swallowed by the per-level extraction and failing later). Variables without a time dimension are returned unchanged.
+
+        Parameters:
+            mpas_3d_processor ('MPAS3DProcessor'): Processor whose dataset holds the variable.
+            var_name (str): Name of the plotted variable.
+            time_index (int): Requested time index.
+
+        Returns:
+            int: The validated non-negative time index.
+        """
+        dataset = mpas_3d_processor.dataset
+
+        if dataset is None or not any(
+            d in dataset[var_name].sizes for d in ("Time", "time")
+        ):
+            return time_index
+
+        return int(MPASDateTimeUtils.validate_time_parameters(dataset, time_index)[1])
+
+    @close_figure_on_error
     def create_vertical_cross_section(
         self: "MPASVerticalCrossSectionPlotter",
         mpas_3d_processor: Any,
@@ -558,8 +845,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             num_points (int): Number of interpolation points along the cross-section path for smooth plotting (default: 100).
             save_path (Optional[str]): File path to save the generated figure; if None, the figure is not saved to disk (default: None).
             title (Optional[str]): Title for the plot; if None, a default title is generated based on variable name and time information (default: None).
-            max_height (Optional[float]): Maximum height in kilometers to display on the vertical axis; if None, full height range is shown based on data and vertical coordinate system (default: None).
-            style (Optional[CrossSectionStyle]): Appearance settings (levels, colormap, extend, plot_type). If None, defaults are used.
+            max_height (Optional[float]): Maximum height in kilometers to display on the vertical axis; if None, full height range is shown based on data and vertical coordinate system (default: None). Automatic contour levels are computed from the visible data only; it does not apply to a model-level display (a warning is logged).
+            style (Optional[CrossSectionStyle]): Appearance settings (levels, colormap, extend, plot_type, clim_min, clim_max). If None, defaults are used.
             **kwargs: Additional keyword arguments passed to the underlying matplotlib plotting functions for further customization. May also include the advanced batch knob ``precomputed_levels`` (Optional[Tuple[np.ndarray, str]]): an already-resolved (vertical_levels, vertical_coord_type) pair to reuse for this plot. Resolving pressure levels reads and reduces the FULL 3D pressure field, so batch callers resolve once per batch and pass the result here; every frame then shares a consistent vertical axis and skips that read. If absent, levels are resolved from the dataset for this time index.
 
         Returns:
@@ -578,6 +865,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         plot_type = style.plot_type
 
         self._validate_cross_section_inputs(mpas_3d_processor, var_name)
+
+        if num_points < 2:
+            raise ValueError(f"num_points must be at least 2, got {num_points}")
+
+        time_index = self._normalize_time_index(mpas_3d_processor, var_name, time_index)
 
         logger.info("Creating vertical cross-section for %s", var_name)
         logger.info(
@@ -635,15 +927,55 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             time_index,
         )
 
+        # Replace the 1-D vertical axis with each column's own pressure or height when it can be sampled at the path cells
+        column_vertical = self._resolve_column_vertical(
+            mpas_3d_processor,
+            time_index,
+            cross_section_data.get("path_cells"),
+            data_values.shape[0],
+            vertical_coord_display,
+        )
+
+        if column_vertical is not None and column_vertical.shape == data_values.shape:
+            vertical_display = column_vertical
+
         vertical_display, data_values = self._apply_max_height_filter(
             vertical_display, vertical_coord_display, data_values, max_height
         )
 
         X: np.ndarray
         Y: np.ndarray
-        X, Y = np.meshgrid(longitudes, vertical_display)
+        distances = cross_section_data.get("distances")
+
+        # Use along-path distance as the horizontal axis (longitude collapses for N-S sections and wraps at the dateline); fall back to longitude only for a degenerate zero-length path or data without distances
+        use_distance = (
+            distances is not None
+            and len(distances) == len(longitudes)
+            and float(np.nanmax(distances)) > 0.0
+        )
+        x_values = np.asarray(distances if use_distance else longitudes, dtype=float)
+
+        if np.ndim(vertical_display) == 2:
+            Y = np.asarray(vertical_display, dtype=float)
+            X = np.broadcast_to(x_values, Y.shape)
+        else:
+            X, Y = np.meshgrid(x_values, vertical_display)
+
+        if max_height is not None and vertical_coord_display == "modlev":
+            logger.warning(
+                "max_height=%s km does not apply to a model-level display and is ignored",
+                max_height,
+            )
+
         colormap, levels = self._resolve_plot_style(
-            var_name, data_values, colormap, levels
+            var_name,
+            self._visible_data_for_levels(
+                vertical_display, vertical_coord_display, data_values, max_height
+            ),
+            colormap,
+            levels,
+            clim_min=style.clim_min,
+            clim_max=style.clim_max,
         )
 
         self._render_cross_section_plot(
@@ -659,6 +991,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             **kwargs,
         )
 
+        self._shade_terrain(x_values, Y, vertical_coord_display)
+
         self._format_cross_section_axes(
             longitudes,
             vertical_display,
@@ -666,6 +1000,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             start_point,
             end_point,
             max_height,
+            distances=distances if use_distance else None,
+            path_lats=cross_section_data.get("path_lats"),
         )
 
         final_title = self._generate_cross_section_title(
@@ -674,9 +1010,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         self.ax.set_title(final_title, fontsize=14, fontweight="bold", pad=20)
         self.ax.grid(True, alpha=0.3, linestyle="--")
+        # tight_layout already fits the axis labels; keep only a slim margin for the branding footer
         plt.tight_layout()
-
-        self.fig.subplots_adjust(bottom=0.09)
+        self.fig.subplots_adjust(bottom=max(self.fig.subplotpars.bottom, 0.06))
         self.add_timestamp_and_branding()
 
         self._phase_timings["render"] = time.perf_counter() - render_start
@@ -774,7 +1110,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         path_lats: np.ndarray,
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        This internal method extracts the longitude and latitude coordinates from the MPAS3DProcessor dataset for the specified variable. It first attempts to use the extract_2d_coordinates_for_variable method, which may provide variable-specific coordinate extraction logic. If that fails (e.g., due to missing metadata or unexpected data structure), it falls back to using the 'lonCell' and 'latCell' variables from the dataset as default coordinates. The method also checks if the longitude values are in radians (i.e., within ±π) and converts them to degrees if necessary. Finally, it prints information about the grid domain and cross-section path, and checks whether the path extends outside the grid domain, issuing a warning if so. The method returns the longitude and latitude coordinates as numpy arrays for use in spatial interpolation along the cross-section path.
+        This internal method extracts the longitude and latitude coordinates from the MPAS3DProcessor dataset for the specified variable. It first attempts to use the extract_2d_coordinates_for_variable method, which may provide variable-specific coordinate extraction logic. If that fails (e.g., due to missing metadata or unexpected data structure), it falls back to using the 'lonCell' and 'latCell' variables from the dataset as default coordinates. The processor's coordinates are already in degrees and are used as they are, while the raw radian-valued fallback is converted exactly once through MPASGeographicUtils.coordinates_to_degrees using the units attributes when available. Finally, it prints information about the grid domain and cross-section path, and checks whether the path extends outside the grid domain, issuing a warning if so. The method returns the longitude and latitude coordinates as numpy arrays for use in spatial interpolation along the cross-section path.
 
         Parameters:
             mpas_3d_processor ('MPAS3DProcessor'): The processor instance used to access the dataset and extract coordinates.
@@ -794,12 +1130,13 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 mpas_3d_processor.extract_2d_coordinates_for_variable(var_name, var_da)
             )
         except Exception:
-            lon_coords = dataset["lonCell"].values
-            lat_coords = dataset["latCell"].values
-
-        if np.max(np.abs(lon_coords)) <= np.pi:
-            lon_coords = np.degrees(lon_coords)
-            lat_coords = np.degrees(lat_coords)
+            # The raw lonCell/latCell fallback is stored in radians, so convert it exactly once (honouring the units attributes) through the shared helper; coordinates returned by the processor are already in degrees and must not be converted again
+            lon_coords, lat_coords = MPASGeographicUtils.coordinates_to_degrees(
+                dataset["lonCell"].values,
+                dataset["latCell"].values,
+                dataset["lonCell"].attrs,
+                dataset["latCell"].attrs,
+            )
 
         logger.debug(
             "Grid domain: lon [%.2f, %.2f], lat [%.2f, %.2f]",
@@ -817,8 +1154,18 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             path_lats[-1],
         )
 
-        path_in_lon = path_lons[0] >= np.min(lon_coords) and path_lons[-1] <= np.max(
-            lon_coords
+        # Compare every path longitude in the grid's own longitude frame so grids stored on [0, 360) and paths on [-180, 180] (or vice versa) are judged correctly
+        grid_lon_min = float(np.min(lon_coords))
+        grid_lon_max = float(np.max(lon_coords))
+        path_lons_wrapped = (
+            (np.asarray(path_lons) - grid_lon_min) % 360.0
+        ) + grid_lon_min
+        path_in_lon = bool(
+            (grid_lon_max - grid_lon_min) >= 350.0
+            or (
+                np.all(path_lons_wrapped >= grid_lon_min - 1e-9)
+                and np.all(path_lons_wrapped <= grid_lon_max + 1e-9)
+            )
         )
         path_in_lat = min(path_lats[0], path_lats[-1]) >= np.min(lat_coords) and max(
             path_lats[0], path_lats[-1]
@@ -1287,7 +1634,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             precomputed_levels (Optional[Tuple[np.ndarray, str]]): Already-resolved (vertical_levels, vertical_coord_type) pair that skips the per-call level resolution (a full 3D pressure-field read for pressure coordinates); used by batch callers that resolve once and reuse across timesteps.
 
         Returns:
-            Dict[str, Any]: Dictionary containing 'distances' (array of distances along the path), 'vertical_coords' (array of vertical coordinate values), 'data_values' (2D array of interpolated data values along the cross-section), 'path_lons' (array of longitude coordinates along the path), 'path_lats' (array of latitude coordinates along the path), and 'vertical_coord_type' (string indicating the type of vertical coordinate used).
+            Dict[str, Any]: Dictionary containing 'distances' (array of distances along the path), 'vertical_coords' (array of vertical coordinate values), 'data_values' (2D array of interpolated data values along the cross-section), 'path_lons' (array of longitude coordinates along the path), 'path_lats' (array of latitude coordinates along the path), 'path_cells' (nearest model cell index per path point, or None), and 'vertical_coord_type' (string indicating the type of vertical coordinate used).
         """
         path_lons, path_lats, distances = self._generate_great_circle_path(
             start_point, end_point, num_points
@@ -1331,8 +1678,17 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             num_points,
         )
 
+        # Nearest model cell for every path point, used to read each column's own vertical coordinate
+        path_neighbors = self._precompute_path_indices(
+            lon_coords, lat_coords, path_lons, path_lats
+        )
+        path_cells = (
+            np.asarray(path_neighbors)[:, 0] if path_neighbors is not None else None
+        )
+
         return {
             "distances": distances,
+            "path_cells": path_cells,
             "vertical_coords": np.array(vertical_levels),
             "data_values": cross_section_data,
             "path_lons": path_lons,
@@ -1348,7 +1704,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         num_points: int,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        This internal method generates a great-circle path between two geographic points specified by their longitude and latitude coordinates. It calculates the intermediate points along the great-circle route, providing arrays of longitude, latitude, and distance along the path. The method uses spherical trigonometry to compute the path and handles edge cases such as very short distances. The output can be used for spatial interpolation of data along the cross-section path in the vertical cross-section plotting process.
+        This internal method generates a great-circle path between two geographic points specified by their longitude and latitude coordinates. It calculates the intermediate points along the great-circle route, providing arrays of longitude, latitude, and distance along the path. The method uses spherical trigonometry to compute the path. Identical endpoints raise a ValueError; for antipodal endpoints (where every great circle is a valid route) the path deterministically follows the meridian from the start over the north pole; fewer than two points raise a ValueError. The output can be used for spatial interpolation of data along the cross-section path in the vertical cross-section plotting process.
 
         Parameters:
             start_point (Tuple[float, float]): Starting point of the path as (longitude, latitude) in degrees.
@@ -1358,55 +1714,53 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         Returns:
             Tuple[np.ndarray, np.ndarray, np.ndarray]: Arrays of longitude coordinates, latitude coordinates, and distances along the path (in kilometers) for each interpolation point.
         """
+        if num_points < 2:
+            raise ValueError(f"num_points must be at least 2, got {num_points}")
+
         lon1, lat1 = radians(start_point[0]), radians(start_point[1])
         lon2, lat2 = radians(end_point[0]), radians(end_point[1])
 
-        dlat = lat2 - lat1
-        dlon = lon2 - lon1
+        vec1 = np.array([cos(lat1) * cos(lon1), cos(lat1) * sin(lon1), sin(lat1)])
+        vec2 = np.array([cos(lat2) * cos(lon2), cos(lat2) * sin(lon2), sin(lat2)])
 
-        haversine_val = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        total_distance = 2 * asin(sqrt(haversine_val)) * 6371.0
-
-        fractions = np.linspace(0, 1, num_points)
-        lons = np.zeros(num_points)
-        lats = np.zeros(num_points)
-        distances = np.zeros(num_points)
+        # atan2 of the cross and dot products stays accurate for both tiny and near-antipodal separations
+        angular_distance = float(
+            atan2(
+                float(np.linalg.norm(np.cross(vec1, vec2))), float(np.dot(vec1, vec2))
+            )
+        )
+        total_distance = angular_distance * 6371.0
 
         if total_distance < 1e-6:
-            lons.fill(start_point[0])
-            lats.fill(start_point[1])
-            distances.fill(0)
-            return lons, lats, distances
+            raise ValueError(
+                "start_point and end_point are the same location; a cross-section needs two distinct points"
+            )
 
-        for i, path_fraction in enumerate(fractions):
-            if path_fraction == 0:
-                lons[i] = start_point[0]
-                lats[i] = start_point[1]
-                distances[i] = 0
-            elif path_fraction == 1:
-                lons[i] = end_point[0]
-                lats[i] = end_point[1]
-                distances[i] = total_distance
-            else:
-                angular_distance = total_distance / 6371.0
-                slerp_coeff_a = sin((1 - path_fraction) * angular_distance) / sin(
-                    angular_distance
-                )
-                slerp_coeff_b = sin(path_fraction * angular_distance) / sin(
-                    angular_distance
-                )
+        fractions = np.linspace(0.0, 1.0, num_points)
 
-                cart_x = slerp_coeff_a * cos(lat1) * cos(lon1) + slerp_coeff_b * cos(
-                    lat2
-                ) * cos(lon2)
-                cart_y = slerp_coeff_a * cos(lat1) * sin(lon1) + slerp_coeff_b * cos(
-                    lat2
-                ) * sin(lon2)
-                cart_z = slerp_coeff_a * sin(lat1) + slerp_coeff_b * sin(lat2)
+        if np.pi - angular_distance < 1e-6:
+            # Antipodal endpoints: every great circle through the start also reaches the end, so the route is ambiguous (and slerp divides by sin(pi)). Deterministically follow the meridian from the start towards the north (over the north pole); at a pole this is the meridian of the start longitude's antipode.
+            north = np.array(
+                [-sin(lat1) * cos(lon1), -sin(lat1) * sin(lon1), cos(lat1)]
+            )
+            angle = np.pi * fractions
+            points = np.outer(np.cos(angle), vec1) + np.outer(np.sin(angle), north)
+        else:
+            sin_d = sin(angular_distance)
+            coeff_a = np.sin((1.0 - fractions) * angular_distance) / sin_d
+            coeff_b = np.sin(fractions * angular_distance) / sin_d
+            points = np.outer(coeff_a, vec1) + np.outer(coeff_b, vec2)
 
-                lats[i] = degrees(atan2(cart_z, sqrt(cart_x**2 + cart_y**2)))
-                lons[i] = degrees(atan2(cart_y, cart_x))
-                distances[i] = path_fraction * total_distance
+        lats = np.degrees(
+            np.arctan2(points[:, 2], np.hypot(points[:, 0], points[:, 1]))
+        )
+        lons = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
+        distances = fractions * total_distance
+
+        # The endpoints are returned exactly as given
+        lons[0], lats[0] = start_point[0], start_point[1]
+        lons[-1], lats[-1] = end_point[0], end_point[1]
+        distances[-1] = total_distance
 
         return lons, lats, distances
 
@@ -1617,7 +1971,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         Parameters:
             var_lower (str): The lowercase version of the variable name, used for determining variable type.
-            var_name (str): The original variable name, used for additional checks (e.g., if it starts with 'u' or 'v' for wind variables).
+            var_name (str): The original variable name (kept for API compatibility); wind variables are recognised by explicit names such as 'u', 'v', 'w', 'uReconstructZonal' or a name containing 'wind'.
             data_min (float): The minimum valid data value for the variable, used to determine the starting point of the levels.
             data_max (float): The maximum valid data value for the variable, used to determine the ending point of the levels.
             data_range (float): The range of valid data values (data_max - data_min), used to determine the spacing of the levels.
@@ -1637,7 +1991,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 )
             return cast(np.ndarray, np.linspace(data_min, data_max, 15))
 
-        if "wind" in var_lower or var_name.startswith("u") or var_name.startswith("v"):
+        if "wind" in var_lower or var_lower in _WIND_VARS:
             max_abs = max(abs(data_min), abs(data_max))
             if data_min < 0 and data_max > 0:
                 return cast(np.ndarray, np.linspace(-max_abs, max_abs, 21))
@@ -1722,24 +2076,27 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
     @staticmethod
     def _load_height_var_from_grid_file(
-        grid_file: str, var_name: str
+        grid_file: str, var_name: str, cells: Optional[np.ndarray] = None
     ) -> Optional[np.ndarray]:
         """
-        This static helper method attempts to load a height variable from the MPAS grid file. It tries to read only the specified variable to minimize memory usage, and if successful, it extracts the height values for the first cell. The method includes error handling to return None if the variable is not found or if any issues arise during file reading, allowing the calling method to proceed with alternative methods for determining height when necessary.
+        This static helper method attempts to load a height variable from the MPAS grid file. It tries to read only the specified variable to minimize memory usage, and if successful, it extracts the height values for the first cell, or for the given cells (one column per cell, shape (n_cells, n_vertical)) when cells is supplied. The method includes error handling to return None if the variable is not found or if any issues arise during file reading, allowing the calling method to proceed with alternative methods for determining height when necessary.
 
         Parameters:
             grid_file (str): Path to the MPAS grid file to read the height variable from.
             var_name (str): Name of the height variable to load (e.g., 'zgrid', 'height').
+            cells (Optional[np.ndarray]): Optional model cell indices whose full columns are returned instead of the first cell (default: None).
 
         Returns:
-            Optional[np.ndarray]: The height values for the first cell, or None if the variable is absent or the read fails.
+            Optional[np.ndarray]: The height values for the first cell (or the requested cells), or None if the variable is absent or the read fails.
         """
         try:
             # Only load the needed height variable from the grid file
             open_kwargs: dict = {"decode_times": False}
 
             try:
-                with xr.open_dataset(grid_file, decode_times=False) as probe:
+                with xr.open_dataset(
+                    grid_file, decode_times=False, engine=NETCDF_ENGINE
+                ) as probe:
                     all_vars = list(probe.data_vars)
 
                 vars_to_drop = [v for v in all_vars if v != var_name]
@@ -1749,8 +2106,18 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             except Exception:
                 pass
 
-            with xr.open_dataset(grid_file, **open_kwargs) as grid_ds:
+            with xr.open_dataset(
+                grid_file, **open_kwargs, engine=NETCDF_ENGINE
+            ) as grid_ds:
                 if var_name in grid_ds.data_vars:
+                    if cells is not None:
+                        picked = grid_ds[var_name].isel(
+                            nCells=xr.DataArray(
+                                np.asarray(cells, dtype=int), dims="path"
+                            )
+                        )
+                        vert = [d for d in picked.dims if d != "path"][0]
+                        return cast(np.ndarray, picked.transpose("path", vert).values)
                     return cast(np.ndarray, grid_ds[var_name].isel(nCells=0).values)
         except Exception:
             pass
@@ -1794,6 +2161,224 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             interp_x_query = np.linspace(0, 1, len(vertical_coords))
             return cast(np.ndarray, height_interp_fn(interp_x_query))
         except Exception:
+            return None
+
+    def _read_path_columns(
+        self: "MPASVerticalCrossSectionPlotter",
+        mpas_3d_processor: "MPAS3DProcessor",
+        var_name: str,
+        time_index: int,
+        cells: np.ndarray,
+    ) -> Optional[np.ndarray]:
+        """
+        This internal helper reads the full vertical column of a dataset variable at each of the given model cells for one time step, returning an array of shape (n_points, n_vertical). Only the requested cells are read (vectorised point selection on the cell dimension, so lazily-opened datasets are not loaded whole). It returns None when the variable is absent or does not reduce to a single cell dimension plus one vertical dimension, which lets callers fall back to coarser vertical-coordinate estimates.
+
+        Parameters:
+            mpas_3d_processor ('MPAS3DProcessor'): Processor whose dataset holds the variable.
+            var_name (str): Name of the variable to read (for example 'pressure' or 'zgrid').
+            time_index (int): Time index to select when the variable has a time dimension.
+            cells (np.ndarray): Model cell indices, one per path point.
+
+        Returns:
+            Optional[np.ndarray]: The (n_points, n_vertical) column values, or None if the variable cannot be read this way.
+        """
+        try:
+            var_da, time_dim, vert_dim = self._unwrap_dataset_var(
+                mpas_3d_processor, var_name
+            )
+        except Exception:
+            return None
+
+        if vert_dim is None:
+            return None
+
+        spatial_dims = [d for d in var_da.dims if d not in (time_dim, vert_dim)]
+
+        if len(spatial_dims) != 1:
+            return None
+
+        selection: Dict[str, Any] = {
+            spatial_dims[0]: xr.DataArray(np.asarray(cells, dtype=int), dims="path")
+        }
+
+        if time_dim is not None:
+            selection[time_dim] = min(time_index, var_da.sizes[time_dim] - 1)
+
+        try:
+            columns = var_da.isel(selection).transpose("path", vert_dim)
+            return np.asarray(columns.values, dtype=float)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _columns_to_levels(columns: np.ndarray, n_levels: int) -> Optional[np.ndarray]:
+        """
+        This static helper reshapes per-column vertical values of shape (n_points, n_vertical) onto the n_levels levels the plotted variable lives on, returning (n_levels, n_points). Equal lengths pass through; one extra value per column (layer interfaces, such as zgrid on nVertLevelsP1) is averaged to layer mid-points; and one fewer value (mid-level pressure for a variable on interfaces) is extended to the interfaces by linear extrapolation at the two ends. Any other mismatch returns None.
+
+        Parameters:
+            columns (np.ndarray): Per-column values with shape (n_points, n_vertical).
+            n_levels (int): Number of vertical levels of the plotted variable.
+
+        Returns:
+            Optional[np.ndarray]: Values with shape (n_levels, n_points), or None when the vertical sizes are incompatible.
+        """
+        n_vertical = columns.shape[1]
+
+        if n_vertical == n_levels:
+            return np.asarray(columns.T)
+
+        if n_vertical == n_levels + 1:
+            return np.asarray(0.5 * (columns[:, :-1] + columns[:, 1:]).T)
+
+        if n_vertical == n_levels - 1 and n_vertical >= 2:
+            interior = 0.5 * (columns[:, :-1] + columns[:, 1:])
+            bottom = 1.5 * columns[:, :1] - 0.5 * columns[:, 1:2]
+            top = 1.5 * columns[:, -1:] - 0.5 * columns[:, -2:-1]
+            return np.asarray(np.concatenate([bottom, interior, top], axis=1).T)
+
+        return None
+
+    def _sample_column_pressure(
+        self: "MPASVerticalCrossSectionPlotter",
+        mpas_3d_processor: "MPAS3DProcessor",
+        time_index: int,
+        cells: np.ndarray,
+        n_levels: int,
+    ) -> Optional[np.ndarray]:
+        """
+        This internal method returns the actual pressure (Pa) of every model level in the column under each path point, shape (n_levels, n_points), taken from the 'pressure' variable or the sum of 'pressure_p' and 'pressure_base' at the sampled cells. Using each column's own pressure (instead of one global mean per level) lets the cross-section show the terrain-following structure, such as lower surface pressure over mountains. It returns None when no suitable pressure field exists.
+
+        Parameters:
+            mpas_3d_processor ('MPAS3DProcessor'): Processor whose dataset holds the pressure fields.
+            time_index (int): Time index to sample.
+            cells (np.ndarray): Model cell index for each path point.
+            n_levels (int): Number of vertical levels of the plotted variable.
+
+        Returns:
+            Optional[np.ndarray]: Pressure in Pa with shape (n_levels, n_points), or None if unavailable.
+        """
+        dataset = mpas_3d_processor.dataset
+
+        if dataset is None:
+            return None
+
+        if "pressure" in dataset.data_vars:
+            columns = self._read_path_columns(
+                mpas_3d_processor, "pressure", time_index, cells
+            )
+        elif "pressure_p" in dataset.data_vars and "pressure_base" in dataset.data_vars:
+            perturbation = self._read_path_columns(
+                mpas_3d_processor, "pressure_p", time_index, cells
+            )
+            base = self._read_path_columns(
+                mpas_3d_processor, "pressure_base", time_index, cells
+            )
+            columns = (
+                perturbation + base
+                if perturbation is not None and base is not None
+                else None
+            )
+        else:
+            return None
+
+        if columns is None:
+            return None
+
+        return self._columns_to_levels(columns, n_levels)
+
+    def _sample_column_height(
+        self: "MPASVerticalCrossSectionPlotter",
+        mpas_3d_processor: "MPAS3DProcessor",
+        time_index: int,
+        cells: np.ndarray,
+        n_levels: int,
+    ) -> Optional[np.ndarray]:
+        """
+        This internal method returns the geometric height (m above mean sea level) of every model level in the column under each path point, shape (n_levels, n_points). It reads 'zgrid' (or 'height') at the sampled cells from the dataset or, when absent there, from the grid file, and averages the layer interfaces to mid-levels where the plotted variable is a mid-level field. Per-column heights keep terrain in the section instead of reusing the heights of cell 0 for every column. It returns None when no height field is available.
+
+        Parameters:
+            mpas_3d_processor ('MPAS3DProcessor'): Processor whose dataset or grid file holds the height field.
+            time_index (int): Time index to sample (ignored for static height fields).
+            cells (np.ndarray): Model cell index for each path point.
+            n_levels (int): Number of vertical levels of the plotted variable.
+
+        Returns:
+            Optional[np.ndarray]: Height in metres with shape (n_levels, n_points), or None if unavailable.
+        """
+        for height_var in ("zgrid", "height"):
+            columns = self._read_path_columns(
+                mpas_3d_processor, height_var, time_index, cells
+            )
+
+            if columns is None:
+                grid_file = getattr(mpas_3d_processor, "grid_file", None)
+
+                if grid_file:
+                    columns = self._load_height_var_from_grid_file(
+                        grid_file, height_var, cells
+                    )
+
+            if columns is not None:
+                levels = self._columns_to_levels(
+                    np.asarray(columns, dtype=float), n_levels
+                )
+
+                if levels is not None:
+                    return levels
+
+        return None
+
+    def _resolve_column_vertical(
+        self: "MPASVerticalCrossSectionPlotter",
+        mpas_3d_processor: "MPAS3DProcessor",
+        time_index: int,
+        cells: Optional[np.ndarray],
+        n_levels: int,
+        display_type: str,
+    ) -> Optional[np.ndarray]:
+        """
+        This internal method builds the two-dimensional vertical coordinate (n_levels, n_points) used as the y-values of the cross-section, so each path point is drawn at the true pressure or height of its own model column. For 'pressure_hPa' it converts the per-column pressure to hPa; for 'height_km' it uses per-column geometric height in km, falling back to the standard-atmosphere height of the per-column pressure when no height field exists. It returns None for other display types or whenever the per-column information cannot be obtained, in which case the caller keeps the one-dimensional vertical axis.
+
+        Parameters:
+            mpas_3d_processor ('MPAS3DProcessor'): Processor providing the pressure and height fields.
+            time_index (int): Time index to sample.
+            cells (Optional[np.ndarray]): Model cell index for each path point, or None when unknown.
+            n_levels (int): Number of vertical levels of the plotted variable.
+            display_type (str): Vertical display type, 'pressure_hPa' or 'height_km'.
+
+        Returns:
+            Optional[np.ndarray]: The (n_levels, n_points) vertical coordinate in display units, or None.
+        """
+        if cells is None or display_type not in ("pressure_hPa", "height_km"):
+            return None
+
+        try:
+            if display_type == "pressure_hPa":
+                pressure_pa = self._sample_column_pressure(
+                    mpas_3d_processor, time_index, cells, n_levels
+                )
+                return None if pressure_pa is None else pressure_pa / 100.0
+
+            height_m = self._sample_column_height(
+                mpas_3d_processor, time_index, cells, n_levels
+            )
+
+            if height_m is None:
+                pressure_pa = self._sample_column_pressure(
+                    mpas_3d_processor, time_index, cells, n_levels
+                )
+
+                if pressure_pa is None:
+                    return None
+
+                flat = np.clip(pressure_pa.ravel(), 1.0, None)
+                height_m = self._std_atm_pressure_to_height(flat).reshape(
+                    pressure_pa.shape
+                )
+
+            return np.asarray(height_m / 1000.0)
+        except Exception as exc:
+            logger.debug("_resolve_column_vertical: falling back to 1-D axis: %s", exc)
             return None
 
     def _try_extract_height_km(
@@ -2048,9 +2633,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return result
 
         logger.debug(
-            "_convert_vertical_to_height: No height conversion possible, returning raw model levels"
+            "_convert_vertical_to_height: No height conversion possible, returning model-level indices"
         )
-        return vertical_coords, "modlev"
+        return np.arange(len(vertical_coords), dtype=float), "modlev"
 
     def _apply_standard_pressure_ticks(
         self: "MPASVerticalCrossSectionPlotter",
@@ -2069,7 +2654,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             return
 
         try:
-            from matplotlib.ticker import FixedLocator, FuncFormatter
+            from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter
 
             standard_ticks = [
                 1000,
@@ -2090,9 +2675,26 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 10,
                 1,
             ]
-            data_min = float(np.nanmin(vertical_coords))
-            data_max = float(np.nanmax(vertical_coords))
-            tick_vals = [t for t in standard_ticks if data_min <= t <= data_max]
+            # Ticks are chosen for the visible window (the axis limits), falling back to the data range
+            y_lo, y_hi = sorted(self.ax.get_ylim())
+            data_min = max(float(np.nanmin(vertical_coords)), y_lo)
+            data_max = min(float(np.nanmax(vertical_coords)), y_hi)
+            tick_vals: List[float] = [
+                float(t) for t in standard_ticks if data_min <= t <= data_max
+            ]
+
+            if len(tick_vals) < 2 and data_min > 0 and data_max > data_min:
+                # Narrow range: a few log-spaced, rounded ticks inside it instead of matplotlib's scientific-notation log labels
+                step = 10.0 if data_max >= 200 else 5.0 if data_max >= 50 else 1.0
+                tick_vals = sorted(
+                    {
+                        float(np.round(v / step) * step)
+                        for v in np.geomspace(data_min, data_max, 5)
+                        if data_min <= np.round(v / step) * step <= data_max
+                    },
+                    reverse=True,
+                )
+
             if len(tick_vals) >= 2:
                 self.ax.yaxis.set_major_locator(FixedLocator(tick_vals))
 
@@ -2102,6 +2704,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     return f"{x:.2f}"
 
                 self.ax.yaxis.set_major_formatter(FuncFormatter(_fmt))
+                self.ax.yaxis.set_minor_formatter(NullFormatter())
+            else:
+                self.ax.yaxis.set_major_formatter(
+                    FuncFormatter(lambda x, pos: f"{x:g}")
+                )
+                self.ax.yaxis.set_minor_formatter(NullFormatter())
         except Exception:
             pass
 
@@ -2145,28 +2753,115 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
     def _apply_x_axis_formatting(
         self: "MPASVerticalCrossSectionPlotter",
         longitudes: np.ndarray,
+        distances: Optional[np.ndarray] = None,
+        latitudes: Optional[np.ndarray] = None,
     ) -> None:
         """
-        This internal method applies formatting to the x-axis of the vertical cross-section plot by setting the label to 'Longitude', adjusting the limits based on the provided longitude array, and applying a custom tick formatter to display longitude values with degree symbols. It includes error handling to ensure that axis formatting does not fail if certain styling features are unavailable, providing a robust setup for clear visualization of longitude along the cross-section path. This method enhances the readability of the x-axis by using appropriate labels and formatting for geographic coordinates.
+        This internal method formats the x-axis of the vertical cross-section. When along-path distances are supplied (the normal case) the axis is distance along the great-circle path in km, so north-south and dateline-crossing sections are drawn with the correct geometry, and each tick carries a second line with the latitude and longitude at that distance (interpolated along the path with longitude unwrapped across the dateline). Without distances it falls back to the historical longitude axis with degree-formatted ticks. Formatting errors are swallowed so styling problems never prevent a plot.
 
         Parameters:
-            longitudes (np.ndarray): Array of longitude values along the cross-section path, used to set x-axis limits and formatting for the longitude display.
+            longitudes (np.ndarray): Longitudes along the cross-section path in degrees.
+            distances (Optional[np.ndarray]): Along-path distances in km for each path point; when given they define the x-axis (default: None).
+            latitudes (Optional[np.ndarray]): Latitudes along the path in degrees, used for the secondary tick labels (default: None).
 
         Returns:
             None: Modifies self.ax x-axis properties directly without returning a value.
         """
         assert self.ax is not None, "Axes must be created before formatting"
 
-        self.ax.set_xlabel("Longitude", fontsize=12, labelpad=10)
-        self.ax.set_xlim(longitudes.min(), longitudes.max())
+        if distances is None:
+            self.ax.set_xlabel("Longitude", fontsize=12, labelpad=10)
+            self.ax.set_xlim(longitudes.min(), longitudes.max())
+
+            try:
+                from matplotlib.ticker import FuncFormatter
+
+                lon_formatter = FuncFormatter(MPASVisualizationStyle.format_longitude)
+                self.ax.xaxis.set_major_formatter(lon_formatter)
+            except Exception:
+                pass
+            return
+
+        dist = np.asarray(distances, dtype=float)
+        self.ax.set_xlabel("Distance along path [km]", fontsize=12, labelpad=8)
+        self.ax.set_xlim(float(dist.min()), float(dist.max()))
 
         try:
-            from matplotlib.ticker import FuncFormatter
+            from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-            lon_formatter = FuncFormatter(MPASVisualizationStyle.format_longitude)
-            self.ax.xaxis.set_major_formatter(lon_formatter)
+            x_locator = MaxNLocator(nbins=5)
+            tick_step = float(np.diff(x_locator.tick_values(dist.min(), dist.max()))[0])
+            # Short paths have sub-kilometre tick spacing; show enough decimals that neighbouring labels differ
+            decimals = (
+                0 if tick_step >= 1.0 else int(np.ceil(-np.log10(max(tick_step, 1e-9))))
+            )
+
+            lon_unwrapped = np.degrees(np.unwrap(np.radians(np.asarray(longitudes))))
+            lat_path = None if latitudes is None else np.asarray(latitudes, dtype=float)
+
+            # Short paths span fractions of a degree per tick, so the place labels need more decimals to stay distinct
+            degree_span = float(
+                max(
+                    np.ptp(lon_unwrapped),
+                    0.0 if lat_path is None else np.ptp(lat_path),
+                )
+            )
+            degrees_per_tick = degree_span * tick_step / max(float(np.ptp(dist)), 1e-9)
+            place_decimals = int(
+                np.clip(np.ceil(-np.log10(max(degrees_per_tick, 1e-9))), 1, 4)
+            )
+
+            def _fmt(x: float, pos: Any) -> str:
+                label = f"{x:.{decimals}f}"
+                lon_here = float(np.interp(x, dist, lon_unwrapped))
+                lon_here = ((lon_here + 180.0) % 360.0) - 180.0
+                place = f"{abs(lon_here):.{place_decimals}f}\u00b0{'E' if lon_here >= 0 else 'W'}"
+                if lat_path is not None:
+                    lat_here = float(np.interp(x, dist, lat_path))
+                    lat_text = f"{abs(lat_here):.{place_decimals}f}\u00b0{'N' if lat_here >= 0 else 'S'}"
+                    place = f"{lat_text} {place}"
+                return f"{label}\n{place}"
+
+            self.ax.xaxis.set_major_locator(x_locator)
+            self.ax.xaxis.set_major_formatter(FuncFormatter(_fmt))
         except Exception:
             pass
+
+    def _shade_terrain(
+        self: "MPASVerticalCrossSectionPlotter",
+        x_values: np.ndarray,
+        vertical_display: np.ndarray,
+        vertical_coord_type: str,
+    ) -> None:
+        """
+        This internal method shades the ground below the lowest model level of every column when a per-column (two-dimensional) vertical coordinate is displayed, making terrain visible in the section. For height axes the region below the lowest level is filled down to zero; for pressure axes (which are inverted) it is filled from the lowest-level pressure to the bottom of the axis. It does nothing for a one-dimensional vertical axis or other coordinate types.
+
+        Parameters:
+            x_values (np.ndarray): Horizontal coordinate of each path point.
+            vertical_display (np.ndarray): Vertical coordinate; shading only applies when it is two-dimensional (levels, points).
+            vertical_coord_type (str): Vertical display type ('height_km' or 'pressure_hPa').
+
+        Returns:
+            None: Adds a filled polygon to self.ax.
+        """
+        if self.ax is None or np.ndim(vertical_display) != 2:
+            return
+
+        surface = np.asarray(vertical_display)[0, :]
+
+        if vertical_coord_type == "height_km":
+            self.ax.fill_between(
+                x_values, 0.0, surface, color="0.35", zorder=3, linewidth=0
+            )
+        elif vertical_coord_type == "pressure_hPa":
+            self.ax.fill_between(
+                x_values,
+                surface,
+                float(np.nanmax(vertical_display)) * 1.2,
+                color="0.35",
+                zorder=3,
+                linewidth=0,
+            )
 
     def _set_pressure_ylim(
         self: "MPASVerticalCrossSectionPlotter",
@@ -2194,11 +2889,11 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             valid_coords = vertical_coords[vertical_coords >= min_pressure]
 
             if len(valid_coords) > 0:
-                self.ax.set_ylim(valid_coords.max(), min_pressure)
+                self.ax.set_ylim(np.nanmax(valid_coords), min_pressure)
             else:
-                self.ax.set_ylim(vertical_coords.max(), vertical_coords.min())
+                self.ax.set_ylim(np.nanmax(vertical_coords), np.nanmin(vertical_coords))
         else:
-            self.ax.set_ylim(vertical_coords.max(), vertical_coords.min())
+            self.ax.set_ylim(np.nanmax(vertical_coords), np.nanmin(vertical_coords))
 
     def _format_cross_section_axes(
         self: "MPASVerticalCrossSectionPlotter",
@@ -2208,6 +2903,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         start_point: Tuple[float, float],
         end_point: Tuple[float, float],
         max_height: Optional[float] = None,
+        distances: Optional[np.ndarray] = None,
+        path_lats: Optional[np.ndarray] = None,
     ) -> None:
         """
         This internal method formats the axes of the vertical cross-section plot by setting appropriate labels, limits, and tick formatting based on the longitude range and vertical coordinate type. It configures the x-axis to display longitude values with degree symbols and sets limits based on the provided longitude array. For the y-axis, it applies different formatting depending on whether the vertical coordinate is height (in km), pressure (in hPa or Pa), or model levels. It also adds a text box to indicate the start and end points of the cross-section path. The method includes error handling to ensure that axis formatting does not fail even if certain styling features are unavailable, providing a robust setup for clear visualization of the cross-section data.
@@ -2219,17 +2916,23 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             start_point (Tuple[float, float]): Starting point of the cross-section as (longitude, latitude) in degrees, used for annotating the plot.
             end_point (Tuple[float, float]): Ending point of the cross-section as (longitude, latitude) in degrees, used for annotating the plot.
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data.
+            distances (Optional[np.ndarray]): Along-path distances in km; when given the x-axis shows distance with latitude/longitude on the tick labels instead of longitude (default: None).
+            path_lats (Optional[np.ndarray]): Latitudes along the path in degrees for the secondary tick labels (default: None).
 
         Returns:
             None: Modifies self.ax properties directly without returning a value.
         """
         assert self.ax is not None, "Axes must be created before formatting"
 
-        self._apply_x_axis_formatting(longitudes)
+        self._apply_x_axis_formatting(longitudes, distances, path_lats)
 
         if vertical_coord_type == "height_km":
             self.ax.set_ylabel("Height [km]", fontsize=12)
-            y_max = max_height if max_height is not None else vertical_coords.max()
+            y_max = (
+                max_height
+                if max_height is not None
+                else float(np.nanmax(vertical_coords))
+            )
             self.ax.set_ylim(0, y_max)
         elif vertical_coord_type == "pressure_hPa":
             self.ax.set_ylabel("Pressure [hPa]", fontsize=12)
@@ -2317,7 +3020,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                 and len(dataset.Time) > time_idx
             ):
                 time_value = pd.to_datetime(dataset.Time.values[time_idx])
-                return str(time_value.strftime("%Y%m%dT%H"))
+                return MPASDateTimeUtils.format_time_tag(time_value)
         except Exception:
             pass
         return f"t{time_idx:03d}"
@@ -2337,6 +3040,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         formats: List[str],
         style: CrossSectionStyle,
         precomputed_levels: Optional[Tuple[np.ndarray, str]] = None,
+        display_vertical: Optional[str] = None,
     ) -> List[str]:
         """
         This helper method processes a single time step for creating a vertical cross-section plot in the batch processing workflow. It retrieves a formatted time string for the current time index, constructs a descriptive title for the plot, and calls the create_vertical_cross_section method with the appropriate parameters. After creating the plot, it constructs the output file path based on the variable name, vertical coordinate type, and time information, saves the plot in the specified formats, and returns a list of created file paths. This method encapsulates the logic for handling each time step in the batch process, including error handling and progress updates.
@@ -2354,7 +3058,8 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             max_height (Optional[float]): Maximum height to display in the plot; if None, the full range is used.
             formats (List[str]): List of file formats to save the plot (e.g., ['png', 'pdf']).
             style (CrossSectionStyle): Appearance and file-naming settings (levels, colormap, extend, plot_type, file_prefix).
-            precomputed_levels (Optional[Tuple[np.ndarray, str]]): Batch-wide (vertical_levels, vertical_coord_type) pair resolved once by the caller, so each timestep skips the full pressure-field read that level resolution otherwise performs.
+            precomputed_levels (Optional[Tuple[np.ndarray, str]]): Batch-wide (vertical_levels, vertical_coord_type) pair resolved once by the caller to fix the level count and coordinate type; the actual per-column pressure or height is still sampled separately for every time step.
+            display_vertical (Optional[str]): Desired vertical coordinate for display ('pressure', 'height', 'modlev'); if None, vertical_coord is used (default: None).
 
         Returns:
             List[str]: A list of file paths for the created cross-section plot in the specified formats.
@@ -2371,6 +3076,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             end_point=end_point,
             time_index=time_idx,
             vertical_coord=vertical_coord,
+            display_vertical=display_vertical,
             num_points=num_points,
             max_height=max_height,
             title=title,
@@ -2378,11 +3084,21 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             precomputed_levels=precomputed_levels,
         )
 
-        height_suffix = f"_maxh_{int(max_height)}km" if max_height else ""
+        # Keep fractional limits distinguishable in filenames (0.5 km -> 'maxh_0p5km') instead of truncating them to '0km'
+        height_suffix = (
+            f"_maxh_{format(max_height, 'g').replace('.', 'p')}km"
+            if max_height is not None
+            else ""
+        )
+        display_suffix = (
+            f"_disp_{display_vertical}"
+            if display_vertical and display_vertical != vertical_coord
+            else ""
+        )
 
         output_path = os.path.join(
             output_dir,
-            f"{style.file_prefix}_{var_name}_vcrd_{vertical_coord}_valid_{time_str}{height_suffix}",
+            f"{style.file_prefix}_{var_name}_vcrd_{vertical_coord}{display_suffix}_valid_{time_str}{height_suffix}",
         )
 
         self.save_plot(output_path, formats=formats)
@@ -2398,6 +3114,44 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
 
         return [f"{output_path}.{fmt}" for fmt in formats]
 
+    def _validate_batch_inputs(
+        self: "MPASVerticalCrossSectionPlotter",
+        mpas_3d_processor: "MPAS3DProcessor",
+        var_name: str,
+        num_points: int,
+    ) -> xr.Dataset:
+        """
+        This helper method validates the inputs of a batch cross-section run. It requires an MPAS3DProcessor with loaded data that contains the requested variable, applies the cross-section input checks, and requires at least two interpolation points, raising a ValueError describing the first problem found.
+
+        Parameters:
+            mpas_3d_processor (MPAS3DProcessor): The processor supplying the 3D data.
+            var_name (str): Name of the variable to plot from the dataset.
+            num_points (int): Number of interpolation points along the cross-section path.
+
+        Returns:
+            xr.Dataset: The loaded dataset of the processor.
+        """
+        if not isinstance(mpas_3d_processor, MPAS3DProcessor):
+            raise ValueError("mpas_3d_processor must be an instance of MPAS3DProcessor")
+
+        if mpas_3d_processor.dataset is None:
+            raise ValueError(
+                "MPAS3DProcessor must have loaded data. Call load_3d_data() first."
+            )
+
+        if var_name not in mpas_3d_processor.dataset.data_vars:
+            available_vars = list(mpas_3d_processor.dataset.data_vars.keys())
+            raise ValueError(
+                f"Variable '{var_name}' not found. Available variables: {available_vars[:10]}..."
+            )
+
+        self._validate_cross_section_inputs(mpas_3d_processor, var_name)
+
+        if num_points < 2:
+            raise ValueError(f"num_points must be at least 2, got {num_points}")
+
+        return mpas_3d_processor.dataset
+
     def create_batch_cross_section_plots(
         self: "MPASVerticalCrossSectionPlotter",
         mpas_3d_processor: "MPAS3DProcessor",
@@ -2410,6 +3164,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         max_height: Optional[float] = None,
         formats: List[str] = ["png"],
         style: Optional[CrossSectionStyle] = None,
+        display_vertical: Optional[str] = None,
     ) -> List[str]:
         """
         This method creates vertical cross-section plots for a specified 3D atmospheric variable across all available time steps in the MPAS dataset. It generates a plot for each time step, saving them to the specified output directory with filenames that include the variable name, vertical coordinate type, and valid time information. The method handles various vertical coordinate systems (pressure, height, model levels) and allows for customization of contour levels, colormap, plot type, and maximum height. It includes error handling to ensure that issues with data loading or variable availability are reported clearly, and it provides progress updates during batch processing. The resulting list of created file paths is returned upon completion.
@@ -2425,6 +3180,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
             max_height (Optional[float]): Optional maximum height in kilometers to set as the upper limit for height-based y-axes; if None, limits are determined from data.
             formats (List[str]): List of file formats to save the plots in (e.g., ['png', 'pdf']).
             style (Optional[CrossSectionStyle]): Appearance and file-naming settings (levels, colormap, extend, plot_type, file_prefix). If None, defaults are used.
+            display_vertical (Optional[str]): Desired vertical coordinate for display ('pressure', 'height', 'modlev'), passed through to every frame; if None, vertical_coord is used (default: None).
 
         Returns:
             List[str]: A list of file paths for the created cross-section plots in the specified formats.
@@ -2432,24 +3188,12 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
         if style is None:
             style = CrossSectionStyle()
 
-        if not isinstance(mpas_3d_processor, MPAS3DProcessor):
-            raise ValueError("mpas_3d_processor must be an instance of MPAS3DProcessor")
-
-        if mpas_3d_processor.dataset is None:
-            raise ValueError(
-                "MPAS3DProcessor must have loaded data. Call load_3d_data() first."
-            )
-
-        if var_name not in mpas_3d_processor.dataset.data_vars:
-            available_vars = list(mpas_3d_processor.dataset.data_vars.keys())
-            raise ValueError(
-                f"Variable '{var_name}' not found. Available variables: {available_vars[:10]}..."
-            )
+        dataset = self._validate_batch_inputs(mpas_3d_processor, var_name, num_points)
 
         os.makedirs(output_dir, exist_ok=True)
 
-        time_dim = "Time" if "Time" in mpas_3d_processor.dataset.sizes else "time"
-        total_times = mpas_3d_processor.dataset.sizes[time_dim]
+        time_dim = "Time" if "Time" in dataset.sizes else "time"
+        total_times = dataset.sizes[time_dim]
 
         created_files: List[str] = []
         logger.info(
@@ -2497,6 +3241,7 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     formats,
                     style,
                     precomputed_levels=precomputed_levels,
+                    display_vertical=display_vertical,
                 )
                 created_files.extend(step_files)
             except Exception as e:
@@ -2505,6 +3250,9 @@ class MPASVerticalCrossSectionPlotter(MPASVisualizer):
                     time_idx,
                     e,
                 )
+
+                # Close the partially built figure so failed steps do not leak open figures
+                self.close_plot()
 
         logger.info(
             "Batch cross-section processing completed. Created %d files.",

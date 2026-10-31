@@ -489,8 +489,12 @@ class TestConfigValidationIntegrity:
             None
         """
         MPASConfig(subsample_factor=-1)
-        MPASConfig(subsample_factor=0)
-        MPASConfig(time_index=-1)
+        # 0 is normalised to the automatic value -1, and a negative time index is a
+        # Python-style index resolved against the dataset size at run time
+        assert MPASConfig(subsample_factor=0).subsample_factor == -1
+        assert MPASConfig(time_index=-1).time_index == -1
+        with pytest.raises(ValueError, match="subsample_factor"):
+            MPASConfig(subsample_factor=-2)
 
     def test_numeric_bounds_reject_negative_workers(
         self: "TestConfigValidationIntegrity",

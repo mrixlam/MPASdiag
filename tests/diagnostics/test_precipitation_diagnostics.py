@@ -28,6 +28,7 @@ from io import StringIO
 from unittest.mock import patch
 
 from mpasdiag import PrecipitationDiagnostics
+from mpasdiag.diagnostics import InsufficientLookbackError
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -142,19 +143,34 @@ class TestComputePrecipitationDifference:
         diag = PrecipitationDiagnostics(verbose=False)
         periods = ["a01h", "a03h", "a06h", "a12h", "a24h"]
 
+        last = sample_dataset.sizes["Time"] - 1
+
         for period in periods:
+            hours = diag.get_accumulation_hours(period)
+
+            # Periods longer than the available history cannot be computed and must raise
+            if hours > last:
+                with pytest.raises(InsufficientLookbackError):
+                    diag.compute_precipitation_difference(
+                        sample_dataset,
+                        time_index=last,
+                        var_name="rainnc",
+                        accum_period=period,
+                    )
+                continue
+
             result = diag.compute_precipitation_difference(
-                sample_dataset, time_index=5, var_name="rainnc", accum_period=period
+                sample_dataset, time_index=last, var_name="rainnc", accum_period=period
             )
 
             assert isinstance(result, xr.DataArray)
             assert "accumulation_period" in result.attrs
 
-    def test_compute_difference_time_index_zero(
+    def test_compute_difference_time_index_zero_raises(
         self: "TestComputePrecipitationDifference", sample_dataset: Any
     ) -> None:
         """
-        This test verifies that the `compute_precipitation_difference` method can handle a `time_index` of 0, which typically represents the first timestep in the dataset. The method should return a valid `xarray.DataArray` even when there is no prior data to compute a difference, often by using a fallback approach. This test ensures that the method can gracefully handle edge cases at the start of the time series and still produce an output with expected properties.
+        This test verifies that the `compute_precipitation_difference` method raises InsufficientLookbackError for a `time_index` of 0, the first timestep, where there is no prior data to difference against. Returning the raw cumulative field (the old behaviour) presented a non-accumulation as valid.
 
         Parameters:
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset.
@@ -164,19 +180,16 @@ class TestComputePrecipitationDifference:
         """
         diag = PrecipitationDiagnostics(verbose=False)
 
-        result = diag.compute_precipitation_difference(
-            sample_dataset, time_index=0, var_name="rainnc", accum_period="a01h"
-        )
+        with pytest.raises(InsufficientLookbackError):
+            diag.compute_precipitation_difference(
+                sample_dataset, time_index=0, var_name="rainnc", accum_period="a01h"
+            )
 
-        assert isinstance(result, xr.DataArray)
-        assert len(result.shape) == pytest.approx(1)
-        assert result.shape[0] > 0
-
-    def test_compute_difference_insufficient_lookback(
+    def test_compute_difference_insufficient_lookback_raises(
         self: "TestComputePrecipitationDifference", sample_dataset: Any
     ) -> None:
         """
-        This test checks that the `compute_precipitation_difference` method can handle cases where the specified `time_index` does not have sufficient prior data for the requested accumulation period. For example, if `time_index=2` is used with an accumulation period of 'a06h' that requires 6 hours of lookback, the method should detect the insufficient data and return a valid `xarray.DataArray` with appropriate metadata indicating the issue. This ensures that the method can gracefully handle edge cases where lookback requirements cannot be met and still provide informative output.
+        This test checks that the `compute_precipitation_difference` method raises InsufficientLookbackError when the specified `time_index` does not have sufficient prior data for the requested accumulation period. For example, `time_index=2` with 'a06h' requires 6 hours of lookback; the old behaviour returned an all-zero field presented as valid.
 
         Parameters:
             sample_dataset (Any): Fixture providing a synthetic MPAS dataset.
@@ -186,14 +199,10 @@ class TestComputePrecipitationDifference:
         """
         diag = PrecipitationDiagnostics(verbose=False)
 
-        result = diag.compute_precipitation_difference(
-            sample_dataset, time_index=2, var_name="rainnc", accum_period="a06h"
-        )
-
-        assert isinstance(result, xr.DataArray)
-
-        if "note" in result.attrs:
-            assert "Insufficient" in result.attrs["note"]
+        with pytest.raises(InsufficientLookbackError, match="Insufficient"):
+            diag.compute_precipitation_difference(
+                sample_dataset, time_index=2, var_name="rainnc", accum_period="a06h"
+            )
 
 
 class TestPrecipitationTimeMetadata:
@@ -275,11 +284,11 @@ class TestPrecipitationTimeMetadata:
             == pd.Timestamp(times[0]).isoformat()
         )
 
-    def test_first_time_step_has_valid_time_without_window_start(
+    def test_first_time_step_raises_and_second_has_window_start(
         self: "TestPrecipitationTimeMetadata",
     ) -> None:
         """
-        This test verifies that when the `compute_precipitation_difference` method is called with `time_index=0`, it still attaches a `valid_time` attribute corresponding to the first timestamp, but does not include an `accumulation_start_time` since there is no prior data to define a lookback window. This ensures that the method can handle edge cases at the start of the time series and provides appropriate metadata for interpretation.
+        This test verifies that `compute_precipitation_difference` raises InsufficientLookbackError at `time_index=0` (no prior data to define a window) and that at `time_index=1` it attaches both `valid_time` and `accumulation_start_time` metadata.
 
         Parameters:
             None
@@ -291,12 +300,20 @@ class TestPrecipitationTimeMetadata:
         times = ds["Time"].values
         diag = PrecipitationDiagnostics(verbose=False)
 
-        result = diag.compute_precipitation_difference(
-            ds, time_index=0, var_name="rainnc", accum_period="a01h"
-        )
+        with pytest.raises(InsufficientLookbackError):
+            diag.compute_precipitation_difference(
+                ds, time_index=0, var_name="rainnc", accum_period="a01h"
+            )
 
-        assert result.attrs["valid_time"] == pd.Timestamp(times[0]).isoformat()
-        assert "accumulation_start_time" not in result.attrs
+        # A window that does fit carries both the valid time and the window start
+        result = diag.compute_precipitation_difference(
+            ds, time_index=1, var_name="rainnc", accum_period="a01h"
+        )
+        assert result.attrs["valid_time"] == pd.Timestamp(times[1]).isoformat()
+        assert (
+            result.attrs["accumulation_start_time"]
+            == pd.Timestamp(times[0]).isoformat()
+        )
 
 
 if __name__ == "__main__":

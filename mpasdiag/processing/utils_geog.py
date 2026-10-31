@@ -16,7 +16,7 @@ Version: 1.0.0
 
 import numpy as np
 import xarray as xr
-from typing import NamedTuple, Tuple
+from typing import Any, Mapping, NamedTuple, Optional, Tuple
 
 
 class GeographicBounds(NamedTuple):
@@ -30,6 +30,61 @@ class GeographicBounds(NamedTuple):
 
 class MPASGeographicUtils:
     """Utility class for geographic and spatial operations on MPAS model output data, providing static methods for coordinate extraction, spatial filtering, and resolution estimation."""
+
+    @staticmethod
+    def coordinates_to_degrees(
+        lon: Any,
+        lat: Any,
+        lon_attrs: Optional[Mapping[str, Any]] = None,
+        lat_attrs: Optional[Mapping[str, Any]] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        This method converts a pair of longitude and latitude arrays to degrees using a single, centralized radians-versus-degrees decision shared by every coordinate-loading path in MPASdiag. When a 'units' attribute is available on either coordinate it is authoritative: values labelled 'radian', 'radians', or 'rad' are converted with a factor of 180/pi, while values labelled with any 'degree' variant are returned unchanged. Without an explicit unit the method falls back to a conservative magnitude heuristic that treats the coordinates as radians only when both the maximum absolute latitude is at most pi/2 and the maximum absolute longitude is at most 2*pi (each with a small tolerance). Requiring both conditions avoids mis-converting degree-valued meshes that happen to lie close to the equator and prime meridian, which the former single-axis test of 'max|lat| <= pi' routinely did. The inputs are never modified in place and are returned as float arrays.
+
+        Parameters:
+            lon (Any): Longitude values, either as an array-like object or a numpy array, in radians or degrees.
+            lat (Any): Latitude values, either as an array-like object or a numpy array, in radians or degrees.
+            lon_attrs (Optional[Mapping[str, Any]]): Attributes of the longitude variable that may contain a 'units' entry (default: None).
+            lat_attrs (Optional[Mapping[str, Any]]): Attributes of the latitude variable that may contain a 'units' entry (default: None).
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: Two-element tuple of (lon_degrees, lat_degrees) as numpy arrays in degrees.
+        """
+        lon_arr = np.asarray(lon, dtype=float)
+        lat_arr = np.asarray(lat, dtype=float)
+
+        units = ""
+        for attrs in (lat_attrs, lon_attrs):
+            if attrs is not None and attrs.get("units") is not None:
+                units = str(attrs["units"]).strip().lower()
+                break
+
+        if units in ("radian", "radians", "rad"):
+            is_radians = True
+        elif units.startswith("degree") or units in (
+            "deg",
+            "degs",
+            "degrees_east",
+            "degrees_north",
+        ):
+            is_radians = False
+        elif (
+            lat_arr.size == 0
+            or lon_arr.size == 0
+            or np.isnan(lat_arr).all()
+            or np.isnan(lon_arr).all()
+        ):
+            is_radians = False
+        else:
+            tol = 1e-6
+            is_radians = bool(
+                np.nanmax(np.abs(lat_arr)) <= np.pi / 2 + tol
+                and np.nanmax(np.abs(lon_arr)) <= 2 * np.pi + tol
+            )
+
+        if is_radians:
+            return np.degrees(lon_arr), np.degrees(lat_arr)
+        return lon_arr, lat_arr
 
     @staticmethod
     def extract_spatial_coordinates(
@@ -52,15 +107,19 @@ class MPASGeographicUtils:
         lat_names = ["latCell", "latitude", "lat"]
 
         lon_coords = lat_coords = None
+        lon_attrs: Mapping[str, Any] = {}
+        lat_attrs: Mapping[str, Any] = {}
 
         for name in lon_names:
             if name in dataset.coords or name in dataset.data_vars:
                 lon_coords = dataset[name].values
+                lon_attrs = dataset[name].attrs
                 break
 
         for name in lat_names:
             if name in dataset.coords or name in dataset.data_vars:
                 lat_coords = dataset[name].values
+                lat_attrs = dataset[name].attrs
                 break
 
         if lon_coords is None or lat_coords is None:
@@ -71,9 +130,9 @@ class MPASGeographicUtils:
                 f"Could not find spatial coordinates. Available variables: {available_vars}"
             )
 
-        if np.nanmax(np.abs(lat_coords)) <= np.pi:
-            lat_coords = lat_coords * 180.0 / np.pi
-            lon_coords = lon_coords * 180.0 / np.pi
+        lon_coords, lat_coords = MPASGeographicUtils.coordinates_to_degrees(
+            lon_coords, lat_coords, lon_attrs, lat_attrs
+        )
 
         lon_coords = lon_coords.ravel()
         lat_coords = lat_coords.ravel()
@@ -106,12 +165,33 @@ class MPASGeographicUtils:
         Returns:
             Tuple[xr.DataArray, np.ndarray]: A tuple containing the filtered DataArray with values outside the extent set to NaN (if 'nCells' dimension exists) and the boolean mask array indicating which cells are within the specified geographic bounds.
         """
-        lon, lat = MPASGeographicUtils.extract_spatial_coordinates(dataset)
+        # Pick the coordinate pair that matches the data's spatial dimension (cells, vertices or edges)
+        spatial_dim = "nCells"
+        coord_dataset = dataset
+
+        for dim, lon_name, lat_name in (
+            ("nVertices", "lonVertex", "latVertex"),
+            ("nEdges", "lonEdge", "latEdge"),
+        ):
+            if dim in data.sizes:
+                if lon_name not in dataset or lat_name not in dataset:
+                    raise ValueError(
+                        f"Cannot filter data on '{dim}' by spatial extent: the dataset has no "
+                        f"'{lon_name}'/'{lat_name}' coordinates."
+                    )
+                spatial_dim = dim
+                coord_dataset = xr.Dataset(
+                    {"lon": dataset[lon_name], "lat": dataset[lat_name]}
+                )
+                break
+
+        lon, lat = MPASGeographicUtils.extract_spatial_coordinates(coord_dataset)
+        lon = MPASGeographicUtils.wrap_longitude_to_extent(lon, lon_min, lon_max)
 
         mask = (lon >= lon_min) & (lon <= lon_max) & (lat >= lat_min) & (lat <= lat_max)
 
-        if "nCells" in data.sizes:
-            filtered_data = data.where(mask)
+        if spatial_dim in data.sizes:
+            filtered_data = data.where(xr.DataArray(mask, dims=[spatial_dim]))
         else:
             filtered_data = data
 
@@ -131,6 +211,26 @@ class MPASGeographicUtils:
         lon = np.asarray(lon)
         lon = ((lon + 180) % 360) - 180
         return lon
+
+    @staticmethod
+    def wrap_longitude_to_extent(
+        lon: np.ndarray, lon_min: float, lon_max: float
+    ) -> np.ndarray:
+        """
+        This method re-expresses longitude values in the frame of a requested longitude extent so that a plain lon_min <= lon <= lon_max comparison works for extents that cross the ±180° dateline. MPAS coordinates are normally normalized to [-180, 180], so a Pacific box written as (150, 210) would otherwise drop every cell between -180° and -150°. When the extent lies entirely within [-180, 180] the input is returned unchanged, so existing filtering behavior is preserved exactly. Otherwise each longitude is shifted by a multiple of 360° into the window [lon_min, lon_min + 360). Cartopy accepts longitudes outside [-180, 180] with a PlateCarree transform, so the shifted values can be plotted directly.
+
+        Parameters:
+            lon (np.ndarray): Array of longitude values in degrees.
+            lon_min (float): Western bound of the requested extent in degrees (may be below -180).
+            lon_max (float): Eastern bound of the requested extent in degrees (may exceed 180).
+
+        Returns:
+            np.ndarray: Longitudes in the frame of the requested extent; the original array when the extent does not cross the dateline.
+        """
+        lon = np.asarray(lon)
+        if -180.0 <= lon_min and lon_max <= 180.0:
+            return lon
+        return ((lon - lon_min) % 360.0) + lon_min
 
     @staticmethod
     def validate_geographic_extent(extent: Tuple[float, float, float, float]) -> bool:
@@ -191,7 +291,7 @@ class MPASGeographicUtils:
         lon: np.ndarray, lat: np.ndarray, sample_size: int = 1000
     ) -> float:
         """
-        This method estimates the spatial resolution of an MPAS mesh by calculating the median distance between neighboring longitude and latitude coordinate points. It takes arrays of longitude and latitude coordinates, optionally samples a subset of points for faster computation, and computes the pairwise distances between consecutive points in the sample. The method then returns the median distance as an estimate of the spatial resolution in degrees. If there are fewer than 2 valid points, it returns 0.0 to indicate that resolution cannot be calculated. This function provides a simple way to estimate the effective spatial resolution of MPAS model output data based on the distribution of coordinate points, which can be useful for understanding the level of detail in spatial analyses and visualizations.
+        This method estimates the spatial resolution of an MPAS mesh by calculating the median distance between neighboring longitude and latitude coordinate points. It takes arrays of longitude and latitude coordinates, optionally samples a subset of points for faster computation, and computes the great-circle distance from each sampled point to its nearest neighbour among all points (via a KDTree on the unit sphere). The method then returns the median nearest-neighbour distance as an estimate of the spatial resolution in degrees. If there are fewer than 2 valid points, it returns 0.0 to indicate that resolution cannot be calculated. This function provides a simple way to estimate the effective spatial resolution of MPAS model output data based on the distribution of coordinate points, which can be useful for understanding the level of detail in spatial analyses and visualizations.
 
         Parameters:
             lon (np.ndarray): Array of longitude coordinates in degrees.
@@ -201,7 +301,12 @@ class MPASGeographicUtils:
         Returns:
             float: Estimated spatial resolution in degrees, calculated as the median distance between neighboring coordinate points. Returns 0.0 if there are fewer than 2 valid points.
         """
-        if len(lon) < 2 or len(lat) < 2:
+        lon = np.asarray(lon, dtype=float).ravel()
+        lat = np.asarray(lat, dtype=float).ravel()
+        valid = np.isfinite(lon) & np.isfinite(lat)
+        lon, lat = lon[valid], lat[valid]
+
+        if len(lon) < 2:
             return 0.0
 
         n_points = min(sample_size, len(lon))
@@ -209,27 +314,29 @@ class MPASGeographicUtils:
         if n_points < len(lon):
             rng = np.random.default_rng(0)
             indices = rng.choice(len(lon), n_points, replace=False)
-            sample_lon = lon[indices]
-            sample_lat = lat[indices]
         else:
-            sample_lon = lon
-            sample_lat = lat
+            indices = np.arange(len(lon))
 
-        distances = []
+        # Nearest-neighbour distance on the unit sphere (chord length), converted to degrees of great-circle arc
+        from scipy.spatial import cKDTree
 
-        for i in range(len(sample_lon) - 1):
-            dlat = sample_lat[i + 1] - sample_lat[i]
-            dlon = sample_lon[i + 1] - sample_lon[i]
+        lon_rad, lat_rad = np.radians(lon), np.radians(lat)
+        xyz = np.column_stack(
+            [
+                np.cos(lat_rad) * np.cos(lon_rad),
+                np.cos(lat_rad) * np.sin(lon_rad),
+                np.sin(lat_rad),
+            ]
+        )
+        distances, _ = cKDTree(xyz).query(xyz[indices], k=2)
+        chord = distances[:, 1]
+        chord = chord[chord > 0]
 
-            point_distance = np.sqrt(dlat**2 + dlon**2)
-
-            if point_distance > 0:
-                distances.append(point_distance)
-
-        if not distances:
+        if chord.size == 0:
             return 0.0
 
-        return float(np.median(distances))
+        arc = 2.0 * np.arcsin(np.clip(chord / 2.0, 0.0, 1.0))
+        return float(np.degrees(np.median(arc)))
 
     @staticmethod
     def is_global_extent(

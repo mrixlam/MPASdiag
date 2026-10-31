@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Enable ``python -m mpasdiag`` as an alias for the ``mpasdiag`` CLI."""
 
+import sys
+
 from mpasdiag.processing.cli_unified import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

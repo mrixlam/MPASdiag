@@ -17,10 +17,11 @@ Version: 1.0.0
 # Load necessary libraries for data handling, plotting, and styling
 import os
 import re
+import inspect
 import numpy as np
 import xarray as xr
 import cartopy.crs as ccrs
-from datetime import datetime
+from datetime import datetime, timezone
 from matplotlib.axes import Axes
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
@@ -28,7 +29,7 @@ from matplotlib.image import AxesImage
 from matplotlib.colorbar import Colorbar
 from matplotlib.cm import ScalarMappable
 from matplotlib.contour import QuadContourSet
-from typing import Optional, Union, Tuple, List, Dict, Any, Literal, cast
+from typing import Optional, Union, Tuple, List, Dict, Any, Literal, Sequence, cast
 from matplotlib.collections import PathCollection, QuadMesh, LineCollection
 
 from ..processing.utils_logger import get_logger
@@ -39,6 +40,48 @@ logger = get_logger(__name__)
 
 class MPASVisualizationStyle:
     """Comprehensive visualization styling utility class providing variable-specific colormaps, contour levels, and plot appearance parameters for MPAS atmospheric diagnostics."""
+
+    # name -> (cartopy class, auto-center longitude, auto-center latitude)
+    _PROJECTION_REGISTRY: Dict[str, Tuple[type, bool, bool]] = {
+        "platecarree": (ccrs.PlateCarree, False, False),
+        "mercator": (ccrs.Mercator, True, False),
+        "lambertconformal": (ccrs.LambertConformal, True, True),
+        "robinson": (ccrs.Robinson, False, False),
+        "mollweide": (ccrs.Mollweide, False, False),
+        "orthographic": (ccrs.Orthographic, True, True),
+        "northpolarstereo": (ccrs.NorthPolarStereo, False, False),
+        "southpolarstereo": (ccrs.SouthPolarStereo, False, False),
+        "nearsideperspective": (ccrs.NearsidePerspective, True, True),
+        "albersequalarea": (ccrs.AlbersEqualArea, True, True),
+        "azimuthalequidistant": (ccrs.AzimuthalEquidistant, True, True),
+        "lambertazimuthalequalarea": (ccrs.LambertAzimuthalEqualArea, True, True),
+        "stereographic": (ccrs.Stereographic, True, True),
+        "transversemercator": (ccrs.TransverseMercator, True, True),
+        "gnomonic": (ccrs.Gnomonic, True, True),
+        "eckertiv": (ccrs.EckertIV, False, False),
+        "equalearth": (ccrs.EqualEarth, False, False),
+        "lambertcylindrical": (ccrs.LambertCylindrical, False, False),
+        "miller": (ccrs.Miller, False, False),
+        "sinusoidal": (ccrs.Sinusoidal, False, False),
+        "interruptedgoodehomolosine": (ccrs.InterruptedGoodeHomolosine, False, False),
+        "geostationary": (ccrs.Geostationary, False, False),
+    }
+
+    # Global-style projections that are not auto-centered but would split a regional
+    # box that crosses their ±180° seam; such boxes are centered on their midpoint.
+    _SEAM_SPLIT_PROJECTIONS = frozenset(
+        {
+            "platecarree",
+            "robinson",
+            "mollweide",
+            "eckertiv",
+            "equalearth",
+            "lambertcylindrical",
+            "miller",
+            "sinusoidal",
+            "interruptedgoodehomolosine",
+        }
+    )
 
     @staticmethod
     def create_precip_colormap(
@@ -84,6 +127,26 @@ class MPASVisualizationStyle:
 
         cmap = mcolors.ListedColormap(colors)
         return cmap, levels
+
+    _PRECIP_NAME_PATTERN = re.compile(
+        r"(?:^|[_\W])"
+        r"(?:precip(?:itation)?|rain(?:fall|c|nc|ncv|cv)?|qpf|prate|snownc|snowncv"
+        r"|acsnow|snowfall|prcp|apcp|tp|snow(?!_?(?:cover|depth|height|water|ice|mask)))"
+        r"(?:$|[_\W\d])"
+    )
+
+    @staticmethod
+    def _is_precipitation_name(var_lower: str) -> bool:
+        """
+        This internal method decides whether a lower-cased variable name denotes a precipitation (accumulation or rate) field by matching explicit precipitation tokens rather than raw substrings. A name qualifies when it contains one of the tokens 'precip', 'precipitation', 'rain', 'rainfall', 'rainc', 'rainnc', 'rainncv', 'raincv', 'qpf', 'prate', 'prcp', 'apcp', 'tp', 'snow' (not followed by cover, depth, height, water, ice or mask), 'snownc', 'snowncv', 'acsnow' or 'snowfall' delimited by the start or end of the name, an underscore, other non-word character or a digit (so 'rainnc', 'precip_6h', 'daily_precip' and 'total_rain' match). Names that merely embed the letters, such as 'precipw' (precipitable water), 'snowc' (snow cover fraction), 'snowh' (snow depth) and 'terrain_x', do not match and therefore keep their own configured styles.
+
+        Parameters:
+            var_lower (str): Lower-cased variable name to test.
+
+        Returns:
+            bool: True when the name denotes a precipitation field, otherwise False.
+        """
+        return bool(MPASVisualizationStyle._PRECIP_NAME_PATTERN.search(var_lower))
 
     @staticmethod
     def _hours_to_accum_period(hours: int) -> str:
@@ -172,6 +235,12 @@ class MPASVisualizationStyle:
             "precip": {"use_precip_colormap": True, "extend": "both"},
             "total_precip": {"use_precip_colormap": True, "extend": "both"},
             "precipw": {"colormap": "Blues", "extend": "max"},
+            "snowc": {
+                "colormap": "Blues",
+                "extend": "neither",
+                "levels": [round(0.1 * i, 1) for i in range(11)],
+            },
+            "snowh": {"colormap": "PuBu", "extend": "max"},
             "refl10cm_max": {"colormap": "pyart_NWSRef", "extend": "both"},
             "refl10cm_1km": {"colormap": "pyart_NWSRef", "extend": "both"},
             "refl10cm_1km_max": {"colormap": "pyart_NWSRef", "extend": "both"},
@@ -256,8 +325,9 @@ class MPASVisualizationStyle:
         )
 
         var_lower = var_name.lower()
-        is_precipitation = style.get("use_precip_colormap") or any(
-            precip_key in var_lower for precip_key in ["precip", "rain", "snow", "qpf"]
+        is_precipitation = bool(
+            style.get("use_precip_colormap")
+            or MPASVisualizationStyle._is_precipitation_name(var_lower)
         )
 
         if is_precipitation:
@@ -278,7 +348,7 @@ class MPASVisualizationStyle:
                 pass
 
         if "levels" not in style:
-            style["levels"] = list(range(0, 21))
+            style["levels"] = None
 
         style.update(
             {
@@ -536,7 +606,10 @@ class MPASVisualizationStyle:
         """
         colormap = "BuGn"
         if data_max <= 1.1:
-            if "rh" in var_lower or "humidity" in var_lower:
+            if any(
+                re.fullmatch(r"rh\d*m?|relhum\w*|humid\w*", tok)
+                for tok in MPASVisualizationStyle._name_tokens(var_lower)
+            ):
                 candidate_levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
             else:
                 candidate_levels = [
@@ -602,13 +675,12 @@ class MPASVisualizationStyle:
             Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]: A tuple containing the selected colormap (either as a string name or a ListedColormap object) and a list of contour levels appropriate for the variable and its data characteristics. The levels may be None if they could not be generated due to invalid data or insufficient range.
         """
         var_lower = var_name.lower().strip()
+        tokens = MPASVisualizationStyle._name_tokens(var_lower)
 
-        if isinstance(data, xr.DataArray):
-            data_values = data.values.flatten()
-        else:
-            data_values = np.asarray(data).flatten()
-
-        valid_data = data_values[np.isfinite(data_values)]
+        # Respect masks: masked and non-finite entries never influence the levels
+        raw = data.values if isinstance(data, xr.DataArray) else data
+        masked = np.ma.masked_invalid(np.ma.asarray(raw, dtype=float))
+        valid_data = np.asarray(masked.compressed(), dtype=float).flatten()
 
         if len(valid_data) == 0:
             return "viridis", None
@@ -616,33 +688,162 @@ class MPASVisualizationStyle:
         data_min, data_max = float(np.min(valid_data)), float(np.max(valid_data))
         data_range = data_max - data_min
 
-        if any(k in var_lower for k in ["temp", "t2m", "temperature", "sst"]):
+        colormap, levels = MPASVisualizationStyle._select_variable_levels(
+            var_lower, tokens, data_min, data_max, data_range
+        )
+
+        return colormap, MPASVisualizationStyle._ensure_valid_levels(
+            levels, data_min, data_max
+        )
+
+    @staticmethod
+    def _name_tokens(var_lower: str) -> List[str]:
+        """
+        This internal helper splits a lower-cased variable name into alphanumeric tokens (separated by underscores, dashes, dots and other punctuation) so that variable classes are recognised by whole words rather than raw substrings: 'srh_0_1km' yields ['srh', '0', '1km'] and 'zonal_u' yields ['zonal', 'u'], neither of which contains a humidity or height token.
+
+        Parameters:
+            var_lower (str): Lower-cased variable name.
+
+        Returns:
+            List[str]: The non-empty tokens.
+        """
+        return [tok for tok in re.split(r"[^a-z0-9]+", var_lower) if tok]
+
+    @staticmethod
+    def _select_variable_levels(
+        var_lower: str,
+        tokens: List[str],
+        data_min: float,
+        data_max: float,
+        data_range: float,
+    ) -> Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]:
+        """
+        This internal helper classifies a variable by explicit whole-token matching (temperature, precipitation, pressure, wind speed, geopotential height, humidity) and delegates to the matching level builder, falling back to evenly spaced levels over the data range for everything else. Matching tokens rather than substrings keeps names such as 'srh_0_1km' (storm-relative helicity), 'zonal_u' or 'frozen_depth' from being treated as humidity or height fields.
+
+        Parameters:
+            var_lower (str): Lower-cased variable name.
+            tokens (List[str]): Tokens of the name from _name_tokens.
+            data_min (float): Minimum of the valid data.
+            data_max (float): Maximum of the valid data.
+            data_range (float): data_max minus data_min.
+
+        Returns:
+            Tuple[Union[str, mcolors.ListedColormap], Optional[List[float]]]: Colormap and raw contour levels (not yet validated).
+        """
+
+        def has(pattern: str) -> bool:
+            """Return True when any name token fully matches the regular expression pattern."""
+            return any(re.fullmatch(pattern, tok) for tok in tokens)
+
+        if has(r"temp\w*|t2m|th2m|sst|tmp\d*m?|tsk"):
             return MPASVisualizationStyle._levels_for_temperature(
                 data_min, data_max, data_range
             )
 
-        if any(k in var_lower for k in ["precip", "rain", "snow", "qpf"]):
+        if MPASVisualizationStyle._is_precipitation_name(var_lower):
             return MPASVisualizationStyle._levels_for_precipitation(var_lower, data_max)
 
-        if any(k in var_lower for k in ["pressure", "slp", "mslp", "pres"]):
+        if has(r"press\w*|slp|mslp|pres|psfc"):
             return MPASVisualizationStyle._levels_for_pressure(
                 var_lower, data_min, data_max, data_range
             )
 
-        if any(k in var_lower for k in ["wind", "wspd", "speed"]):
+        if has(r"wind\w*|wspd\d*|speed|ws\d+m?"):
             return MPASVisualizationStyle._levels_for_wind(data_max)
 
-        if any(k in var_lower for k in ["geopotential", "height", "hgt", "z"]):
+        if has(r"geopotential\w*|height\w*|hgt\d*|gph\d*|zgrid|z\d*(?:hpa|mb)?"):
             return MPASVisualizationStyle._levels_for_geopotential(
                 data_min, data_max, data_range
             )
 
-        if any(k in var_lower for k in ["humidity", "rh", "q", "mixing"]):
+        if has(r"humid\w*|relhum\w*|spechum\w*|rh\d*m?|q[vcrisg]?\d*m?|mixing\w*"):
             return MPASVisualizationStyle._levels_for_humidity(
                 var_lower, data_min, data_max
             )
 
         return MPASVisualizationStyle._levels_default(data_min, data_max, data_range)
+
+    @staticmethod
+    def _ensure_valid_levels(
+        levels: Optional[List[float]], data_min: float, data_max: float
+    ) -> Optional[List[float]]:
+        """
+        This internal helper guarantees that levels returned to the plotting code are usable for contouring: they are sorted, de-duplicated and finite, and when fewer than two distinct levels remain (a constant field, or a data range narrower than the level set) a small strictly increasing band around the data is returned instead of identical or single levels, which would make contouring fail. None passes through unchanged.
+
+        Parameters:
+            levels (Optional[List[float]]): Candidate contour levels.
+            data_min (float): Minimum of the valid data.
+            data_max (float): Maximum of the valid data.
+
+        Returns:
+            Optional[List[float]]: At least two strictly increasing levels, or None.
+        """
+        if levels is None:
+            return None
+
+        unique = sorted({float(v) for v in levels if np.isfinite(v)})
+
+        if len(unique) >= 2:
+            return unique
+
+        low, high = data_min, data_max
+
+        if not high > low:
+            pad = abs(low) * 0.01 if low != 0 else 0.5
+            low, high = low - pad, high + pad
+
+        return [float(v) for v in np.linspace(low, high, 5)]
+
+    @staticmethod
+    def _recenter_split_longitude(
+        proj_key: str,
+        proj_cls: Any,
+        effective_lon: Optional[float],
+        central_longitude: Optional[float],
+        proj_kwargs: Optional[Dict[str, Any]],
+        lon_range: Tuple[float, float],
+    ) -> Optional[float]:
+        """
+        This helper replaces an explicitly requested central longitude that would split a regional box across the map seam by the midpoint of the box, logging a warning when it does so. The check only applies to the seam-sensitive projections and Mercator, to boxes no wider than 180°, and when the caller supplied a central longitude without overriding it through proj_kwargs.
+
+        Parameters:
+            proj_key (str): Key of the projection in the projection registry.
+            proj_cls (Any): The cartopy projection class, used in the warning message.
+            effective_lon (Optional[float]): The resolved central longitude, or None.
+            central_longitude (Optional[float]): The central longitude explicitly requested by the caller, or None.
+            proj_kwargs (Optional[Dict[str, Any]]): Passthrough keyword arguments for the projection constructor.
+            lon_range (Tuple[float, float]): Minimum and maximum longitude of the requested box.
+
+        Returns:
+            Optional[float]: The central longitude to use, the box midpoint when the requested center would split the box, otherwise effective_lon unchanged.
+        """
+        lon_min, lon_max = lon_range
+
+        # A requested centre that would split a regional box across the map seam is replaced by the box midpoint
+        if (
+            effective_lon is not None
+            and central_longitude is not None
+            and not (proj_kwargs and "central_longitude" in proj_kwargs)
+            and (
+                proj_key in MPASVisualizationStyle._SEAM_SPLIT_PROJECTIONS
+                or proj_key == "mercator"
+            )
+            and (lon_max - lon_min) <= 180.0
+        ):
+            offset = ((lon_min - effective_lon + 180.0) % 360.0) - 180.0
+
+            if offset + (lon_max - lon_min) > 180.0:
+                midpoint = ((((lon_min + lon_max) / 2) + 180.0) % 360.0) - 180.0
+                # The coordinates are left out of the message: code scanners treat any
+                # longitude/latitude as private location data
+                logger.warning(
+                    "The requested central longitude would split the map extent across the "
+                    "map edge on %s; re-centering the map on the middle of the extent.",
+                    proj_cls.__name__,
+                )
+                return midpoint
+
+        return effective_lon
 
     @staticmethod
     def setup_map_projection(
@@ -651,37 +852,170 @@ class MPASVisualizationStyle:
         lat_min: float,
         lat_max: float,
         projection: str = "PlateCarree",
+        central_longitude: Optional[float] = None,
+        central_latitude: Optional[float] = None,
+        proj_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ccrs.Projection, ccrs.PlateCarree]:
         """
-        This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. It calculates the central longitude and latitude from the provided bounds to use as reference points for certain projections (e.g., Mercator, Lambert Conformal). The method supports multiple projection types, including 'PlateCarree', 'Mercator', and 'LambertConformal', and defaults to 'PlateCarree' if an unrecognized projection name is provided. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data). This setup allows for flexible visualization of MPAS diagnostics on different map projections while ensuring that the data is correctly transformed to match the chosen projection.
+        This method sets up the map projection for plotting MPAS diagnostic data based on the specified longitude and latitude bounds and the desired projection type. The projection is looked up (case-insensitively) from a whitelist of supported cartopy projections (see MPASVisualizationStyle._PROJECTION_REGISTRY), which includes 'PlateCarree', 'Mercator', 'LambertConformal', 'Robinson', 'Mollweide', 'Orthographic', 'NorthPolarStereo', 'SouthPolarStereo', 'NearsidePerspective', 'AlbersEqualArea', 'AzimuthalEquidistant', 'LambertAzimuthalEqualArea', 'Stereographic', 'TransverseMercator', 'Gnomonic', 'EckertIV', 'EqualEarth', 'LambertCylindrical', 'Miller', 'Sinusoidal', 'InterruptedGoodeHomolosine', and 'Geostationary'. It resolves the projection center using the following precedence (lowest to highest): the midpoint of the requested bounds is used for projections that auto-center (Mercator and the conic, azimuthal, and globe-view projections); an explicit central_longitude or central_latitude argument overrides that auto value; and any keys in proj_kwargs override everything (full passthrough to the cartopy constructor). Global-style projections such as PlateCarree are not auto-centered and stay at central_longitude=0, preserving historical output, except for a regional box that crosses their ±180° seam (e.g. lon 150..210), which is centered on its midpoint so the box is not split across the map edges; the same re-centering (with a logged warning) is applied when an explicit central_longitude, on these projections or Mercator, would split the requested box. An explicit central_longitude outside [-180, 180] is wrapped into that range, and a non-finite center or a central_latitude outside [-90, 90] raises ValueError. Center keywords are only injected when the projection constructor accepts them (a warning is logged when an explicit central_latitude is ignored), while proj_kwargs are passed through unfiltered so any cartopy projection parameter (e.g. standard_parallels, globe, satellite_height) can be supplied. A LambertConformal projection centered in the southern hemisphere uses mirrored standard parallels (-33°, -45°) and a 30°N cutoff instead of cartopy's northern-hemisphere defaults, which would cut the domain off at 30°S; proj_kwargs can still override both. An unrecognized projection name falls back to 'PlateCarree' with a warning. Any error raised while constructing the projection is re-raised as ValueError naming the projection and its valid parameters. It returns a tuple containing the map projection object to be used for plotting and the data coordinate system (which is typically PlateCarree for MPAS data).
 
         Parameters:
             lon_min (float): Minimum longitude of the plot area.
             lon_max (float): Maximum longitude of the plot area.
             lat_min (float): Minimum latitude of the plot area.
             lat_max (float): Maximum latitude of the plot area.
-            projection (str): Desired map projection type (e.g., 'PlateCarree', 'Mercator', 'LambertConformal'). Defaults to 'PlateCarree'.
+            projection (str): Desired map projection type (e.g., 'PlateCarree', 'Mercator', 'LambertConformal', 'Robinson', 'Orthographic'). Defaults to 'PlateCarree'. Unrecognized names fall back to 'PlateCarree'.
+            central_longitude (Optional[float]): Explicit central longitude in degrees for the projection. Overrides the auto-derived midpoint. Defaults to None (use auto/default behavior).
+            central_latitude (Optional[float]): Explicit central latitude in degrees for the projection (only used by projections that accept it, e.g. LambertConformal, Orthographic). Overrides the auto-derived midpoint. Defaults to None.
+            proj_kwargs (Optional[Dict[str, Any]]): Additional keyword arguments passed directly to the cartopy projection constructor for full control over its parameters. Keys here take precedence over central_longitude/central_latitude. Defaults to None.
 
         Returns:
-            Tuple[ccrs.Projection, ccrs.PlateCarree]: A tuple containing the map projection object to be used for plotting and the data coordinate system (PlateCarree). The map projection is configured based on the specified bounds and projection type, while the data coordinate system is set to PlateCarree for compatibility with MPAS data.
+            Tuple[ccrs.Projection, ccrs.PlateCarree]: A tuple containing the map projection object to be used for plotting and the data coordinate system (PlateCarree). The map projection is configured based on the specified bounds, projection type, and any explicit centering or passthrough keyword arguments, while the data coordinate system is set to PlateCarree for compatibility with MPAS data.
         """
-        central_lon = (lon_min + lon_max) / 2
-        central_lat = (lat_min + lat_max) / 2
+        proj_key = MPASVisualizationStyle._resolve_projection_key(projection)
+        proj_cls, auto_center_lon, auto_center_lat = (
+            MPASVisualizationStyle._PROJECTION_REGISTRY[proj_key]
+        )
 
-        if projection.lower() == "platecarree":
-            map_proj = ccrs.PlateCarree()
-        elif projection.lower() == "mercator":
-            map_proj = ccrs.Mercator(central_longitude=central_lon)
-        elif projection.lower() == "lambertconformal":
-            map_proj = ccrs.LambertConformal(
-                central_longitude=central_lon, central_latitude=central_lat
+        if (
+            proj_key in MPASVisualizationStyle._SEAM_SPLIT_PROJECTIONS
+            and (lon_max - lon_min) < 359.0
+            and (lon_min < -180.0 or lon_max > 180.0)
+        ):
+            auto_center_lon = True
+
+        effective_lon = MPASVisualizationStyle._resolve_center(
+            central_longitude, auto_center_lon, (lon_min + lon_max) / 2, "longitude"
+        )
+        effective_lat = MPASVisualizationStyle._resolve_center(
+            central_latitude, auto_center_lat, (lat_min + lat_max) / 2, "latitude"
+        )
+
+        effective_lon = MPASVisualizationStyle._recenter_split_longitude(
+            proj_key,
+            proj_cls,
+            effective_lon,
+            central_longitude,
+            proj_kwargs,
+            (lon_min, lon_max),
+        )
+
+        accepted = MPASVisualizationStyle._accepted_projection_args(proj_cls)
+        kwargs: Dict[str, Any] = {}
+
+        if effective_lon is not None and "central_longitude" in accepted:
+            kwargs["central_longitude"] = effective_lon
+
+        if effective_lat is not None and "central_latitude" in accepted:
+            kwargs["central_latitude"] = effective_lat
+        elif central_latitude is not None:
+            logger.warning(
+                "central_latitude is not supported by %s and is ignored",
+                proj_cls.__name__,
             )
-        else:
-            map_proj = ccrs.PlateCarree()
+
+        # cartopy's LambertConformal defaults (standard parallels 33/45°N, cutoff 30°S)
+        # cut off southern-hemisphere domains, so mirror them for southern centers.
+        if (
+            proj_key == "lambertconformal"
+            and effective_lat is not None
+            and effective_lat < 0
+        ):
+            kwargs["standard_parallels"] = (-33.0, -45.0)
+            kwargs["cutoff"] = 30.0
+
+        if proj_kwargs:
+            kwargs.update(proj_kwargs)
+
+        try:
+            map_proj = proj_cls(**kwargs)
+        except (TypeError, ValueError, RuntimeError) as exc:
+            valid = ", ".join(sorted(accepted - {"self"}))
+            raise ValueError(
+                f"Invalid projection arguments for {proj_cls.__name__}: {exc}. "
+                f"Valid parameters are: {valid}"
+            ) from exc
 
         data_crs = ccrs.PlateCarree()
 
         return map_proj, data_crs
+
+    @staticmethod
+    def _resolve_projection_key(projection: Optional[str]) -> str:
+        """
+        This helper maps a user-supplied projection name to a key of MPASVisualizationStyle._PROJECTION_REGISTRY. The lookup is case-insensitive, None is treated as the default 'PlateCarree', and an unrecognized name falls back to 'platecarree' with a warning listing the supported projections.
+
+        Parameters:
+            projection (Optional[str]): Projection name as supplied by the caller.
+
+        Returns:
+            str: A key of the projection registry.
+        """
+        registry = MPASVisualizationStyle._PROJECTION_REGISTRY
+        proj_key = (projection or "PlateCarree").lower()
+
+        if proj_key not in registry:
+            logger.warning(
+                "Unknown projection '%s'; falling back to PlateCarree. "
+                "Supported projections: %s",
+                projection,
+                ", ".join(sorted(registry)),
+            )
+            proj_key = "platecarree"
+
+        return proj_key
+
+    @staticmethod
+    def _resolve_center(
+        explicit: Optional[float], auto_center: bool, auto_value: float, axis: str
+    ) -> Optional[float]:
+        """
+        This helper resolves one projection center coordinate. An explicit value takes precedence over the auto-derived midpoint, which is only used when the projection auto-centers on that axis. Explicit values are validated: non-finite values raise ValueError, a central latitude outside [-90, 90] raises ValueError, and a central longitude outside [-180, 180] is wrapped into that range (so 360 becomes 0 and 200 becomes -160) instead of being handed to PROJ unchanged.
+
+        Parameters:
+            explicit (Optional[float]): Caller-supplied center value, or None.
+            auto_center (bool): Whether the projection auto-centers on this axis.
+            auto_value (float): Midpoint of the requested bounds on this axis.
+            axis (str): Either 'longitude' or 'latitude', used for validation and messages.
+
+        Returns:
+            Optional[float]: The center to pass to the projection, or None to use the cartopy default.
+        """
+        if explicit is None:
+            return auto_value if auto_center else None
+
+        value = float(explicit)
+
+        if not np.isfinite(value):
+            raise ValueError(f"central_{axis} must be finite, got {explicit!r}")
+
+        if axis == "latitude":
+            if not -90.0 <= value <= 90.0:
+                raise ValueError(
+                    f"central_latitude must be within [-90, 90], got {explicit!r}"
+                )
+            return value
+
+        if not -180.0 <= value <= 180.0:
+            value = ((value + 180.0) % 360.0) - 180.0
+
+        return value
+
+    @staticmethod
+    def _accepted_projection_args(proj_cls: type) -> set[str]:
+        """
+        This helper returns the set of keyword argument names accepted by a cartopy projection constructor, used to decide which center keywords can be injected and to list valid parameters in error messages. If the constructor signature cannot be inspected, it assumes the common central_longitude and central_latitude keywords.
+
+        Parameters:
+            proj_cls (type): The cartopy projection class.
+
+        Returns:
+            set: Names of the constructor's parameters.
+        """
+        try:
+            return set(inspect.signature(proj_cls).parameters)
+        except (ValueError, TypeError):
+            return {"central_longitude", "central_latitude"}
 
     @staticmethod
     def add_timestamp_and_branding(fig: Optional[Figure]) -> None:
@@ -697,7 +1031,7 @@ class MPASVisualizationStyle:
         if fig is None:
             return
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
         try:
             from .. import __version__
@@ -803,44 +1137,118 @@ class MPASVisualizationStyle:
         return footer_ax
 
     @staticmethod
+    def saved_file_paths(
+        output_path: str, formats: Union[str, Sequence[str], None]
+    ) -> List[str]:
+        """
+        This helper returns the file paths that save_plot writes for an output path and a set of formats, applying the same normalization (a single string accepted, leading dot stripped, lowercased, duplicates dropped) and the same rule that an extension already present on the path is not doubled. Batch functions use it to report exactly the files that exist on disk.
+
+        Parameters:
+            output_path (str): The output path passed to save_plot, with or without the extension.
+            formats (Union[str, Sequence[str], None]): One format name or a sequence of names.
+
+        Returns:
+            List[str]: The full file path for each distinct format, in order.
+        """
+        raw = [formats] if isinstance(formats, str) else list(formats or [])
+        names: List[str] = []
+
+        for fmt in raw:
+            name = str(fmt).strip().lstrip(".").lower()
+
+            if name and name not in names:
+                names.append(name)
+
+        # An extension that matches one of the requested formats belongs to the base name and is not repeated
+        base = output_path
+        for name in names:
+            if output_path.lower().endswith(f".{name}"):
+                base = output_path[: -(len(name) + 1)]
+                break
+
+        return [f"{base}.{name}" for name in names]
+
+    @staticmethod
+    def _normalize_save_formats(
+        fig: Figure, formats: Union[str, Sequence[str], None]
+    ) -> List[str]:
+        """
+        This helper normalizes the requested output formats for save_plot: a single string is accepted as one format, a leading dot is stripped and the name is lowercased (so '.PNG' becomes 'png'), duplicates are dropped while keeping order, and an empty request or a format the figure's canvas cannot write raises a ValueError before any file is created.
+
+        Parameters:
+            fig (Figure): Figure whose canvas defines the supported output formats.
+            formats (Union[str, Sequence[str], None]): One format name or a sequence of names.
+
+        Returns:
+            List[str]: Normalized, de-duplicated format names.
+        """
+        raw = [formats] if isinstance(formats, str) else list(formats or [])
+        cleaned: List[str] = []
+
+        for fmt in raw:
+            name = str(fmt).strip().lstrip(".").lower()
+
+            if name and name not in cleaned:
+                cleaned.append(name)
+
+        if not cleaned:
+            raise ValueError(
+                "No output formats were given; pass at least one format such as 'png'."
+            )
+
+        supported = set(fig.canvas.get_supported_filetypes())
+        unsupported = [name for name in cleaned if name not in supported]
+
+        if unsupported:
+            raise ValueError(
+                f"Unsupported output format(s) {unsupported}; supported formats: {sorted(supported)}"
+            )
+
+        return cleaned
+
+    @staticmethod
     def save_plot(
         fig: Figure,
         output_path: str,
-        formats: List[str] = ["png"],
+        formats: Union[str, Sequence[str]] = ("png",),
         bbox_inches: str = "tight",
         pad_inches: float = 0.1,
         dpi: int = 100,
     ) -> None:
         """
-        This method saves the provided matplotlib Figure object to disk in one or more specified formats with configurable options for bounding box, padding, and resolution. It first checks if the figure is valid (not None) and raises a ValueError if there is no figure to save. The method then ensures that the output directory exists, creating it if necessary. For each specified format in the formats list, it constructs the full output file path by appending the appropriate extension to the base output path and saves the figure using fig.savefig with the provided parameters. If the format is 'png', it applies additional PIL-specific parameters to optimize file size while maintaining quality. After saving each file, it prints a confirmation message indicating where the plot was saved. This method provides a flexible and robust way to save MPAS diagnostic plots in various formats with consistent styling and layout.
+        This method saves the provided matplotlib Figure object to disk in one or more specified formats with configurable options for bounding box, padding, and resolution. It first checks if the figure is valid (not None) and raises a ValueError if there is no figure to save. The formats may be a single string or a list; each name has a leading dot stripped and is lowercased, and an empty list or an unsupported format raises a ValueError before anything is written. The method then ensures that the output directory exists, creating it if necessary. For each format it constructs the full output file path by appending the extension to the base output path, unless the path already ends with an extension of one of the requested formats, which is treated as part of the base name (so 'map.png' with 'png' gives 'map.png', not 'map.png.png', and with ['png', 'pdf'] gives map.png and map.pdf), and saves the figure using fig.savefig with the provided parameters. If the format is 'png', it applies additional PIL-specific parameters to optimize file size while maintaining quality. After saving each file, it logs a confirmation message indicating where the plot was saved. This method provides a flexible and robust way to save MPAS diagnostic plots in various formats with consistent styling and layout.
 
         Parameters:
             fig (Figure): The matplotlib Figure object to be saved. This should be a valid figure containing the plot to be saved.
-            output_path (str): The base file path (without extension) where the plot will be saved. The method will append the appropriate extension for each format specified in the formats list.
-            formats (List[str]): A list of string format identifiers indicating the desired output formats (e.g., ['png', 'pdf', 'svg']). Defaults to ['png'] if not provided.
+            output_path (str): The base file path (with or without the extension) where the plot will be saved. The method appends the extension for each format unless the path already ends with it.
+            formats (Union[str, Sequence[str]]): A format identifier or a list of identifiers indicating the desired output formats (e.g., ['png', 'pdf', 'svg'] or 'png'). Defaults to ('png',).
             bbox_inches (str): The bounding box option for saving the figure, typically 'tight' to minimize whitespace around the plot. Default is 'tight'.
             pad_inches (float): The amount of padding in inches to add around the figure when bbox_inches is set to 'tight'. Default is 0.1 inches.
             dpi (int): The resolution in dots per inch for raster formats like PNG. Higher values result in better quality but larger file sizes. Default is 100 dpi.
 
         Returns:
-            None: This method does not return any value; it saves the figure to disk in the specified formats and prints confirmation messages for each saved file. If the figure is invalid (None), it raises a ValueError to indicate that there is no figure to save.
+            None: This method does not return any value; it saves the figure to disk in the specified formats and logs confirmation messages for each saved file. If the figure is invalid (None), or no valid format is given, it raises a ValueError.
         """
         if fig is None:
             raise ValueError("No figure to save. Create a plot first.")
+
+        format_list = MPASVisualizationStyle._normalize_save_formats(fig, formats)
 
         output_dir = os.path.dirname(output_path)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
-        for fmt in formats:
-            full_path = f"{output_path}.{fmt}"
+        for fmt, full_path in zip(
+            format_list,
+            MPASVisualizationStyle.saved_file_paths(output_path, format_list),
+        ):
             save_kwargs: Dict[str, Any] = {
                 "dpi": dpi,
                 "bbox_inches": bbox_inches,
                 "pad_inches": pad_inches,
                 "format": fmt,
             }
-            if fmt.lower() == "png":
+            if fmt == "png":
                 save_kwargs["pil_kwargs"] = {"compress_level": 1}
             fig.savefig(full_path, **save_kwargs)
             logger.info("Saved plot: %s", full_path)
@@ -1127,6 +1535,48 @@ class MPASVisualizationStyle:
         return f"{abs(value):.1f}°{direction}"
 
     @staticmethod
+    def _marker_base_size(point_density: float) -> float:
+        """
+        This helper maps the point density of a map to a base marker size using predefined density thresholds, so that the base size decreases as the density increases to prevent overcrowding.
+
+        Parameters:
+            point_density (float): Number of data points per square degree of map area.
+
+        Returns:
+            float: The base marker size before the area and figure scaling is applied.
+        """
+        if point_density < 1:
+            return 8.0
+        if point_density < 10:
+            return 3.0
+        if point_density < 50:
+            return 1.5
+        if point_density < 150:
+            return 0.8
+        if point_density < 500:
+            return 0.4
+        return 0.25
+
+    @staticmethod
+    def _marker_area_scale(map_area: float) -> float:
+        """
+        This helper maps the map area to a marker scaling factor, enlarging the markers on small maps and shrinking them on large ones.
+
+        Parameters:
+            map_area (float): Map area in square degrees (positive).
+
+        Returns:
+            float: The scale factor applied to the base marker size.
+        """
+        if map_area < 50:
+            return max(8.0, 400.0 / map_area)
+        if map_area < 500:
+            return max(3.0, 150.0 / map_area)
+        if map_area < 5000:
+            return max(1.5, 50.0 / map_area)
+        return max(0.5, 10.0 / map_area)
+
+    @staticmethod
     def calculate_adaptive_marker_size(
         map_extent: Optional[Tuple[float, float, float, float]],
         num_points: int,
@@ -1154,27 +1604,8 @@ class MPASVisualizationStyle:
         else:
             return 5.0
 
-        if point_density < 1:
-            base_size = 8.0
-        elif point_density < 10:
-            base_size = 3.0
-        elif point_density < 50:
-            base_size = 1.5
-        elif point_density < 150:
-            base_size = 0.8
-        elif point_density < 500:
-            base_size = 0.4
-        else:
-            base_size = 0.25
-
-        if map_area < 50:
-            area_scale = max(8.0, 400.0 / map_area)
-        elif map_area < 500:
-            area_scale = max(3.0, 150.0 / map_area)
-        elif map_area < 5000:
-            area_scale = max(1.5, 50.0 / map_area)
-        else:
-            area_scale = max(0.5, 10.0 / map_area)
+        base_size = MPASVisualizationStyle._marker_base_size(point_density)
+        area_scale = MPASVisualizationStyle._marker_area_scale(map_area)
 
         fig_scale = min(1.2, max(0.8, (fig_size[0] * fig_size[1]) / (10 * 12)))
 
@@ -1197,7 +1628,7 @@ class MPASVisualizationStyle:
     @staticmethod
     def _choose_tick_fmt(tick_values: np.ndarray, nonzero_ticks: np.ndarray) -> str:
         """
-        This internal method determines the appropriate format string for axis tick labels based on the range and distribution of tick values. It first checks if all ticks are close to integers, in which case it returns a format string with no decimal places. If there are non-zero ticks, it calculates the typical magnitude using the median of the absolute values of the non-zero ticks and selects a format string with an appropriate number of decimal places based on predefined thresholds (e.g., 1 decimal for values between 10 and 100, 2 decimals for values between 0.01 and 10, etc.). If there are no non-zero ticks, it defaults to integer formatting. This method helps ensure that tick labels are formatted in a way that is both informative and visually clean across a wide range of data values in MPAS diagnostic plots.
+        This internal method determines the format string for axis tick labels by choosing the smallest number of decimal places (0 to 6) at which every tick value is represented exactly, within a tight relative tolerance that absorbs floating-point noise. Ticks such as 0.001, 0.002 and 0.0025 therefore receive four decimals rather than being rounded to a precision chosen from their median magnitude, so no label differs from the value it marks. If there are no non-zero ticks, it defaults to integer formatting, and values needing more than six decimals fall back to six.
 
         Parameters:
             t (np.ndarray): The array of tick values.
@@ -1206,24 +1637,19 @@ class MPASVisualizationStyle:
         Returns:
             str: The format string for tick labels.
         """
-        if np.allclose(tick_values, np.round(tick_values), atol=1e-6):
-            return "{:.0f}"
-
         if len(nonzero_ticks) == 0:
             return "{:.0f}"
 
-        typical_magnitude = float(np.median(np.abs(nonzero_ticks)))
+        finite_ticks = tick_values[np.isfinite(tick_values)]
 
-        if typical_magnitude >= 100:
-            return "{:.0f}"
+        for decimals in range(0, 7):
+            rounded = np.round(finite_ticks, decimals)
+            tolerance = 1e-9 * np.maximum(1.0, np.abs(finite_ticks))
 
-        if typical_magnitude >= 10:
-            return "{:.1f}"
+            if np.all(np.abs(finite_ticks - rounded) <= tolerance):
+                return "{:." + str(decimals) + "f}"
 
-        if typical_magnitude >= 0.01:
-            return "{:.2f}"
-
-        return "{:.3f}"
+        return "{:.6f}"
 
     @staticmethod
     def _resolve_duplicate_labels(fmt: str, ticks: List[float]) -> List[str]:

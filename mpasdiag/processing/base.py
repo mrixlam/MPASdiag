@@ -16,7 +16,7 @@ Version: 1.0.0
 
 # Import standard libraries
 import os
-import sys
+import re
 import glob
 import warnings
 import numpy as np
@@ -29,7 +29,13 @@ from typing import List, Tuple, Any, Optional, Dict, Union, Iterator, cast
 
 # Import relevant MPASdiag utilities and constants
 from .utils_datetime import MPASDateTimeUtils
-from .constants import DATASET_NOT_LOADED_MSG, DIAG_GLOB
+from .utils_geog import MPASGeographicUtils
+from .constants import (
+    CROSS_SECTION_AUX_VARS,
+    DATASET_NOT_LOADED_MSG,
+    DIAG_GLOB,
+    NETCDF_ENGINE,
+)
 from .utils_logger import get_logger
 from .utils_validator import DataValidator
 
@@ -58,6 +64,15 @@ def _enforce_dataset_load_limit(ds: "xr.Dataset", context: str) -> None:
 
 logger = get_logger(__name__)
 
+# Time-bookkeeping variables always retained by selective (variables=[...]) loads.
+_ISOBARIC_NAME_RE = re.compile(r"^(\w+?)_(\d+)hPa$")
+_TIME_KEEP_VARIABLES = frozenset({"initial_time", "Times", "time", "forecast_time"})
+
+
+class MissingVariablesError(ValueError):
+    """Raised by a selective load when none of the requested variables are in the data files."""
+
+
 # Suppress specific warnings that are expected during MPAS data loading and processing to reduce noise in verbose output.
 warnings.filterwarnings("ignore", message=".*Shapely.*")
 warnings.filterwarnings("ignore", category=UserWarning, module="cartopy")
@@ -75,7 +90,39 @@ warnings.filterwarnings(
 
 _GRID_DS_CACHE: Dict[Tuple[str, Optional[frozenset]], xr.Dataset] = {}
 _UXGRID_CACHE: Dict[str, Any] = {}
+_UXARRAY_USABLE: Optional[bool] = None
 _COLLECTIVE_GRID_LOAD_DEPTH = 0
+
+
+def _uxarray_is_usable() -> bool:
+    """
+    This function probes whether the installed uxarray release works with the installed xarray release by building a tiny UxDataset and running a basic indexing operation on it. Some uxarray releases construct their datasets by passing a Dataset as the 'data_vars' argument, which recent xarray versions reject, so every isel, sel, assign, or rename on the resulting UxDataset raises a TypeError even though construction itself appears to succeed. Detecting this once per process lets the loaders choose the pure xarray backend up front with a single clear warning instead of attempting a UXarray load that can only produce an unusable dataset. The result is memoized in a module-level variable so the probe runs at most once.
+
+    Parameters:
+        None
+
+    Returns:
+        bool: True if UxDataset supports basic xarray operations in this environment, False otherwise.
+    """
+    global _UXARRAY_USABLE
+
+    if _UXARRAY_USABLE is None:
+        try:
+            probe = ux.UxDataset(data_vars={"a": (("x",), np.zeros(2))})
+            probe.isel(x=0)
+            _UXARRAY_USABLE = True
+        except TypeError as exc:
+            logger.warning(
+                "uxarray %s is incompatible with xarray %s (%s); using the pure xarray backend",
+                getattr(ux, "__version__", "?"),
+                xr.__version__,
+                exc,
+            )
+            _UXARRAY_USABLE = False
+        except Exception:
+            _UXARRAY_USABLE = True
+
+    return bool(_UXARRAY_USABLE)
 
 
 def clear_grid_cache() -> None:
@@ -264,7 +311,7 @@ class MPASBaseProcessor:
         self: "MPASBaseProcessor", data_dir: str, pattern: str, file_type: str
     ) -> List[str]:
         """
-        This helper method finds files in the specified directory that match the given glob pattern, sorts them by filename to ensure consistent temporal ordering, and validates that a sufficient number of files are found for temporal analysis. It constructs the full file pattern by joining the data directory with the provided glob pattern, uses glob to find matching files, and raises appropriate errors if no files are found or if fewer than 2 files are found (since temporal analysis typically requires multiple time steps). If verbose mode is enabled, it prints a summary of the discovered files with truncated listing for large file sets. The method returns a sorted list of file paths matching the specified pattern for use in subsequent loading and processing operations.
+        This helper method finds files in the specified directory that match the given glob pattern, sorts them chronologically by the timestamp in the filename (then by path), and requires at least one match (a single multi-time file is valid). It constructs the full file pattern by joining the data directory with the provided glob pattern, uses glob to find matching files, and raises appropriate errors if no files are found. If verbose mode is enabled, it prints a summary of the discovered files with truncated listing for large file sets. The method returns a sorted list of file paths matching the specified pattern for use in subsequent loading and processing operations.
 
         Parameters:
             data_dir (str): Absolute path to the directory containing the data files to search.
@@ -275,21 +322,15 @@ class MPASBaseProcessor:
             List[str]: A sorted list of absolute file paths that match the specified pattern in the given directory, ready for loading and processing.
         """
         # Construct the full file pattern by joining the data directory with the provided glob pattern to create an absolute search pattern for glob.
-        file_pattern = os.path.join(data_dir, pattern)
+        file_pattern = os.path.join(glob.escape(data_dir), pattern)
 
         # Use glob to find files matching the pattern and sort them by filename to ensure consistent temporal ordering based on naming conventions.
-        files = sorted(glob.glob(file_pattern))
+        files = sorted(glob.glob(file_pattern), key=MPASDateTimeUtils.file_sort_key)
 
         # Raise a FileNotFoundError if no files are found matching the pattern to provide clear feedback about missing data.
         if not files:
             raise FileNotFoundError(
                 f"No {file_type} found matching pattern: {file_pattern}"
-            )
-
-        # Raise a ValueError if fewer than 2 files are found, as temporal analysis typically requires multiple time steps to compute trends, differences, or time series.
-        if len(files) < 2:
-            raise ValueError(
-                f"Insufficient files for temporal analysis. Found {len(files)}, need at least 2."
             )
 
         # If verbose mode is enabled, print a summary of the discovered files with truncated listing for large file sets.
@@ -357,6 +398,83 @@ class MPASBaseProcessor:
             # Return the chunks and open_chunks separately so that open_chunks can be used for opening files
             return open_chunks, chunks
 
+    @staticmethod
+    def _decode_xtime_values(values: Any) -> List[datetime]:
+        """
+        This static helper decodes an array of MPAS 'xtime' character strings (for example '2024-09-17_01:00:00') into Python datetime objects. The raw values are typically fixed-width byte strings padded with spaces or NUL characters, so each element is decoded, stripped of padding, and parsed with the MPAS underscore-separated date-time layout. A fractional-second suffix, which some MPAS builds append, is ignored. The method is used to assign a correct Time coordinate when files contain more than one Time record, where a single per-file timestamp parsed from the file name cannot describe every record.
+
+        Parameters:
+            values (Any): Array-like of xtime values as bytes or strings.
+
+        Returns:
+            List[datetime]: One datetime per input element, in the same order.
+        """
+        decoded: List[datetime] = []
+
+        for raw in np.asarray(values).ravel():
+            text = raw.decode("utf-8", "ignore") if isinstance(raw, bytes) else str(raw)
+            text = text.replace("\x00", "").strip().split(".")[0]
+            decoded.append(datetime.strptime(text, "%Y-%m-%d_%H:%M:%S"))
+
+        return decoded
+
+    def _derive_time_coordinate(
+        self: "MPASBaseProcessor",
+        data_files: List[str],
+        file_datetimes: List[datetime],
+        combined_ds: xr.Dataset,
+    ) -> List[datetime]:
+        """
+        This helper method builds the Time coordinate for a dataset concatenated along Time from several files, producing exactly one timestamp per Time record. When the number of records equals the number of files (the common one-record-per-file layout) the datetimes parsed from the file names are used unchanged. Otherwise the number of records in each file is read from the file header, files holding a single record keep their file-name timestamp, and files holding several records take their per-record timestamps from the 'xtime' variable of the combined dataset. If a multi-record file has no 'xtime' variable, or the record counts do not add up to the combined Time length, a ValueError is raised rather than silently mislabeling or dropping records.
+
+        Parameters:
+            data_files (List[str]): Ordered list of the files that were concatenated along Time.
+            file_datetimes (List[datetime]): Datetimes parsed from the file names, one per file.
+            combined_ds (xr.Dataset): The dataset produced by concatenating the files along Time.
+
+        Returns:
+            List[datetime]: One datetime per Time record of the combined dataset, in concatenation order.
+        """
+        n_records = int(combined_ds.sizes.get("Time", 0))
+
+        if n_records == len(file_datetimes):
+            return list(file_datetimes)
+
+        counts: List[int] = []
+
+        for path in data_files:
+            with xr.open_dataset(
+                path, decode_times=False, engine=NETCDF_ENGINE
+            ) as probe:
+                counts.append(int(probe.sizes.get("Time", 1)))
+
+        if sum(counts) != n_records:
+            raise ValueError(
+                f"Time record count mismatch: files hold {sum(counts)} records but the combined dataset has {n_records}"
+            )
+
+        xtime = combined_ds["xtime"] if "xtime" in combined_ds else None
+        times: List[datetime] = []
+        offset = 0
+
+        for path, file_dt, count in zip(data_files, file_datetimes, counts):
+            if count == 1:
+                times.append(file_dt)
+            elif xtime is None:
+                raise ValueError(
+                    f"File '{os.path.basename(path)}' has {count} Time records but no 'xtime' variable to derive per-record times"
+                )
+            else:
+                times.extend(
+                    self._decode_xtime_values(
+                        xtime.isel(Time=slice(offset, offset + count)).values
+                    )
+                )
+
+            offset += count
+
+        return times
+
     def _load_multifile_dataset(
         self: "MPASBaseProcessor",
         data_files: List[str],
@@ -378,6 +496,7 @@ class MPASBaseProcessor:
         """
         # Build kwargs for open_mfdataset
         open_mfdataset_kwargs: Dict[str, Any] = {
+            "engine": NETCDF_ENGINE,
             "combine": "nested",
             "concat_dim": "Time",
             "chunks": open_chunks,
@@ -402,8 +521,13 @@ class MPASBaseProcessor:
         # Reject crafted files that declare enormous logical dimensions to prevent excessive memory usage
         _enforce_dataset_load_limit(combined_ds, context="loading MPAS data files")
 
-        # Assign the provided datetime objects as the Time coordinates in the combined dataset
-        combined_ds = combined_ds.assign_coords(Time=pd.to_datetime(file_datetimes))
+        # Derive one timestamp per Time record, which equals one per file only when every file holds a single record
+        time_values = self._derive_time_coordinate(
+            data_files, file_datetimes, combined_ds
+        )
+
+        # Assign the derived datetime objects as the Time coordinates in the combined dataset
+        combined_ds = combined_ds.assign_coords(Time=pd.to_datetime(time_values))
 
         # Sort the combined dataset by the Time coordinate to ensure temporal ordering
         combined_ds = combined_ds.sortby("Time")
@@ -460,11 +584,19 @@ class MPASBaseProcessor:
             Returns:
                 Any: The unstructured grid information extracted from the grid file dataset, which is used to create the UXarray dataset.
             """
-            grid_ds = ux.open_dataset(
-                self.grid_file, data_files[0], grid_kwargs={"decode_times": False}
-            )
-
-            grid_info = grid_ds.uxgrid
+            try:
+                grid_ds = ux.open_dataset(
+                    self.grid_file,
+                    data_files[0],
+                    grid_kwargs={"decode_times": False, "engine": NETCDF_ENGINE},
+                    engine=NETCDF_ENGINE,
+                )
+                grid_info = grid_ds.uxgrid
+            except TypeError:
+                # Newer xarray rejects the Dataset-as-data_vars construction used inside ux.open_dataset, so read the grid alone
+                grid_info = ux.open_grid(
+                    self.grid_file, decode_times=False, engine=NETCDF_ENGINE
+                )
 
             if grid_info is None:
                 raise ValueError("Could not extract uxgrid from dataset")
@@ -477,7 +609,12 @@ class MPASBaseProcessor:
             raise ValueError("Could not extract uxgrid from dataset")
 
         # Return a UXarray dataset that wraps the combined xarray dataset and includes the unstructured grid information
-        return ux.UxDataset(combined_ds, uxgrid=grid_info)
+        return ux.UxDataset(
+            data_vars=combined_ds.data_vars,
+            coords=combined_ds.coords,
+            attrs=combined_ds.attrs,
+            uxgrid=grid_info,
+        )
 
     def _attempt_primary_load(
         self: "MPASBaseProcessor",
@@ -504,6 +641,10 @@ class MPASBaseProcessor:
         Returns:
             Tuple[Any, str]: (dataset_object, data_type_identifier) where dataset_object is either an xarray.Dataset or a ux.UxDataset depending on the loading strategy that succeeds, and data_type_identifier is a string indicating the backend used for loading ('xarray' or 'uxarray').
         """
+        # Use pure xarray up front when the installed uxarray cannot operate on the installed xarray
+        if not use_pure_xarray and not _uxarray_is_usable():
+            use_pure_xarray = True
+
         # Load and combine multiple files into a single xarray.Dataset with proper time coordinate handling and chunking for memory efficiency.
         combined_ds = self._load_multifile_dataset(
             data_files, file_datetimes, open_chunks, drop_variables=drop_variables
@@ -601,7 +742,7 @@ class MPASBaseProcessor:
         self: "MPASBaseProcessor", data_dir: str, pattern: str
     ) -> List[str]:
         """
-        This helper method discovers input files that match a user-supplied glob pattern, which allows MPASdiag to read output streams whose file names do not follow the built-in 'diag*.nc' and 'mpasout*.nc' conventions. It first searches for matching files directly in the specified directory, and if none are found it performs a recursive search through all subdirectories so that custom streams organized into subdirectories are still discovered. As with the built-in finders, it requires at least two matching files because temporal analysis needs multiple time steps, and it provides a truncated summary of the discovered files when verbose mode is enabled. Note that the file names must still embed a timestamp of the form YYYY-MM-DD_HH.MM.SS for the Time coordinate to be reconstructed correctly during loading. The method returns the sorted list of matching file paths for use in subsequent loading operations.
+        This helper method discovers input files that match a user-supplied glob pattern, which allows MPASdiag to read output streams whose file names do not follow the built-in 'diag*.nc' and 'mpasout*.nc' conventions. It first searches for matching files directly in the specified directory, and if none are found it performs a recursive search through all subdirectories so that custom streams organized into subdirectories are still discovered. As with the built-in finders, it requires at least one matching file and orders matches chronologically, and it provides a truncated summary of the discovered files when verbose mode is enabled. Note that the file names must still embed a timestamp of the form YYYY-MM-DD_HH.MM.SS for the Time coordinate to be reconstructed correctly during loading. The method returns the sorted list of matching file paths for use in subsequent loading operations.
 
         Parameters:
             data_dir (str): Absolute path to the directory containing the data files to discover.
@@ -620,18 +761,17 @@ class MPASBaseProcessor:
             pass
 
         # Fall back to a recursive search so that custom streams stored in subdirectories are still discovered.
-        files = sorted(glob.glob(os.path.join(data_dir, "**", pattern), recursive=True))
+        files = sorted(
+            glob.glob(
+                os.path.join(glob.escape(data_dir), "**", pattern), recursive=True
+            ),
+            key=MPASDateTimeUtils.file_sort_key,
+        )
 
         # Raise a FileNotFoundError if no files match the custom pattern anywhere beneath the specified directory.
         if not files:
             raise FileNotFoundError(
                 f"No files matching pattern '{pattern}' found under: {data_dir}"
-            )
-
-        # Raise a ValueError if fewer than 2 files are found, as temporal analysis requires multiple time steps.
-        if len(files) < 2:
-            raise ValueError(
-                f"Insufficient files for temporal analysis. Found {len(files)}, need at least 2."
             )
 
         # If verbose mode is enabled, print a summary of the discovered files with truncated listing for large file sets.
@@ -699,9 +839,7 @@ class MPASBaseProcessor:
         data_files = self._discover_data_files(data_dir)
 
         # Parse datetimes from the filenames of the discovered data files using the MPASDateTimeUtils utility
-        file_datetimes = MPASDateTimeUtils.parse_file_datetimes(
-            data_files, self.verbose
-        )
+        file_datetimes = self._resolve_file_datetimes(data_files)
 
         # Specify the chunking configuration for opening files and for full rechunking based on the provided `chunks` argument or defaults.
         open_chunks, full_chunks = self._prepare_chunking_config(chunks)
@@ -721,6 +859,52 @@ class MPASBaseProcessor:
             drop_variables,
         )
 
+    def _resolve_file_datetimes(
+        self: "MPASBaseProcessor", data_files: List[str]
+    ) -> List[datetime]:
+        """
+        This helper method assigns one datetime to each data file, preferring the timestamp embedded in the file name and falling back to the first 'xtime' record stored inside the file when the name carries no valid timestamp (for example a single multi-time file called 'history.nc', or a name with an impossible date). If neither source yields a time, a ValueError naming the offending file is raised, so no file is ever labelled with an invented time. The resulting list is used as the per-file time reference when building the Time coordinate of the combined dataset.
+
+        Parameters:
+            data_files (List[str]): Ordered list of data files to assign datetimes to.
+
+        Returns:
+            List[datetime]: One datetime per input file, in the same order.
+        """
+        try:
+            return MPASDateTimeUtils.parse_file_datetimes(data_files, self.verbose)
+        except ValueError as name_error:
+            resolved: List[datetime] = []
+
+            for path in data_files:
+                try:
+                    resolved.extend(
+                        MPASDateTimeUtils.parse_file_datetimes([path], False)
+                    )
+                    continue
+                except ValueError:
+                    pass
+
+                try:
+                    with xr.open_dataset(
+                        path, decode_times=False, engine=NETCDF_ENGINE
+                    ) as probe:
+                        resolved.append(
+                            self._decode_xtime_values(probe["xtime"].values[:1])[0]
+                        )
+                except Exception:
+                    raise ValueError(
+                        f"{name_error}; no usable 'xtime' variable found in '{os.path.basename(path)}' either"
+                    ) from name_error
+
+                if self.verbose:
+                    logger.warning(
+                        "Using xtime from inside '%s' because its name has no valid timestamp",
+                        os.path.basename(path),
+                    )
+
+            return resolved
+
     def _compute_drop_variables(
         self: "MPASBaseProcessor", data_files: List[str], variables: Optional[List[str]]
     ) -> Optional[List[str]]:
@@ -729,7 +913,7 @@ class MPASBaseProcessor:
 
         Parameters:
             data_files (List[str]): Discovered data files; the first is probed for its variable list.
-            variables (Optional[List[str]]): Variable names to retain, or None to keep all variables.
+            variables (Optional[List[str]]): Variable names to retain, or None to keep all variables. Time-bookkeeping variables ('xtime*' and similar) are always retained in addition.
 
         Returns:
             Optional[List[str]]: The variable names to drop, or None to keep everything.
@@ -738,21 +922,59 @@ class MPASBaseProcessor:
             return None
 
         try:
-            with xr.open_dataset(data_files[0]) as probe_ds:
+            with xr.open_dataset(data_files[0], engine=NETCDF_ENGINE) as probe_ds:
                 all_data_vars = list(probe_ds.data_vars)
-
-            variables_to_keep = set(variables)
-            drop_variables = [v for v in all_data_vars if v not in variables_to_keep]
-
-            if self.verbose and drop_variables:
-                logger.debug(
-                    "Selective loading: keeping %d variable(s), dropping %d from data files",
-                    len(variables_to_keep),
-                    len(drop_variables),
-                )
-            return drop_variables
         except Exception:
             return None
+
+        variables_to_keep = set(variables)
+
+        # Time-bookkeeping variables are tiny and required to label the Time coordinate (files holding
+        # several records derive per-record times from 'xtime'), so a selective load must never drop them.
+        time_keepers = {
+            v
+            for v in all_data_vars
+            if str(v).lower().startswith("xtime") or str(v) in _TIME_KEEP_VARIABLES
+        }
+        requested = set(variables)
+
+        # Isobaric diag fields '<name>_<N>hPa' are masked below ground using 'height_<N>hPa', so keep it too.
+        for name in requested:
+            match = _ISOBARIC_NAME_RE.match(str(name))
+            if match and f"height_{match.group(2)}hPa" in all_data_vars:
+                time_keepers.add(f"height_{match.group(2)}hPa")
+
+        # Dropping every data variable makes open_mfdataset fail with an unrelated-looking
+        # data_vars/coords error, so report the missing variables directly instead.
+        if not requested.intersection(all_data_vars):
+            raise MissingVariablesError(
+                f"None of the requested variables {sorted(variables_to_keep)} were found in "
+                f"{os.path.basename(data_files[0])}. Available variables: {sorted(all_data_vars)}"
+            )
+
+        # the vertical-coordinate helpers are requested with every 3D variable and kept when present;
+        # each file layout has only some of them, so their absence is not worth a warning
+        missing = sorted(
+            requested.difference(all_data_vars).difference(CROSS_SECTION_AUX_VARS)
+        )
+
+        if missing:
+            logger.warning(
+                "Requested variable(s) not found in %s and skipped: %s",
+                os.path.basename(data_files[0]),
+                missing,
+            )
+
+        variables_to_keep |= time_keepers
+        drop_variables = [v for v in all_data_vars if v not in variables_to_keep]
+
+        if self.verbose and drop_variables:
+            logger.debug(
+                "Selective loading: keeping %d variable(s), dropping %d from data files",
+                len(variables_to_keep),
+                len(drop_variables),
+            )
+        return drop_variables
 
     def _attempt_load_with_fallbacks(
         self: "MPASBaseProcessor",
@@ -812,11 +1034,25 @@ class MPASBaseProcessor:
                 if self.verbose:
                     logger.warning("Xarray fallback also failed: %s", e2)
 
+                if len(data_files) > 1:
+                    # Loading a single file of many would silently discard data, so fail loudly instead
+                    logger.error(
+                        "All multi-file loading strategies failed for %d files: %s",
+                        len(data_files),
+                        e2,
+                    )
+                    raise RuntimeError(
+                        f"Could not load {len(data_files)} {data_type_label.lower()} files: {e2}"
+                    ) from e2
+
                 try:
                     return self._load_single_file_fallback(reference_file, data_files)
                 except Exception as e3:
-                    logger.exception("All loading strategies failed: %s", e3)
-                    sys.exit(1)
+                    # Library code must not terminate the interpreter; let the caller decide how to exit
+                    logger.error("All loading strategies failed: %s", e3)
+                    raise RuntimeError(
+                        f"Could not load {data_type_label.lower()} file {reference_file}: {e3}"
+                    ) from e3
 
     def _print_loading_success(
         self: "MPASBaseProcessor",
@@ -888,7 +1124,10 @@ class MPASBaseProcessor:
         """
         # Return a UXarray dataset by opening the specified file path with the grid file
         return ux.open_dataset(
-            self.grid_file, file_path, grid_kwargs={"decode_times": False}
+            self.grid_file,
+            file_path,
+            grid_kwargs={"decode_times": False, "engine": NETCDF_ENGINE},
+            engine=NETCDF_ENGINE,
         )
 
     def _load_single_file_xarray(
@@ -904,7 +1143,7 @@ class MPASBaseProcessor:
             xr.Dataset: An xarray dataset loaded from the specified file, providing a more robust loading approach compatible with a wider range of file formats and system configurations.
         """
         # Return an xarray dataset by opening the specified file path in lazily-loaded mode without UXarray wrapping
-        return xr.open_dataset(file_path)
+        return xr.open_dataset(file_path, engine=NETCDF_ENGINE)
 
     def _set_dataset_and_return(
         self: "MPASBaseProcessor",
@@ -1062,14 +1301,19 @@ class MPASBaseProcessor:
         lon_coords: Optional[np.ndarray] = None
         lat_coords: Optional[np.ndarray] = None
 
+        lon_attrs: Dict[str, Any] = {}
+        lat_attrs: Dict[str, Any] = {}
+
         for name in lon_names:
             if name in self.dataset.coords or name in self.dataset.data_vars:
                 lon_coords = np.asarray(self.dataset[name].values)
+                lon_attrs = dict(self.dataset[name].attrs)
                 break
 
         for name in lat_names:
             if name in self.dataset.coords or name in self.dataset.data_vars:
                 lat_coords = np.asarray(self.dataset[name].values)
+                lat_attrs = dict(self.dataset[name].attrs)
                 break
 
         if lon_coords is None or lat_coords is None:
@@ -1084,9 +1328,9 @@ class MPASBaseProcessor:
         lon_arr: np.ndarray = np.asarray(lon_coords)
         lat_arr: np.ndarray = np.asarray(lat_coords)
 
-        if np.nanmax(np.abs(lat_arr)) <= np.pi:
-            lat_arr = lat_arr * 180.0 / np.pi
-            lon_arr = lon_arr * 180.0 / np.pi
+        lon_arr, lat_arr = MPASGeographicUtils.coordinates_to_degrees(
+            lon_arr, lat_arr, lon_attrs, lat_attrs
+        )
 
         lon_coords_flat: np.ndarray = lon_arr.ravel()
         lat_coords_flat: np.ndarray = lat_arr.ravel()
@@ -1130,7 +1374,7 @@ class MPASBaseProcessor:
             if needed_vars is not None:
                 try:
                     with xr.open_dataset(
-                        self.grid_file, decode_times=False
+                        self.grid_file, decode_times=False, engine=NETCDF_ENGINE
                     ) as probe_ds:
                         all_grid_vars = list(probe_ds.data_vars)
                     variables_to_drop = [
@@ -1141,7 +1385,9 @@ class MPASBaseProcessor:
                 except Exception:
                     pass
 
-            with xr.open_dataset(self.grid_file, **open_kwargs) as opened:
+            with xr.open_dataset(
+                self.grid_file, **open_kwargs, engine=NETCDF_ENGINE
+            ) as opened:
                 _enforce_dataset_load_limit(opened, context="loading grid file")
                 return opened.load()
 
@@ -1153,7 +1399,8 @@ class MPASBaseProcessor:
                 list(grid_file_ds.variables.keys()),
             )
 
-        return grid_file_ds
+        # Hand out a shallow copy so a caller that adds or replaces variables cannot corrupt the shared cached dataset; the underlying arrays remain shared and must be treated as read-only
+        return grid_file_ds.copy(deep=False)
 
     def _prepare_dimension_coordinates(
         self: "MPASBaseProcessor", combined_ds: xr.Dataset, dimensions_to_add: List[str]

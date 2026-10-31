@@ -119,59 +119,6 @@ def _make_contains(keys: list) -> Any:
     return _c
 
 
-class TestInterpolateAtPressure:
-    """Tests for the _interpolate_at_pressure method, covering the branches for pressure levels above max, below min, normal interpolation, and the special case where lower_idx is at the last position."""
-
-    def _setup(self: "TestInterpolateAtPressure", verbose: bool = False) -> tuple:
-        """
-        This helper method sets up a synthetic dataset and mean pressure array for testing the _interpolate_at_pressure method. It creates a dataset with a 'theta' variable that has a known vertical profile and a mean pressure array that is monotonically increasing (ascending). The verbose flag can be set to enable or disable verbose output during testing.
-
-        Parameters:
-            verbose (bool): Whether to enable verbose mode in the processor.
-
-        Returns:
-            tuple: A tuple containing the processor, dataset, and mean pressure array.
-        """
-        proc = _make_processor(verbose=verbose)
-        n_cells, n_vert = 5, 4
-
-        ds = xr.Dataset(
-            {
-                "theta": (
-                    ["Time", "nCells", "nVertLevels"],
-                    np.full((1, n_cells, n_vert), 300.0),
-                ),
-            }
-        )
-
-        # Ascending pressure (top=idx0, surface=idx3)
-        mean_p = np.array([50000.0, 70000.0, 85000.0, 100000.0])
-        return proc, ds, mean_p
-
-    def test_verbose_prints_interpolation_info(
-        self: "TestInterpolateAtPressure", capsys: pytest.CaptureFixture
-    ) -> None:
-        """
-        This test checks that when _interpolate_at_pressure is called in verbose mode, it prints information about the interpolation process, such as the pressure levels being used and the fact that interpolation is occurring. It uses the capsys fixture to capture stdout and asserts that the expected messages related to pressure and interpolation are present in the output.
-
-        Parameters:
-            capsys (pytest.CaptureFixture): Fixture to capture stdout/stderr output.
-
-        Returns:
-            None
-        """
-        proc, ds, mean_p = self._setup(verbose=True)
-        proc.dataset = ds  # _interpolate_at_pressure accesses self.dataset internally
-        level = 77000.0
-        proc._interpolate_at_pressure("theta", level, mean_p, ds, "Time", 0)
-        captured = capsys.readouterr()
-        # Should mention pressure/interpolating
-        assert (
-            "pressure" in captured.out.lower()
-            or "interpolating" in captured.out.lower()
-        )
-
-
 class TestResolveLevelIndex:
     """Tests for the _resolve_level_index method, specifically for the branch that handles float level specifications by dispatching to _resolve_float_level, which in turn may call _interpolate_at_pressure."""
 

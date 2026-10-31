@@ -39,6 +39,7 @@ from mpasdiag import (
     MPASPrecipitationPlotter,
     PrecipitationRenderStyle,
 )
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from mpasdiag import GeographicBounds
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -144,6 +145,88 @@ class TestUnitConversion:
         )
 
         assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_central_longitude_flows_through_to_axes(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on PrecipitationRenderStyle flows through create_precipitation_map to the GeoAxes projection, enabling e.g. Pacific-centered precipitation maps.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", central_longitude=180.0
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert projection_central_longitude(ax.projection) == 180.0
+        plt.close(fig)
+
+    def test_global_projected_crs_centered_on_antimeridian_not_collapsed(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This regression test guards against a bug where a global map on a projected CRS (Mercator, Robinson, ...) combined with a central_longitude near the antimeridian collapsed to a blank/sliver map. The cause was set_extent([-179.99, 179.99, ...], PlateCarree) mapping both longitude bounds to nearly the same projected x; the fix uses ax.set_global() for global extents. The test asserts the axes x-limits span essentially the full projection domain for a Pacific-centered (central_longitude=180) global Mercator map.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", projection="Mercator", central_longitude=180.0
+            ),
+        )
+
+        xmin, xmax = ax.get_xlim()
+        full_min, full_max = ax.projection.x_limits
+        frac = abs(xmax - xmin) / abs(full_max - full_min)
+        assert frac > 0.9, f"axes x-extent collapsed (frac={frac:.4f})"
+        plt.close(fig)
+
+    def test_globe_view_projection_falls_back_to_global(
+        self: "TestUnitConversion",
+    ) -> None:
+        """
+        This regression test verifies that a globe-view projection (Orthographic) requested with a global extent does not crash on set_extent (which cannot represent a full-globe rectangle) and instead renders via the set_global() fallback in _apply_map_extent.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        fig, ax = self.plotter.create_precipitation_map(
+            self.lon,
+            self.lat,
+            self.precip,
+            GeographicBounds(-180, 180, -90, 90),
+            style=PrecipitationRenderStyle(
+                plot_type="scatter", projection="Orthographic"
+            ),
+        )
+
+        assert isinstance(fig, Figure)
+        assert isinstance(ax.projection, ccrs.Orthographic)
         plt.close(fig)
 
 
@@ -624,7 +707,7 @@ class TestEdgeCases:
 
     def test_precipitation_map_empty_data(self: "TestEdgeCases") -> None:
         """
-        This test validates the behavior of the `create_precipitation_map` function when provided with an input array that is entirely filled with NaN values. The plotter should handle this edge case gracefully, either by producing an empty plot or by displaying a message indicating that no valid data is available. The test asserts that a Figure is returned without errors, confirming that the plotter can manage cases where precipitation data is missing or invalid without crashing.
+        This test validates the behavior of the `create_precipitation_map` function when provided with an input array that is entirely filled with NaN values. All-missing data cannot produce a meaningful map, so, like the surface plotter, the precipitation plotter must raise a clear ValueError before creating a figure. The test asserts the error and that no figure is left open.
 
         Parameters:
             None
@@ -633,18 +716,18 @@ class TestEdgeCases:
             None
         """
         nan_data = np.full(50, np.nan)
+        before = set(plt.get_fignums())
 
-        fig, _ = self.plotter.create_precipitation_map(
-            self.lon,
-            self.lat,
-            nan_data,
-            GeographicBounds(-180, 180, -90, 90),
-            style=PrecipitationRenderStyle(title="Empty Precipitation Data"),
-        )
+        with pytest.raises(ValueError, match="missing"):
+            self.plotter.create_precipitation_map(
+                self.lon,
+                self.lat,
+                nan_data,
+                GeographicBounds(-180, 180, -90, 90),
+                style=PrecipitationRenderStyle(title="Empty Precipitation Data"),
+            )
 
-        assert isinstance(fig, Figure)
-
-        plt.close(fig)
+        assert set(plt.get_fignums()) == before
 
     def test_precipitation_map_extreme_values(self: "TestEdgeCases") -> None:
         """
@@ -1172,7 +1255,9 @@ class TestPrecipitationPlotterHelpers:
         data = np.array([-0.5, 1.0, 2.0])
         da = xr.DataArray(data, attrs={"units": "mm", "long_name": "Rain"})
         out, _ = self.plotter._convert_precipitation_units(data, da, "rainnc")
-        assert np.all(out >= 0)
+        assert not np.any(out < 0)
+        assert np.isnan(out[0])
+        assert list(out[1:]) == [1.0, 2.0]
 
 
 class TestTimeAnnotationSource:
@@ -1468,6 +1553,106 @@ class TestResolveAccumulationTimes:
 
         assert end is None
         assert start is None
+
+
+class TestDatelineCrossingPrecipitation:
+    """Tests that precipitation maps accept and fully render dateline-crossing extents written with lon_max > 180."""
+
+    @staticmethod
+    def _inputs() -> tuple:
+        """
+        This helper builds a small global set of precipitation points, with several cells on each side of the dateline.
+
+        Parameters:
+            None
+
+        Returns:
+            tuple: Longitudes, latitudes, and precipitation values.
+        """
+        rng = np.random.default_rng(3)
+        lon = rng.uniform(-180.0, 180.0, 3000)
+        lat = rng.uniform(-40.0, 40.0, 3000)
+        return lon, lat, rng.uniform(0.5, 20.0, 3000)
+
+    @staticmethod
+    def _scatter_lons(ax: Any) -> np.ndarray:
+        """
+        This helper returns the longitudes of the largest scatter collection on an axes.
+
+        Parameters:
+            ax (Any): The axes to inspect.
+
+        Returns:
+            np.ndarray: The scatter x offsets in data coordinates.
+        """
+        offsets = max(
+            (c.get_offsets() for c in ax.collections if hasattr(c, "get_offsets")),
+            key=len,
+        )
+        return np.asarray(offsets)[:, 0]
+
+    def test_map_accepts_box_past_180_and_keeps_both_sides(
+        self: "TestDatelineCrossingPrecipitation",
+    ) -> None:
+        """
+        This regression test verifies that create_precipitation_map accepts a 150..210 box (previously rejected with "Invalid plot extent parameters"), centers the map on the dateline, and plots cells stored at negative longitudes east of the dateline.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon, lat, precip = self._inputs()
+        plotter = MPASPrecipitationPlotter(figsize=(6, 4), dpi=50)
+        fig, ax = plotter.create_precipitation_map(
+            lon, lat, precip, GeographicBounds(150.0, 210.0, -30.0, 30.0)
+        )
+        plotted = self._scatter_lons(ax)
+        assert projection_central_longitude(ax.projection) == 180.0
+        assert plotted.min() >= 150.0 and plotted.max() <= 210.0
+        assert (plotted > 180.0).any() and (plotted < 180.0).any()
+        plt.close(fig)
+
+    def test_extent_wider_than_360_is_rejected(
+        self: "TestDatelineCrossingPrecipitation",
+    ) -> None:
+        """
+        This test verifies that the relaxed longitude validation still rejects an extent spanning more than 360°.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon, lat, precip = self._inputs()
+        plotter = MPASPrecipitationPlotter(figsize=(6, 4), dpi=50)
+        with pytest.raises(ValueError, match="Invalid plot extent"):
+            plotter.create_precipitation_map(
+                lon, lat, precip, GeographicBounds(-200.0, 200.0, -30.0, 30.0)
+            )
+
+    def test_comparison_plot_keeps_both_sides_of_dateline(
+        self: "TestDatelineCrossingPrecipitation",
+    ) -> None:
+        """
+        This test verifies that the side-by-side comparison plot also keeps cells east of the dateline for a 150..210 box.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon, lat, precip = self._inputs()
+        plotter = MPASPrecipitationPlotter(figsize=(6, 4), dpi=50)
+        fig, axes = plotter.create_precipitation_comparison_plot(
+            lon, lat, precip, precip, 150.0, 210.0, -30.0, 30.0
+        )
+        plotted = self._scatter_lons(axes[0])
+        assert (plotted > 180.0).any() and (plotted < 180.0).any()
+        plt.close(fig)
 
 
 if __name__ == "__main__":

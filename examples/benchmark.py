@@ -412,6 +412,7 @@ def run_benchmark_skewt(
                 u_wind_kt=profile.get("u_wind"),
                 v_wind_kt=profile.get("v_wind"),
                 height_m=profile.get("height"),
+                surface_height_m=profile.get("surface_height"),
             )
 
             stn_lon = profile["station_lon"]

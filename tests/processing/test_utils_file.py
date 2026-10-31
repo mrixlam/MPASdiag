@@ -647,11 +647,11 @@ class TestLoadConfigFile:
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_nonexistent_file_returns_default_config(
+    def test_nonexistent_file_raises(
         self: "TestLoadConfigFile",
     ) -> None:
         """
-        This test confirms that the `load_config_file` method returns a default `MPASConfig` object when the specified configuration file does not exist. It captures the standard output to check for an error message indicating that the configuration file could not be loaded, and asserts that the returned result is an instance of `MPASConfig`, demonstrating that the method handles missing files gracefully by providing a default configuration.
+        This test confirms that the `load_config_file` method raises FileNotFoundError when the specified configuration file does not exist, instead of silently returning a default `MPASConfig`.
 
         Parameters:
             None
@@ -659,11 +659,8 @@ class TestLoadConfigFile:
         Returns:
             None
         """
-        captured = StringIO()
-        with patch("sys.stdout", new=captured):
-            result = FileManager.load_config_file("/nonexistent/config.yaml")
-        assert isinstance(result, MPASConfig)
-        assert "Error loading configuration file" in captured.getvalue()
+        with pytest.raises(FileNotFoundError):
+            FileManager.load_config_file("/nonexistent/config.yaml")
 
     def test_existing_file_delegates_to_load_from_file(
         self: "TestLoadConfigFile",

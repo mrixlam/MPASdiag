@@ -211,7 +211,7 @@ class TestConvertPrecipitationUnits:
 
     def test_negative_values_clipped(self: "TestConvertPrecipitationUnits") -> None:
         """
-        This test case verifies that when the precipitation data contains negative values, the _convert_precipitation_units method correctly clips them to zero. This covers the branch in the method where it ensures that precipitation values are non-negative for display. The test uses a custom precipitation array with negative values and mocks the convert_data_for_display method to return it, allowing for validation that the final returned data has all values clipped to zero or above.
+        This test case verifies that when the precipitation data contains negative values, the _convert_precipitation_units method masks them to NaN. This covers the branch in the method where it ensures that physically invalid negative precipitation is not displayed. The test uses a custom precipitation array with negative values and mocks the convert_data_for_display method to return it, allowing for validation that the final returned data has no negative values.
 
         Parameters:
             None
@@ -229,7 +229,10 @@ class TestConvertPrecipitationUnits:
         ):
             data, _ = plotter._convert_precipitation_units(precip, data_array, "rainnc")
 
-        assert np.all(data >= 0)
+        # Negative values are masked to NaN (not painted as dry cells); the rest is untouched
+        assert not np.any(data < 0)
+        assert np.isnan(data[[0, 2]]).all()
+        assert list(data[[1, 3]]) == [2.0, 3.0]
 
 
 class TestPreparePrecipitationColormap:

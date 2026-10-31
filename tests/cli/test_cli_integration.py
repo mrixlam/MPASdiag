@@ -75,7 +75,7 @@ class TestIntegrationWithRealData:
             analysis_type="precipitation",
             variable="rainnc",
             accumulation_period="a01h",
-            time_index=0,
+            time_index=1,
             output_dir="output/test_precip",
             verbose=False,
         )
@@ -268,7 +268,7 @@ class TestIntegrationWithRealData:
             "--data-dir",
             data_dir,
             "--time-index",
-            "0",
+            "1",
             "--output-dir",
             "output/test_main_precip",
             "--quiet",

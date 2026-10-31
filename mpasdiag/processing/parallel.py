@@ -17,6 +17,8 @@ Version: 1.0.0
 # Load standard libraries
 import gc
 import os
+import pickle
+import signal
 import sys
 import time
 import warnings
@@ -24,18 +26,45 @@ import traceback
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from enum import Enum
-from multiprocessing import cpu_count, get_context
+from multiprocessing import TimeoutError as MPTimeoutError, cpu_count, get_context
 
-from .utils_logger import get_logger
+from .utils_logger import (
+    configure_worker_logging,
+    get_logger,
+    is_root_process,
+    mpi_launcher_detected,
+    snapshot_logging_config,
+)
 from .utils_validator import DataValidator
 from .constants import MAX_WORKERS
 
 logger = get_logger(__name__)
 
-_FORKSERVER_PRELOAD = ["mpasdiag.processing.parallel_wrappers"]
+# netCDF4 comes first: on macOS a forked worker that loads the netCDF/HDF5 native libraries for the first time
+# can segfault in the import, so the server loads them before it forks any worker. The modules after
+# parallel_wrappers are imported by every worker's first task (xarray's array-type checks import dask.array and
+# pint, dask's scheduler lookup imports distributed, remapping imports scipy.interpolate); loading them once in the
+# server saves each worker about a second. None of them starts a thread, and a missing one is skipped.
+_FORKSERVER_PRELOAD = [
+    "netCDF4",
+    "mpasdiag.processing.parallel_wrappers",
+    "dask.array",
+    "pint",
+    "distributed",
+    "scipy.interpolate",
+]
+
+_VALID_BACKENDS = ("mpi", "multiprocessing", "serial")
 _COMM_NOT_INITIALIZED_MSG = "MPI communicator must be initialized"
 
 _WORKER_THREADS_ENV = "MPASDIAG_WORKER_THREADS"
+_MAX_TASKS_ENV = "MPASDIAG_MAX_TASKS_PER_WORKER"
+_DEFAULT_MAX_TASKS_PER_WORKER = 100
+_WORKER_MEMORY_ENV = "MPASDIAG_WORKER_MEMORY_GB"
+_WORKER_MEMORY_FACTOR = 1.5
+_MEMORY_BUDGET_FRACTION = 0.85
+_POOL_POLL_SECONDS = 0.5
+
 _THREAD_ENV_VARS = (
     "OMP_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
@@ -46,6 +75,95 @@ _THREAD_ENV_VARS = (
 
 _worker_threads_configured = False
 _threadpool_limiter: Any = None
+
+
+def _max_tasks_per_worker() -> Optional[int]:
+    """
+    This function returns the number of tasks a multiprocessing pool worker runs before it is replaced by a fresh process (the pool's maxtasksperchild). Recycling bounds the slow per-task memory growth of long-lived plotting workers (matplotlib, cartopy and data caches grow by a few MB per task) at the cost of one dataset reload per recycle. The MPASDIAG_MAX_TASKS_PER_WORKER environment variable overrides the default of 100; 0 or a negative value disables recycling and an invalid value is ignored with a warning.
+
+    Parameters:
+        None
+
+    Returns:
+        Optional[int]: The task limit per worker, or None when workers are never recycled.
+    """
+    override = os.environ.get(_MAX_TASKS_ENV)
+    if override is None:
+        return _DEFAULT_MAX_TASKS_PER_WORKER
+    try:
+        value = int(override)
+    except ValueError:
+        logger.warning(
+            "Ignoring invalid %s=%r; using %d",
+            _MAX_TASKS_ENV,
+            override,
+            _DEFAULT_MAX_TASKS_PER_WORKER,
+        )
+        return _DEFAULT_MAX_TASKS_PER_WORKER
+    return value if value > 0 else None
+
+
+def _estimated_worker_bytes() -> Optional[float]:
+    """
+    This function estimates how much memory one multiprocessing worker will need. Workers repeat the parent's work for a single time step (they import the same stack, open the same files and render one figure), so the estimate is the parent's resident memory times a margin for the plotting peak. The MPASDIAG_WORKER_MEMORY_GB environment variable replaces the estimate with a fixed size in GB; 0 (or a negative value) disables memory-based capping, and an invalid value is ignored with a warning.
+
+    Parameters:
+        None
+
+    Returns:
+        Optional[float]: The estimated bytes per worker, or None when capping is disabled or psutil is unavailable.
+    """
+    override = os.environ.get(_WORKER_MEMORY_ENV)
+    if override is not None:
+        try:
+            value = float(override)
+        except ValueError:
+            logger.warning(
+                "Ignoring invalid %s=%r; estimating worker memory instead",
+                _WORKER_MEMORY_ENV,
+                override,
+            )
+        else:
+            return value * 1024**3 if value > 0 else None
+    try:
+        import psutil
+    except ImportError:
+        return None
+    return float(psutil.Process().memory_info().rss) * _WORKER_MEMORY_FACTOR
+
+
+def _memory_capped_worker_count(requested: int) -> int:
+    """
+    This function lowers a multiprocessing worker count so that the workers fit in the memory that is currently available, leaving a safety margin. Every worker loads its own copy of the mesh and data, so on fine meshes the default of one worker per core can exhaust memory and push the machine into swap or trigger the out-of-memory killer, which is slower than running fewer workers. The count is never raised and never drops below one, and a warning names the reduction and how to override it.
+
+    Parameters:
+        requested (int): The worker count chosen from the CPU count or by the user.
+
+    Returns:
+        int: The worker count to use.
+    """
+    per_worker = _estimated_worker_bytes()
+    if not per_worker or requested <= 1:
+        return requested
+    try:
+        import psutil
+
+        available = float(psutil.virtual_memory().available)
+    except ImportError:
+        return requested
+    fitting = max(1, int(available * _MEMORY_BUDGET_FRACTION // per_worker))
+    if fitting >= requested:
+        return requested
+    logger.warning(
+        "Reducing workers from %d to %d: about %.1f GB of memory is available and each worker "
+        "is estimated to need %.1f GB (set %s to a per-worker size in GB, or 0 to disable this cap)",
+        requested,
+        fitting,
+        available / 1024**3,
+        per_worker / 1024**3,
+        _WORKER_MEMORY_ENV,
+    )
+    return fitting
 
 
 def _configure_worker_threads(n_threads: int = 1) -> None:
@@ -79,6 +197,7 @@ def _configure_worker_threads(n_threads: int = 1) -> None:
 
     for var in _THREAD_ENV_VARS:
         os.environ.setdefault(var, str(n_threads))
+    _cap_numba_threads(n_threads)
 
     try:
         import dask
@@ -95,19 +214,110 @@ def _configure_worker_threads(n_threads: int = 1) -> None:
         pass
 
 
-MPI: Any = None
-try:
-    from mpi4py import MPI as _MPI
+def _cap_numba_threads(n_threads: int) -> None:
+    """
+    This function limits the numba thread pool (used by uxarray's parallel kernels) to the worker's thread budget. numba reads NUMBA_NUM_THREADS when it is imported and sizes its pool when the first parallel kernel runs, so the variable is set before import when possible. In a forkserver worker numba was already imported by the server, so as long as its pool has not been started the limit is written into numba's configuration as well; starting the pool here just to call numba.set_num_threads would cost about a second per worker. A limit chosen by the user (NUMBA_NUM_THREADS already in the environment) or a pool that is already running is left alone, because numba refuses to change the pool size once its threads exist.
 
-    MPI = _MPI
-    MPI_AVAILABLE = True
-except ImportError:
-    MPI_AVAILABLE = False
-    warnings.warn(
-        "mpi4py is not available. Parallel processing will use Python multiprocessing. "
-        "To enable MPI parallelization, install mpi4py: pip install mpi4py",
-        UserWarning,
-    )
+    Parameters:
+        n_threads (int): Number of threads this worker may use.
+
+    Returns:
+        None
+    """
+    if "NUMBA_NUM_THREADS" in os.environ:
+        return
+    if "numba" not in sys.modules:
+        os.environ["NUMBA_NUM_THREADS"] = str(n_threads)
+        return
+    try:
+        from numba.core import config as numba_config
+        from numba.np.ufunc import parallel as numba_parallel
+
+        if numba_parallel._is_initialized:
+            return
+        n_threads = min(n_threads, int(numba_config.NUMBA_NUM_THREADS))
+        # all three must agree: numba re-reads the environment before each compile and refuses a
+        # value that differs from its configuration, and the pool is sized from NUM_THREADS
+        os.environ["NUMBA_NUM_THREADS"] = str(n_threads)
+        numba_config.NUMBA_NUM_THREADS = n_threads
+        numba_parallel.NUM_THREADS = n_threads
+    except Exception as exc:
+        logger.debug("Could not limit numba threads: %s", exc)
+
+
+def start_worker_server() -> None:
+    """
+    This function starts the multiprocessing forkserver right away on platforms whose pools use it (macOS). The server imports the plotting stack before it can fork the first worker, which takes several seconds; started at the beginning of a parallel run it does that while the main process loads the data, instead of after. Platforms that fork or spawn workers directly have nothing to start, and a failure here is only logged, because the pool starts the server itself when it first needs it.
+
+    Parameters:
+        None
+
+    Returns:
+        None
+    """
+    if MPASParallelManager._get_mp_context_methods()[0] != "forkserver":
+        return
+    try:
+        from multiprocessing import forkserver
+
+        get_context("forkserver").set_forkserver_preload(_FORKSERVER_PRELOAD)
+        forkserver.ensure_running()
+    except Exception as exc:
+        logger.debug("Could not start the worker server early: %s", exc)
+
+
+MPI: Any = None
+MPI_AVAILABLE: bool = False
+_MPI_IMPORT_ATTEMPTED = False
+
+__all__ = [
+    "MPASParallelManager",
+    "MPASTaskDistributor",
+    "MPASResultCollector",
+    "TaskResult",
+    "ParallelStats",
+    "LoadBalanceStrategy",
+    "ErrorPolicy",
+    "TaskAbortError",
+    "is_root_process",
+    "mpi_launcher_detected",
+    "start_worker_server",
+    "load_mpi",
+    "parallel_plot",
+]
+
+
+def load_mpi() -> Any:
+    """
+    This function imports mpi4py on first use and caches the outcome in the module-level MPI and MPI_AVAILABLE names. The import is deliberately lazy: importing mpi4py initialises MPI, which on some installations aborts every process at exit, so serial and multiprocessing runs must never import it. It is called only when the MPI backend is explicitly requested or an MPI launcher is detected in the environment. A failed import is remembered so the warning is issued once.
+
+    Parameters:
+        None
+
+    Returns:
+        Any: The mpi4py.MPI module, or None when mpi4py is not installed.
+    """
+    global MPI, MPI_AVAILABLE, _MPI_IMPORT_ATTEMPTED
+
+    if MPI is not None or _MPI_IMPORT_ATTEMPTED:
+        return MPI
+
+    _MPI_IMPORT_ATTEMPTED = True
+
+    try:
+        from mpi4py import MPI as _MPI
+
+        MPI = _MPI
+        MPI_AVAILABLE = True
+    except ImportError:
+        MPI_AVAILABLE = False
+        warnings.warn(
+            "mpi4py is not available. Parallel processing will use Python multiprocessing. "
+            "To enable MPI parallelization, install mpi4py: pip install mpi4py",
+            UserWarning,
+        )
+
+    return MPI
 
 
 class LoadBalanceStrategy(Enum):
@@ -237,6 +447,10 @@ def _execute_task_basic(
     return result
 
 
+class TaskAbortError(RuntimeError):
+    """Raised in the parent process when a task fails under the ABORT error policy inside a multiprocessing pool, carrying the original exception type, message, and traceback text so it is never mistaken for a pool-infrastructure failure."""
+
+
 _POOL_TASK_CONTEXT: Optional[Tuple[Callable, str, Tuple, Dict]] = None
 
 
@@ -246,6 +460,7 @@ def _pool_worker_initializer(
     func_args: Tuple,
     func_kwargs: Dict,
     n_pool_workers: int,
+    log_config: Optional[Dict[str, Any]] = None,
 ) -> None:
     """
     This function initializes a multiprocessing pool worker process exactly once, installing the shared task context and containing the worker's thread usage. The task context (function, error policy, and the extra positional/keyword arguments shared by every task) is transferred a single time per worker instead of being pickled into every task tuple, which removes the per-task serialization of payloads such as the batch worker kwargs. It also calls _configure_worker_threads with the per-worker thread budget so pool workers do not collectively oversubscribe the node with dask and BLAS thread pools.
@@ -256,11 +471,15 @@ def _pool_worker_initializer(
         func_args (Tuple): Additional positional arguments shared by all tasks.
         func_kwargs (Dict): Additional keyword arguments shared by all tasks.
         n_pool_workers (int): Total pool size, used to derive the per-worker thread budget.
+        log_config (Optional[Dict[str, Any]]): The parent's logging snapshot (level, log file, console flag) applied to this worker so --log-file, --quiet, and the log level are honoured outside the parent process.
 
     Returns:
         None
     """
     global _POOL_TASK_CONTEXT
+    # a forked worker inherits the parent's SIGTERM handler; pool.terminate() must stop it plainly
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    configure_worker_logging(log_config)
     _POOL_TASK_CONTEXT = (func, error_policy_value, func_args, func_kwargs)
     _configure_worker_threads(max(1, cpu_count() // max(1, n_pool_workers)))
 
@@ -278,9 +497,50 @@ def _pool_task_wrapper(indexed_task: Tuple[int, Any]) -> "TaskResult":
     task_id, task = indexed_task
     assert _POOL_TASK_CONTEXT is not None, "Pool worker context not initialized"
     func, error_policy_value, func_args, func_kwargs = _POOL_TASK_CONTEXT
-    return _execute_task_basic(
-        task_id, task, func, error_policy_value, func_args, func_kwargs
-    )
+    try:
+        outcome = _execute_task_basic(
+            task_id, task, func, error_policy_value, func_args, func_kwargs
+        )
+    except Exception as exc:
+        raise TaskAbortError(
+            f"Task {task_id} failed under the abort error policy: "
+            f"{type(exc).__name__}: {exc}\n{traceback.format_exc()}"
+        ) from None
+    return _ensure_transferable(outcome, error_policy_value)
+
+
+def _ensure_transferable(
+    outcome: "TaskResult", error_policy_value: str
+) -> "TaskResult":
+    """
+    This function guards the hand-off of a finished task back to the parent process. A pool worker returns its TaskResult through a pickle round trip, and a result payload that cannot be pickled (or unpickled) would otherwise raise inside the parent's result iterator, where it is indistinguishable from a pool-infrastructure failure and used to trigger a re-run of the entire batch with another start method and then serially. The function performs that round trip inside the worker; when it fails, the task is converted into an ordinary failed TaskResult carrying the pickling error and no payload, so only that one task is reported as failed and no task is ever executed twice. Under the abort policy the failure is raised as TaskAbortError instead, matching how any other task error is treated.
+
+    Parameters:
+        outcome (TaskResult): The completed task result about to be returned to the parent process.
+        error_policy_value (str): The error handling policy as a string ('abort', 'continue', 'collect').
+
+    Returns:
+        TaskResult: The original result when it can be transferred, otherwise a failed TaskResult describing the transfer error.
+    """
+    try:
+        # round trip of this worker's own result object, not of external data
+        pickle.loads(pickle.dumps(outcome))  # nosec B301
+        return outcome
+    except Exception as exc:
+        message = (
+            f"Task {outcome.task_id} result could not be transferred between "
+            f"processes: {type(exc).__name__}: {exc}"
+        )
+        if error_policy_value == "abort":
+            raise TaskAbortError(message) from None
+        return TaskResult(
+            task_id=outcome.task_id,
+            success=False,
+            result=None,
+            error=message,
+            execution_time=outcome.execution_time,
+            worker_rank=outcome.worker_rank,
+        )
 
 
 class MPASTaskDistributor:
@@ -435,6 +695,7 @@ class MPASResultCollector:
             flattened = []
             for worker_results in all_results:
                 flattened.extend(worker_results)
+            flattened.sort(key=lambda task_result: task_result.task_id)
             return flattened
         return None
 
@@ -547,6 +808,18 @@ class MPASParallelManager:
         self.distributor = None
         self.collector = None
 
+    def use_serial_backend(self: "MPASParallelManager") -> None:
+        """
+        This method switches an already constructed manager to serial execution. Batch helpers use it when the multiprocessing backend would have to ship a large in-memory object to worker processes, which is unsafe, so the batch runs sequentially in the parent instead. The error policy and verbosity are kept.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        self._setup_serial_backend()
+
     def _setup_mpi_backend(
         self: "MPASParallelManager",
         load_balance_strategy: Union[str, "LoadBalanceStrategy"],
@@ -561,6 +834,8 @@ class MPASParallelManager:
             None
         """
         try:
+            if MPI is None:
+                load_mpi()
             if not (MPI_AVAILABLE and MPI is not None):
                 raise RuntimeError("MPI not available")
             self.comm = MPI.COMM_WORLD
@@ -648,14 +923,23 @@ class MPASParallelManager:
         Returns:
             None
         """
+        if backend is not None and backend not in _VALID_BACKENDS:
+            raise ValueError(
+                f"Unknown parallel backend '{backend}'. "
+                f"Valid backends: {', '.join(_VALID_BACKENDS)}"
+            )
+
         self.verbose = verbose
         self.error_policy = ErrorPolicy.COLLECT
         self.backend = backend
         self.n_workers = n_workers
 
-        if backend == "mpi" or (backend is None and MPI_AVAILABLE):
+        use_mpi = backend == "mpi" or (
+            backend is None and (MPI_AVAILABLE or mpi_launcher_detected())
+        )
+        if use_mpi:
             self._setup_mpi_backend(load_balance_strategy)
-        elif backend == "multiprocessing" or (backend is None and not MPI_AVAILABLE):
+        elif backend is None or backend == "multiprocessing":
             self._setup_multiprocessing_backend()
         else:
             self._setup_serial_backend()
@@ -910,7 +1194,7 @@ class MPASParallelManager:
         func_kwargs: Dict,
     ) -> List[TaskResult]:
         """
-        This method attempts to execute the indexed tasks in parallel using a multiprocessing pool, transferring the shared task context (function, error policy, and shared arguments) once per worker through the pool initializer instead of pickling it into every task. It tries the platform-appropriate multiprocessing start methods in order (fork, forkserver, spawn) and, within a pool, uses imap_unordered with a small chunksize so that free workers immediately pick up remaining tasks -- dynamic load balancing that pool.map's large static chunks cannot provide when per-task durations vary. Results are re-sorted by task id so callers keep the original ordering contract. If every multiprocessing method fails (e.g., due to platform limitations or unpicklable functions), it falls back to executing the tasks serially in-process, ensuring that all tasks are executed regardless.
+        This method attempts to execute the indexed tasks in parallel using a multiprocessing pool, transferring the shared task context (function, error policy, and shared arguments) once per worker through the pool initializer instead of pickling it into every task. It tries the platform-appropriate multiprocessing start methods in order (fork, forkserver, spawn) and, within a pool, uses imap_unordered with one task per dispatch so that free workers immediately pick up remaining tasks -- dynamic load balancing that pool.map's large static chunks cannot provide when per-task durations vary. Workers are recycled after a bounded number of tasks (MPASDIAG_MAX_TASKS_PER_WORKER, default 100) so slow per-task memory growth cannot accumulate over long batches. Results are re-sorted by task id so callers keep the original ordering contract. If every multiprocessing method fails (e.g., due to platform limitations or unpicklable functions), it falls back to executing the tasks serially in-process, ensuring that all tasks are executed regardless. Results are collected incrementally and only tasks without a result are ever retried, and a task whose result cannot be pickled is reported as a failed TaskResult by the worker rather than being mistaken for a pool failure, so no task is executed twice. Only pool-infrastructure failures trigger these fallbacks: a task error under the ABORT error policy is re-raised as TaskAbortError immediately, so the batch is never re-run with another start method or serially, which would duplicate work and mask the original error.
 
         Parameters:
             func (Callable): The function to execute on each task payload.
@@ -923,46 +1207,175 @@ class MPASParallelManager:
         """
         context_methods = self._get_mp_context_methods()
         error_policy_value = self.error_policy.value
-        initargs = (func, error_policy_value, func_args, func_kwargs, self.size)
-        chunksize = max(1, len(indexed_tasks) // (max(1, self.size) * 8))
+        initargs = (
+            func,
+            error_policy_value,
+            func_args,
+            func_kwargs,
+            self.size,
+            snapshot_logging_config(),
+        )
+        completed: Dict[int, TaskResult] = {}
 
         for context_method in context_methods:
-            try:
-                mp_context = get_context(context_method)
-                if context_method == "forkserver":
-                    mp_context.set_forkserver_preload(_FORKSERVER_PRELOAD)
-                with mp_context.Pool(
-                    processes=self.size,
-                    initializer=_pool_worker_initializer,
-                    initargs=initargs,
-                ) as pool:
-                    results = list(
-                        pool.imap_unordered(
-                            _pool_task_wrapper,
-                            indexed_tasks,
-                            chunksize=chunksize,
-                        )
-                    )
-                results.sort(key=lambda task_result: task_result.task_id)
-                return results
-            except Exception as e:
-                if self.verbose:
-                    logger.warning(
-                        "Multiprocessing with '%s' failed: %s",
-                        context_method,
-                        e,
-                    )
-                    if context_method != context_methods[-1]:
-                        logger.warning("Trying next method")
-                    else:
-                        logger.warning("Falling back to serial execution")
+            pending = [item for item in indexed_tasks if item[0] not in completed]
+            if not pending:
+                break
+            if self._run_pool_method(context_method, pending, initargs, completed):
+                break
+            if self.verbose:
+                if context_method != context_methods[-1]:
+                    logger.warning("Trying next method")
+                else:
+                    logger.warning("Falling back to serial execution")
 
-        return [
-            _execute_task_basic(
-                task_id, task, func, error_policy_value, func_args, func_kwargs
-            )
-            for task_id, task in indexed_tasks
-        ]
+        # Only tasks that never produced a result are run again; finished tasks are kept as they are
+        for task_id, task in indexed_tasks:
+            if task_id not in completed:
+                completed[task_id] = _execute_task_basic(
+                    task_id, task, func, error_policy_value, func_args, func_kwargs
+                )
+
+        return [completed[task_id] for task_id in sorted(completed)]
+
+    def _run_pool_method(
+        self: "MPASParallelManager",
+        context_method: str,
+        pending: List[Tuple[int, Any]],
+        initargs: Tuple,
+        completed: Dict[int, "TaskResult"],
+    ) -> bool:
+        """
+        This method runs the pending tasks in a multiprocessing pool created with one start method and records every result in the shared completed dictionary as soon as it arrives, so a pool-infrastructure failure part way through never discards or repeats finished tasks. Per-task problems (including results that cannot be pickled, which the worker converts into failed TaskResults) never reach this level; only failures of the pool itself make it return False so the caller can try the next start method or fall back to serial execution for the unfinished tasks. A task failure under the abort policy is re-raised as TaskAbortError.
+
+        Parameters:
+            context_method (str): Multiprocessing start method to use ('fork', 'forkserver', or 'spawn').
+            pending (List[Tuple[int, Any]]): The (task_id, payload) tuples that have no result yet.
+            initargs (Tuple): Arguments for the pool worker initializer (function, error policy, shared arguments, pool size).
+            completed (Dict[int, TaskResult]): Results collected so far, updated in place.
+
+        Returns:
+            bool: True if the pool delivered a result for every pending task, False if the pool itself failed.
+        """
+        max_tasks = _max_tasks_per_worker()
+        try:
+            mp_context = get_context(context_method)
+            if context_method == "forkserver":
+                mp_context.set_forkserver_preload(_FORKSERVER_PRELOAD)
+            with mp_context.Pool(
+                processes=self.size,
+                initializer=_pool_worker_initializer,
+                initargs=initargs,
+                maxtasksperchild=max_tasks,
+            ) as pool:
+                self._drain_pool(pool, pending, completed, max_tasks)
+            return True
+        except TaskAbortError:
+            raise
+        except Exception as e:
+            if self.verbose:
+                logger.warning(
+                    "Multiprocessing with '%s' failed: %s", context_method, e
+                )
+            return False
+
+    @staticmethod
+    def _drain_pool(
+        pool: Any,
+        pending: List[Tuple[int, Any]],
+        completed: Dict[int, "TaskResult"],
+        max_tasks: Optional[int] = None,
+    ) -> None:
+        """
+        This method collects the results of a multiprocessing pool as they arrive while watching the pool's worker processes, so a worker that dies (for example a segmentation fault while unpickling its task context, or the kernel's out-of-memory killer) makes the batch fail fast instead of hanging forever. multiprocessing.Pool silently replaces a dead worker and never delivers the result of the task it was running, so the result iterator would block indefinitely. Tasks are handed out one at a time (chunksize 1): with a larger chunksize imap_unordered returns a plain generator that has no timeout-capable next(), and per-task dispatch costs about a millisecond, which is negligible next to a plotting task. The method polls the result iterator with a short timeout and, on each timeout, checks the workers seen so far; see _pool_worker_lost for the rule that separates a crash from a worker that was recycled after max_tasks tasks.
+
+        Parameters:
+            pool (Any): The running multiprocessing pool.
+            pending (List[Tuple[int, Any]]): The (task_id, payload) tuples submitted to the pool.
+            completed (Dict[int, TaskResult]): Results collected so far, updated in place as each result arrives.
+            max_tasks (Optional[int]): The pool's maxtasksperchild, or None when workers are never recycled.
+
+        Returns:
+            None
+        """
+        seen = MPASParallelManager._pool_workers(pool)
+        initial_pids = set(seen)
+        received = 0
+        iterator = pool.imap_unordered(_pool_task_wrapper, pending, chunksize=1)
+
+        while True:
+            try:
+                task_result = iterator.next(timeout=_POOL_POLL_SECONDS)
+            except StopIteration:
+                return
+            except MPTimeoutError:
+                if MPASParallelManager._pool_worker_lost(
+                    pool, seen, initial_pids, received, max_tasks
+                ):
+                    codes = sorted(
+                        {
+                            process.exitcode
+                            for process in seen.values()
+                            if process.exitcode not in (None, 0)
+                        }
+                    )
+                    raise RuntimeError(
+                        "a worker process died unexpectedly (crash or out-of-memory kill; "
+                        f"exit codes {codes or 'unknown'}, negative = killed by that signal)"
+                    ) from None
+                continue
+            completed[task_result.task_id] = task_result
+            received += 1
+
+    @staticmethod
+    def _pool_worker_lost(
+        pool: Any,
+        seen: Dict[int, Any],
+        initial_pids: set,
+        received: int,
+        max_tasks: Optional[int],
+    ) -> bool:
+        """
+        This helper decides whether a pool worker died abnormally. It records every worker process it observes in seen (the pool forgets a worker once it has been joined, but the recorded process object keeps its exit code) and reports a loss when any observed worker exited with a non-zero code or a signal. A worker that exits because it reached maxtasksperchild exits with code 0 and is replaced, so new pids are only suspicious beyond the number of recycles the received results can explain (one per max_tasks results); without recycling any new pid means a worker was lost. When the worker list cannot be inspected the check is disabled and False is returned.
+
+        Parameters:
+            pool (Any): The running multiprocessing pool.
+            seen (Dict[int, Any]): Worker processes observed so far by pid, updated in place.
+            initial_pids (set): Pids of the workers the pool started with.
+            received (int): Number of results received so far.
+            max_tasks (Optional[int]): The pool's maxtasksperchild, or None when workers are never recycled.
+
+        Returns:
+            bool: True if a worker died abnormally, False otherwise.
+        """
+        if not initial_pids:
+            return False
+        for pid, process in MPASParallelManager._pool_workers(pool).items():
+            seen.setdefault(pid, process)
+        if any(process.exitcode not in (None, 0) for process in seen.values()):
+            return True
+        allowed_recycles = received // max_tasks if max_tasks else 0
+        return len(set(seen) - initial_pids) > allowed_recycles
+
+    @staticmethod
+    def _pool_workers(pool: Any) -> Dict[int, Any]:
+        """
+        This helper returns the pool's current worker processes keyed by pid, or an empty dict when they cannot be inspected. It reads the pool's worker list (a private attribute of multiprocessing.Pool), so any failure is treated as 'unknown' and disables only the liveness check.
+
+        Parameters:
+            pool (Any): The multiprocessing pool to inspect.
+
+        Returns:
+            Dict[int, Any]: The worker process objects by pid.
+        """
+        try:
+            return {
+                int(worker.pid): worker
+                for worker in pool._pool
+                if worker.pid is not None
+            }
+        except Exception:
+            return {}
 
     def _print_mp_statistics(
         self: "MPASParallelManager",
@@ -1001,7 +1414,7 @@ class MPASParallelManager:
         **kwargs: Any,
     ) -> List[TaskResult]:
         """
-        This method executes the provided function on a list of tasks in parallel using the multiprocessing backend. It prepares the arguments for each task by creating a list of tuples containing the task ID, task data, function to execute, error handling policy, and any additional arguments. The method then attempts to create a multiprocessing pool using different context methods (fork, spawn) based on the operating system and available options. It maps the task wrapper function across all tasks in parallel, which executes each task and captures results or errors according to the configured error policy. If multiprocessing fails for any reason, it falls back to serial execution. After processing all tasks, it computes statistics on execution performance and returns a list of TaskResult objects containing the outcome of each task execution. This implementation provides robust parallel processing using multiprocessing while ensuring comprehensive error handling and performance tracking.
+        This method executes the provided function on a list of tasks in parallel using the multiprocessing backend. It prepares the arguments for each task by creating a list of tuples containing the task ID, task data, function to execute, error handling policy, and any additional arguments. The method then attempts to create a multiprocessing pool using different context methods (fork, spawn) based on the operating system and available options. It maps the task wrapper function across all tasks in parallel, which executes each task and captures results or errors according to the configured error policy. If multiprocessing fails for any reason, it falls back to serial execution. After processing all tasks, it computes statistics on execution performance and returns a list of TaskResult objects containing the outcome of each task execution. Before the pool starts, the worker count is lowered when the estimated memory per worker times the worker count would exceed the available memory (see _memory_capped_worker_count). This implementation provides robust parallel processing using multiprocessing while ensuring comprehensive error handling and performance tracking.
 
         Parameters:
             func (Callable): The function to execute on each task. It should accept a single task as its first argument, followed by any additional positional and keyword arguments.
@@ -1012,6 +1425,8 @@ class MPASParallelManager:
         Returns:
             List[TaskResult]: A list of TaskResult objects containing the outcome of each task execution. Each TaskResult includes success status, result data, error messages, and execution time for the corresponding task.
         """
+        self.size = _memory_capped_worker_count(self.size)
+
         if self.verbose:
             logger.info("Processing %d tasks across %d workers", len(tasks), self.size)
             logger.info("Backend: Python multiprocessing")
@@ -1092,11 +1507,17 @@ class MPASParallelManager:
 
         try:
             output = func(task, *args, **kwargs)
+
+            if self.backend == "mpi":
+                # A result that cannot be pickled would kill this rank inside the gather/send, so surface it as a failed task
+                pickle.dumps(output)
+
             result.success = True
             result.result = output
 
         except Exception as e:
             result.success = False
+            result.result = None
             result.error = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
 
             if self.error_policy == ErrorPolicy.ABORT:
@@ -1181,10 +1602,11 @@ class MPASParallelManager:
         logger.info("Total tasks:       %d", self.stats.total_tasks)
         logger.info("Completed:         %d", self.stats.completed_tasks)
         logger.info("Failed:            %d", self.stats.failed_tasks)
-        logger.info(
-            "Success rate:      %.1f%%",
-            100 * self.stats.completed_tasks / self.stats.total_tasks,
-        )
+        if self.stats.total_tasks > 0:
+            logger.info(
+                "Success rate:      %.1f%%",
+                100 * self.stats.completed_tasks / self.stats.total_tasks,
+            )
         logger.info("Total time:        %.2f seconds", self.stats.total_time)
 
         if self.stats.wall_time > 0:

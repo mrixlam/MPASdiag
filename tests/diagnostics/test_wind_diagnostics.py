@@ -404,9 +404,9 @@ class TestGet3DWindComponents:
                 time_index=0,
             )
 
-        output = captured_output.getvalue()
-        assert "Requested pressure" in output
         assert isinstance(u, xr.DataArray)
+        assert u.attrs["level_index"] == -1
+        assert u.attrs["actual_pressure_level"] == "85000.0 Pa"
 
     def test_get_3d_wind_components_surface(
         self: "TestGet3DWindComponents", sample_3d_dataset: xr.Dataset

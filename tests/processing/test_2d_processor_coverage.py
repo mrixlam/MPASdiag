@@ -160,11 +160,11 @@ class TestFindDiagFilesRecursive:
         assert result is not None
         assert "diagnostic files (recursive" in captured.getvalue()
 
-    def test_returns_none_when_fewer_than_two_files(
+    def test_returns_single_file_found(
         self: "TestFindDiagFilesRecursive", mock_proc: "MPAS2DProcessor", tmp_path: Path
     ) -> None:
         """
-        This test verifies that when the _find_diag_files_recursive method finds fewer than two diagnostic files (i.e., glob.glob returns a list with one file), it returns None. The test uses mocking to simulate the behavior of glob.glob to return a list containing a single file path, and asserts that the method returns None in this case.
+        This test verifies that when the _find_diag_files_recursive method finds a single diagnostic file (i.e., glob.glob returns a list with one file), it returns that file rather than None, because a single multi-time file is a valid input. The test mocks glob.glob to return one path and asserts the returned list contains it.
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
@@ -178,7 +178,7 @@ class TestFindDiagFilesRecursive:
             return_value=[str(tmp_path / "diag_2024.nc")],
         ):
             result = mock_proc._find_diag_files_recursive(str(tmp_path / "data"))
-        assert result is None
+        assert result == [str(tmp_path / "diag_2024.nc")]
 
     def test_returns_none_when_no_files_found(
         self: "TestFindDiagFilesRecursive", mock_proc: "MPAS2DProcessor", tmp_path: Path
@@ -248,13 +248,13 @@ class TestFindMpasoutFilesFallback:
                 with pytest.raises(FileNotFoundError, match="No diagnostic files"):
                     mock_proc._find_mpasout_files_fallback(str(tmp_path / "data"))
 
-    def test_raises_value_error_when_only_one_file_found(
+    def test_single_file_found_is_returned(
         self: "TestFindMpasoutFilesFallback",
         mock_proc: "MPAS2DProcessor",
         tmp_path: Path,
     ) -> None:
         """
-        This test verifies that when the _find_mpasout_files_fallback method fails to find MPAS output files using the pattern-based finder (i.e., _find_files_by_pattern raises FileNotFoundError) and the recursive search returns only one file (i.e., glob.glob returns a list with a single file path), it raises a ValueError indicating that there are insufficient MPAS output files. The test uses mocking to simulate the behavior of _find_files_by_pattern to raise a FileNotFoundError and glob.glob to return a list containing a single file path, and asserts that the method raises the expected exception with a message indicating insufficient MPAS output files.
+        This test verifies that when the pattern-based finder finds nothing and the recursive search in _find_mpasout_files_fallback locates a single MPAS output file, that file is returned instead of raising an error, because a single multi-time file is a valid input.
 
         Parameters:
             mock_proc ('MPAS2DProcessor'): A mock processor instance created by the mock_proc fixture.
@@ -270,8 +270,8 @@ class TestFindMpasoutFilesFallback:
                 "mpasdiag.processing.processors_2d.glob.glob",
                 return_value=[str(tmp_path / "mpasout_2024.nc")],
             ):
-                with pytest.raises(ValueError, match="Insufficient MPAS output files"):
-                    mock_proc._find_mpasout_files_fallback(str(tmp_path / "data"))
+                result = mock_proc._find_mpasout_files_fallback(str(tmp_path / "data"))
+                assert result == [str(tmp_path / "mpasout_2024.nc")]
 
     def test_returns_files_from_recursive_search_verbose(
         self: "TestFindMpasoutFilesFallback",

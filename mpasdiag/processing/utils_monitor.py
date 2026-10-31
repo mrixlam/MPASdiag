@@ -16,7 +16,7 @@ Version: 1.0.0
 
 from datetime import datetime, timedelta
 from contextlib import contextmanager
-from typing import Dict, Generator
+from typing import Dict, Generator, Set
 
 from .utils_logger import get_logger
 
@@ -26,18 +26,23 @@ logger = get_logger(__name__)
 class PerformanceMonitor:
     """Performance monitoring utilities for measuring and reporting elapsed time of MPAS data analysis operations."""
 
-    def __init__(self: "PerformanceMonitor") -> None:
+    def __init__(self: "PerformanceMonitor", quiet: bool = False) -> None:
         """
         This constructor initializes a PerformanceMonitor instance, setting up internal data structures to track the start times and durations of various operations. The start_times attribute is a dictionary that will store the datetime when each operation begins, while the durations attribute will store the calculated timedelta for each operation once it completes. This setup allows for flexible and efficient performance monitoring across multiple operations within the MPASdiag processing workflows.
 
+        Timers that run inside another timer are remembered as nested so that the total reported by print_summary counts only top-level operations and never double-counts the time spent in nested ones. The nested status is decided per timing instance and always describes the duration currently stored for the name, so a name that was once nested and later timed at top level is counted in the total. When quiet is True the per-operation completion messages are suppressed.
+
         Parameters:
-            None: This constructor does not take any parameters and initializes the instance attributes for performance tracking.
+            quiet (bool): Suppress the per-operation completion messages printed by the timer context manager (default: False).
 
         Returns:
             None: The constructor initializes the PerformanceMonitor instance without returning any value.
         """
         self.start_times: Dict[str, datetime] = {}
         self.durations: Dict[str, timedelta] = {}
+        self.quiet: bool = quiet
+        self._active: int = 0
+        self._nested: Set[str] = set()
 
     @contextmanager
     def timer(
@@ -55,16 +60,28 @@ class PerformanceMonitor:
         start_time = datetime.now()
         self.start_times[operation_name] = start_time
 
+        # Nesting belongs to this particular timing instance, decided when it starts
+        is_nested = self._active > 0
+        self._active += 1
+
         try:
             yield
         finally:
+            self._active -= 1
             end_time = datetime.now()
             duration = end_time - start_time
             self.durations[operation_name] = duration
 
-            print(
-                f"{operation_name} completed in {duration.total_seconds():.2f} seconds"
-            )
+            # The stored duration is this instance's, so the nested flag must follow it: a name that ran nested once and later at top level is counted in the total again
+            if is_nested:
+                self._nested.add(operation_name)
+            else:
+                self._nested.discard(operation_name)
+
+            if not self.quiet:
+                print(
+                    f"{operation_name} completed in {duration.total_seconds():.2f} seconds"
+                )
 
     def get_summary(self: "PerformanceMonitor") -> Dict[str, float]:
         """
@@ -82,7 +99,7 @@ class PerformanceMonitor:
 
     def print_summary(self: "PerformanceMonitor") -> None:
         """
-        This method prints a formatted summary of all recorded operation durations to stdout. It iterates through the durations dictionary, printing each operation name along with its execution time in seconds formatted to two decimal places. Additionally, if there are any recorded durations, it calculates and prints the total execution time for all operations combined. This method provides a user-friendly way to visualize the performance metrics for various operations within MPASdiag processing workflows, allowing users to quickly assess which steps may be taking longer and identify potential areas for optimization.
+        This method prints a formatted summary of all recorded operation durations to stdout. It iterates through the durations dictionary, printing each operation name along with its execution time in seconds formatted to two decimal places. Additionally, if there are any recorded durations, it calculates and prints the total execution time, counting only top-level operations so that timers nested inside another timer are not added twice. This method provides a user-friendly way to visualize the performance metrics for various operations within MPASdiag processing workflows, allowing users to quickly assess which steps may be taking longer and identify potential areas for optimization.
 
         Parameters:
             None: This method does not take any parameters and operates on the internal state of the PerformanceMonitor instance to access recorded durations.
@@ -97,6 +114,8 @@ class PerformanceMonitor:
 
         if self.durations:
             total_time = sum(
-                elapsed.total_seconds() for elapsed in self.durations.values()
+                elapsed.total_seconds()
+                for name, elapsed in self.durations.items()
+                if name not in self._nested
             )
             print(f"Total time: {total_time:.2f} seconds")

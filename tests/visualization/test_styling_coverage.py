@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from unittest.mock import MagicMock, patch
 
 from mpasdiag import MPASVisualizationStyle
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 
 _RNG = np.random.default_rng(42)
 
@@ -598,6 +599,426 @@ class TestSetupMapProjection:
             -100.0, -80.0, 30.0, 50.0, projection="UnknownProjection"
         )
         assert isinstance(proj, ccrs.PlateCarree)
+
+    def test_platecarree_default_is_not_auto_centered(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that a default PlateCarree projection is not auto-centered on the midpoint of the requested bounds, preserving the historical behavior of central_longitude=0. This guards against a visual regression where every existing PlateCarree map would silently shift.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0, -80.0, 30.0, 50.0, projection="PlateCarree"
+        )
+        assert projection_central_longitude(proj) == 0.0
+
+    def test_platecarree_explicit_central_longitude(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an explicit central_longitude is honored for PlateCarree, enabling Pacific-centered / dateline-crossing maps. This confirms the opt-in centering behavior for the default projection.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -180.0,
+            180.0,
+            -90.0,
+            90.0,
+            projection="PlateCarree",
+            central_longitude=180.0,
+        )
+        assert projection_central_longitude(proj) == 180.0
+
+    def test_mercator_default_auto_centers_on_bounds(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that Mercator still auto-centers its central longitude on the midpoint of the requested bounds when no explicit value is supplied, preserving historical behavior.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0, -80.0, 30.0, 50.0, projection="Mercator"
+        )
+        assert projection_central_longitude(proj) == -90.0
+
+    def test_explicit_central_longitude_overrides_auto(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an explicit central_longitude overrides the auto-derived midpoint for a projection that normally auto-centers (Mercator).
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0, -80.0, 30.0, 50.0, projection="Mercator", central_longitude=25.0
+        )
+        assert projection_central_longitude(proj) == 25.0
+
+    def test_proj_kwargs_passthrough(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that arbitrary cartopy projection parameters can be passed through via proj_kwargs, using LambertConformal standard_parallels as an example of full passthrough support.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0,
+            -80.0,
+            30.0,
+            50.0,
+            projection="LambertConformal",
+            proj_kwargs={"standard_parallels": (33.0, 45.0)},
+        )
+        assert isinstance(proj, ccrs.LambertConformal)
+
+    def test_proj_kwargs_overrides_central_longitude(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies the documented precedence: a central_longitude key inside proj_kwargs takes precedence over the explicit central_longitude argument.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0,
+            -80.0,
+            30.0,
+            50.0,
+            projection="PlateCarree",
+            central_longitude=10.0,
+            proj_kwargs={"central_longitude": 55.0},
+        )
+        assert projection_central_longitude(proj) == 55.0
+
+    def test_new_global_projections_instantiate(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that the additional whitelisted global projections (Robinson, Mollweide, Orthographic, NorthPolarStereo, SouthPolarStereo, NearsidePerspective) are recognized and instantiate to the correct cartopy classes.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        expected = {
+            "Robinson": ccrs.Robinson,
+            "Mollweide": ccrs.Mollweide,
+            "Orthographic": ccrs.Orthographic,
+            "NorthPolarStereo": ccrs.NorthPolarStereo,
+            "SouthPolarStereo": ccrs.SouthPolarStereo,
+            "NearsidePerspective": ccrs.NearsidePerspective,
+        }
+        for name, cls in expected.items():
+            proj, _ = MPASVisualizationStyle.setup_map_projection(
+                -180.0, 180.0, -90.0, 90.0, projection=name
+            )
+            assert isinstance(proj, cls), name
+
+    def test_orthographic_auto_centers_longitude_and_latitude(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that Orthographic (a globe-view projection) auto-centers on both the longitude and latitude midpoints of the requested bounds, providing a view centered on the region of interest.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0, -80.0, 30.0, 50.0, projection="Orthographic"
+        )
+        assert projection_central_longitude(proj) == -90.0
+        assert proj.proj4_params["lat_0"] == 40.0
+
+    def test_central_latitude_ignored_for_projection_without_it(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that supplying central_latitude for a projection whose constructor does not accept it (Mercator) is silently ignored rather than raising, thanks to constructor-signature filtering.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        proj, _ = MPASVisualizationStyle.setup_map_projection(
+            -100.0, -80.0, 30.0, 50.0, projection="Mercator", central_latitude=45.0
+        )
+        assert isinstance(proj, ccrs.Mercator)
+
+    def test_invalid_proj_kwargs_raises_value_error(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an unrecognized key in proj_kwargs raises a ValueError with a helpful message listing the valid parameter names, instead of surfacing a raw cartopy TypeError.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import pytest
+
+        with pytest.raises(ValueError, match="Valid parameters"):
+            MPASVisualizationStyle.setup_map_projection(
+                -100.0,
+                -80.0,
+                30.0,
+                50.0,
+                projection="PlateCarree",
+                proj_kwargs={"not_a_real_kwarg": 1},
+            )
+
+    def test_proj_error_is_reraised_as_value_error(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an error raised by cartopy/PROJ itself for an invalid parameter value (three standard parallels for LambertConformal) is re-raised as a ValueError naming the projection, like an unknown keyword.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import pytest
+
+        with pytest.raises(ValueError, match="LambertConformal"):
+            MPASVisualizationStyle.setup_map_projection(
+                -100.0,
+                -80.0,
+                30.0,
+                50.0,
+                projection="LambertConformal",
+                proj_kwargs={"standard_parallels": (30, 60, 90)},
+            )
+
+    def test_non_finite_central_longitude_raises_value_error(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that a NaN central_longitude is rejected with a clear ValueError instead of a raw pyproj CRSError.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import pytest
+
+        with pytest.raises(ValueError, match="central_longitude must be finite"):
+            MPASVisualizationStyle.setup_map_projection(
+                -180.0, 180.0, -90.0, 90.0, "Robinson", central_longitude=float("nan")
+            )
+
+    def test_out_of_range_central_latitude_raises_value_error(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that a central_latitude outside [-90, 90] is rejected with a clear ValueError.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import pytest
+
+        with pytest.raises(ValueError, match=r"central_latitude must be within"):
+            MPASVisualizationStyle.setup_map_projection(
+                -180.0, 180.0, -90.0, 90.0, "Orthographic", central_latitude=120.0
+            )
+
+    def test_out_of_range_central_longitude_is_wrapped(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an explicit central_longitude outside [-180, 180] is wrapped into that range (360 -> 0, 1e6 -> -80) rather than passed to PROJ, which failed with a GEOS error for very large values. A value of exactly 180 is kept as is.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        for value, expected in [(360.0, 0.0), (1e6, -80.0), (180.0, 180.0)]:
+            proj, _ = MPASVisualizationStyle.setup_map_projection(
+                -180.0, 180.0, -90.0, 90.0, "Robinson", central_longitude=value
+            )
+            assert projection_central_longitude(proj) == expected
+
+    def test_dateline_crossing_box_centers_platecarree(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that a regional box crossing the dateline (150..210) centers a global-style projection on its midpoint so the box is not split across the map edges, while a box inside [-180, 180] and a global 0..360 extent keep the historical 0° center.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        crossing, _ = MPASVisualizationStyle.setup_map_projection(
+            150.0, 210.0, -30.0, 30.0
+        )
+        regional, _ = MPASVisualizationStyle.setup_map_projection(
+            -130.0, -60.0, 20.0, 55.0
+        )
+        global360, _ = MPASVisualizationStyle.setup_map_projection(
+            0.0, 360.0, -90.0, 90.0
+        )
+        assert projection_central_longitude(crossing) == 180.0
+        assert projection_central_longitude(regional) == 0.0
+        assert projection_central_longitude(global360) == 0.0
+
+    def test_southern_lambert_conformal_uses_mirrored_parallels(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that a LambertConformal projection auto-centered in the southern hemisphere uses mirrored standard parallels and cutoff, so an Australian domain is not cut off at 30°S, and that proj_kwargs can still override the parallels.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+        import matplotlib.pyplot as plt
+
+        proj, data_crs = MPASVisualizationStyle.setup_map_projection(
+            110.0, 155.0, -45.0, -10.0, "LambertConformal"
+        )
+        assert (proj.proj4_params["lat_1"], proj.proj4_params["lat_2"]) == (
+            -33.0,
+            -45.0,
+        )
+        ax = plt.axes(projection=proj)
+        ax.set_extent([110.0, 155.0, -45.0, -10.0], crs=data_crs)
+        assert ax.get_extent(crs=ccrs.PlateCarree())[2] < -44.0
+        plt.close("all")
+
+        override, _ = MPASVisualizationStyle.setup_map_projection(
+            110.0,
+            155.0,
+            -45.0,
+            -10.0,
+            "LambertConformal",
+            proj_kwargs={"standard_parallels": (-20.0, -40.0)},
+        )
+        assert override.proj4_params["lat_1"] == -20.0
+
+    def test_ignored_central_latitude_logs_warning(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that an explicit central_latitude passed to a projection without that parameter (Mercator) is reported with a warning instead of being dropped silently.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from unittest.mock import patch
+
+        with patch("mpasdiag.visualization.styling.logger") as mock_logger:
+            MPASVisualizationStyle.setup_map_projection(
+                -100.0, -80.0, 30.0, 50.0, "Mercator", central_latitude=40.0
+            )
+        assert any(
+            "central_latitude" in str(call.args[0])
+            for call in mock_logger.warning.call_args_list
+        )
+
+    def test_extended_whitelist_and_case_insensitive_names(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies that the projections wind plots could previously use through any cartopy class name (e.g. AlbersEqualArea, EqualEarth) are whitelisted, that names are matched case-insensitively, and that None resolves to PlateCarree.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        import cartopy.crs as ccrs
+
+        for name, cls in [
+            ("AlbersEqualArea", ccrs.AlbersEqualArea),
+            ("equalearth", ccrs.EqualEarth),
+            ("LAMBERTAZIMUTHALEQUALAREA", ccrs.LambertAzimuthalEqualArea),
+            ("Miller", ccrs.Miller),
+            (None, ccrs.PlateCarree),
+        ]:
+            proj, _ = MPASVisualizationStyle.setup_map_projection(
+                -100.0, -80.0, 30.0, 50.0, name  # type: ignore[arg-type]
+            )
+            assert isinstance(proj, cls), name
+
+    def test_signature_inspection_failure_uses_default_keywords(
+        self: "TestSetupMapProjection",
+    ) -> None:
+        """
+        This test verifies the fallback used when a projection constructor's signature cannot be inspected: the common central_longitude/central_latitude keywords are assumed.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        from unittest.mock import patch
+
+        with patch(
+            "mpasdiag.visualization.styling.inspect.signature", side_effect=ValueError
+        ):
+            accepted = MPASVisualizationStyle._accepted_projection_args(object)
+        assert accepted == {"central_longitude", "central_latitude"}
 
 
 class TestAddTimestampAndBranding:
@@ -1289,7 +1710,9 @@ class TestChooseTickFmt:
         tick_array = np.array([100.5, 200.3])
         nonzero_ticks = tick_array
         result = MPASVisualizationStyle._choose_tick_fmt(tick_array, nonzero_ticks)
-        assert result == "{:.0f}"
+
+        # Modified: precision is now the smallest that represents every tick exactly, so 100.5 / 200.3 need one decimal rather than being rounded to integers
+        assert result == "{:.1f}"
 
     def test_medium_magnitude_non_integer_returns_1dp(
         self: "TestChooseTickFmt",
@@ -1321,7 +1744,9 @@ class TestChooseTickFmt:
         tick_array = np.array([0.5, 0.7, 1.3])
         nonzero_ticks = tick_array
         result = MPASVisualizationStyle._choose_tick_fmt(tick_array, nonzero_ticks)
-        assert result == "{:.2f}"
+
+        # Modified: one decimal already represents 0.5 / 0.7 / 1.3 exactly, so no extra digits are added
+        assert result == "{:.1f}"
 
     def test_tiny_magnitude_returns_3dp_format(self: "TestChooseTickFmt") -> None:
         """

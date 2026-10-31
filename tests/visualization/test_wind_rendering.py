@@ -27,6 +27,7 @@ from cartopy import crs as ccrs
 import matplotlib.pyplot as plt
 from cartopy.mpl.geoaxes import GeoAxes
 from mpasdiag import MPASWindPlotter
+from mpasdiag.visualization.base_visualizer import projection_central_longitude
 from tests.visualization.wind_test_helpers import require_wind_fixtures
 from tests.test_data_helpers import fake_render_factory
 from mpasdiag import GeographicBounds
@@ -259,7 +260,8 @@ class TestCreateWindPlot:
         )
 
         # Load real MPAS coordinates (first 4 points)
-        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        # Points inside the (0, 50, 0, 25) plot extent; cells outside the extent are no longer drawn
+        lon, lat = np.linspace(10.0, 40.0, 4), np.linspace(5.0, 20.0, 4)
 
         # Load real MPAS wind data (first 4 points)
         u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
@@ -446,7 +448,8 @@ class TestCreateWindPlot:
         )
 
         # Load real MPAS coordinates (first 3 points)
-        lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
+        # Points inside the (0, 50, 0, 25) plot extent; cells outside the extent are no longer drawn
+        lon, lat = np.linspace(10.0, 40.0, 3), np.linspace(5.0, 20.0, 3)
 
         # Load real MPAS wind data (first 3 points)
         u, v = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
@@ -506,7 +509,8 @@ class TestCreateWindPlot:
         _, _ = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
 
         # Load real MPAS coordinates (first 3 points)
-        lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
+        # Points inside the (0, 50, 0, 25) plot extent; cells outside the extent are no longer drawn
+        lon, lat = np.linspace(10.0, 40.0, 3), np.linspace(5.0, 20.0, 3)
 
         # Load real MPAS wind data (first 3 points)
         u, v = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
@@ -566,7 +570,8 @@ class TestCreateWindPlot:
         _, _ = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
 
         # Load real MPAS coordinates (first 3 points)
-        lon, lat = mpas_coordinates[0][:3], mpas_coordinates[1][:3]
+        # Points inside the (0, 50, 0, 25) plot extent; cells outside the extent are no longer drawn
+        lon, lat = np.linspace(10.0, 40.0, 3), np.linspace(5.0, 20.0, 3)
 
         # Load real MPAS wind data (first 3 points)
         u, v = mpas_wind_data[0][:3], mpas_wind_data[1][:3]
@@ -781,4 +786,281 @@ class TestCreateWindPlot:
         assert ax is not None
 
         # Close the figure to free resources
+        plt.close(fig)
+
+    def test_create_wind_plot_central_longitude(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This end-to-end test verifies that an explicit central_longitude on WindPlotStyle flows through create_wind_plot to the GeoAxes projection. Wind previously built its projection with an unvalidated getattr and ignored centering entirely; this confirms the shared-factory routing honors it.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1, plot_type="barbs", central_longitude=180.0
+            ),
+        )
+
+        assert projection_central_longitude(cast(GeoAxes, ax).projection) == 180.0
+        plt.close(fig)
+
+    def test_create_wind_plot_global_projected_centered_on_antimeridian_not_collapsed(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This regression test guards against a bug where a global wind map on a projected CRS (Mercator) combined with a central_longitude near the antimeridian collapsed to a blank map. The cause was set_extent([-179.99, 179.99, ...], PlateCarree) mapping both longitude bounds to nearly the same projected x; the fix uses ax.set_global() for global extents. The test asserts the axes x-limits span essentially the full projection domain for a Pacific-centered (central_longitude=180) global Mercator wind map.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1,
+                plot_type="barbs",
+                projection="Mercator",
+                central_longitude=180.0,
+            ),
+        )
+
+        geo_ax = cast(GeoAxes, ax)
+        xmin, xmax = geo_ax.get_xlim()
+        full_min, full_max = geo_ax.projection.x_limits
+        frac = abs(xmax - xmin) / abs(full_max - full_min)
+        assert frac > 0.9, f"axes x-extent collapsed (frac={frac:.4f})"
+        plt.close(fig)
+
+    def test_create_wind_plot_globe_view_falls_back_to_global(
+        self: "TestCreateWindPlot",
+        plotter: "MPASWindPlotter",
+        mpas_coordinates: tuple[np.ndarray, np.ndarray],
+        mpas_wind_data: tuple[np.ndarray, np.ndarray],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        This regression test verifies that a globe-view projection (Orthographic) requested with a global extent does not crash on set_extent (which cannot represent a full-globe rectangle) and instead renders via the set_global() fallback in _apply_map_extent.
+
+        Parameters:
+            plotter (MPASWindPlotter): Fixture instance to call `create_wind_plot`.
+            mpas_coordinates: Session fixture providing real MPAS lon/lat arrays.
+            mpas_wind_data: Session fixture providing real MPAS u/v wind data.
+            monkeypatch: Pytest fixture for patching methods.
+
+        Returns:
+            None
+        """
+        require_wind_fixtures(mpas_coordinates, mpas_wind_data)
+
+        calls = {"render": 0}
+        monkeypatch.setattr(
+            MPASWindPlotter, "_render_wind_vectors", fake_render_factory(calls)
+        )
+
+        lon, lat = mpas_coordinates[0][:4], mpas_coordinates[1][:4]
+        u, v = mpas_wind_data[0][:4], mpas_wind_data[1][:4]
+
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            u,
+            v,
+            GeographicBounds(-180, 180, -90, 90),
+            style=WindPlotStyle(
+                subsample=1, plot_type="barbs", projection="Orthographic"
+            ),
+        )
+
+        assert isinstance(cast(GeoAxes, ax).projection, ccrs.Orthographic)
+        plt.close(fig)
+
+
+class TestStreamlineSourceGrid:
+    """Tests for MPASWindPlotter._streamline_source_grid, which keeps streamlines continuous across the dateline."""
+
+    @staticmethod
+    def _axes(central_longitude: float) -> GeoAxes:
+        """
+        This helper creates a PlateCarree GeoAxes centered on the given longitude.
+
+        Parameters:
+            central_longitude (float): Central longitude of the projection.
+
+        Returns:
+            GeoAxes: The created axes.
+        """
+        fig = plt.figure()
+        return cast(
+            GeoAxes,
+            fig.add_subplot(
+                111, projection=ccrs.PlateCarree(central_longitude=central_longitude)
+            ),
+        )
+
+    def test_grid_on_zero_centered_map_is_unchanged(
+        self: "TestStreamlineSourceGrid",
+    ) -> None:
+        """
+        This test verifies that a grid inside [-180, 180] drawn on a 0°-centered map is passed through unchanged with a plain PlateCarree source CRS, preserving previous output.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.arange(-180.0, 180.1, 2.0)
+        u = np.tile(lon, (5, 1))
+        x, u_out, _, _, crs = MPASWindPlotter._streamline_source_grid(
+            self._axes(0.0), lon, u, u, u
+        )
+        np.testing.assert_array_equal(x, lon)
+        np.testing.assert_array_equal(u_out, u)
+        assert projection_central_longitude(crs) == 0.0
+        plt.close("all")
+
+    def test_global_grid_on_dateline_centered_map_is_rolled(
+        self: "TestStreamlineSourceGrid",
+    ) -> None:
+        """
+        This test verifies that a global grid drawn on a map centered at 180° is re-expressed in a 180°-centered source CRS: the columns are reordered so longitudes increase evenly from -180 to 180 in that frame, the duplicated seam column is dropped, and the grid is closed by repeating its first column.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.arange(-180.0, 180.1, 2.0)
+        u = np.tile(lon, (5, 1))
+        x, u_out, _, _, crs = MPASWindPlotter._streamline_source_grid(
+            self._axes(180.0), lon, u, u, u
+        )
+        assert projection_central_longitude(crs) == 180.0
+        np.testing.assert_allclose(np.diff(x), 2.0)
+        assert x[0] == -180.0 and x[-1] == 180.0
+        # source frame x=-180 is geographic 0°, x=10 is geographic 190° == -170°
+        assert u_out[0, 0] == 0.0
+        assert u_out[0, list(x).index(10.0)] == -170.0
+        np.testing.assert_array_equal(u_out[:, 0], u_out[:, -1])
+        plt.close("all")
+
+    def test_dateline_crossing_box_is_shifted(
+        self: "TestStreamlineSourceGrid",
+    ) -> None:
+        """
+        This test verifies that a 150..210 grid on a 180°-centered map is expressed as -30..30 in the source frame, so none of it lies outside the source CRS's longitude window.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.arange(150.0, 210.1, 2.0)
+        u = np.ones((4, lon.size))
+        x, _, _, _, _ = MPASWindPlotter._streamline_source_grid(
+            self._axes(180.0), lon, u, u, u
+        )
+        np.testing.assert_allclose(x, lon - 180.0)
+        plt.close("all")
+
+    def test_uneven_wrapped_grid_falls_back_to_original(
+        self: "TestStreamlineSourceGrid",
+    ) -> None:
+        """
+        This test verifies that when re-expressing the grid would make the column spacing uneven (a 0.7° global grid does not divide 360° evenly), the original grid and a plain PlateCarree source CRS are returned.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.arange(-180.0, 180.0, 0.7)
+        u = np.ones((3, lon.size))
+        x, _, _, _, crs = MPASWindPlotter._streamline_source_grid(
+            self._axes(180.0), lon, u, u, u
+        )
+        np.testing.assert_array_equal(x, lon)
+        assert projection_central_longitude(crs) == 0.0
+        plt.close("all")
+
+    def test_streamlines_render_on_dateline_crossing_box(
+        self: "TestStreamlineSourceGrid",
+    ) -> None:
+        """
+        This end-to-end test verifies that a streamline wind plot of a 150..210 box renders, with the map centered on the dateline.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        rng = np.random.default_rng(11)
+        lon = rng.uniform(-180.0, 180.0, 4000)
+        lat = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, 4000)))
+        plotter = MPASWindPlotter(figsize=(6, 4), dpi=50)
+        fig, ax = plotter.create_wind_plot(
+            lon,
+            lat,
+            np.full(4000, 10.0),
+            np.zeros(4000),
+            GeographicBounds(150.0, 210.0, -30.0, 30.0),
+            style=WindPlotStyle(plot_type="streamlines"),
+            grid_resolution=2.0,
+        )
+        fig.canvas.draw()
+        assert projection_central_longitude(cast(GeoAxes, ax).projection) == 180.0
         plt.close(fig)

@@ -15,6 +15,7 @@ Version: 1.0.0
 """
 
 import runpy
+import pytest
 from unittest.mock import patch
 
 
@@ -46,6 +47,8 @@ class TestCliEntryPoint:
         Returns:
             None
         """
-        with patch("mpasdiag.processing.cli_unified.main") as mock_main:
-            runpy.run_module("mpasdiag.cli", run_name="__main__", alter_sys=False)
+        with patch("mpasdiag.processing.cli_unified.main", return_value=0) as mock_main:
+            with pytest.raises(SystemExit) as exc:
+                runpy.run_module("mpasdiag.cli", run_name="__main__", alter_sys=False)
         mock_main.assert_called_once()
+        assert exc.value.code == 0  # the module now exits with main()'s return code

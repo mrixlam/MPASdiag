@@ -15,28 +15,77 @@ Version: 1.0.0
 """
 
 # Load standard libraries
+import importlib.util
+import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
 from typing import Tuple, Optional, Dict, Any
 
-from .base_visualizer import MPASVisualizer
+from .base_visualizer import MPASVisualizer, close_figure_on_error
 from .styling import MPASVisualizationStyle
 from ..processing.utils_logger import get_logger
+from ..processing.utils_path import safe_plot_text
 
 logger = get_logger(__name__)
 
-try:
-    from metpy.plots import SkewT
-    from metpy.units import units as munits
-    import metpy.calc as mpcalc
-except ImportError as _metpy_err:
-    raise ImportError(
-        "MetPy is required for Skew-T diagrams. "
-        "Install it with: pip install metpy  or  "
-        "conda install -c conda-forge metpy"
-    ) from _metpy_err
+# MetPy is imported on first use: metpy.plots (in _create_metpy_skewt) costs ~10 s and metpy.calc/metpy.units
+# about a second, which every CLI process, multiprocessing forkserver and MPI rank would otherwise pay even
+# without a Skew-T. A missing MetPy is still reported when this module is imported.
+_METPY_REQUIRED_MSG = (
+    "MetPy is required for Skew-T diagrams. "
+    "Install it with: pip install metpy  or  "
+    "conda install -c conda-forge metpy"
+)
+
+if importlib.util.find_spec("metpy") is None:
+    raise ImportError(_METPY_REQUIRED_MSG)
+
+
+def __getattr__(name: str) -> Any:
+    """
+    This module-level attribute hook imports MetPy the first time the module attributes 'mpcalc' (metpy.calc) or 'munits' (the MetPy unit registry) are read, and stores them as ordinary module attributes so later reads, and tests that patch them, see plain values.
+
+    Parameters:
+        name (str): The attribute being read.
+
+    Returns:
+        Any: The metpy.calc module or the MetPy unit registry.
+    """
+    if name not in ("mpcalc", "munits"):
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    try:
+        import metpy.calc
+        from metpy.units import units
+    except ImportError as exc:
+        raise ImportError(
+            f"{_METPY_REQUIRED_MSG} (importing it failed: {exc})"
+        ) from exc
+
+    globals().update(mpcalc=metpy.calc, munits=units)
+    return globals()[name]
+
+
+def _metpy_calc() -> Any:
+    """
+    This helper returns metpy.calc through the module attribute, importing MetPy on first use.
+
+    Returns:
+        Any: The metpy.calc module, or whatever a test patched in its place.
+    """
+    return sys.modules[__name__].mpcalc
+
+
+def _metpy_units() -> Any:
+    """
+    This helper returns the MetPy unit registry through the module attribute, importing MetPy on first use.
+
+    Returns:
+        Any: The MetPy unit registry, or whatever a test patched in its place.
+    """
+    return sys.modules[__name__].munits
 
 
 class MPASSkewTPlotter(MPASVisualizer):
@@ -61,6 +110,104 @@ class MPASSkewTPlotter(MPASVisualizer):
         """
         super().__init__(figsize, dpi, verbose)
 
+    @staticmethod
+    def _strip_known_extension(save_path: str) -> str:
+        """
+        This helper removes a trailing image extension ('.png', '.pdf', '.svg', '.jpg', '.jpeg', case-insensitive) from a save path, because the diagram is written in both PNG and PDF and the formats are appended by the save routine; without this a path such as 'sounding.png' would produce 'sounding.png.png' and 'sounding.png.pdf'.
+
+        Parameters:
+            save_path (str): User supplied output path, with or without extension.
+
+        Returns:
+            str: The path without a known image extension.
+        """
+        root, ext = os.path.splitext(save_path)
+        return (
+            root
+            if ext.lower() in (".png", ".pdf", ".svg", ".jpg", ".jpeg")
+            else save_path
+        )
+
+    @staticmethod
+    def _location_text(
+        location: Optional[Dict[str, Any]],
+        indices: Optional[Dict[str, Optional[float]]],
+    ) -> Optional[str]:
+        """
+        This helper builds the one-line description of the requested sounding point and its distance to the model cell actually used, from a profile dictionary carrying 'requested_lon', 'requested_lat' and 'distance_km' (as returned by SoundingDiagnostics.extract_sounding_profile); the same keys are also looked up in the indices dictionary. None is returned when any of the three values is absent or not finite.
+
+        Parameters:
+            location (Optional[Dict[str, Any]]): Profile dictionary (or any mapping) with the location keys.
+            indices (Optional[Dict[str, Optional[float]]]): Optional indices dictionary searched as a fallback.
+
+        Returns:
+            Optional[str]: Text such as 'Requested 97.50\u00b0W, 36.50\u00b0N | nearest cell 4.2 km away', or None.
+        """
+        values: Dict[str, Any] = {}
+
+        for source in (indices, location):
+            if source:
+                for key in ("requested_lon", "requested_lat", "distance_km"):
+                    if source.get(key) is not None:
+                        values[key] = source[key]
+
+        try:
+            lon = float(values["requested_lon"])
+            lat = float(values["requested_lat"])
+            dist = float(values["distance_km"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+        if not (np.isfinite(lon) and np.isfinite(lat) and np.isfinite(dist)):
+            return None
+
+        lon_text = f"{abs(lon):.2f}\u00b0{'W' if lon < 0 else 'E'}"
+        lat_text = f"{abs(lat):.2f}\u00b0{'S' if lat < 0 else 'N'}"
+        return f"Requested {lon_text}, {lat_text} | nearest cell {dist:.1f} km away"
+
+    @staticmethod
+    def _validated_sorted_profile(
+        pressure: np.ndarray, temperature: np.ndarray, dewpoint: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        This static helper validates the sounding profile before any figure is created and sorts it by descending pressure so that index 0 is the surface. Empty, length-mismatched, or all-NaN profiles raise a ValueError; NaN pressures sort last.
+
+        Parameters:
+            pressure (np.ndarray): Pressure levels in hPa.
+            temperature (np.ndarray): Temperature profile in °C.
+            dewpoint (np.ndarray): Dew point profile in °C.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: The sorted pressure, temperature and dewpoint arrays and the sort order, which can be applied to other per-level arrays such as the winds.
+        """
+        pressure_arr = np.asarray(pressure, dtype=np.float64)
+        temp_arr = np.asarray(temperature, dtype=np.float64)
+        dewpoint_arr = np.asarray(dewpoint, dtype=np.float64)
+
+        # Validate the profile before any figure is created
+        if pressure_arr.size == 0 or temp_arr.size == 0 or dewpoint_arr.size == 0:
+            raise ValueError("Skew-T profile arrays must not be empty")
+
+        if not (pressure_arr.shape == temp_arr.shape == dewpoint_arr.shape):
+            raise ValueError(
+                "pressure, temperature and dewpoint must have the same shape, got "
+                f"{pressure_arr.shape}, {temp_arr.shape} and {dewpoint_arr.shape}"
+            )
+
+        if not np.any(np.isfinite(pressure_arr) & np.isfinite(temp_arr)):
+            raise ValueError("Skew-T profile has no finite pressure/temperature pair")
+
+        # Sort the profile by descending pressure so index 0 is the surface (parcel lifting and CAPE shading assume this ordering); NaN pressures sort last
+        order = np.argsort(
+            -np.where(np.isnan(pressure_arr), -np.inf, pressure_arr), kind="stable"
+        )
+        pressure_arr = pressure_arr[order]
+        temp_arr = temp_arr[order]
+        dewpoint_arr = dewpoint_arr[order]
+
+        return pressure_arr, temp_arr, dewpoint_arr, order
+
+    @close_figure_on_error
     def create_skewt_diagram(
         self: "MPASSkewTPlotter",
         pressure: np.ndarray,
@@ -72,6 +219,7 @@ class MPASSkewTPlotter(MPASVisualizer):
         indices: Optional[Dict[str, Optional[float]]] = None,
         show_parcel: bool = False,
         save_path: Optional[str] = None,
+        location: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Figure, Axes]:
         """
         This method creates a Skew-T Log-P diagram using the provided pressure, temperature, dew point, and optional wind data. It utilizes MetPy's SkewT class to render the diagram with meteorological conventions, including plotting the temperature and dew point profiles, optional wind barbs, and a lifted parcel profile if requested. The method also adds thermodynamic reference lines and level markers based on provided indices for CAPE/CIN shading. The resulting figure is styled according to MPAS visualization standards and can be saved to a specified path. The method returns the Matplotlib Figure and Axes objects for further customization or display.
@@ -85,14 +233,19 @@ class MPASSkewTPlotter(MPASVisualizer):
             title (Optional[str]): Title for the Skew-T diagram. Defaults to "MPAS Skew-T Log-P Diagram".
             indices (Optional[Dict[str, Optional[float]]]): Dictionary of thermodynamic indices for CAPE/CIN shading and level markers.
             show_parcel (bool): Whether to plot the lifted parcel profile. Defaults to False.
-            save_path (Optional[str]): Path to save the figure. If None, the figure is not saved.
+            save_path (Optional[str]): Path to save the figure (PNG and PDF are written). A trailing known image extension such as '.png' is removed first so the output is 'x.png' and 'x.pdf', never 'x.png.png'. If None, the figure is not saved.
+            location (Optional[Dict[str, Any]]): Optional profile dictionary (as returned by SoundingDiagnostics.extract_sounding_profile) carrying 'requested_lon', 'requested_lat' and 'distance_km'; when present a line under the title states the requested point and the distance to the model cell used.
 
         Returns:
-            Tuple[Figure, Axes]: Matplotlib Figure and Axes objects with the Skew-T diagram rendered.
+            Tuple[Figure, Axes]: Matplotlib Figure and Axes objects with the Skew-T diagram rendered. Empty, all-NaN or length-mismatched profiles raise a ValueError, the title is sanitised with safe_plot_text, and the figure is closed if any exception escapes.
         """
-        pressure_arr = np.asarray(pressure, dtype=np.float64)
-        temp_arr = np.asarray(temperature, dtype=np.float64)
-        dewpoint_arr = np.asarray(dewpoint, dtype=np.float64)
+        pressure_arr, temp_arr, dewpoint_arr, order = self._validated_sorted_profile(
+            pressure, temperature, dewpoint
+        )
+
+        if u_wind is not None and v_wind is not None:
+            u_wind = np.asarray(u_wind, dtype=np.float64)[order]
+            v_wind = np.asarray(v_wind, dtype=np.float64)[order]
 
         fig, ax = self._create_metpy_skewt(
             pressure_arr, temp_arr, dewpoint_arr, u_wind, v_wind, show_parcel, indices
@@ -101,20 +254,47 @@ class MPASSkewTPlotter(MPASVisualizer):
         if title is None:
             title = "MPAS Skew-T Log-P Diagram"
 
-        ax.set_title(title, fontsize=14, fontweight="bold", pad=15)
+        location_text = self._location_text(location, indices)
+        ax.set_title(
+            safe_plot_text(title),
+            fontsize=14,
+            fontweight="bold",
+            pad=30 if location_text else 15,
+        )
 
+        if location_text:
+            ax.text(
+                0.5,
+                1.012,
+                location_text,
+                transform=ax.transAxes,
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        table_height = 0.0
         if indices is not None:
-            self._add_indices_table(fig, indices)
+            table_height = self._add_indices_table(fig, indices)
 
         self.fig = fig
         self.ax = ax
-        fig.subplots_adjust(bottom=0.18)
+
+        # Reserve room under the axes for the indices table plus the branding footer
+        fig.subplots_adjust(bottom=max(0.18, table_height + 0.07))
+
+        # Fit the temperature window last: the skew shift depends on the final axes shape
+        try:
+            self._fit_xlim(ax, pressure_arr, temp_arr, dewpoint_arr)
+        except (TypeError, ValueError):
+            # Fitting the window is cosmetic; keep the default limits if the axes cannot be queried
+            pass
         self.add_timestamp_and_branding()
 
         if save_path:
             MPASVisualizationStyle.save_plot(
                 fig,
-                save_path,
+                self._strip_known_extension(save_path),
                 formats=["png", "pdf"],
                 bbox_inches="tight",
                 pad_inches=0.1,
@@ -124,6 +304,37 @@ class MPASSkewTPlotter(MPASVisualizer):
                 logger.info("Skew-T diagram saved to: %s", save_path)
 
         return fig, ax
+
+    @staticmethod
+    def _thin_levels(
+        pressure_hpa: np.ndarray, candidates: np.ndarray, min_spacing: float = 40.0
+    ) -> np.ndarray:
+        """
+        This static helper thins a profile for wind-barb plotting: walking from the highest pressure upwards it keeps a candidate level only when it lies at least min_spacing hPa above the last kept level, so a model profile with hundreds of levels yields a readable column of roughly one barb per 40 hPa instead of a solid smear.
+
+        Parameters:
+            pressure_hpa (np.ndarray): Pressure of every level in hPa.
+            candidates (np.ndarray): Boolean mask of levels eligible to be kept.
+            min_spacing (float): Minimum pressure spacing between kept levels in hPa (default: 40.0).
+
+        Returns:
+            np.ndarray: Boolean mask of the kept levels (a subset of candidates).
+        """
+        keep = np.zeros(pressure_hpa.shape, dtype=bool)
+        last = np.inf
+
+        for idx in np.argsort(-np.where(candidates, pressure_hpa, -np.inf)):
+            if not candidates[idx]:
+                break
+
+            if last - pressure_hpa[idx] >= min_spacing:
+                keep[idx] = True
+                last = pressure_hpa[idx]
+            elif not np.isfinite(last):
+                keep[idx] = True
+                last = pressure_hpa[idx]
+
+        return keep
 
     @staticmethod
     def _plot_wind_barbs(
@@ -145,9 +356,17 @@ class MPASSkewTPlotter(MPASVisualizer):
             None
         """
         if u_wind is not None and v_wind is not None:
-            u_knots = np.asarray(u_wind, dtype=np.float64) * munits.knots
-            v_knots = np.asarray(v_wind, dtype=np.float64) * munits.knots
-            skew.plot_barbs(pressure_hpa, u_knots, v_knots)
+            # Only draw barbs for levels inside the plotted pressure range so none protrude beyond the axes (MetPy already clips barbs to the axes)
+            p_vals = np.asarray(pressure_hpa.magnitude, dtype=np.float64)
+            in_range = (p_vals >= 100.0) & (p_vals <= 1050.0)
+            in_range &= MPASSkewTPlotter._thin_levels(p_vals, in_range)
+            u_knots = (
+                np.asarray(u_wind, dtype=np.float64)[in_range] * _metpy_units().knots
+            )
+            v_knots = (
+                np.asarray(v_wind, dtype=np.float64)[in_range] * _metpy_units().knots
+            )
+            skew.plot_barbs(pressure_hpa[in_range], u_knots, v_knots)
 
     def _plot_parcel_profile(
         self: "MPASSkewTPlotter",
@@ -171,9 +390,11 @@ class MPASSkewTPlotter(MPASVisualizer):
             None
         """
         try:
-            lifted_parcel = mpcalc.parcel_profile(
-                pressure_hpa, temp_degc[0], dewpoint_degc[0]
-            ).to("degC")
+            lifted_parcel = (
+                _metpy_calc()
+                .parcel_profile(pressure_hpa, temp_degc[0], dewpoint_degc[0])
+                .to("degC")
+            )
             skew.plot(pressure_hpa, lifted_parcel, "k--", linewidth=1.5, label="Parcel")
             if indices is not None:
                 cape_val = indices.get("cape")
@@ -181,7 +402,10 @@ class MPASSkewTPlotter(MPASVisualizer):
                 if cape_val is not None and cape_val > 0:
                     skew.shade_cape(pressure_hpa, temp_degc, lifted_parcel)
                 if cin_val is not None and cin_val < 0:
-                    skew.shade_cin(pressure_hpa, temp_degc, lifted_parcel)
+                    # The dewpoint limits the shading to the surface-to-EL layer
+                    skew.shade_cin(
+                        pressure_hpa, temp_degc, lifted_parcel, dewpoint_degc
+                    )
         except Exception as exc:
             if self.verbose:
                 logger.warning("Parcel profile plotting failed: %s", exc)
@@ -211,12 +435,19 @@ class MPASSkewTPlotter(MPASVisualizer):
         Returns:
             Tuple[Figure, Axes]: Matplotlib Figure and Axes objects with the Skew-T diagram rendered.
         """
+        try:
+            from metpy.plots import SkewT
+        except ImportError as exc:
+            raise ImportError(
+                f"{_METPY_REQUIRED_MSG} (importing it failed: {exc})"
+            ) from exc
+
         fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
         skew = SkewT(fig, rotation=45)
 
-        pressure_hpa = pressure_arr * munits.hPa
-        temp_degc = temp_arr * munits.degC
-        dewpoint_degc = dewpoint_arr * munits.degC
+        pressure_hpa = pressure_arr * _metpy_units().hPa
+        temp_degc = temp_arr * _metpy_units().degC
+        dewpoint_degc = dewpoint_arr * _metpy_units().degC
 
         skew.plot(pressure_hpa, temp_degc, "r", linewidth=2, label="Temperature")
         skew.plot(pressure_hpa, dewpoint_degc, "g", linewidth=2, label="Dewpoint")
@@ -235,9 +466,73 @@ class MPASSkewTPlotter(MPASVisualizer):
 
         skew.ax.set_ylim(1050, 100)
         skew.ax.set_xlim(-40, 50)
+        skew.ax.set_xlabel("Temperature [\u00b0C]")
+        skew.ax.set_ylabel("Pressure [hPa]")
         skew.ax.legend(loc="upper left", fontsize=9)
 
         return fig, skew.ax
+
+    @staticmethod
+    def _fit_xlim(
+        ax: Axes,
+        pressure_hpa: np.ndarray,
+        temp_degc: np.ndarray,
+        dewpoint_degc: np.ndarray,
+        pad: float = 5.0,
+        min_span: float = 90.0,
+    ) -> None:
+        """
+        This static helper widens or shifts the (skewed) temperature axis so the whole temperature and dewpoint profile is visible, instead of the fixed -40 to 50 window that clips cold polar or high-latitude winter profiles. The profile is projected through the axes' own skew transform (so the diagonal shift is accounted for), and the window keeps the default width of 90 degrees unless the profile needs more; it is centred on the profile with a small padding. Warm profiles that already fit keep the default window.
+
+        Parameters:
+            ax (Axes): The Skew-T axes with its y-limits already set.
+            pressure_hpa (np.ndarray): Pressure of every level in hPa.
+            temp_degc (np.ndarray): Temperature in degrees Celsius.
+            dewpoint_degc (np.ndarray): Dewpoint in degrees Celsius.
+            pad (float): Padding in degrees added on each side of the profile (default: 5.0).
+            min_span (float): Minimum width of the temperature window in degrees (default: 90.0).
+
+        Returns:
+            None
+        """
+        p_lo, p_hi = sorted(ax.get_ylim())
+        shown = (
+            np.isfinite(pressure_hpa) & (pressure_hpa >= p_lo) & (pressure_hpa <= p_hi)
+        )
+
+        if not np.any(shown):
+            return
+
+        pts_t = np.concatenate([temp_degc[shown], dewpoint_degc[shown]])
+        pts_p = np.concatenate([pressure_hpa[shown], pressure_hpa[shown]])
+        finite = np.isfinite(pts_t)
+
+        if not np.any(finite):
+            return
+
+        pts_t, pts_p = pts_t[finite], pts_p[finite]
+        default = ax.get_xlim()
+
+        # Iterate: the skew shift (in data units) depends on the window width
+        for _ in range(4):
+            lo, hi = ax.get_xlim()
+            disp = ax.transData.transform(np.column_stack([pts_t, pts_p]))
+            frac = ax.transAxes.inverted().transform(disp)[:, 0]
+            effective = lo + frac * (hi - lo)
+            need_lo, need_hi = effective.min() - pad, effective.max() + pad
+
+            if lo <= need_lo and need_hi <= hi and (hi - lo) <= min_span + 1e-9:
+                break
+
+            span = max(min_span, need_hi - need_lo)
+            centre = 0.5 * (need_lo + need_hi)
+
+            # Prefer the default window when the profile already fits in it
+            if default[0] <= need_lo and need_hi <= default[1]:
+                ax.set_xlim(default)
+                break
+
+            ax.set_xlim(centre - 0.5 * span, centre + 0.5 * span)
 
     @staticmethod
     def _add_thermodynamic_overlays(skew: Any) -> None:
@@ -277,14 +572,16 @@ class MPASSkewTPlotter(MPASVisualizer):
                 ax.axhline(
                     val, color=color, linestyle=linestyle, linewidth=1.2, alpha=0.7
                 )
+                # Axes-fraction x (data y) keeps the label inside the axes, just left of the wind barbs
                 ax.text(
-                    ax.get_xlim()[1],
+                    0.86,
                     val,
-                    f" {label} ({val:.0f} hPa)",
+                    f"{label} ({val:.0f} hPa)",
+                    transform=ax.get_yaxis_transform(),
                     fontsize=8,
                     color=color,
-                    va="center",
-                    ha="left",
+                    va="bottom",
+                    ha="right",
                     clip_on=True,
                 )
 
@@ -292,7 +589,7 @@ class MPASSkewTPlotter(MPASVisualizer):
     def _add_indices_table(
         fig: Figure,
         indices: Dict[str, Optional[float]],
-    ) -> None:
+    ) -> float:
         """
         This static method creates a table of sounding indices and stability parameters to be displayed below the Skew-T diagram. It takes a dictionary of indices, formats them into three columns (Parcel/Instability, Moisture/Thermo, Shear/Severe), and creates a Matplotlib table with styled headers and alternating row colors for readability. The method filters out any indices that are not available (None) and pads the columns to ensure they have equal length before creating the table. This table provides a convenient summary of key atmospheric parameters that can be used to assess the stability and severe weather potential of the sounding. It is typically called during the Skew-T diagram creation process after plotting the main profiles and thermodynamic overlays, and before finalizing the figure for display or saving.
 
@@ -301,16 +598,17 @@ class MPASSkewTPlotter(MPASVisualizer):
             indices (Dict[str, Optional[float]]): Dictionary containing the sounding indices and stability parameters to be displayed in the table.
 
         Returns:
-            None
+            float: Height of the table axes as a fraction of the figure height (0.0 when there is nothing to show), so the caller can reserve matching space below the plot.
         """
 
         def _fmt(key: str, label: str, unit: str = "") -> str:
             val = indices.get(key)
             if val is None:
                 return ""
+            # Adding 0.0 turns a rounded -0.0 into 0.0 so the table never shows "-0" or "-0.0"
             if unit:
-                return f"{label}: {val:.0f} {unit}"
-            return f"{label}: {val:.1f}"
+                return f"{label}: {round(float(val)) + 0.0:.0f} {unit}"
+            return f"{label}: {round(float(val), 1) + 0.0:.1f}"
 
         # Build rows for each column
         col_parcel = [
@@ -352,7 +650,7 @@ class MPASSkewTPlotter(MPASVisualizer):
         col_shear = [s for s in col_shear if s]
 
         if not col_parcel and not col_moisture and not col_shear:
-            return
+            return 0.0
 
         # Pad columns to equal length
         n_rows = max(len(col_parcel), len(col_moisture), len(col_shear))
@@ -361,8 +659,9 @@ class MPASSkewTPlotter(MPASVisualizer):
 
         headers = ["Parcel / Instability", "Moisture / Thermo", "Shear / Severe"]
 
-        # Create axes for the table below the main plot
-        table_ax = fig.add_axes((0.05, 0.01, 0.90, 0.14))
+        # Size the table axes from the row count (about 0.21 in per row) so every row fits inside the figure
+        table_height = min(0.4, (n_rows + 1) * 0.21 / fig.get_figheight())
+        table_ax = fig.add_axes((0.05, 0.035, 0.90, table_height))
         table_ax.axis("off")
 
         cell_text = [
@@ -374,6 +673,7 @@ class MPASSkewTPlotter(MPASVisualizer):
             colLabels=headers,
             loc="center",
             cellLoc="left",
+            bbox=(0.0, 0.0, 1.0, 1.0),
         )
 
         table.auto_set_font_size(False)
@@ -393,4 +693,4 @@ class MPASSkewTPlotter(MPASVisualizer):
                 cell.set_facecolor("#f7f9fb" if i % 2 == 0 else "white")
                 cell.set_edgecolor("#c8d6e0")
 
-        table.scale(1.0, 1.3)
+        return float(table_height + 0.035)

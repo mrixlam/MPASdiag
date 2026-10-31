@@ -16,12 +16,14 @@ Version: 1.0.0
 
 import glob
 import os
+import re
 import numpy as np
 import xarray as xr
-from typing import List, Tuple, Any, Optional, cast
+from typing import Dict, List, Tuple, Any, Optional, cast
 
 from .base import MPASBaseProcessor
 from .utils_datetime import MPASDateTimeUtils
+from .utils_geog import MPASGeographicUtils
 from .constants import DIAG_GLOB, MPASOUT_GLOB
 from .utils_logger import get_logger
 from .utils_path import safe_label
@@ -84,6 +86,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
         use_pure_xarray: bool = False,
         reference_file: str = "",
         variables: Optional[List[str]] = None,
+        chunk_size: Optional[int] = None,
     ) -> "MPAS2DProcessor":
         """
         This method loads 2D diagnostic data from the specified directory, utilizing either the pure xarray backend or the UXarray backend based on the provided flag. It first identifies the relevant diagnostic files in the directory, then loads them into a combined dataset while adding necessary spatial coordinates. The method ensures that the loaded dataset is properly enriched with spatial information for subsequent analysis and visualization. By returning self, it allows for method chaining in processing workflows that require multiple operations on the loaded dataset.
@@ -93,12 +96,25 @@ class MPAS2DProcessor(MPASBaseProcessor):
             use_pure_xarray (bool): If True, uses the pure xarray backend for loading data; otherwise, uses UXarray (default: False).
             reference_file (str): Optional path to a reference file for loading data, if required by the backend (default: "").
             variables (Optional[List[str]]): List of variable names to retain. If provided, only these variables are loaded from data files to reduce memory usage (default: None).
+            chunk_size (Optional[int]): Number of cells per dask chunk along the nCells dimension (Time stays at one record per chunk). None keeps the default behaviour of one chunk per Time record spanning all cells; a positive integer enables finer spatial chunking to bound peak memory on very large meshes (default: None).
 
         Returns:
             MPAS2DProcessor: The instance of the processor with the loaded dataset ready for analysis and visualization.
         """
         self.data_dir = data_dir
-        chunks_2d = {"Time": 1}
+        if chunk_size is not None and (
+            isinstance(chunk_size, bool)
+            or not isinstance(chunk_size, (int, np.integer))
+            or chunk_size <= 0
+        ):
+            raise ValueError(
+                f"chunk_size must be a positive integer, got {chunk_size!r}"
+            )
+
+        chunks_2d: Dict[str, int] = {"Time": 1}
+
+        if chunk_size is not None:
+            chunks_2d["nCells"] = int(chunk_size)
 
         dataset, _ = self._load_data(
             data_dir,
@@ -122,19 +138,22 @@ class MPAS2DProcessor(MPASBaseProcessor):
         self: "MPAS2DProcessor", data_dir: str
     ) -> Optional[List[str]]:
         """
-        This helper method performs a recursive search for diagnostic files in the specified directory using a predefined glob pattern. It looks for files matching the DIAG_GLOB pattern in all subdirectories of the provided data directory. If it finds at least two diagnostic files, it returns a sorted list of their paths; otherwise, it returns None. This method is used as a fallback when direct searches for diagnostic files in the main directory and a "diag" subdirectory do not yield results, ensuring that all possible locations are checked for relevant diagnostic data.
+        This helper method performs a recursive search for diagnostic files in the specified directory using a predefined glob pattern. It looks for files matching the DIAG_GLOB pattern in all subdirectories of the provided data directory. If it finds at least one diagnostic file, it returns a sorted list of their paths; otherwise, it returns None. This method is used as a fallback when direct searches for diagnostic files in the main directory and a "diag" subdirectory do not yield results, ensuring that all possible locations are checked for relevant diagnostic data.
 
         Parameters:
             data_dir (str): Directory path to search for MPAS diagnostic files recursively.
 
         Returns:
-            Optional[List[str]]: A sorted list of file paths to the found diagnostic files if at least two are found; otherwise, None.
+            Optional[List[str]]: A sorted list of file paths to the found diagnostic files if at least one is found; otherwise, None.
         """
         files = sorted(
-            glob.glob(os.path.join(data_dir, "**", DIAG_GLOB), recursive=True)
+            glob.glob(
+                os.path.join(glob.escape(data_dir), "**", DIAG_GLOB), recursive=True
+            ),
+            key=MPASDateTimeUtils.file_sort_key,
         )
 
-        if len(files) >= 2:
+        if files:
             if self.verbose:
                 logger.info("Found %d diagnostic files (recursive search):", len(files))
                 for i, filepath in enumerate(files[:5]):
@@ -147,7 +166,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
         self: "MPAS2DProcessor", data_dir: str
     ) -> List[str]:
         """
-        This helper method performs a fallback search for MPAS output files (mpasout*.nc) in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for MPAS output files. If no MPAS output files are found after these attempts, it raises a FileNotFoundError with an informative message. The method ensures that at least two MPAS output files are found for temporal analysis and provides detailed logging of the search results when verbose mode is enabled.
+        This helper method performs a fallback search for MPAS output files (mpasout*.nc) in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for MPAS output files. If no MPAS output files are found after these attempts, it raises a FileNotFoundError with an informative message. The method ensures that at least one MPAS output file is found and provides detailed logging of the search results when verbose mode is enabled.
 
         Parameters:
             data_dir (str): Directory path to search for MPAS output files.
@@ -163,18 +182,16 @@ class MPAS2DProcessor(MPASBaseProcessor):
             pass
 
         files = sorted(
-            glob.glob(os.path.join(data_dir, "**", MPASOUT_GLOB), recursive=True)
+            glob.glob(
+                os.path.join(glob.escape(data_dir), "**", MPASOUT_GLOB), recursive=True
+            ),
+            key=MPASDateTimeUtils.file_sort_key,
         )
 
         if not files:
             raise FileNotFoundError(
                 f"No diagnostic files (diag*.nc) or MPAS output files (mpasout*.nc) found under: {data_dir}\n"
                 f"For precipitation analysis, ensure files contain rainc and rainnc variables."
-            )
-
-        if len(files) < 2:
-            raise ValueError(
-                f"Insufficient MPAS output files for temporal analysis. Found {len(files)}, need at least 2."
             )
 
         if self.verbose:
@@ -186,7 +203,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
 
     def find_diagnostic_files(self: "MPAS2DProcessor", data_dir: str) -> List[str]:
         """
-        This method searches for diagnostic files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for diagnostic files. If no diagnostic files are found after these attempts, it then searches for MPAS output files (mpasout*.nc) using a similar approach. The method ensures that at least two files are found for temporal analysis and provides informative error messages if no suitable files are located. By returning a sorted list of file paths, it facilitates subsequent loading and processing of the diagnostic data.
+        This method searches for diagnostic files in the specified directory using a predefined glob pattern. It first attempts to find files directly in the provided directory, then looks in a "diag" subdirectory if no files are found. If still unsuccessful, it performs a recursive search for diagnostic files. If no diagnostic files are found after these attempts, it then searches for MPAS output files (mpasout*.nc) using a similar approach. The method ensures that at least one file is found and provides informative error messages if no suitable files are located. By returning a sorted list of file paths, it facilitates subsequent loading and processing of the diagnostic data.
 
         Parameters:
             data_dir (str): Directory path to search for MPAS diagnostic files.
@@ -238,6 +255,23 @@ class MPAS2DProcessor(MPASBaseProcessor):
             str: The name of the spatial dimension ('nVertices' or 'nCells') to use for coordinate extraction.
         """
         return "nVertices" if "nVertices" in sizes else "nCells"
+
+    def _coord_attrs(self: "MPAS2DProcessor", names: List[str]) -> Dict[str, Any]:
+        """
+        This helper method returns the attributes of the first coordinate variable found among the candidate names so that a 'units' attribute can steer the radians-versus-degrees decision. It returns an empty dictionary when the dataset is not loaded or none of the names exist.
+
+        Parameters:
+            names (List[str]): A list of possible coordinate variable names to search for.
+
+        Returns:
+            Dict[str, Any]: Attributes of the first found coordinate variable, or an empty dict.
+        """
+        if self.dataset is None:
+            return {}
+        for name in names:
+            if name in self.dataset.coords or name in self.dataset.data_vars:
+                return dict(self.dataset[name].attrs)
+        return {}
 
     def _lookup_2d_coord(
         self: "MPAS2DProcessor", names: List[str]
@@ -303,9 +337,12 @@ class MPAS2DProcessor(MPASBaseProcessor):
         lon_arr: np.ndarray = np.asarray(lon_coords)
         lat_arr: np.ndarray = np.asarray(lat_coords)
 
-        if np.nanmax(np.abs(lat_arr)) <= np.pi:
-            lat_arr = lat_arr * 180.0 / np.pi
-            lon_arr = lon_arr * 180.0 / np.pi
+        lon_arr, lat_arr = MPASGeographicUtils.coordinates_to_degrees(
+            lon_arr,
+            lat_arr,
+            self._coord_attrs(lon_names),
+            self._coord_attrs(lat_names),
+        )
 
         lon_arr = ((lon_arr.ravel() + 180) % 360) - 180
         lat_arr = lat_arr.ravel()
@@ -352,8 +389,148 @@ class MPAS2DProcessor(MPASBaseProcessor):
         else:
             logger.warning("No finite values found for %s", var_name)
 
+    _ISOBARIC_RE = re.compile(r"^(\w+?)_(\d+)hPa$")
+
+    @staticmethod
+    def _cells_to_vertices(
+        cell_values: np.ndarray, cells_on_vertex: np.ndarray
+    ) -> np.ndarray:
+        """
+        This helper averages a cell-centred field onto the mesh vertices using the (1-based) cellsOnVertex connectivity, ignoring missing cells (index 0 at the edge of a regional mesh) and non-finite values.
+
+        Parameters:
+            cell_values (np.ndarray): 1D array of values on nCells.
+            cells_on_vertex (np.ndarray): Integer array of shape (nVertices, vertexDegree) with 1-based cell indices.
+
+        Returns:
+            np.ndarray: 1D array of vertex values (NaN where no valid surrounding cell exists).
+        """
+        idx = np.clip(cells_on_vertex - 1, 0, cell_values.size - 1)
+        gathered = cell_values[idx].astype(float)
+        valid = (
+            (cells_on_vertex > 0)
+            & (cells_on_vertex <= cell_values.size)
+            & np.isfinite(gathered)
+        )
+        n_valid = valid.sum(axis=1)
+        total = np.where(valid, gathered, 0.0).sum(axis=1)
+
+        return np.asarray(np.where(n_valid > 0, total / np.maximum(n_valid, 1), np.nan))
+
+    def _terrain_for_masking(
+        self: "MPAS2DProcessor",
+        var_name: str,
+        on_vertices: bool,
+    ) -> Optional[Tuple[np.ndarray, Optional[np.ndarray], int]]:
+        """
+        This helper loads the terrain height used to mask below-ground cells from the grid file. For vertex fields the terrain height of a vertex is the mean 'ter' of the cells around it (cellsOnVertex). None is returned when the grid file cannot be read, has no 'ter', or (for vertex fields) has no cellsOnVertex, in which case no masking applies.
+
+        Parameters:
+            var_name (str): Name of the extracted variable, used in the diagnostic message.
+            on_vertices (bool): True when the variable is defined on mesh vertices.
+
+        Returns:
+            Optional[Tuple[np.ndarray, Optional[np.ndarray], int]]: The terrain height on the variable's mesh locations, the cellsOnVertex array (None for cell fields), and the number of mesh cells, or None when masking does not apply.
+        """
+        try:
+            grid_ds = self._load_grid_file(
+                needed_vars=["ter", "cellsOnVertex"] if on_vertices else ["ter"]
+            )
+        except Exception:
+            return None
+
+        if "ter" not in grid_ds:
+            return None
+
+        ter = np.asarray(grid_ds["ter"].values)
+        cells_on_vertex: Optional[np.ndarray] = None
+        n_cells = 0
+
+        if on_vertices:
+            # Vertex terrain height is the mean of the terrain of the surrounding cells
+            if "cellsOnVertex" not in grid_ds:
+                logger.debug(
+                    "Below-ground masking skipped for %s: no cellsOnVertex in the grid file",
+                    var_name,
+                )
+                return None
+
+            cells_on_vertex = np.asarray(grid_ds["cellsOnVertex"].values).astype(int)
+            n_cells = ter.size
+            ter = self._cells_to_vertices(ter, cells_on_vertex)
+
+        return ter, cells_on_vertex, n_cells
+
+    def _mask_below_ground(
+        self: "MPAS2DProcessor",
+        var_name: str,
+        var_data: xr.DataArray,
+        time_dim: str,
+        time_index: int,
+    ) -> xr.DataArray:
+        """
+        This helper masks the cells of an isobaric diagnostic field that lie below the ground. MPAS diag files interpolate fields such as 'temperature_850hPa' to fixed pressure levels and extrapolate them where the level is underground (for example over the Himalaya or Antarctica), producing physically meaningless values. When the variable is named '<name>_<N>hPa', the companion geopotential height 'height_<N>hPa' is present in the dataset and the grid file provides terrain height 'ter', every cell where height_<N>hPa is lower than ter is set to NaN; for vertex fields (nVertices, e.g. 'vorticity_<N>hPa') the terrain height of a vertex is the mean 'ter' of the cells around it (cellsOnVertex). If any of those ingredients is missing, or the shapes do not agree, the data are returned unchanged. The returned array is a new object whose attrs record the masking ('below_ground_masked' and the number of masked cells) so the caller's dataset is never modified.
+
+        Parameters:
+            var_name (str): Name of the extracted variable.
+            var_data (xr.DataArray): Computed one-time-slice data array of the variable.
+            time_dim (str): Name of the time dimension of the dataset.
+            time_index (int): Validated time index that was extracted.
+
+        Returns:
+            xr.DataArray: The masked array, or the input unchanged when masking does not apply.
+        """
+        match = self._ISOBARIC_RE.match(var_name)
+
+        if match is None or self.dataset is None:
+            return var_data
+
+        height_name = f"height_{match.group(2)}hPa"
+
+        if height_name not in self.dataset.data_vars or var_data.ndim != 1:
+            return var_data
+
+        on_vertices = "nVertices" in var_data.dims
+
+        terrain = self._terrain_for_masking(var_name, on_vertices)
+
+        if terrain is None:
+            return var_data
+
+        ter, cells_on_vertex, n_cells = terrain
+
+        height = self.dataset[height_name].isel({time_dim: time_index})
+
+        if hasattr(height, "compute"):
+            height = cast(Any, height).compute()
+
+        height_values = np.asarray(height.values)
+
+        if on_vertices and height_values.shape == (n_cells,):
+            height_values = self._cells_to_vertices(
+                height_values, cast(np.ndarray, cells_on_vertex)
+            )
+
+        if height_values.shape != var_data.shape or ter.shape != var_data.shape:
+            return var_data
+
+        with np.errstate(invalid="ignore"):
+            below = height_values < ter
+
+        masked = var_data.where(~below)
+        masked.attrs = dict(var_data.attrs)
+        masked.attrs["below_ground_masked"] = (
+            f"cells with {height_name} < terrain height 'ter' set to NaN"
+        )
+        masked.attrs["below_ground_masked_cells"] = int(below.sum())
+
+        return masked
+
     def get_2d_variable_data(
-        self: "MPAS2DProcessor", var_name: str, time_index: int = 0
+        self: "MPAS2DProcessor",
+        var_name: str,
+        time_index: int = 0,
+        mask_below_ground: bool = True,
     ) -> xr.DataArray:
         """
         This method retrieves the data array for a specified 2D variable at a given time index from the loaded dataset. It first checks if the dataset is loaded and if the variable exists in the dataset. It then validates the time index against the dataset's time dimension, ensuring it is within bounds. Depending on the data type (pure xarray or UXarray), it extracts the variable data at the specified time index. If the extracted data is a lazy array, it computes it to get the actual values. If verbose mode is enabled, it also prints out the range of finite values for the variable along with its units if available. Finally, it returns the data array for further analysis or visualization.
@@ -361,6 +538,7 @@ class MPAS2DProcessor(MPASBaseProcessor):
         Parameters:
             var_name (str): Name of the 2D variable to retrieve.
             time_index (int): Time index to extract data from (default: 0).
+            mask_below_ground (bool): If True, isobaric diag fields named '<name>_<N>hPa' (including 'height_<N>hPa' itself) have the cells where height_<N>hPa is lower than the grid's terrain height 'ter' set to NaN, because MPAS extrapolates those fields underground; the attrs of the result record that masking was applied. Set False for the raw extrapolated values (default: True).
 
         Returns:
             xr.DataArray: The data array for the specified variable at the given time index, ready for analysis or visualization.
@@ -373,6 +551,13 @@ class MPAS2DProcessor(MPASBaseProcessor):
             raise ValueError(
                 f"Variable '{safe_label(var_name)}' not found. Available variables: "
                 f"{safe_label(available_vars)}"
+            )
+
+        if "nEdges" in self.dataset[var_name].dims:
+            raise ValueError(
+                f"Variable '{safe_label(var_name)}' is defined on mesh edges (nEdges), "
+                "which is not supported for 2D plotting; only nCells and nVertices "
+                "variables can be loaded."
             )
 
         time_dim, validated_time_index, _ = MPASDateTimeUtils.validate_time_parameters(
@@ -391,6 +576,11 @@ class MPAS2DProcessor(MPASBaseProcessor):
 
         if hasattr(var_data, "compute"):
             var_data = cast(Any, var_data).compute()
+
+        if mask_below_ground:
+            var_data = self._mask_below_ground(
+                var_name, var_data, time_dim, validated_time_index
+            )
 
         self._log_2d_variable_range(var_name, var_data)
 

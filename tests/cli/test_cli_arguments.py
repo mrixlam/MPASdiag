@@ -261,7 +261,7 @@ class TestMainFunctionAndArgumentHandling:
             "--data-dir",
             data_dir,
             "--time-index",
-            "0",
+            "1",
             "--output-dir",
             "output/test_verbose",
         ]
@@ -373,7 +373,7 @@ class TestMainArgumentReorderingAdditional:
             data_dir,
             "--verbose",
             "--time-index",
-            "0",
+            "1",
             "--output-dir",
             "output/test_reorder",
         ]
@@ -424,7 +424,7 @@ class TestMainArgumentReorderingAdditional:
             "--data-dir",
             data_dir,
             "--time-index",
-            "0",
+            "1",
             "--output-dir",
             "output/test_logfile",
             "--quiet",

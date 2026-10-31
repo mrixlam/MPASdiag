@@ -5,7 +5,7 @@
 """
 MPASdiag Core Processing Module: Data Validation Utilities
 
-This module provides comprehensive data validation utilities for MPAS coordinate arrays and numerical data quality assurance with sanity checking capabilities. It includes methods to validate longitude and latitude coordinate arrays for MPAS unstructured mesh data, ensuring they have matching lengths, finite values, and valid geographic bounds. Additionally, it offers a method to validate numerical data arrays by checking for finite values, calculating basic statistics (min, max, mean, std, median), and identifying potential issues such as excessive missing values, uniform data artifacts, or out-of-range values based on optional thresholds. The validation results are returned in a structured format that includes overall validity status, detected issues, and computed statistics. This module is essential for ensuring the integrity of spatial and numerical data before any analysis or visualization steps in the MPAS diagnostic workflow.
+This module provides comprehensive data validation utilities for MPAS coordinate arrays and numerical data quality assurance with sanity checking capabilities. It includes methods to validate longitude and latitude coordinate arrays for MPAS unstructured mesh data, ensuring they have matching lengths, finite values, and valid geographic bounds. Additionally, it offers a method to validate numerical data arrays by checking for finite values, calculating basic statistics (min, max, mean, std, median), and identifying potential issues (an empty array is reported as invalid, lists are accepted, and masked values are excluded from all statistics including the median) such as excessive missing values, uniform data artifacts, or out-of-range values based on optional thresholds. The validation results are returned in a structured format that includes overall validity status, detected issues, and computed statistics. This module is essential for ensuring the integrity of spatial and numerical data before any analysis or visualization steps in the MPAS diagnostic workflow.
 
 Author: Rubaiat Islam
 Institution: Mesoscale & Microscale Meteorology Laboratory, NCAR
@@ -58,17 +58,17 @@ class DataValidator:
     @staticmethod
     def enforce_size_limits(
         *,
-        n_src: Optional[int] = None,
-        n_tgt: Optional[int] = None,
-        nnz: Optional[int] = None,
-        num_points: Optional[int] = None,
-        nv: Optional[int] = None,
-        n_workers: Optional[int] = None,
-        n_files: Optional[int] = None,
+        n_src: Optional[float] = None,
+        n_tgt: Optional[float] = None,
+        nnz: Optional[float] = None,
+        num_points: Optional[float] = None,
+        nv: Optional[float] = None,
+        n_workers: Optional[float] = None,
+        n_files: Optional[float] = None,
         context: str = "",
     ) -> None:
         """
-        This method enforces safety limits on various parameters related to MPAS data processing, such as the number of source mesh cells, target grid points, non-zero remap weight entries, and cross-section interpolation points. It checks if the provided values are negative or exceed their respective safety limits, which can be overridden by environment variables. If any value is invalid, a ValueError is raised with a descriptive message indicating the issue and suggesting how to raise the limit if the input is trusted.
+        This method enforces safety limits on various parameters related to MPAS data processing, such as the number of source mesh cells, target grid points, non-zero remap weight entries, and cross-section interpolation points. It checks if the provided values are negative or exceed their respective safety limits, which can be overridden by environment variables. NaN values are rejected as invalid, and a worker count of zero is rejected because at least one worker is required. If any value is invalid, a ValueError is raised with a descriptive message indicating the issue and suggesting how to raise the limit if the input is trusted.
 
         Parameters:
             n_src (Optional[int]): Number of source mesh cells / points, checked against MAX_SOURCE_CELLS (env MPASDIAG_MAX_SOURCE_CELLS).
@@ -103,12 +103,16 @@ class DataValidator:
         for value, env_var, default, label in checks:
             if value is None:
                 continue
+            if isinstance(value, (float, np.floating)) and np.isnan(value):
+                raise ValueError(f"Invalid (NaN) {label}{where}")
             if value < 0:
                 raise ValueError(f"Invalid negative {label}: {value}")
+            if value == 0 and env_var == "MPASDIAG_MAX_WORKERS":
+                raise ValueError(f"Invalid {label}: at least one is required")
             limit = DataValidator._resolve_size_limit(env_var, default)
             if value > limit:
                 raise ValueError(
-                    f"{label} ({int(value):,}) exceeds the safety limit "
+                    f"{label} ({value:,.0f}) exceeds the safety limit "
                     f"({limit:,}){where}. If this input is trusted, raise the "
                     f"limit via the {env_var} environment variable."
                 )
@@ -116,22 +120,25 @@ class DataValidator:
     @staticmethod
     def validate_coordinates(lon: np.ndarray, lat: np.ndarray) -> bool:
         """
-        This method validates longitude and latitude coordinate arrays for MPAS unstructured mesh data. It checks that the longitude and latitude arrays have matching lengths, contain only finite values, and that the longitude values are within the range of -180 to 180 degrees while latitude values are within -90 to 90 degrees. The method returns True if all validation checks pass, indicating that the coordinate arrays are valid for use in MPAS diagnostics, and False if any check fails, which would suggest issues with the coordinate data that need to be addressed before further processing or visualization steps.
+        This method validates longitude and latitude coordinate arrays for MPAS unstructured mesh data. It checks that the longitude and latitude arrays have matching lengths, contain only finite values, and that the longitude values are within the range of -180 to 360 degrees (both the [-180, 180] and the MPAS [0, 360] conventions are accepted) while latitude values are within -90 to 90 degrees. The method returns True if all validation checks pass, indicating that the coordinate arrays are valid for use in MPAS diagnostics, and False if any check fails, which would suggest issues with the coordinate data that need to be addressed before further processing or visualization steps.
 
         Parameters:
-            lon (np.ndarray): 1D array of longitude values for MPAS grid points, expected to be in degrees and within the range of -180 to 180.
+            lon (np.ndarray): 1D array of longitude values for MPAS grid points, expected to be in degrees and within the range of -180 to 360 (either longitude convention).
             lat (np.ndarray): 1D array of latitude values for MPAS grid points, expected to be in degrees and within the range of -90 to 90.
 
         Returns:
-            bool: True if the coordinate arrays are valid (matching lengths, finite values, and within geographic bounds), False otherwise.
+            bool: True if the coordinate arrays are valid (matching non-zero lengths, finite values, and within geographic bounds), False otherwise.
         """
-        if len(lon) != len(lat):
+        lon = np.asarray(lon)
+        lat = np.asarray(lat)
+
+        if len(lon) != len(lat) or len(lon) == 0:
             return False
 
         if not (np.all(np.isfinite(lon)) and np.all(np.isfinite(lat))):
             return False
 
-        if not (-180 <= np.min(lon) and np.max(lon) <= 180):
+        if not (-180 <= np.min(lon) and np.max(lon) <= 360):
             return False
 
         if not (-90 <= np.min(lat) and np.max(lat) <= 90):
@@ -172,13 +179,27 @@ class DataValidator:
         """
         results: Dict[str, Any] = {"valid": True, "issues": [], "stats": {}}
 
+        # Masked arrays contribute only their unmasked values to every statistic (including the median); other
+        # array-likes such as lists are converted so that .flatten() and boolean indexing always work.
+        if np.ma.isMaskedArray(data):
+            data = np.ma.filled(np.ma.asarray(data).astype(float), np.nan)
+        else:
+            data = np.asarray(data)
+
         finite_mask = np.isfinite(data)
         finite_count = int(np.sum(finite_mask))
-        total_count = len(data.flatten())
+        total_count = int(data.size)
 
         results["stats"]["total_points"] = total_count
         results["stats"]["finite_points"] = finite_count
-        results["stats"]["finite_percentage"] = (finite_count / total_count) * 100
+        results["stats"]["finite_percentage"] = (
+            (finite_count / total_count) * 100 if total_count else 0.0
+        )
+
+        if total_count == 0:
+            results["valid"] = False
+            results["issues"].append("Empty data array")
+            return results
 
         if finite_count == 0:
             results["valid"] = False

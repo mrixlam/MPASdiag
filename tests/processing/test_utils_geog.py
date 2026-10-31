@@ -559,5 +559,83 @@ class TestIsGlobalExtent:
         )
 
 
+class TestWrapLongitudeToExtent:
+    """Tests for MPASGeographicUtils.wrap_longitude_to_extent and dateline-crossing filtering."""
+
+    def test_extent_within_range_returns_input_unchanged(
+        self: "TestWrapLongitudeToExtent",
+    ) -> None:
+        """
+        This test verifies that longitudes are returned unchanged when the requested extent lies within [-180, 180], so filtering for ordinary regional and global extents behaves exactly as before.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.array([-179.0, -10.0, 0.0, 170.0])
+        result = MPASGeographicUtils.wrap_longitude_to_extent(lon, -130.0, -60.0)
+        np.testing.assert_array_equal(result, lon)
+
+    def test_dateline_crossing_extent_shifts_negative_longitudes(
+        self: "TestWrapLongitudeToExtent",
+    ) -> None:
+        """
+        This test verifies that for a dateline-crossing extent (150..210) longitudes stored in [-180, 180] are re-expressed in the extent's frame, so cells at -175 and -160 become 185 and 200 and fall inside the box.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.array([160.0, -175.0, -160.0, 0.0])
+        result = MPASGeographicUtils.wrap_longitude_to_extent(lon, 150.0, 210.0)
+        np.testing.assert_allclose(result, [160.0, 185.0, 200.0, 360.0])
+
+    def test_global_0_360_extent_keeps_all_cells(
+        self: "TestWrapLongitudeToExtent",
+    ) -> None:
+        """
+        This test verifies that a global extent written as 0..360 maps every longitude into [0, 360), so a plain bounds comparison keeps the western-hemisphere cells that were previously dropped.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.linspace(-180.0, 179.0, 50)
+        result = MPASGeographicUtils.wrap_longitude_to_extent(lon, 0.0, 360.0)
+        assert np.all((result >= 0.0) & (result < 360.0))
+
+    def test_filter_by_spatial_extent_across_dateline(
+        self: "TestWrapLongitudeToExtent",
+    ) -> None:
+        """
+        This test verifies that filter_by_spatial_extent keeps cells on both sides of the dateline for a 150..210 box.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.array([160.0, -175.0, 0.0])
+        lat = np.array([5.0, -5.0, 8.0])
+        dataset = xr.Dataset(
+            {
+                "lonCell": xr.DataArray(lon, dims=["nCells"]),
+                "latCell": xr.DataArray(lat, dims=["nCells"]),
+            }
+        )
+        data = xr.DataArray(np.arange(3.0), dims=["nCells"])
+        _, mask = MPASGeographicUtils.filter_by_spatial_extent(
+            data, dataset, 150.0, 210.0, -10.0, 10.0
+        )
+        assert np.asarray(mask).tolist() == [True, True, False]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

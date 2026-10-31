@@ -223,18 +223,15 @@ class TestDataLoadingStrategies:
                 mock_ux.side_effect = Exception("UXarray failed")
                 mock_mfd.side_effect = Exception("Multi-file xarray failed")
 
-                dataset, _ = processor._load_data(
-                    MPASOUT_DIR,
-                    use_pure_xarray=False,
-                    chunks={"Time": 1},
-                    reference_file="",
-                    data_type_label="3D",
-                )
-
-                output = captured_output.getvalue()
-
-                assert dataset is not None
-                assert "single" in output.lower()
+                # Modified: when every multi-file strategy fails, loading now raises RuntimeError instead of silently loading only the first file
+                with pytest.raises(RuntimeError):
+                    processor._load_data(
+                        MPASOUT_DIR,
+                        use_pure_xarray=False,
+                        chunks={"Time": 1},
+                        reference_file="",
+                        data_type_label="3D",
+                    )
 
 
 class TestEdgeCasesAndErrorHandling:
@@ -1061,6 +1058,295 @@ class TestTransectOverlay:
         assert result["C-D"]["start_label_text"] is not None
         assert result["C-D"]["end_label_text"] is not None
         plt.close(fig)
+
+
+class TestApplyMapExtent:
+    """Tests for the _apply_map_extent helper, including the set_global() fallback for globe-view projections."""
+
+    def test_regional_extent_applied_directly(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that for a projection able to represent the requested rectangular extent (PlateCarree), _apply_map_extent sets that extent directly and the resulting axes extent matches the request.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+        MPASVisualizer._apply_map_extent(
+            ax, [-130.0, -50.0, 20.0, 60.0], ccrs.PlateCarree()
+        )
+        west, east, south, north = ax.get_extent(crs=ccrs.PlateCarree())
+        assert west == pytest.approx(-130.0, abs=0.5)
+        assert east == pytest.approx(-50.0, abs=0.5)
+        plt.close(fig)
+
+    def test_globe_view_global_extent_falls_back_to_global(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that requesting a full-globe rectangular extent on a globe-view projection (Orthographic) does not raise "Axis limits cannot be NaN or Inf" but instead falls back to set_global(), leaving the axes with finite limits.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.Orthographic())
+        # Would raise ValueError without the set_global() fallback.
+        MPASVisualizer._apply_map_extent(
+            ax, [-179.99, 179.99, -89.99, 89.99], ccrs.PlateCarree()
+        )
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
+        assert all(np.isfinite([xmin, xmax, ymin, ymax]))
+        plt.close(fig)
+
+    @staticmethod
+    def _global_limits(proj: ccrs.Projection) -> Tuple[float, float]:
+        """
+        This helper returns the x-axis limits a GeoAxes with the given projection has after set_global(), used as the reference view for the fallback tests.
+
+        Parameters:
+            proj (ccrs.Projection): The projection to measure.
+
+        Returns:
+            Tuple[float, float]: The x-axis limits of the projection's global view.
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=proj)
+        ax.set_global()
+        limits = ax.get_xlim()
+        plt.close(fig)
+        return limits
+
+    def test_far_hemisphere_extent_falls_back_to_global(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies the set_extent() exception fallback for a regional box that lies on the far side of a globe-view projection: India on an Orthographic projection centered at -100° cannot be shown, so _apply_map_extent switches to the projection's global view instead of raising.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj = ccrs.Orthographic(central_longitude=-100.0, central_latitude=0.0)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=proj)
+        MPASVisualizer._apply_map_extent(
+            ax, [60.0, 100.0, 0.0, 35.0], ccrs.PlateCarree()
+        )
+        assert ax.get_xlim() == pytest.approx(self._global_limits(proj))
+        plt.close(fig)
+
+    def test_collapsed_extent_on_recentered_projection_falls_back(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that an extent which set_extent() accepts but collapses to a sliver is detected. A near-global box (-179..179) on a Mercator projection centered at 180° maps both longitude bounds next to the seam in the middle of the map, which used to leave a map about 220 km wide; the helper must fall back to the global view.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj = ccrs.Mercator(central_longitude=180.0)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=proj)
+        MPASVisualizer._apply_map_extent(
+            ax, [-179.0, 179.0, -80.0, 80.0], ccrs.PlateCarree()
+        )
+        global_x = self._global_limits(proj)
+        width = abs(ax.get_xlim()[1] - ax.get_xlim()[0])
+        assert width == pytest.approx(abs(global_x[1] - global_x[0]), rel=1e-6)
+        plt.close(fig)
+
+    def test_latitude_band_on_recentered_platecarree_spans_full_width(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that a full-longitude latitude band on a Pacific-centered PlateCarree map is shown at the full projection width and clipped to the requested latitudes, rather than being passed to set_extent as a 360° wide box.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=180.0))
+        MPASVisualizer._apply_map_extent(
+            ax, [-180.0, 180.0, -30.0, 30.0], ccrs.PlateCarree()
+        )
+        assert ax.get_xlim() == pytest.approx((-180.0, 180.0))
+        assert ax.get_ylim() == pytest.approx((-30.0, 30.0))
+        plt.close(fig)
+
+    def test_polar_band_on_mercator_is_clipped_to_projection_limits(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that a polar cap on Mercator, whose y coordinate diverges at the pole, is clipped to the projection's valid latitude range so the axes limits stay finite.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj = ccrs.Mercator()
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=proj)
+        MPASVisualizer._apply_map_extent(
+            ax, [-180.0, 180.0, 60.0, 90.0], ccrs.PlateCarree()
+        )
+        y_min, y_max = ax.get_ylim()
+        assert np.isfinite([y_min, y_max]).all()
+        assert y_max == pytest.approx(proj.y_limits[1])
+        assert y_min > 0.0
+        plt.close(fig)
+
+    def test_latitude_band_on_recentered_globe_view_is_not_blank(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that a full-longitude band on an Orthographic projection centered at 180° no longer collapses to zero width (which left a blank map and crashed cartopy's gridliner); the helper shows the projection's global view instead.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        proj = ccrs.Orthographic(central_longitude=180.0)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=proj)
+        MPASVisualizer._apply_map_extent(
+            ax, [-180.0, 180.0, -30.0, 30.0], ccrs.PlateCarree()
+        )
+        ax.gridlines(draw_labels=True)
+        fig.canvas.draw()
+        assert ax.get_xlim() == pytest.approx(self._global_limits(proj))
+        plt.close(fig)
+
+    def test_small_regional_extent_is_kept(
+        self: "TestApplyMapExtent",
+    ) -> None:
+        """
+        This test verifies that the collapse check does not misfire on a legitimately tiny regional extent, which must be applied as requested.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection=ccrs.LambertConformal(-105.0, 40.0))
+        MPASVisualizer._apply_map_extent(
+            ax, [-105.3, -105.1, 39.9, 40.1], ccrs.PlateCarree()
+        )
+        west, east, south, north = ax.get_extent(crs=ccrs.PlateCarree())
+        assert west == pytest.approx(-105.3, abs=0.05)
+        assert north == pytest.approx(40.1, abs=0.05)
+        plt.close(fig)
+
+
+class TestBaseWindPlotProjections:
+    """Tests that the base MPASVisualizer.create_wind_plot handles globe-view, global, and dateline-crossing extents."""
+
+    @staticmethod
+    def _wind_inputs() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        This helper builds a small, globally distributed set of wind vectors for the base wind plot tests.
+
+        Parameters:
+            None
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: Longitudes, latitudes, U, and V arrays.
+        """
+        rng = np.random.default_rng(7)
+        lon = rng.uniform(-180.0, 180.0, 800)
+        lat = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, 800)))
+        return lon, lat, np.full(800, 10.0), np.zeros(800)
+
+    @pytest.mark.parametrize(
+        "projection, bounds, center",
+        [
+            ("Orthographic", (-180.0, 180.0, -90.0, 90.0), None),
+            ("Mercator", (-180.0, 180.0, -90.0, 90.0), None),
+            ("Robinson", (-180.0, 180.0, -90.0, 90.0), 180.0),
+            ("Orthographic", (60.0, 100.0, 0.0, 35.0), -100.0),
+            ("LambertConformal", (-180.0, 180.0, -90.0, -60.0), None),
+        ],
+    )
+    def test_extent_does_not_raise(
+        self: "TestBaseWindPlotProjections",
+        projection: str,
+        bounds: Tuple[float, float, float, float],
+        center: Any,
+    ) -> None:
+        """
+        This regression test verifies that the base wind plot, which previously called set_extent() directly, renders globe-view, global Mercator, re-centered global, far-hemisphere, and polar LambertConformal extents with finite axes limits instead of raising "Axis limits cannot be NaN or Inf".
+
+        Parameters:
+            projection (str): Projection name passed through WindPlotStyle.
+            bounds (Tuple[float, float, float, float]): Requested map extent.
+            center (Any): Optional central longitude.
+
+        Returns:
+            None
+        """
+        lon, lat, u, v = self._wind_inputs()
+        visualizer = MPASVisualizer(figsize=(5, 4), dpi=40)
+        style = WindPlotStyle(
+            subsample=4, projection=projection, central_longitude=center
+        )
+        fig, ax = visualizer.create_wind_plot(
+            lon, lat, u, v, GeographicBounds(*bounds), style=style
+        )
+        fig.canvas.draw()
+        assert np.isfinite(list(ax.get_xlim()) + list(ax.get_ylim())).all()
+        assert abs(ax.get_xlim()[1] - ax.get_xlim()[0]) > 0
+        plt.close(fig)
+
+    def test_dateline_crossing_box_keeps_points_east_of_dateline(
+        self: "TestBaseWindPlotProjections",
+    ) -> None:
+        """
+        This test verifies that a dateline-crossing box written with lon_max > 180 (150..210) keeps wind vectors stored at negative longitudes (-180..-150) instead of filtering them out.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+        lon = np.array([160.0, 175.0, -175.0, -160.0, 0.0])
+        lat = np.zeros(5)
+        visualizer = MPASVisualizer(figsize=(5, 4), dpi=40)
+        with patch.object(GeoAxes, "barbs") as mock_barbs:
+            visualizer.create_wind_plot(
+                lon,
+                lat,
+                np.full(5, 10.0),
+                np.zeros(5),
+                GeographicBounds(150.0, 210.0, -30.0, 30.0),
+                style=WindPlotStyle(subsample=1),
+            )
+        plotted_lon = np.asarray(mock_barbs.call_args.args[0])
+        assert sorted(plotted_lon.tolist()) == [160.0, 175.0, 185.0, 200.0]
+        plt.close("all")
 
 
 if __name__ == "__main__":

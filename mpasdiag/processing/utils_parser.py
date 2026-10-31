@@ -136,8 +136,16 @@ Examples:
             choices=["png", "pdf", "svg", "eps"],
             help="Output formats",
         )
-        viz_group.add_argument("--clim-min", type=float, help="Minimum color limit")
-        viz_group.add_argument("--clim-max", type=float, help="Maximum color limit")
+        viz_group.add_argument(
+            "--clim-min",
+            type=float,
+            help="Minimum color limit, in the plotted (display) units, e.g. degC for t2m or hPa for mslp; no unit conversion is applied",
+        )
+        viz_group.add_argument(
+            "--clim-max",
+            type=float,
+            help="Maximum color limit, in the plotted (display) units, e.g. degC for t2m or hPa for mslp; no unit conversion is applied",
+        )
 
         proc_group = parser.add_argument_group("Processing")
         proc_group.add_argument(
@@ -328,8 +336,16 @@ Examples:
         )
 
         color_group = parser.add_argument_group("Color Settings")
-        color_group.add_argument("--clim-min", type=float, help="Minimum color limit")
-        color_group.add_argument("--clim-max", type=float, help="Maximum color limit")
+        color_group.add_argument(
+            "--clim-min",
+            type=float,
+            help="Minimum color limit, in the plotted (display) units, e.g. degC for t2m or hPa for mslp; no unit conversion is applied",
+        )
+        color_group.add_argument(
+            "--clim-max",
+            type=float,
+            help="Maximum color limit, in the plotted (display) units, e.g. degC for t2m or hPa for mslp; no unit conversion is applied",
+        )
 
         output_group = parser.add_argument_group("Output")
         output_group.add_argument(
@@ -716,7 +732,7 @@ Examples:
             "--levels",
             type=float,
             nargs="+",
-            help="Custom contour levels (space-separated)",
+            help="Custom contour levels (space-separated), in the plotted (display) units, e.g. degC for t2m or hPa for mslp",
         )
         viz_group.add_argument(
             "--extend",
@@ -807,7 +823,9 @@ Examples:
             v_variable=args.v_variable,
             wind_level=args.wind_level,
             wind_plot_type=args.wind_plot_type,
-            subsample_factor=args.subsample_factor,
+            subsample_factor=(
+                -1 if args.subsample_factor == 0 else args.subsample_factor
+            ),
             wind_scale=args.wind_scale,
             show_background=args.show_background,
             background_colormap=args.background_colormap,

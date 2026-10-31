@@ -29,88 +29,115 @@ logger = get_logger(__name__)
 class MPASDateTimeUtils:
     """Utility class for handling date and time operations in MPAS diagnostic processing."""
 
+    _FILE_DATETIME_PATTERN = r"(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})\.(\d{2})"
+
     @staticmethod
     def parse_file_datetimes(
         diag_files: List[str], verbose: bool = True
     ) -> List[datetime]:
         """
-        This method parses datetime information from a list of MPAS diagnostic file paths by extracting timestamps encoded in the filenames. It uses a regular expression pattern to identify and extract datetime components (year, month, day, hour, minute, second) from the filename. If a filename does not match the expected pattern or if the extracted components cannot be converted to a valid datetime object, the method generates a synthetic datetime based on a fixed start date (January 1, 2000) incremented by an hourly offset corresponding to the file's position in the input list. This approach ensures that all files receive a datetime value for consistent processing, while also providing verbose output to inform users about any issues encountered during parsing. The method returns a list of datetime objects corresponding to each input file in the same order as provided.
+        This method parses datetime information from a list of MPAS diagnostic file paths by extracting timestamps encoded in the filenames. It uses a regular expression pattern to identify and extract datetime components (year, month, day, hour, minute, second) from the filename. If a filename does not match the expected pattern, or if the extracted components do not form a valid calendar datetime (for example '2024-02-30'), a ValueError naming the offending file is raised instead of substituting a synthetic timestamp, because silently labelling real data with made-up times corrupts every downstream time axis, title, and output filename. The method returns a list of datetime objects corresponding to each input file in the same order as provided.
 
         Parameters:
             diag_files (List[str]): List of file paths to MPAS diagnostic files from which to parse datetime information.
-            verbose (bool): Enable verbose output for warnings about unparseable filenames and generated synthetic datetimes (default: True).
+            verbose (bool): Enable verbose logging of the parsed datetimes (default: True).
 
         Returns:
-            List[datetime]: List of datetime objects corresponding to each input file, parsed from filenames or generated as synthetic values when parsing fails.
+            List[datetime]: List of datetime objects corresponding to each input file, parsed from the filenames.
         """
         file_datetimes: List[datetime] = []
 
-        pattern = r"(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})\.(\d{2})"
-
         for diag_file in diag_files:
             filename = os.path.basename(diag_file)
-            match = re.search(pattern, filename)
+            match = re.search(MPASDateTimeUtils._FILE_DATETIME_PATTERN, filename)
 
-            if match:
-                year, month, day, hour, minute, second = match.groups()
-                try:
-                    file_datetime = datetime(
-                        int(year),
-                        int(month),
-                        int(day),
-                        int(hour),
-                        int(minute),
-                        int(second),
-                    )
-                except ValueError:
-                    if verbose:
-                        logger.warning(
-                            "Invalid datetime parsed from filename: %s", filename
-                        )
-                    file_datetime = datetime(2000, 1, 1) + pd.Timedelta(
-                        hours=len(file_datetimes)
-                    )
-            else:
-                if verbose:
-                    logger.warning(
-                        "Could not parse datetime from filename: %s", filename
-                    )
-                file_datetime = datetime(2000, 1, 1) + pd.Timedelta(
-                    hours=len(file_datetimes)
-                )
+            if not match:
+                raise ValueError(f"Could not parse datetime from filename: {filename}")
+
+            try:
+                year, month, day, hour, minute, second = map(int, match.groups())
+                file_datetime = datetime(year, month, day, hour, minute, second)
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid datetime parsed from filename: {filename} ({exc})"
+                ) from exc
 
             file_datetimes.append(file_datetime)
+
+        if verbose and file_datetimes:
+            logger.debug(
+                "Parsed %d file datetimes (%s to %s)",
+                len(file_datetimes),
+                file_datetimes[0],
+                file_datetimes[-1],
+            )
+
         return file_datetimes
+
+    @staticmethod
+    def file_sort_key(path: str) -> Tuple[datetime, str]:
+        """
+        This method builds a sort key that orders MPAS output files chronologically by the timestamp embedded in their file names, breaking ties and ordering unparseable names by the full path. Sorting full paths lexicographically misorders files collected from several subdirectories (for example 'a/diag.2024-09-18_00.00.00.nc' sorts before 'b/diag.2024-09-17_00.00.00.nc'), so recursive discovery uses this key instead. Names without a valid timestamp sort after all timestamped files.
+
+        Parameters:
+            path (str): File path whose base name may contain an MPAS timestamp.
+
+        Returns:
+            Tuple[datetime, str]: A (timestamp, path) tuple suitable as a key for sorted().
+        """
+        match = re.search(
+            MPASDateTimeUtils._FILE_DATETIME_PATTERN, os.path.basename(path)
+        )
+
+        if match:
+            try:
+                year, month, day, hour, minute, second = map(int, match.groups())
+                return datetime(year, month, day, hour, minute, second), path
+            except ValueError:
+                pass
+
+        return datetime.max, path
 
     @staticmethod
     def validate_time_parameters(
         dataset: Any, time_index: int, verbose: bool = False
     ) -> Tuple[str, int, int]:
         """
-        This method validates the provided time index against the temporal coverage of the dataset. It checks for the presence of a time dimension (either 'Time' or 'time') and retrieves its size to determine the total number of available time steps. If the provided time index exceeds the available range, it clamps the index to the last valid time step and optionally outputs a warning message if verbose mode is enabled. The method returns a tuple containing the name of the time dimension, the validated (and potentially clamped) time index, and the total number of time steps in the dataset. This utility ensures that subsequent processing steps that rely on valid time indices can proceed without errors due to out-of-range indices, while also providing informative feedback to users about any adjustments made to their input parameters.
+        This method validates the provided time index against the temporal coverage of the dataset. It checks for the presence of a time dimension (either 'Time' or 'time') and retrieves its size to determine the total number of available time steps. Python-style negative indices are accepted when they lie within the dimension (-1 is the last step) and are normalized to the equivalent non-negative index. A dataset whose time dimension is empty (or absent) raises a ValueError stating that it has no time steps, because no index can be valid for it. An index outside the range [-size, size) raises an IndexError with a message stating the valid range, instead of silently substituting a different time step, so a request for a time that does not exist can never produce output labelled for another time. The method returns a tuple containing the name of the time dimension, the validated non-negative time index, and the total number of time steps in the dataset.
 
         Parameters:
             dataset (Any): MPAS dataset object containing time dimension information to validate against.
-            time_index (int): Zero-based index into the time dimension to validate.
-            verbose (bool): Enable verbose output for warnings about out-of-range time indices and adjustments made (default: False).
+            time_index (int): Zero-based index into the time dimension to validate; negative values count from the end.
+            verbose (bool): Enable verbose logging of normalized negative indices (default: False).
 
         Returns:
-            Tuple[str, int, int]: A tuple containing (time_dim_name, validated_time_index, total_time_steps) where time_dim_name is the name of the time dimension ('Time' or 'time'), validated_time_index is the potentially clamped time index that is guaranteed to be within the dataset's temporal coverage, and total_time_steps is the total number of time steps available in the dataset for reference.
+            Tuple[str, int, int]: A tuple containing (time_dim_name, validated_time_index, total_time_steps) where time_dim_name is the name of the time dimension ('Time' or 'time'), validated_time_index is the non-negative index guaranteed to be within the dataset's temporal coverage, and total_time_steps is the total number of time steps available in the dataset for reference.
         """
         if dataset is None:
             raise ValueError(DATASET_NOT_LOADED_MSG)
 
         time_dim = "Time" if "Time" in dataset.sizes else "time"
+
+        if time_dim not in dataset.sizes:
+            raise ValueError("Dataset has no time dimension ('Time' or 'time')")
+
         time_size = dataset.sizes[time_dim]
 
-        if time_index >= time_size:
+        if time_size == 0:
+            raise ValueError(
+                f"Dataset has no time steps (dimension '{time_dim}' is empty)"
+            )
+
+        if not -time_size <= time_index < time_size:
+            raise IndexError(
+                f"time_index {time_index} is out of range for a dataset with {time_size} time step(s); valid indices are 0 to {time_size - 1} (or -{time_size} to -1)"
+            )
+
+        if time_index < 0:
+            time_index += time_size
+
             if verbose:
-                logger.warning(
-                    "time_index %d exceeds available times %d, using last time",
-                    time_index,
-                    time_size,
-                )
-            time_index = time_size - 1
+                logger.info("Negative time_index normalized to %d", time_index)
 
         return time_dim, time_index, time_size
 
@@ -124,17 +151,36 @@ class MPASDateTimeUtils:
             time_index (int): Zero-based index into the time dimension to extract time information from.
 
         Returns:
-            Optional[str]: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or None if time coordinate is not available or parsing fails.
+            Optional[str]: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or None if time coordinate is not available or the index is out of range.
         """
         if not (hasattr(dataset, "Time") and len(dataset.Time) > time_index):
             return None
 
         time_value = dataset.Time.values[time_index]
 
-        if hasattr(time_value, "strftime"):
-            return str(time_value.strftime("%Y%m%dT%H"))
+        if not hasattr(time_value, "strftime"):
+            time_value = pd.to_datetime(time_value)
 
-        return str(pd.to_datetime(time_value).strftime("%Y%m%dT%H"))
+        return MPASDateTimeUtils.format_time_tag(time_value)
+
+    @staticmethod
+    def format_time_tag(dt: Any) -> str:
+        """
+        This method formats a valid time as the compact tag used in plot titles and output filenames. Times on the hour keep the historical 'YYYYMMDDTHH' form so existing filenames are unchanged, while sub-hourly times add minutes ('YYYYMMDDTHHMM') and times with non-zero seconds add seconds ('YYYYMMDDTHHMMSS'), so outputs at 00:00 and 00:30 no longer receive the same tag and overwrite each other.
+
+        Parameters:
+            dt (Any): A datetime-like object providing strftime, minute, and second (datetime, pandas Timestamp, or cftime datetime).
+
+        Returns:
+            str: The formatted time tag.
+        """
+        if getattr(dt, "second", 0):
+            return str(dt.strftime("%Y%m%dT%H%M%S"))
+
+        if getattr(dt, "minute", 0):
+            return str(dt.strftime("%Y%m%dT%H%M"))
+
+        return str(dt.strftime("%Y%m%dT%H"))
 
     @staticmethod
     def _log_time_info(
@@ -200,8 +246,16 @@ class MPASDateTimeUtils:
             verbose (bool): Enable verbose output for extracted time information and any issues encountered during extraction and parsing (default: True).
 
         Returns:
-            str: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or fallback string 'time_{index}' if time coordinate is not available or parsing fails.
+            str: Formatted time string (e.g., 'YYYYMMDDTHH') extracted from dataset at specified time index, or fallback string 'time_{index}' if the time coordinate is not available or parsing fails. An index outside the Time coordinate raises an IndexError rather than returning a label for a time that does not exist.
         """
+        if hasattr(dataset, "Time"):
+            n_times = len(dataset.Time)
+
+            if not -n_times <= time_index < n_times:
+                raise IndexError(
+                    f"time_index {time_index} is out of range for a dataset with {n_times} time step(s)"
+                )
+
         try:
             time_str = MPASDateTimeUtils._extract_time_str(dataset, time_index)
             MPASDateTimeUtils._log_time_info(verbose, time_index, time_str, var_context)
